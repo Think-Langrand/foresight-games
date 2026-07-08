@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1380 2070" font-family="Calibri, Helvetica, Arial, sans-serif">
+<defs><marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E7D32"/></marker><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1B6CA8"/></marker><marker id="t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E9B8A"/></marker><marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#E67E22"/></marker><marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#C0392B"/></marker><marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4A4A6A"/></marker></defs>
+<rect width="1380" height="2070" fill="#FAF8F2"/>
+<text x="40" y="50" font-size="30" font-weight="bold" fill="#1A1A2E">Amplify</text>
+<text x="40" y="82" font-size="15" fill="#3A4150">The work of strengthening voice, credibility, and reach in the public conversation about health. PHIs use their nonpartisan, trusted-institution</text>
+<text x="40" y="104" font-size="15" fill="#3A4150">position to elevate accurate information, counter misinformation, and stand alongside communities. This function depends heavily on the credibility</text>
+<text x="40" y="126" font-size="15" fill="#3A4150">built by every other function.</text>
+<text x="40" y="180" font-size="17" font-weight="bold" fill="#1A1A2E">Internal feedback loops</text>
+<rect x="40" y="192" width="1112" height="328" rx="14" fill="#EEF1F5"/>
+<rect x="66" y="218" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="96" cy="246" r="12" fill="#3C9A4E"/><text x="96" y="250" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R1</text>
+<text x="116" y="251" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Credibility flywheel</text>
+<text x="84" y="272" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Credibility lets PHIs reach more people, which makes them</text>
+<text x="84" y="286" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">the go-to source, which rebuilds credibility. The engine,</text>
+<text x="84" y="300" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">but only as strong as the trust every other function</text>
+<text x="84" y="314" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">supplies.</text>
+<rect x="426" y="218" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="456" cy="246" r="12" fill="#3C9A4E"/><text x="456" y="250" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R2</text>
+<text x="476" y="251" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Counter-misinformation</text>
+<text x="444" y="272" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Speed and reach let PHIs counter falsehoods before they</text>
+<text x="444" y="286" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">set, which makes a healthier conversation, which builds</text>
+<text x="444" y="300" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">trust and credibility. Runs vicious in reverse if PHIs are</text>
+<text x="444" y="314" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">too slow.</text>
+<rect x="786" y="218" width="340" height="114" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="816" cy="246" r="12" fill="#3C9A4E"/><text x="816" y="250" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R3</text>
+<text x="836" y="251" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Community standing</text>
+<text x="804" y="272" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Standing alongside communities earns trust, which gives</text>
+<text x="804" y="286" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">authentic reach and voice, which deepens standing next</text>
+<text x="804" y="300" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">time. Local networks are the multiplier.</text>
+<rect x="66" y="366" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="96" cy="394" r="12" fill="#E0792B"/><text x="96" y="398" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B1</text>
+<text x="116" y="399" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Polarization / backlash</text>
+<text x="84" y="420" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">The louder the crisis, the more political attention it</text>
+<text x="84" y="434" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">draws, risking the partisan label that erodes the</text>
+<text x="84" y="448" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">nonpartisan credibility that gave the voice its power.</text>
+<text x="84" y="462" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Nonpartisan positioning is the lever.</text>
+<rect x="426" y="366" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="456" cy="394" r="12" fill="#E0792B"/><text x="456" y="398" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B2</text>
+<text x="476" y="399" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Capacity / overreach</text>
+<text x="444" y="420" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Real-time demand and broad amplification strain thin comms</text>
+<text x="444" y="434" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">and community staff, risking credibility. Amplifying</text>
+<text x="444" y="448" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">faster than the field can underwrite spends shared trust</text>
+<text x="444" y="462" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">rather than building it.</text>
+<text x="40" y="588" font-size="17" font-weight="bold" fill="#1A1A2E">The loops, drawn</text>
+<rect x="42" y="612" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="646" font-size="18" font-weight="bold" fill="#2E7D32" font-family="Calibri, sans-serif">R1  Credibility flywheel</text>
+<text x="64" y="666" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="360.0" y="854.0" font-size="24" font-weight="bold" fill="#2E7D32" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R1</text>
+<g transform="translate(60,1024)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">The engine, but only as strong as the trust the other functions supply.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="360.0" cy="738.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="738.0">Credibility</tspan></text>
+<circle cx="558.0" cy="858.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="558.0" y="858.0">Reach</tspan></text>
+<circle cx="360.0" cy="978.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="971.5">Public conversation</tspan><tspan x="360.0" y="984.6">about health</tspan></text>
+<circle cx="162.0" cy="858.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="162.0" y="858.0">Trust</tspan></text>
+<path d="M 404.5 765.0 Q 491.5 778.3 513.5 831.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(446.0,756.9)"><rect width="132" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="66" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">lets PHIs reach more (+)</text></g>
+<path d="M 513.5 885.0 Q 491.5 937.7 404.5 951.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(454.3,941.1)"><rect width="116" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="58" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">amplifies into it (+)</text></g>
+<path d="M 315.5 951.0 Q 228.5 937.7 206.5 885.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(125.5,941.1)"><rect width="165" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="82" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">reliance on PHIs as source (+)</text></g>
+<path d="M 206.5 831.0 Q 228.5 778.3 315.5 765.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(142.0,756.9)"><rect width="132" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="66" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">rebuilds credibility (+)</text></g>
+<rect x="702" y="612" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="646" font-size="18" font-weight="bold" fill="#1B6CA8" font-family="Calibri, sans-serif">R2  Counter-misinformation</text>
+<text x="724" y="666" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="1020.0" y="854.0" font-size="24" font-weight="bold" fill="#1B6CA8" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R2</text>
+<g transform="translate(720,1024)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Runs vicious in reverse: too slow to counter and falsehoods set.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="1020.0" cy="738.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="731.5">Counter</tspan><tspan x="1020.0" y="744.6">misinformation</tspan></text>
+<circle cx="1208.3" cy="820.9" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1208.3091902264405" y="814.4">Public conversation</tspan><tspan x="1208.3091902264405" y="827.5">about health</tspan></text>
+<circle cx="1136.4" cy="955.1" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1136.3814799539098" y="955.1">Trust</tspan></text>
+<circle cx="903.6" cy="955.1" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="903.6185200460903" y="955.1">Credibility</tspan></text>
+<circle cx="831.7" cy="820.9" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="831.6908097735595" y="820.9">Reach</tspan></text>
+<path d="M 1067.6 759.0 Q 1143.3 755.1 1160.7 800.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(1090.3,730.7)"><rect width="143" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="72" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">healthier conversation (+)</text></g>
+<path d="M 1183.7 866.7 Q 1209.6 895.3 1161.0 909.3" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(1194.7,891.0)"><rect width="77" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="38" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">more trust (+)</text></g>
+<path d="M 1084.4 955.1 Q 1020.0 993.1 955.6 955.1" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(965.0,1008.1)"><rect width="110" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="55" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">more credibility (+)</text></g>
+<path d="M 879.0 909.3 Q 830.4 895.3 856.3 866.7" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(768.3,891.0)"><rect width="77" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="38" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">more reach (+)</text></g>
+<path d="M 879.3 800.0 Q 896.7 755.1 972.4 759.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(809.5,730.7)"><rect width="138" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="69" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">counter the next wave (+)</text></g>
+<rect x="42" y="1092" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="1126" font-size="18" font-weight="bold" fill="#2E9B8A" font-family="Calibri, sans-serif">R3  Community standing</text>
+<text x="64" y="1146" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="360.0" y="1334.0" font-size="24" font-weight="bold" fill="#2E9B8A" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R3</text>
+<g transform="translate(60,1504)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Local networks are the multiplier for authentic reach.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="360.0" cy="1218.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="1211.5">Community</tspan><tspan x="360.0" y="1224.6">engagement</tspan></text>
+<circle cx="531.5" cy="1398.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="531.4730299493189" y="1391.5">Communities &amp;</tspan><tspan x="531.4730299493189" y="1404.6">local networks</tspan></text>
+<circle cx="188.5" cy="1398.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="188.52697005068117" y="1398.0">Voice</tspan></text>
+<path d="M 395.9 1255.7 Q 481.6 1295.4 495.6 1360.3" stroke="#2E9B8A" stroke-width="2.4" fill="none" marker-end="url(#t)"/>
+<g transform="translate(435.5,1278.5)"><rect width="138" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="69" y="13" font-size="9.3" fill="#2E9B8A" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">earns community trust (+)</text></g>
+<path d="M 479.5 1398.0 Q 360.0 1436.0 240.5 1398.0" stroke="#2E9B8A" stroke-width="2.4" fill="none" marker-end="url(#t)"/>
+<g transform="translate(285.8,1451.0)"><rect width="148" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="74" y="13" font-size="9.3" fill="#2E9B8A" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">authentic reach &amp; voice (+)</text></g>
+<path d="M 224.4 1360.3 Q 238.4 1295.4 324.1 1255.7" stroke="#2E9B8A" stroke-width="2.4" fill="none" marker-end="url(#t)"/>
+<g transform="translate(144.2,1278.5)"><rect width="143" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="72" y="13" font-size="9.3" fill="#2E9B8A" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">voice deepens standing (+)</text></g>
+<rect x="702" y="1092" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="1126" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">B1  Polarization / backlash</text>
+<text x="724" y="1146" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Balancing loop</text>
+<text x="1020.0" y="1334.0" font-size="24" font-weight="bold" fill="#C0392B" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B1</text>
+<g transform="translate(720,1504)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Lever: nonpartisan positioning. The louder the crisis, the stronger this brake.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="1020.0" cy="1218.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="1218.0">Voice</tspan></text>
+<circle cx="1218.0" cy="1338.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1218.0" y="1331.5">Political</tspan><tspan x="1218.0" y="1344.6">polarization</tspan></text>
+<circle cx="1020.0" cy="1458.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="1458.0">Neutrality</tspan></text>
+<circle cx="822.0" cy="1338.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="822.0" y="1338.0">Credibility</tspan></text>
+<path d="M 1064.5 1245.0 Q 1151.5 1258.3 1173.5 1311.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(1103.3,1236.9)"><rect width="138" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="69" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">loud voice draws heat (+)</text></g>
+<path d="M 1173.5 1365.0 Q 1151.5 1417.7 1064.5 1431.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(1089.5,1421.1)"><rect width="165" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="82" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">cast as partisan erodes it (−)</text></g>
+<path d="M 975.5 1431.0 Q 888.5 1417.7 866.5 1365.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(793.7,1421.1)"><rect width="148" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="74" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">underwrites credibility (+)</text></g>
+<path d="M 866.5 1311.0 Q 888.5 1258.3 975.5 1245.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(807.5,1236.9)"><rect width="121" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="60" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">gives voice weight (+)</text></g>
+<rect x="42" y="1572" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="1606" font-size="18" font-weight="bold" fill="#E67E22" font-family="Calibri, sans-serif">B2  Capacity / overreach</text>
+<text x="64" y="1626" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Balancing loop</text>
+<text x="360.0" y="1814.0" font-size="24" font-weight="bold" fill="#E67E22" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B2</text>
+<g transform="translate(60,1984)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Relief valve: funding. Amplifying faster than the field can underwrite spends tr</tspan><tspan x="14" dy="13">ust down.</tspan></text></g>
+<circle cx="162.0" cy="1818.0" r="52" fill="#84D8C6" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="162.0" y="1811.5">Comms &amp; community</tspan><tspan x="162.0" y="1824.6">workforce</tspan></text>
+<circle cx="558.0" cy="1818.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="558.0" y="1818.0">Reach</tspan></text>
+<path d="M 214.0 1802.0 Q 360.0 1672.0 506.0 1802.0" stroke="#E67E22" stroke-width="2.4" fill="none" marker-end="url(#o)"/>
+<g transform="translate(310.5,1659.0)"><rect width="99" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="50" y="13" font-size="9.3" fill="#E67E22" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">produces reach (+)</text></g>
+<path d="M 506.0 1834.0 Q 360.0 1964.0 214.0 1834.0" stroke="#E67E22" stroke-width="2.4" fill="none" marker-end="url(#o)"/>
+<g transform="translate(263.8,1959.0)"><rect width="192" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="96" y="13" font-size="9.3" fill="#E67E22" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">over-amplifying burns out staff (−)</text></g>
+<rect x="702" y="1572" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="1606" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">The cross-function truth</text>
+<text x="724" y="1626" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">why Amplify is different from the others</text>
+<text x="724" y="1666" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">Amplify does not build its own trust from scratch. It runs on the</text>
+<text x="724" y="1688" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">credibility every other function builds, and it is the function most</text>
+<text x="724" y="1710" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">able to spend it down.</text>
+<text x="724" y="1732" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif"></text>
+<text x="724" y="1754" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">Take a political side and the neutrality that underwrites credibility</text>
+<text x="724" y="1776" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">erodes (B1). Amplify faster than the field can underwrite and you</text>
+<text x="724" y="1798" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">burn the shared trust rather than build it (B2). Neutrality and</text>
+<text x="724" y="1820" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">pacing are the levers.</text>
+</svg>

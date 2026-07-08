@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1380 2070" font-family="Calibri, Helvetica, Arial, sans-serif">
+<defs><marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E7D32"/></marker><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1B6CA8"/></marker><marker id="t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E9B8A"/></marker><marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#E67E22"/></marker><marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#C0392B"/></marker><marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4A4A6A"/></marker></defs>
+<rect width="1380" height="2070" fill="#FAF8F2"/>
+<text x="40" y="50" font-size="30" font-weight="bold" fill="#1A1A2E">Steward</text>
+<text x="40" y="82" font-size="15" fill="#3A4150">The work of holding resources, standards, and intelligence on behalf of the public health field. PHIs receive federal dollars and pass them through to</text>
+<text x="40" y="104" font-size="15" fill="#3A4150">local actors, maintain accreditation and quality systems the field depends on, and curate field-level data, because they are trusted intermediaries</text>
+<text x="40" y="126" font-size="15" fill="#3A4150">who serve the field's interest rather than their own.</text>
+<text x="40" y="180" font-size="17" font-weight="bold" fill="#1A1A2E">Internal feedback loops</text>
+<rect x="40" y="192" width="1112" height="328" rx="14" fill="#EEF1F5"/>
+<rect x="66" y="218" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="96" cy="246" r="12" fill="#3C9A4E"/><text x="96" y="250" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R1</text>
+<text x="116" y="251" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Administrative-trustworthiness engine</text>
+<text x="84" y="272" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Clean fiscal stewardship and accreditation build</text>
+<text x="84" y="286" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">administrative trustworthiness, so funders route money</text>
+<text x="84" y="300" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">through the PHI rather than direct. One compliance failure</text>
+<text x="84" y="314" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">spends years of it.</text>
+<rect x="426" y="218" width="340" height="114" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="456" cy="246" r="12" fill="#3C9A4E"/><text x="456" y="250" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R2</text>
+<text x="476" y="251" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Knowledge engine</text>
+<text x="444" y="272" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">A nurtured workforce accumulates know-how, codification</text>
+<text x="444" y="286" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">makes it durable, durable capability builds trust and wins</text>
+<text x="444" y="300" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">funding, financial stability pays to keep the people.</text>
+<rect x="786" y="218" width="340" height="114" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="816" cy="246" r="12" fill="#3C9A4E"/><text x="816" y="250" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R3</text>
+<text x="836" y="251" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Compliance-trust mini-engine</text>
+<text x="804" y="272" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">The compliance machine produces the clean audits that</text>
+<text x="804" y="286" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">build trust, which wins funding, which pays for the</text>
+<text x="804" y="300" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">compliance machine. A small loop nested inside R1.</text>
+<rect x="66" y="366" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="96" cy="394" r="12" fill="#E0792B"/><text x="96" y="398" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B1</text>
+<text x="116" y="399" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Brain drain</text>
+<text x="84" y="420" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Workforce departs, tacit knowledge drains (only codified</text>
+<text x="84" y="434" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">survives), effectiveness and trust slip, funding falls,</text>
+<text x="84" y="448" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">retention worsens, more leave. R2 in reverse; codification</text>
+<text x="84" y="462" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">is the brake.</text>
+<rect x="426" y="366" width="340" height="114" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="456" cy="394" r="12" fill="#E0792B"/><text x="456" y="398" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B2</text>
+<text x="476" y="399" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Underfunded-compliance trap</text>
+<text x="444" y="420" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">The reserve funds the compliance machine, but indirect</text>
+<text x="444" y="434" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">rates rarely cover its true cost, so it is a net drain on</text>
+<text x="444" y="448" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">financial stability. An indirect-rate cap deepens it.</text>
+<text x="40" y="588" font-size="17" font-weight="bold" fill="#1A1A2E">The loops, drawn</text>
+<rect x="42" y="612" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="646" font-size="18" font-weight="bold" fill="#2E7D32" font-family="Calibri, sans-serif">R1  Administrative trustworthiness</text>
+<text x="64" y="666" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="360.0" y="854.0" font-size="24" font-weight="bold" fill="#2E7D32" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R1</text>
+<g transform="translate(60,1024)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Funders rent trustworthiness. One compliance failure spends years of it.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="360.0" cy="738.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="731.5">Fiscal intermediary</tspan><tspan x="360.0" y="744.6">&amp; accreditation</tspan></text>
+<circle cx="531.5" cy="918.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="531.4730299493189" y="911.5">Administrative</tspan><tspan x="531.4730299493189" y="924.6">trustworthiness</tspan></text>
+<circle cx="188.5" cy="918.0" r="52" fill="#9BD86A" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="188.52697005068117" y="918.0">FUNDERS</tspan></text>
+<path d="M 395.9 775.7 Q 481.6 815.4 495.6 880.3" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(410.8,798.5)"><rect width="187" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="94" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">clean stewardship builds trust (+)</text></g>
+<path d="M 479.5 918.0 Q 360.0 956.0 240.5 918.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(274.8,971.0)"><rect width="170" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="85" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">funders route money through (+)</text></g>
+<path d="M 224.4 880.3 Q 238.4 815.4 324.1 775.7" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(130.5,798.5)"><rect width="170" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="85" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">more stewardship to steward (+)</text></g>
+<rect x="702" y="612" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="646" font-size="18" font-weight="bold" fill="#1B6CA8" font-family="Calibri, sans-serif">R2  Knowledge engine</text>
+<text x="724" y="666" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="1020.0" y="854.0" font-size="24" font-weight="bold" fill="#1B6CA8" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R2</text>
+<g transform="translate(720,1024)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Codification is the lever that lets the knowledge compound instead of resetting.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="1020.0" cy="738.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="731.5">Workforce &amp; talent</tspan><tspan x="1020.0" y="744.6">stewardship</tspan></text>
+<circle cx="1218.0" cy="858.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1218.0" y="851.5">The field's</tspan><tspan x="1218.0" y="864.6">workforce</tspan></text>
+<circle cx="1020.0" cy="978.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="971.5">Tacit knowledge</tspan><tspan x="1020.0" y="984.6">(codified via lever)</tspan></text>
+<circle cx="822.0" cy="858.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="822.0" y="851.5">Trust &amp;</tspan><tspan x="822.0" y="864.6">financial stability</tspan></text>
+<path d="M 1064.5 765.0 Q 1151.5 778.3 1173.5 831.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(1128.0,756.9)"><rect width="88" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="44" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">keeps people (+)</text></g>
+<path d="M 1173.5 885.0 Q 1151.5 937.7 1064.5 951.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(1122.5,941.1)"><rect width="99" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="50" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">holds know-how (+)</text></g>
+<path d="M 975.5 951.0 Q 888.5 937.7 866.5 885.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(785.5,941.1)"><rect width="165" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="82" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">durable capability → trust (+)</text></g>
+<path d="M 866.5 831.0 Q 888.5 778.3 975.5 765.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(824.0,756.9)"><rect width="88" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="44" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">funds people (+)</text></g>
+<rect x="42" y="1092" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="1126" font-size="18" font-weight="bold" fill="#2E7D32" font-family="Calibri, sans-serif">R3  Compliance-trust mini-engine</text>
+<text x="64" y="1146" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="360.0" y="1334.0" font-size="24" font-weight="bold" fill="#2E7D32" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R3</text>
+<g transform="translate(60,1504)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Compliance partly pays for itself by producing credibility. Nested inside R1.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="360.0" cy="1218.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="1211.5">Compliance &amp;</tspan><tspan x="360.0" y="1224.6">audit infrastructure</tspan></text>
+<circle cx="531.5" cy="1398.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="531.4730299493189" y="1398.0">Trust</tspan></text>
+<circle cx="188.5" cy="1398.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="188.52697005068117" y="1391.5">Financial</tspan><tspan x="188.52697005068117" y="1404.6">stability</tspan></text>
+<path d="M 395.9 1255.7 Q 481.6 1295.4 495.6 1360.3" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(427.3,1278.5)"><rect width="154" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="77" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">clean audits build trust (+)</text></g>
+<path d="M 479.5 1398.0 Q 360.0 1436.0 240.5 1398.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(299.5,1451.0)"><rect width="121" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="60" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">trust wins funding (+)</text></g>
+<path d="M 224.4 1360.3 Q 238.4 1295.4 324.1 1255.7" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(152.5,1278.5)"><rect width="126" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="63" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">funding pays for it (+)</text></g>
+<rect x="702" y="1092" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="1126" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">B1  Brain drain</text>
+<text x="724" y="1146" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Balancing loop · vicious</text>
+<text x="1020.0" y="1334.0" font-size="24" font-weight="bold" fill="#C0392B" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B1</text>
+<g transform="translate(720,1504)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">R2 in reverse. The workforce cliff flips it; codification limits the loss.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="1020.0" cy="1218.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="1211.5">The field's</tspan><tspan x="1020.0" y="1224.6">workforce ↓</tspan></text>
+<circle cx="1218.0" cy="1338.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1218.0" y="1331.5">Tacit</tspan><tspan x="1218.0" y="1344.6">knowledge ↓</tspan></text>
+<circle cx="1020.0" cy="1458.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="1451.5">Trust &amp;</tspan><tspan x="1020.0" y="1464.6">funding ↓</tspan></text>
+<circle cx="822.0" cy="1338.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="822.0" y="1338.0">Retention ↓</tspan></text>
+<path d="M 1064.5 1245.0 Q 1151.5 1258.3 1173.5 1311.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(1133.5,1236.9)"><rect width="77" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="38" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">loses know-how</text></g>
+<path d="M 1173.5 1365.0 Q 1151.5 1417.7 1064.5 1431.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(1100.5,1421.1)"><rect width="143" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="72" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">effectiveness &amp; trust slip</text></g>
+<path d="M 975.5 1431.0 Q 888.5 1417.7 866.5 1365.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(829.5,1421.1)"><rect width="77" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="38" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">less to invest</text></g>
+<path d="M 866.5 1311.0 Q 888.5 1258.3 975.5 1245.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(804.7,1236.9)"><rect width="126" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="63" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">fewer kept → more leave</text></g>
+<rect x="42" y="1572" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="1606" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">B2  Underfunded-compliance trap</text>
+<text x="64" y="1626" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Balancing loop</text>
+<text x="360.0" y="1814.0" font-size="24" font-weight="bold" fill="#C0392B" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B2</text>
+<g transform="translate(60,1984)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">The machine that produces clean audits is structurally underfunded.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="162.0" cy="1818.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="162.0" y="1811.5">Financial</tspan><tspan x="162.0" y="1824.6">stability</tspan></text>
+<circle cx="558.0" cy="1818.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="558.0" y="1811.5">Compliance &amp;</tspan><tspan x="558.0" y="1824.6">audit infra.</tspan></text>
+<path d="M 214.0 1802.0 Q 360.0 1672.0 506.0 1802.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(302.2,1659.0)"><rect width="116" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="58" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">funds the machine (+)</text></g>
+<path d="M 506.0 1834.0 Q 360.0 1964.0 214.0 1834.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(247.2,1959.0)"><rect width="226" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="113" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">indirect rates fall short → net drain (−)</text></g>
+<rect x="702" y="1572" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="1606" font-size="18" font-weight="bold" fill="#2E7D32" font-family="Calibri, sans-serif">The codification lever</text>
+<text x="724" y="1626" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">the control point that limits B1</text>
+<text x="724" y="1666" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">Relational + undocumented knowledge → Knowledge Codification →</text>
+<text x="724" y="1688" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">codified knowledge. In practice: succession, mentorship, docs.</text>
+<text x="724" y="1710" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif"></text>
+<text x="724" y="1732" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">It is the single control on how much of the workforce cliff becomes</text>
+<text x="724" y="1754" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">permanent loss. And because tacit knowledge also runs the compliance</text>
+<text x="724" y="1776" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">machine, the brain drain (B1) and compliance trap (B2) are coupled</text>
+<text x="724" y="1798" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">through the same stock.</text>
+</svg>

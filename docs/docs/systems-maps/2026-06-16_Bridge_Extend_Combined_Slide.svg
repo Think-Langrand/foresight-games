@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1380 2048" font-family="Calibri, Helvetica, Arial, sans-serif">
+<defs><marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E7D32"/></marker><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1B6CA8"/></marker><marker id="t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E9B8A"/></marker><marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#E67E22"/></marker><marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#C0392B"/></marker><marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4A4A6A"/></marker></defs>
+<rect width="1380" height="2048" fill="#FAF8F2"/>
+<text x="40" y="50" font-size="30" font-weight="bold" fill="#1A1A2E">Bridge &amp; Extend</text>
+<text x="40" y="82" font-size="15" fill="#3A4150">The work of operating capabilities that state, local, territorial, and tribal health departments need but can't always build or sustain on their own.</text>
+<text x="40" y="104" font-size="15" fill="#3A4150">PHIs provide the staff, infrastructure, and operational reach that lets thin governmental public health do more than it could alone.</text>
+<text x="40" y="158" font-size="17" font-weight="bold" fill="#1A1A2E">Internal feedback loops</text>
+<rect x="40" y="170" width="1112" height="328" rx="14" fill="#EEF1F5"/>
+<rect x="66" y="196" width="340" height="114" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="96" cy="224" r="12" fill="#3C9A4E"/><text x="96" y="228" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R1</text>
+<text x="116" y="229" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Value / reputation engine</text>
+<text x="84" y="250" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Good delivery builds delivery reputation, which wins HD</text>
+<text x="84" y="264" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">contracts over vendors, which funds the staff bench, which</text>
+<text x="84" y="278" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">delivers more. The flywheel of the function.</text>
+<rect x="426" y="196" width="340" height="114" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="456" cy="224" r="12" fill="#3C9A4E"/><text x="456" y="228" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R2</text>
+<text x="476" y="229" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Trust &amp; funding engine</text>
+<text x="444" y="250" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Public trust unlocks federal funding, which builds the</text>
+<text x="444" y="264" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">workforce, which raises health departments' ability to</text>
+<text x="444" y="278" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">perform, which sustains the funding.</text>
+<rect x="786" y="196" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="816" cy="224" r="12" fill="#E0792B"/><text x="816" y="228" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B1</text>
+<text x="836" y="229" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Funding fragility</text>
+<text x="804" y="250" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">The same federal cuts that hollow out health departments</text>
+<text x="804" y="264" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">and raise their demand for the bridge also shrink the</text>
+<text x="804" y="278" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">bridge's own funding and bench. Demand up, capacity down,</text>
+<text x="804" y="292" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">same dollar.</text>
+<rect x="66" y="344" width="340" height="114" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="96" cy="372" r="12" fill="#E0792B"/><text x="96" y="376" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B2</text>
+<text x="116" y="377" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Grant-bench trap</text>
+<text x="84" y="398" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Staff are hired against specific grants, so when a grant</text>
+<text x="84" y="412" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">ends the people and the capability leave together. The</text>
+<text x="84" y="426" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">reputation and capability stocks never fully compound.</text>
+<rect x="426" y="344" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="456" cy="372" r="12" fill="#E0792B"/><text x="456" y="376" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B3</text>
+<text x="476" y="377" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Vendor substitution</text>
+<text x="444" y="398" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Health departments can buy surge and TA from commercial</text>
+<text x="444" y="412" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">vendors instead. When PHI capacity or trust falls, the</text>
+<text x="444" y="426" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">work shifts to vendors who keep no field knowledge.</text>
+<text x="444" y="440" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Reputation is the moat.</text>
+<text x="40" y="566" font-size="17" font-weight="bold" fill="#1A1A2E">The loops, drawn</text>
+<rect x="42" y="590" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="624" font-size="18" font-weight="bold" fill="#2E7D32" font-family="Calibri, sans-serif">R1  Value / reputation engine</text>
+<text x="64" y="644" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="360.0" y="832.0" font-size="24" font-weight="bold" fill="#2E7D32" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R1</text>
+<g transform="translate(60,1002)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">The flywheel: good delivery wins the contracts that fund the next round.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="360.0" cy="716.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="709.5">PHI workforce</tspan><tspan x="360.0" y="722.6">(bench)</tspan></text>
+<circle cx="558.0" cy="836.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="558.0" y="829.5">Programs · TA · surge</tspan><tspan x="558.0" y="842.6">delivered</tspan></text>
+<circle cx="360.0" cy="956.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="949.5">Delivery</tspan><tspan x="360.0" y="962.6">reputation</tspan></text>
+<circle cx="162.0" cy="836.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="162.0" y="829.5">Non-federal health</tspan><tspan x="162.0" y="842.6">departments</tspan></text>
+<path d="M 404.5 743.0 Q 491.5 756.3 513.5 809.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(437.8,734.9)"><rect width="148" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="74" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">staffs the capabilities (+)</text></g>
+<path d="M 513.5 863.0 Q 491.5 915.7 404.5 929.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(413.0,919.1)"><rect width="198" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="99" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">delivered well builds reputation (+)</text></g>
+<path d="M 315.5 929.0 Q 228.5 915.7 206.5 863.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(120.0,919.1)"><rect width="176" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="88" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">HDs choose PHIs over vendors (+)</text></g>
+<path d="M 206.5 809.0 Q 228.5 756.3 315.5 743.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(131.0,734.9)"><rect width="154" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="77" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">contracts fund the bench (+)</text></g>
+<rect x="702" y="590" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="624" font-size="18" font-weight="bold" fill="#1B6CA8" font-family="Calibri, sans-serif">R2  Trust &amp; funding engine</text>
+<text x="724" y="644" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="1020.0" y="832.0" font-size="24" font-weight="bold" fill="#1B6CA8" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R2</text>
+<g transform="translate(720,1002)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Public trust to funding to capacity to results to trust. The slow outer loop.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="1020.0" cy="716.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="709.5">Trust in</tspan><tspan x="1020.0" y="722.6">public health</tspan></text>
+<circle cx="1218.0" cy="836.0" r="52" fill="#9BD86A" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1218.0" y="829.5">Federal</tspan><tspan x="1218.0" y="842.6">funding</tspan></text>
+<circle cx="1020.0" cy="956.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="949.5">PHI workforce</tspan><tspan x="1020.0" y="962.6">(bench)</tspan></text>
+<circle cx="822.0" cy="836.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="822.0" y="829.5">HD ability</tspan><tspan x="822.0" y="842.6">to perform</tspan></text>
+<path d="M 1064.5 743.0 Q 1151.5 756.3 1173.5 809.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(1086.8,734.9)"><rect width="170" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="85" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">unlocks willingness to fund (+)</text></g>
+<path d="M 1173.5 863.0 Q 1151.5 915.7 1064.5 929.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(1119.8,919.1)"><rect width="104" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="52" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">funds the bench (+)</text></g>
+<path d="M 975.5 929.0 Q 888.5 915.7 866.5 863.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(807.5,919.1)"><rect width="121" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="60" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">raises HD capacity (+)</text></g>
+<path d="M 866.5 809.0 Q 888.5 756.3 975.5 743.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(760.7,734.9)"><rect width="214" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="107" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">demonstrated value sustains funding (+)</text></g>
+<rect x="42" y="1070" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="1104" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">B1  Funding fragility</text>
+<text x="64" y="1124" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Balancing loop</text>
+<text x="360.0" y="1312.0" font-size="24" font-weight="bold" fill="#C0392B" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B1</text>
+<g transform="translate(60,1482)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Demand up, capacity down, same dollar.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="360.0" cy="1196.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="1189.5">Federal</tspan><tspan x="360.0" y="1202.6">funding cuts</tspan></text>
+<circle cx="531.5" cy="1376.0" r="52" fill="#C7B2EA" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="531.4730299493189" y="1369.5">Demand for the bridge</tspan><tspan x="531.4730299493189" y="1382.6">(HDs hollowed out)</tspan></text>
+<circle cx="188.5" cy="1376.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="188.52697005068117" y="1369.5">PHI supply</tspan><tspan x="188.52697005068117" y="1382.6">(the bench)</tspan></text>
+<path d="M 395.9 1233.7 Q 481.6 1273.4 495.6 1338.3" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(410.8,1256.5)"><rect width="187" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="94" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">raise HD demand for the bridge (+)</text></g>
+<path d="M 479.5 1376.0 Q 360.0 1414.0 240.5 1376.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(263.8,1429.0)"><rect width="192" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="96" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">but the same cuts shrink supply (−)</text></g>
+<path d="M 224.4 1338.3 Q 238.4 1273.4 324.1 1233.7" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(147.0,1256.5)"><rect width="138" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="69" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">demand outruns supply (+)</text></g>
+<rect x="702" y="1070" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="1104" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">B2  Grant-bench trap</text>
+<text x="724" y="1124" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Balancing loop</text>
+<text x="1020.0" y="1312.0" font-size="24" font-weight="bold" fill="#C0392B" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B2</text>
+<g transform="translate(720,1482)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Earmarked, time-limited money keeps durable capacity from compounding.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="1020.0" cy="1196.0" r="52" fill="#9BD86A" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="1189.5">Categorical /</tspan><tspan x="1020.0" y="1202.6">grant funding</tspan></text>
+<circle cx="1191.5" cy="1376.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1191.473029949319" y="1369.5">Grant-funded</tspan><tspan x="1191.473029949319" y="1382.6">bench</tspan></text>
+<circle cx="848.5" cy="1376.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="848.5269700506811" y="1369.5">Durable capability</tspan><tspan x="848.5269700506811" y="1382.6">&amp; reputation</tspan></text>
+<path d="M 1055.9 1233.7 Q 1141.6 1273.4 1155.6 1338.3" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(1073.5,1256.5)"><rect width="182" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="91" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">hires against specific grants (+)</text></g>
+<path d="M 1139.5 1376.0 Q 1020.0 1414.0 900.5 1376.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(943.0,1429.0)"><rect width="154" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="77" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">grant ends, people leave (−)</text></g>
+<path d="M 884.4 1338.3 Q 898.4 1273.4 984.1 1233.7" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(793.2,1256.5)"><rect width="165" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="82" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">capability never compounds (+)</text></g>
+<rect x="42" y="1550" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="1584" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">B3  Vendor substitution</text>
+<text x="64" y="1604" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Balancing loop</text>
+<text x="360.0" y="1792.0" font-size="24" font-weight="bold" fill="#C0392B" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B3</text>
+<g transform="translate(60,1962)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Reputation is the moat. Lose it and the work shifts to commercial vendors.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="162.0" cy="1796.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="162.0" y="1789.5">PHI capacity</tspan><tspan x="162.0" y="1802.6">&amp; trust</tspan></text>
+<circle cx="558.0" cy="1796.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="558.0" y="1789.5">HDs turn to</tspan><tspan x="558.0" y="1802.6">vendors</tspan></text>
+<path d="M 214.0 1780.0 Q 360.0 1650.0 506.0 1780.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(269.2,1637.0)"><rect width="182" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="91" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">when it falls, HDs substitute (−)</text></g>
+<path d="M 506.0 1812.0 Q 360.0 1942.0 214.0 1812.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(233.5,1937.0)"><rect width="253" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="126" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">work shifts to vendors, no field knowledge (+)</text></g>
+<rect x="702" y="1550" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="1584" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">The root relationship</text>
+<text x="724" y="1604" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">what the whole subsystem turns on</text>
+<text x="724" y="1644" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">Health departments can get surge and TA from PHIs or from</text>
+<text x="724" y="1666" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">commercial vendors. So trust in PHIs and the friction of using</text>
+<text x="724" y="1688" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">them is what decides where the work goes.</text>
+<text x="724" y="1710" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif"></text>
+<text x="724" y="1732" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">Delivery reputation is the moat (R1). Fragility and the grant-bench</text>
+<text x="724" y="1754" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">trap (B1, B2) erode supply; vendor substitution (B3) captures the</text>
+<text x="724" y="1776" font-size="12.5" fill="#1A1A2E" font-family="Calibri, sans-serif">work when they do. Reputation is built slowly and spent fast.</text>
+</svg>

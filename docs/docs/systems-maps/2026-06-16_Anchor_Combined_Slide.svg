@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1380 2048" font-family="Calibri, Helvetica, Arial, sans-serif">
+<defs><marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E7D32"/></marker><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1B6CA8"/></marker><marker id="t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E9B8A"/></marker><marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#E67E22"/></marker><marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#C0392B"/></marker><marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4A4A6A"/></marker></defs>
+<rect width="1380" height="2048" fill="#FAF8F2"/>
+<text x="40" y="50" font-size="30" font-weight="bold" fill="#1A1A2E">Anchor</text>
+<text x="40" y="82" font-size="15" fill="#3A4150">The work of being a stable, recognized institutional presence in the public health field. PHIs hold long-horizon relationships, take strategic</text>
+<text x="40" y="104" font-size="15" fill="#3A4150">positions, and offer continuity that government public health (subject to political turnover) and short-cycle nonprofits often can't.</text>
+<text x="40" y="158" font-size="17" font-weight="bold" fill="#1A1A2E">Internal feedback loops</text>
+<rect x="40" y="170" width="1112" height="328" rx="14" fill="#EEF1F5"/>
+<rect x="66" y="196" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="96" cy="224" r="12" fill="#3C9A4E"/><text x="96" y="228" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R1</text>
+<text x="116" y="229" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Mission-rooted continuity</text>
+<text x="84" y="250" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">A durable, state-level mission lets the institute take</text>
+<text x="84" y="264" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">independent positions and go against prevailing political</text>
+<text x="84" y="278" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">winds, outlasting the cycles government and short-cycle</text>
+<text x="84" y="292" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">nonprofits can't. The engine.</text>
+<rect x="426" y="196" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="456" cy="224" r="12" fill="#3C9A4E"/><text x="456" y="228" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R2</text>
+<text x="476" y="229" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Institutional-knowledge continuity</text>
+<text x="444" y="250" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Retained staff accumulate institutional, historical, and</text>
+<text x="444" y="264" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">subject-matter knowledge, which feeds foresight and field</text>
+<text x="444" y="278" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">identity, which attracts funding and talent, which retains</text>
+<text x="444" y="292" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">staff. The Steward seam.</text>
+<rect x="786" y="196" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="816" cy="224" r="12" fill="#3C9A4E"/><text x="816" y="228" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">R3</text>
+<text x="836" y="229" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Long-term relationships</text>
+<text x="804" y="250" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Decades of long-held working relationships build funder</text>
+<text x="804" y="264" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">and organizational loyalty, legacy funders maintain and</text>
+<text x="804" y="278" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">renew, new funders become legacy. The 20-to-30-year</text>
+<text x="804" y="292" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">continuity.</text>
+<rect x="66" y="344" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="96" cy="372" r="12" fill="#E0792B"/><text x="96" y="376" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B1</text>
+<text x="116" y="377" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Funding buffer</text>
+<text x="84" y="398" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Funders churn constantly, but orgs need steady support.</text>
+<text x="84" y="412" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">The PHI absorbs the volatility through diverse streams,</text>
+<text x="84" y="426" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">fiscal sponsorship, and pass-through. Only as strong as</text>
+<text x="84" y="440" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">its own diversification.</text>
+<rect x="426" y="344" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="456" cy="372" r="12" fill="#E0792B"/><text x="456" y="376" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B2</text>
+<text x="476" y="377" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Political-turnover buffer</text>
+<text x="444" y="398" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Political turnover shifts priorities and cuts funding</text>
+<text x="444" y="412" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">states can pursue. Because it's mission-rooted, the</text>
+<text x="444" y="426" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">institute applies on the state's behalf, keeping the plan</text>
+<text x="444" y="440" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">going through changes.</text>
+<rect x="786" y="344" width="340" height="128" rx="9" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1"/>
+<circle cx="816" cy="372" r="12" fill="#E0792B"/><text x="816" y="376" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Calibri, sans-serif">B3</text>
+<text x="836" y="377" font-size="13" font-weight="bold" fill="#1A1A2E" font-family="Calibri, sans-serif">Mission vs. conduit drift</text>
+<text x="804" y="398" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">Running the buffer means chasing diverse and pass-through</text>
+<text x="804" y="412" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">funding, which creates pressure to be a fast,</text>
+<text x="804" y="426" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">transactional conduit. Pushed too far, that dilutes the</text>
+<text x="804" y="440" font-size="10.5" fill="#5A6270" font-family="Calibri, sans-serif">mission. Mission discipline is the lever.</text>
+<text x="40" y="566" font-size="17" font-weight="bold" fill="#1A1A2E">The loops, drawn</text>
+<rect x="42" y="590" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="624" font-size="18" font-weight="bold" fill="#2E7D32" font-family="Calibri, sans-serif">R1  Mission-rooted continuity</text>
+<text x="64" y="644" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="360.0" y="832.0" font-size="24" font-weight="bold" fill="#2E7D32" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R1</text>
+<g transform="translate(60,1002)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Mission at the state level lets institutes go against prevailing political winds</tspan><tspan x="14" dy="13">.</tspan></text></g>
+<circle cx="360.0" cy="716.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="709.5">Mission</tspan><tspan x="360.0" y="722.6">(rooted in)</tspan></text>
+<circle cx="558.0" cy="836.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="558.0" y="829.5">Independent</tspan><tspan x="558.0" y="842.6">strategic positions</tspan></text>
+<circle cx="360.0" cy="956.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="949.5">Continuity across</tspan><tspan x="360.0" y="962.6">political turnover</tspan></text>
+<circle cx="162.0" cy="836.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="162.0" y="829.5">Recognized</tspan><tspan x="162.0" y="842.6">field anchor</tspan></text>
+<path d="M 404.5 743.0 Q 491.5 756.3 513.5 809.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(432.3,734.9)"><rect width="160" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="80" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">roots independent stances (+)</text></g>
+<path d="M 513.5 863.0 Q 491.5 915.7 404.5 929.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(432.3,919.1)"><rect width="160" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="80" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">outlasts political cycles (+)</text></g>
+<path d="M 315.5 929.0 Q 228.5 915.7 206.5 863.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(147.5,919.1)"><rect width="121" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="60" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">builds recognition (+)</text></g>
+<path d="M 206.5 809.0 Q 228.5 756.3 315.5 743.0" stroke="#2E7D32" stroke-width="2.4" fill="none" marker-end="url(#g)"/>
+<g transform="translate(122.7,734.9)"><rect width="170" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="85" y="13" font-size="9.3" fill="#2E7D32" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">recognition deepens mission (+)</text></g>
+<rect x="702" y="590" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="624" font-size="18" font-weight="bold" fill="#1B6CA8" font-family="Calibri, sans-serif">R2  Institutional-knowledge continuity</text>
+<text x="724" y="644" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="1020.0" y="832.0" font-size="24" font-weight="bold" fill="#1B6CA8" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R2</text>
+<g transform="translate(720,1002)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">The same knowledge engine Steward runs — the institutional-knowledge seam.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="1020.0" cy="716.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="709.5">Staff</tspan><tspan x="1020.0" y="722.6">retention</tspan></text>
+<circle cx="1218.0" cy="836.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1218.0" y="829.5">Institutional &amp;</tspan><tspan x="1218.0" y="842.6">historical knowledge</tspan></text>
+<circle cx="1020.0" cy="956.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="949.5">Foresight, expertise</tspan><tspan x="1020.0" y="962.6">&amp; field identity</tspan></text>
+<circle cx="822.0" cy="836.0" r="52" fill="#9BD86A" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="822.0" y="829.5">Recognition &amp;</tspan><tspan x="822.0" y="842.6">resources</tspan></text>
+<path d="M 1064.5 743.0 Q 1151.5 756.3 1173.5 809.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(1084.0,734.9)"><rect width="176" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="88" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">tenure accumulates knowledge (+)</text></g>
+<path d="M 1173.5 863.0 Q 1151.5 915.7 1064.5 929.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(1089.5,919.1)"><rect width="165" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="82" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">feeds foresight &amp; identity (+)</text></g>
+<path d="M 975.5 929.0 Q 888.5 915.7 866.5 863.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(788.2,919.1)"><rect width="160" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="80" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">attracts funding &amp; talent (+)</text></g>
+<path d="M 866.5 809.0 Q 888.5 756.3 975.5 743.0" stroke="#1B6CA8" stroke-width="2.4" fill="none" marker-end="url(#b)"/>
+<g transform="translate(796.5,734.9)"><rect width="143" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="72" y="13" font-size="9.3" fill="#1B6CA8" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">resources retain staff (+)</text></g>
+<rect x="42" y="1070" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="1104" font-size="18" font-weight="bold" fill="#2E9B8A" font-family="Calibri, sans-serif">R3  Long-term relationships</text>
+<text x="64" y="1124" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Reinforcing loop</text>
+<text x="360.0" y="1312.0" font-size="24" font-weight="bold" fill="#2E9B8A" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">R3</text>
+<g transform="translate(60,1482)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">20-to-30-year relationships funders and orgs can't get elsewhere.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="360.0" cy="1196.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="1189.5">Long-held working</tspan><tspan x="360.0" y="1202.6">relationships</tspan></text>
+<circle cx="531.5" cy="1376.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="531.4730299493189" y="1369.5">Funder &amp; org</tspan><tspan x="531.4730299493189" y="1382.6">loyalty</tspan></text>
+<circle cx="188.5" cy="1376.0" r="52" fill="#9BD86A" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="188.52697005068117" y="1369.5">Legacy funders</tspan><tspan x="188.52697005068117" y="1382.6">maintain / renew</tspan></text>
+<path d="M 395.9 1233.7 Q 481.6 1273.4 495.6 1338.3" stroke="#2E9B8A" stroke-width="2.4" fill="none" marker-end="url(#t)"/>
+<g transform="translate(449.3,1256.5)"><rect width="110" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="55" y="13" font-size="9.3" fill="#2E9B8A" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">decades of trust (+)</text></g>
+<path d="M 479.5 1376.0 Q 360.0 1414.0 240.5 1376.0" stroke="#2E9B8A" stroke-width="2.4" fill="none" marker-end="url(#t)"/>
+<g transform="translate(280.2,1429.0)"><rect width="160" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="80" y="13" font-size="9.3" fill="#2E9B8A" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">new funders become legacy (+)</text></g>
+<path d="M 224.4 1338.3 Q 238.4 1273.4 324.1 1233.7" stroke="#2E9B8A" stroke-width="2.4" fill="none" marker-end="url(#t)"/>
+<g transform="translate(127.7,1256.5)"><rect width="176" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="88" y="13" font-size="9.3" fill="#2E9B8A" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">sustained support deepens it (+)</text></g>
+<rect x="702" y="1070" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="1104" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">B1  Funding buffer</text>
+<text x="724" y="1124" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Balancing loop</text>
+<text x="1020.0" y="1312.0" font-size="24" font-weight="bold" fill="#C0392B" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B1</text>
+<g transform="translate(720,1482)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">PHIs buffer funder churn into continuity. Only as strong as their own diversific</tspan><tspan x="14" dy="13">ation.</tspan></text></g>
+<circle cx="1020.0" cy="1196.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="1189.5">Funder churn</tspan><tspan x="1020.0" y="1202.6">(shifting sources)</tspan></text>
+<circle cx="1191.5" cy="1376.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1191.473029949319" y="1369.5">PHI absorbs the</tspan><tspan x="1191.473029949319" y="1382.6">volatility</tspan></text>
+<circle cx="848.5" cy="1376.0" r="52" fill="#C7B2EA" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="848.5269700506811" y="1369.5">Funding continuity</tspan><tspan x="848.5269700506811" y="1382.6">for the field</tspan></text>
+<path d="M 1055.9 1233.7 Q 1141.6 1273.4 1155.6 1338.3" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(1079.0,1256.5)"><rect width="170" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="85" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">constant churn destabilizes (−)</text></g>
+<path d="M 1139.5 1376.0 Q 1020.0 1414.0 900.5 1376.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(940.2,1429.0)"><rect width="160" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="80" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">diverse streams buffer it (+)</text></g>
+<path d="M 884.4 1338.3 Q 898.4 1273.4 984.1 1233.7" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(779.5,1256.5)"><rect width="192" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="96" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">steady funding for smaller orgs (+)</text></g>
+<rect x="42" y="1550" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="64" y="1584" font-size="18" font-weight="bold" fill="#C0392B" font-family="Calibri, sans-serif">B2  Political-turnover buffer</text>
+<text x="64" y="1604" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Balancing loop</text>
+<text x="360.0" y="1792.0" font-size="24" font-weight="bold" fill="#C0392B" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B2</text>
+<g transform="translate(60,1962)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">Keeper of the state health improvement plan even through political changes.</tspan><tspan x="14" dy="13"></tspan></text></g>
+<circle cx="360.0" cy="1676.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="360.0" y="1669.5">Political turnover</tspan><tspan x="360.0" y="1682.6">&amp; priority shifts</tspan></text>
+<circle cx="531.5" cy="1856.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="531.4730299493189" y="1849.5">States lose access</tspan><tspan x="531.4730299493189" y="1862.6">to funding</tspan></text>
+<circle cx="188.5" cy="1856.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="188.52697005068117" y="1849.5">Institute applies on</tspan><tspan x="188.52697005068117" y="1862.6">their behalf</tspan></text>
+<path d="M 395.9 1713.7 Q 481.6 1753.4 495.6 1818.3" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(446.5,1736.5)"><rect width="116" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="58" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">changes the winds (+)</text></g>
+<path d="M 479.5 1856.0 Q 360.0 1894.0 240.5 1856.0" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(266.5,1909.0)"><rect width="187" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="94" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">states can't pursue some funds (+)</text></g>
+<path d="M 224.4 1818.3 Q 238.4 1753.4 324.1 1713.7" stroke="#C0392B" stroke-width="2.4" fill="none" marker-end="url(#r)"/>
+<g transform="translate(122.2,1736.5)"><rect width="187" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="94" y="13" font-size="9.3" fill="#C0392B" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">institute keeps the plan going (−)</text></g>
+<rect x="702" y="1550" width="636" height="456" rx="12" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="1"/>
+<text x="724" y="1584" font-size="18" font-weight="bold" fill="#E67E22" font-family="Calibri, sans-serif">B3  Mission vs. conduit drift</text>
+<text x="724" y="1604" font-size="12" font-style="italic" fill="#6B6B85" font-family="Calibri, sans-serif">Tension — mission discipline is the lever</text>
+<text x="1020.0" y="1792.0" font-size="24" font-weight="bold" fill="#E67E22" text-anchor="middle" opacity="0.16" font-family="Calibri, sans-serif">B3</text>
+<g transform="translate(720,1962)"><rect width="600" height="40" rx="6" fill="#F4F1E8" stroke="#E4E0D4" stroke-width="0.6"/><text x="14" y="17" font-size="10.5" fill="#5A5536" font-family="Calibri, sans-serif"><tspan x="14" dy="0">The 'pass-thru funds?' question. Push it too far and the anchor becomes a condui</tspan><tspan x="14" dy="13">t.</tspan></text></g>
+<circle cx="1020.0" cy="1676.0" r="52" fill="#B7CEF0" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1020.0" y="1669.5">Chasing diverse /</tspan><tspan x="1020.0" y="1682.6">pass-thru funding</tspan></text>
+<circle cx="1191.5" cy="1856.0" r="52" fill="#FBE268" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="1191.473029949319" y="1849.5">Transactional</tspan><tspan x="1191.473029949319" y="1862.6">conduit pull</tspan></text>
+<circle cx="848.5" cy="1856.0" r="52" fill="#6E97E8" stroke="#FFFFFF" stroke-width="2"/><text font-size="10.5" font-weight="bold" fill="#15233E" text-anchor="middle" font-family="Calibri, sans-serif"><tspan x="848.5269700506811" y="1849.5">Mission</tspan><tspan x="848.5269700506811" y="1862.6">rootedness</tspan></text>
+<path d="M 1055.9 1713.7 Q 1141.6 1753.4 1155.6 1818.3" stroke="#E67E22" stroke-width="2.4" fill="none" marker-end="url(#o)"/>
+<g transform="translate(1090.0,1736.5)"><rect width="148" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="74" y="13" font-size="9.3" fill="#E67E22" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">money to run the buffer (+)</text></g>
+<path d="M 1139.5 1856.0 Q 1020.0 1894.0 900.5 1856.0" stroke="#E67E22" stroke-width="2.4" fill="none" marker-end="url(#o)"/>
+<g transform="translate(923.8,1909.0)"><rect width="192" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="96" y="13" font-size="9.3" fill="#E67E22" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">'out the door quicker' pressure (+)</text></g>
+<path d="M 884.4 1818.3 Q 898.4 1753.4 984.1 1713.7" stroke="#E67E22" stroke-width="2.4" fill="none" marker-end="url(#o)"/>
+<g transform="translate(812.5,1736.5)"><rect width="126" height="18" rx="4" fill="#FFFFFF" stroke="#E4E0D4" stroke-width="0.5"/><text x="63" y="13" font-size="9.3" fill="#E67E22" text-anchor="middle" font-family="Calibri, sans-serif" font-style="italic">dilutes the mission (−)</text></g>
+</svg>

@@ -1,0 +1,10 @@
+{
+  "name": "foresight-explorer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "NNPHI Future of Public Health: foresight model (drivers, uncertainties, outcomes, loop impacts) + interactive explorer.",
+  "scripts": {
+    "build": "node explorer/build.mjs"
+  }
+}

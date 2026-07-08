@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Future of Public Health &mdash; Driver Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Cormorant:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+:root{
+  --paper:#F5F4EC; --card:#FBFAF3; --ink:#242424; --muted:#6B6B5E;
+  --hairline:rgba(36,36,34,0.16); --rule:#242424;
+  --lime:#C4FF67; --lime-deep:#A6E84B;
+  --blue:#275DE2; --coral:#FF644E; --yellow:#FFD932; --green:#2F8F2A; --navy:#0D1C3D;
+  --amber:#B9860B; --orange:#E07A26; --red:#D1382A; --indigo:#4B45C6; --gray:#6B6B5E;
+  --sans:'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --serif:'Cormorant', Georgia, 'Times New Roman', serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;}
+#root{height:100vh;}
+button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:none;padding:0;margin:0;text-align:left;}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+.app{display:flex;height:100vh;width:100%;background:var(--paper);}
+.sidebar{width:320px;min-width:320px;height:100vh;overflow-y:auto;border-right:1px solid var(--hairline);background:var(--paper);padding:22px 20px 40px 22px;}
+.main{flex:1;height:100vh;overflow-y:auto;background:var(--paper);}
+.eyebrow{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--muted);}
+.eyebrow.ink{color:var(--ink);}
+.eyebrow.blue{color:var(--blue);}
+.mark-wrap{position:relative;display:inline-block;}
+.mark-svg{position:absolute;left:-2px;right:-2px;bottom:-3px;width:calc(100% + 4px);height:14px;mix-blend-mode:multiply;pointer-events:none;z-index:0;}
+.mark-wrap>.mark-txt{position:relative;z-index:1;}
+.app-title{font-family:var(--sans);font-weight:800;text-transform:uppercase;letter-spacing:-.005em;font-size:20px;line-height:1.05;color:var(--ink);}
+.app-sub{margin-top:8px;}
+.search{width:100%;margin-top:18px;padding:9px 11px;border:1px solid var(--hairline);border-radius:2px;background:var(--card);font-family:var(--sans);font-size:13px;color:var(--ink);}
+.search::placeholder{color:var(--muted);}
+.search:focus{outline:none;border-color:var(--ink);}
+.toggle-row{display:flex;align-items:center;gap:10px;margin-top:14px;}
+.sq-toggle{width:34px;height:20px;border:1px solid var(--ink);border-radius:2px;background:var(--card);position:relative;flex:none;transition:background .12s;}
+.sq-toggle .knob{position:absolute;top:1px;left:1px;width:16px;height:16px;background:var(--ink);border-radius:1px;transition:transform .12s,background .12s;}
+.sq-toggle.on{background:var(--lime);}
+.sq-toggle.on .knob{transform:translateX(14px);background:var(--ink);}
+.toggle-label{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;color:var(--ink);}
+.theme-group{margin-top:26px;}
+.theme-label{padding-bottom:7px;border-bottom:1px solid var(--hairline);margin-bottom:6px;}
+.driver-row{display:flex;align-items:flex-start;gap:8px;width:100%;padding:7px 8px;border-radius:2px;position:relative;line-height:1.25;}
+.driver-row:hover{background:rgba(36,36,34,0.045);}
+.driver-row .diamond{width:8px;height:8px;background:var(--lime-deep);transform:rotate(45deg);margin-top:5px;flex:none;}
+.driver-row .diamond.hidden{visibility:hidden;}
+.driver-row .dr-name{font-family:var(--sans);font-weight:500;font-size:13.5px;color:var(--ink);position:relative;z-index:1;}
+.driver-row.active .dr-name{font-weight:700;}
+.driver-row .dr-mark{position:absolute;left:24px;right:8px;top:6px;bottom:6px;background:var(--lime);mix-blend-mode:multiply;z-index:0;border-radius:1px;}
+.driver-row .count-badge{margin-left:auto;flex:none;background:var(--lime);color:var(--ink);font-family:var(--sans);font-weight:700;font-size:10px;line-height:1;padding:3px 5px;border-radius:2px;position:relative;z-index:1;}
+.side-footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--rule);}
+.side-footer .lchar{font-family:var(--serif);font-weight:500;font-size:22px;line-height:1;color:var(--ink);}
+.side-footer .ftitle{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:10px;color:var(--ink);margin-top:4px;}
+.side-footer .ftotals{font-family:var(--sans);font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;}
+.main-header{position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:1px solid var(--rule);padding:26px 44px 20px 44px;}
+.driver-name{font-family:var(--sans);font-weight:800;text-transform:uppercase;letter-spacing:-.005em;font-size:32px;line-height:1.02;color:var(--ink);margin:8px 0 0 0;}
+.driver-statement{font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.28;color:var(--ink);margin:14px 0 0 0;}
+.driver-short{font-family:var(--sans);font-weight:400;font-size:14.5px;color:var(--muted);margin:10px 0 0 0;max-width:760px;}
+.meta-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px;}
+.mini-tag{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:10px;border:1px solid var(--hairline);border-radius:2px;padding:4px 7px;color:var(--muted);background:var(--card);}
+.align-tally{display:flex;align-items:center;gap:9px;margin-left:4px;}
+.tally-item{display:flex;align-items:center;gap:4px;}
+.tally-sq{width:10px;height:10px;border-radius:1px;flex:none;}
+.tally-n{font-family:var(--sans);font-weight:700;font-size:11px;color:var(--ink);}
+.controlbar{padding:18px 44px 4px 44px;}
+.cb-inner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px 0 16px 0;border-bottom:1px solid var(--hairline);}
+.cb-label{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.13em;font-size:10.5px;color:var(--muted);margin-right:4px;}
+.chip{font-family:var(--sans);font-weight:600;font-size:11.5px;letter-spacing:.02em;padding:6px 11px;border-radius:2px;border:1px solid var(--hairline);background:var(--card);color:var(--ink);white-space:nowrap;}
+.chip:hover{border-color:var(--ink);}
+.chip.active{color:#fff;border-color:transparent;}
+.chip .dot{display:inline-block;width:8px;height:8px;border-radius:1px;margin-right:6px;vertical-align:middle;}
+.hopeful-btn{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.09em;font-size:11px;padding:8px 15px;border-radius:2px;border:1px solid var(--ink);background:var(--card);color:var(--ink);margin-left:6px;white-space:nowrap;}
+.hopeful-btn.on{background:var(--lime);border-color:var(--ink);}
+.hopeful-banner{margin:14px 0 0 0;padding:9px 13px;background:var(--lime);border-radius:2px;font-family:var(--sans);font-weight:500;font-size:12.5px;color:var(--ink);border:1px solid var(--lime-deep);}
+.section-wrap{padding:22px 44px 4px 44px;}
+.section-label{display:inline-block;padding-bottom:6px;position:relative;}
+.section-label .stxt{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:12px;color:var(--ink);}
+.section-label .sunder{position:absolute;left:0;bottom:-1px;width:64px;height:9px;mix-blend-mode:multiply;}
+.cards{padding:8px 44px 20px 44px;display:flex;flex-direction:column;gap:14px;}
+.unc-card{border:1px solid var(--hairline);border-radius:2px;background:var(--card);overflow:hidden;}
+.unc-card.dim{opacity:.45;}
+.unc-head{display:flex;align-items:flex-start;gap:12px;width:100%;padding:16px 18px;}
+.unc-head:hover{background:rgba(36,36,34,0.03);}
+.unc-caret{font-family:var(--sans);font-size:12px;color:var(--muted);margin-top:3px;flex:none;width:12px;}
+.unc-title-block{flex:1;min-width:0;}
+.unc-label{font-family:var(--sans);font-weight:700;font-size:16px;color:var(--ink);line-height:1.2;}
+.sharp-pill{display:inline-block;margin-left:9px;vertical-align:middle;background:var(--lime);color:var(--ink);font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:9px;padding:3px 6px;border-radius:2px;}
+.unc-q{font-family:var(--serif);font-style:italic;font-weight:400;font-size:16px;line-height:1.35;color:var(--muted);margin-top:6px;}
+.poles{display:flex;align-items:center;gap:8px;margin-top:12px;}
+.pole{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:9.5px;color:var(--muted);white-space:nowrap;max-width:44%;line-height:1.25;overflow:hidden;text-overflow:ellipsis;}
+.pole.b{text-align:right;}
+.pole-line{flex:1;height:1px;background:var(--ink);position:relative;}
+.pole-line::before,.pole-line::after{content:'';position:absolute;top:-2.5px;width:5px;height:5px;border-top:1px solid var(--ink);border-right:1px solid var(--ink);}
+.pole-line::before{left:0;transform:rotate(-135deg);}
+.pole-line::after{right:0;transform:rotate(45deg);}
+.unc-count{font-family:var(--sans);font-weight:600;font-size:10.5px;color:var(--muted);margin-top:3px;flex:none;text-transform:uppercase;letter-spacing:.08em;}
+.outcomes{padding:0 18px 16px 18px;display:flex;flex-direction:column;gap:12px;}
+.outcome{border-left:3px solid var(--gray);background:var(--paper);padding:13px 15px;border-radius:0 2px 2px 0;}
+.oc-head{display:flex;flex-wrap:wrap;align-items:center;gap:9px;}
+.oc-label{font-family:var(--sans);font-weight:600;font-size:14.5px;color:var(--ink);}
+.oc-dir{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:9.5px;}
+.align-chip{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:9.5px;padding:3px 7px;border-radius:2px;border:1px solid;}
+.oc-narr{font-family:var(--sans);font-weight:400;font-size:13.5px;color:var(--ink);margin-top:9px;line-height:1.5;}
+.sm-toggle{display:inline-flex;align-items:center;gap:5px;margin-top:11px;font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;color:var(--muted);padding:3px 2px;border-radius:2px;transition:color .12s;}
+.sm-toggle:hover{color:var(--ink);}
+.sm-toggle.open{color:var(--ink);}
+.sm-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+.sm-toggle .sm-caret{font-size:10px;line-height:1;color:var(--lime-deep);}
+.sm-body{margin-top:8px;padding:11px 14px;background:var(--card);border-left:2px solid var(--lime-deep);border-radius:0 1px 1px 0;font-family:var(--sans);font-weight:400;font-size:13px;line-height:1.55;color:var(--ink);}
+.imp-label{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.13em;font-size:9.5px;color:var(--muted);margin-top:13px;}
+.imp-list{display:flex;flex-direction:column;gap:9px;margin-top:8px;}
+.imp{display:flex;flex-direction:column;gap:3px;}
+.imp-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.effect-chip{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:9px;padding:2px 6px;border-radius:2px;border:1px solid;white-space:nowrap;}
+.mag{display:flex;align-items:center;gap:3px;}
+.mag .d{width:5px;height:5px;border-radius:50%;background:var(--ink);}
+.imp-loop{font-family:var(--sans);font-weight:500;font-size:12.5px;color:var(--ink);}
+.imp-sub{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:9px;color:var(--muted);}
+.imp-mech{font-family:var(--sans);font-weight:400;font-size:12px;color:var(--muted);line-height:1.45;}
+.legend-wrap{padding:10px 44px 56px 44px;}
+.legend-toggle{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.13em;font-size:10.5px;color:var(--muted);padding:10px 0;border-top:1px solid var(--hairline);width:100%;}
+.legend-body{padding:6px 0 8px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px 26px;}
+.legend-col h4{font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:10px;color:var(--ink);margin:0 0 8px 0;}
+.legend-item{display:flex;align-items:center;gap:7px;margin-bottom:5px;}
+.legend-sq{width:11px;height:11px;border-radius:1px;flex:none;}
+.legend-txt{font-family:var(--sans);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:9.5px;color:var(--muted);}
+.empty{padding:80px 44px;color:var(--muted);font-family:var(--serif);font-size:22px;font-style:italic;}
+.no-match{padding:20px 44px;color:var(--muted);font-family:var(--sans);font-size:13px;}
+.unc-tabs{padding:10px 44px 0 44px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}
+.unc-tab{display:flex;flex-direction:column;gap:7px;border:1px solid var(--hairline);border-radius:2px;background:var(--card);padding:13px 13px 14px 13px;position:relative;transition:border-color .12s,background .12s;}
+.unc-tab:hover{border-color:var(--muted);}
+.unc-tab.sel{border-color:var(--ink);}
+.unc-tab.sel::before{content:'';position:absolute;left:-1px;right:-1px;top:-1px;height:3px;background:var(--lime);}
+.unc-tab.dim{opacity:.4;}
+.unc-tab .ut-top{display:flex;align-items:center;gap:8px;min-height:15px;}
+.unc-tab .ut-sharp{background:var(--lime);color:var(--ink);font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:8.5px;padding:3px 6px;border-radius:2px;}
+.unc-tab .ut-count{margin-left:auto;font-family:var(--sans);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:9.5px;color:var(--muted);}
+.unc-tab .ut-label{font-family:var(--sans);font-weight:700;font-size:14.5px;line-height:1.22;color:var(--ink);text-align:left;}
+.unc-tab .ut-poles{font-family:var(--sans);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:9px;color:var(--muted);line-height:1.4;}
+.unc-tab .ut-poles .ut-vs{color:var(--lime-deep);font-weight:800;padding:0 3px;}
+.unc-detail{margin:16px 44px 8px 44px;border:1px solid var(--hairline);border-top:3px solid var(--ink);border-radius:2px;background:var(--card);padding:18px 18px 6px 18px;}
+.ud-q{font-family:var(--serif);font-style:italic;font-weight:400;font-size:18px;line-height:1.35;color:var(--ink);}
+.unc-detail .poles{margin-top:14px;}
+.unc-detail .outcomes{padding:16px 0 6px 0;}
+.ud-empty{margin-top:14px;font-family:var(--sans);font-size:13px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="env,react">
+const {useState,useMemo} = React;
+
+const DATA = /*__MODEL_JSON__*/ {};
+
+const DIR_COLOR = {"Positive":"#2F8F2A","Negative":"#FF644E","Mixed / depends":"#B9860B"};
+const ALIGN = {
+  "Self-aligned":{c:"#2F8F2A",bg:"rgba(47,143,42,0.10)"},
+  "Engineered alignment":{c:"#275DE2",bg:"rgba(39,93,226,0.10)"},
+  "Needs collective action":{c:"#FF644E",bg:"rgba(255,100,78,0.10)"},
+  "Mixed / depends":{c:"#B9860B",bg:"rgba(185,134,11,0.12)"}
+};
+const ALIGN_SHORT = {"All":"All","Self-aligned":"Self-aligned","Engineered alignment":"Engineered","Needs collective action":"Needs collective","Mixed / depends":"Mixed"};
+const EFFECT = {"Strengthens":"#2F8F2A","Weakens":"#E07A26","Breaks / reverses":"#D1382A","Reshapes":"#4B45C6","Neutral / unclear":"#6B6B5E"};
+function effectColor(e){ return EFFECT[e] || "#6B6B5E"; }
+function effectBg(e){ return effectColor(e)+"1A"; }
+
+function Marker({color}){
+  return (
+    <svg className="mark-svg" viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M3 16 C 60 7, 120 18, 180 11 S 285 8, 297 14" stroke={color||"var(--lime)"} strokeWidth="11" fill="none" strokeLinecap="round"/>
+    </svg>
+  );
+}
+function MarkText({children}){
+  return (<span className="mark-wrap"><Marker/><span className="mark-txt">{children}</span></span>);
+}
+function isHopefulSeed(o){ return o.direction==="Positive" && (o.alignment==="Self-aligned" || o.alignment==="Engineered alignment"); }
+function magDots(mag){
+  const map={High:1,Medium:0.6,Low:0.3};
+  const op=map[mag]!==undefined?map[mag]:0.6;
+  return (<span className="mag" title={mag}><span className="d" style={{opacity:op}}></span><span className="d" style={{opacity:op}}></span><span className="d" style={{opacity:op}}></span></span>);
+}
+
+function OutcomeBlock({o}){
+  const dc = DIR_COLOR[o.direction] || "#6B6B5E";
+  const al = ALIGN[o.alignment] || {c:"#6B6B5E",bg:"rgba(107,107,94,0.1)"};
+  const [smOpen,setSmOpen] = useState(false);
+  const hasMove = typeof o.strategicMove === "string" && o.strategicMove.trim().length>0;
+  return (
+    <div className="outcome" style={{borderLeftColor:dc}}>
+      <div className="oc-head">
+        <span className="oc-label">{o.label}</span>
+        <span className="oc-dir" style={{color:dc}}>{o.direction}</span>
+        <span className="align-chip" style={{color:al.c,background:al.bg,borderColor:al.c}}>{o.alignment}</span>
+      </div>
+      <div className="oc-narr">{o.narrative}</div>
+      {hasMove && (
+        <React.Fragment>
+          <button className={"sm-toggle"+(smOpen?" open":"")} onClick={()=>setSmOpen(!smOpen)} aria-expanded={smOpen}>
+            <span className="sm-caret">{smOpen?"▾":"▸"}</span> Strategic move
+          </button>
+          {smOpen && <div className="sm-body">{o.strategicMove}</div>}
+        </React.Fragment>
+      )}
+      {o.impacts.length>0 && <div className="imp-label">Loop Impacts</div>}
+      <div className="imp-list">
+        {o.impacts.map((im,i)=>(
+          <div className="imp" key={i}>
+            <div className="imp-top">
+              <span className="effect-chip" style={{color:effectColor(im.effect),background:effectBg(im.effect),borderColor:effectColor(im.effect)}}>{im.effect}</span>
+              {magDots(im.magnitude)}
+              <span className="imp-loop">{im.loopName}</span>
+              <span className="imp-sub">{im.loopSubsystem}{im.loopCode?(" · "+im.loopCode):""}</span>
+            </div>
+            <div className="imp-mech">{im.mechanism}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UncertaintyCard({u,open,onToggle,filteredOutcomes,dim}){
+  return (
+    <div className={"unc-card"+(dim?" dim":"")}>
+      <button className="unc-head" onClick={onToggle} aria-expanded={open}>
+        <span className="unc-caret">{open?"▾":"▸"}</span>
+        <span className="unc-title-block">
+          <span className="unc-label">{u.label}{u.sharpest && <span className="sharp-pill">Sharpest Axis</span>}</span>
+          <div className="unc-q">{u.question}</div>
+          <div className="poles">
+            <span className="pole a">{u.poleA}</span>
+            <span className="pole-line"></span>
+            <span className="pole b">{u.poleB}</span>
+          </div>
+        </span>
+        <span className="unc-count">{filteredOutcomes.length} / {u.outcomes.length}</span>
+      </button>
+      {open && filteredOutcomes.length>0 && (
+        <div className="outcomes">
+          {filteredOutcomes.map(o=><OutcomeBlock key={o.id} o={o} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App(){
+  const [search,setSearch] = useState("");
+  const [topOnly,setTopOnly] = useState(false);
+  const keystone = DATA.drivers.find(d=>d.name==="The Receding Public") || DATA.drivers[0];
+  const [activeId,setActiveId] = useState(keystone.id);
+  const [alignFilter,setAlignFilter] = useState("All");
+  const [hopeful,setHopeful] = useState(false);
+  const initUnc = (keystone.uncertainties.find(function(u){return u.sharpest;})||keystone.uncertainties[0]).id;
+  const [selUncId,setSelUncId] = useState(initUnc);
+  const [legendOpen,setLegendOpen] = useState(false);
+  const mainRef = React.useRef(null);
+
+  const active = DATA.drivers.find(d=>d.id===activeId) || keystone;
+  const curUnc = active.uncertainties.find(function(u){return u.id===selUncId;}) || active.uncertainties.find(function(u){return u.sharpest;}) || active.uncertainties[0];
+
+  const groups = useMemo(function(){
+    const q = search.trim().toLowerCase();
+    const order = [];
+    DATA.drivers.forEach(function(d){
+      if(topOnly && !d.topRight) return;
+      if(q && d.name.toLowerCase().indexOf(q)===-1) return;
+      if(order.indexOf(d.theme)===-1) order.push(d.theme);
+    });
+    const g=[];
+    order.forEach(function(th){
+      const rows = DATA.drivers.filter(function(d){ return d.theme===th && (!topOnly||d.topRight) && (!q||d.name.toLowerCase().indexOf(q)!==-1); });
+      if(rows.length) g.push({theme:th,rows:rows});
+    });
+    return g;
+  },[search,topOnly]);
+
+  function seedCount(d){
+    let n=0;
+    d.uncertainties.forEach(function(u){ u.outcomes.forEach(function(o){ if(isHopefulSeed(o)) n++; }); });
+    return n;
+  }
+  function selectDriver(id){
+    setActiveId(id);
+    const d = DATA.drivers.find(function(x){return x.id===id;});
+    if(d){ const su = d.uncertainties.find(function(u){return u.sharpest;})||d.uncertainties[0]; if(su) setSelUncId(su.id); }
+    if(mainRef.current) mainRef.current.scrollTop = 0;
+  }
+  function filterOutcomes(u){
+    if(hopeful){ return u.outcomes.filter(isHopefulSeed); }
+    if(alignFilter!=="All"){ return u.outcomes.filter(function(o){ return o.alignment===alignFilter; }); }
+    return u.outcomes;
+  }
+  const curFiltered = curUnc ? filterOutcomes(curUnc) : [];
+  function setChip(a){
+    setAlignFilter(a); setHopeful(false);
+    if(a!=="All"){
+      const match = active.uncertainties.find(function(u){ return u.outcomes.some(function(o){return o.alignment===a;}); });
+      if(match) setSelUncId(match.id);
+    }
+  }
+  function toggleHopeful(){
+    const nv = !hopeful;
+    setHopeful(nv);
+    if(nv){
+      setAlignFilter("All");
+      const match = active.uncertainties.find(function(u){ return u.outcomes.some(isHopefulSeed); });
+      if(match) setSelUncId(match.id);
+    }
+  }
+
+  const tally = useMemo(function(){
+    const t={"Self-aligned":0,"Engineered alignment":0,"Needs collective action":0,"Mixed / depends":0};
+    active.uncertainties.forEach(function(u){ u.outcomes.forEach(function(o){ if(t[o.alignment]!==undefined) t[o.alignment]++; }); });
+    return t;
+  },[active]);
+
+  const alignChips = ["All","Self-aligned","Engineered alignment","Needs collective action","Mixed / depends"];
+
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <MarkText><span className="app-title">Future of Public Health</span></MarkText>
+        <div className="app-sub"><span className="eyebrow">Driver Explorer · to 2035</span></div>
+        <input className="search" placeholder="Filter drivers…" value={search} onChange={function(e){setSearch(e.target.value);}} aria-label="Filter drivers" />
+        <div className="toggle-row">
+          <button className={"sq-toggle"+(topOnly?" on":"")} onClick={function(){setTopOnly(function(t){return !t;});}} role="switch" aria-checked={topOnly} aria-label="Top-ranked only"><span className="knob"></span></button>
+          <span className="toggle-label">Top-ranked only</span>
+        </div>
+        {groups.map(function(g){
+          return (
+            <div className="theme-group" key={g.theme}>
+              <div className="theme-label"><span className="eyebrow">{g.theme}</span></div>
+              {g.rows.map(function(d){
+                const isActive = d.id===activeId;
+                const sc = hopeful ? seedCount(d) : 0;
+                return (
+                  <button className={"driver-row"+(isActive?" active":"")} key={d.id} onClick={function(){selectDriver(d.id);}} aria-current={isActive?"true":undefined}>
+                    <span className={"diamond"+(d.topRight?"":" hidden")}></span>
+                    {isActive && <span className="dr-mark"></span>}
+                    <span className="dr-name">{d.name}</span>
+                    {hopeful && sc>0 && <span className="count-badge">{sc}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+        {groups.length===0 && <div className="no-match" style={{paddingLeft:0}}>No drivers match.</div>}
+        <div className="side-footer">
+          <div className="lchar">L</div>
+          <div className="ftitle">Future of Public Health</div>
+          <div className="ftotals">22 drivers · 66 uncertainties · 132 outcomes · 187 loop impacts</div>
+        </div>
+      </aside>
+
+      <main className="main" ref={mainRef}>
+        <div className="main-header">
+          <span className="eyebrow blue">{active.theme}</span>
+          <h1 className="driver-name"><MarkText>{active.name}</MarkText></h1>
+          <div className="driver-statement">{active.headline}</div>
+          <div className="driver-short">{active.short}</div>
+          <div className="meta-row">
+            {active.impact && <span className="mini-tag">Impact: {active.impact}</span>}
+            {active.uncertainty && <span className="mini-tag">Uncertainty: {active.uncertainty}</span>}
+            <span className="align-tally">
+              <span className="tally-item" title="Self-aligned"><span className="tally-sq" style={{background:ALIGN["Self-aligned"].c}}></span><span className="tally-n">{tally["Self-aligned"]}</span></span>
+              <span className="tally-item" title="Engineered alignment"><span className="tally-sq" style={{background:ALIGN["Engineered alignment"].c}}></span><span className="tally-n">{tally["Engineered alignment"]}</span></span>
+              <span className="tally-item" title="Needs collective action"><span className="tally-sq" style={{background:ALIGN["Needs collective action"].c}}></span><span className="tally-n">{tally["Needs collective action"]}</span></span>
+              <span className="tally-item" title="Mixed / depends"><span className="tally-sq" style={{background:ALIGN["Mixed / depends"].c}}></span><span className="tally-n">{tally["Mixed / depends"]}</span></span>
+            </span>
+          </div>
+        </div>
+
+        <div className="controlbar">
+          <div className="cb-inner">
+            <span className="cb-label">Alignment lens</span>
+            {alignChips.map(function(a){
+              const isAll = a==="All";
+              const col = isAll ? "var(--ink)" : ALIGN[a].c;
+              const activeChip = !hopeful && alignFilter===a;
+              return (
+                <button key={a} className={"chip"+(activeChip?" active":"")} style={activeChip?{background:col,borderColor:col}:{}} onClick={function(){setChip(a);}}>
+                  {!isAll && <span className="dot" style={{background:activeChip?"#fff":col}}></span>}
+                  {ALIGN_SHORT[a]}
+                </button>
+              );
+            })}
+            <button className={"hopeful-btn"+(hopeful?" on":"")} onClick={toggleHopeful} aria-pressed={hopeful}>Hopeful Lens</button>
+          </div>
+          {hopeful && <div className="hopeful-banner">Hopeful lens: showing only positive outcomes that are self-aligned or engineered — the good that needs no mandate.</div>}
+        </div>
+
+        <div className="section-wrap">
+          <span className="section-label">
+            <span className="stxt">Key Uncertainties</span>
+            <svg className="sunder" viewBox="0 0 64 12" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 C 16 4, 32 9, 48 6 S 60 5, 62 8" stroke="var(--lime)" strokeWidth="6" fill="none" strokeLinecap="round"/></svg>
+          </span>
+        </div>
+
+        <div className="unc-tabs">
+          {active.uncertainties.map(function(u){
+            const filtered = filterOutcomes(u);
+            const filtering = hopeful || alignFilter!=="All";
+            const isSel = !!(curUnc && u.id===curUnc.id);
+            const isDim = filtering && filtered.length===0;
+            return (
+              <button key={u.id} className={"unc-tab"+(isSel?" sel":"")+(isDim?" dim":"")} onClick={function(){setSelUncId(u.id);}} aria-pressed={isSel}>
+                <span className="ut-top">
+                  {u.sharpest && <span className="ut-sharp">Sharpest Axis</span>}
+                  <span className="ut-count">{filtered.length}/{u.outcomes.length}</span>
+                </span>
+                <span className="ut-label">{u.label}</span>
+                <span className="ut-poles">{u.poleA}<span className="ut-vs">/</span>{u.poleB}</span>
+              </button>
+            );
+          })}
+        </div>
+        {curUnc && (
+          <div className="unc-detail">
+            <div className="ud-q">{curUnc.question}</div>
+            <div className="poles">
+              <span className="pole a">{curUnc.poleA}</span>
+              <span className="pole-line"></span>
+              <span className="pole b">{curUnc.poleB}</span>
+            </div>
+            {curFiltered.length>0 ? (
+              <div className="outcomes">
+                {curFiltered.map(function(o){ return <OutcomeBlock key={o.id} o={o} />; })}
+              </div>
+            ) : (
+              <div className="ud-empty">No outcomes under this uncertainty match the current lens. Pick another, or turn the lens off.</div>
+            )}
+          </div>
+        )}
+
+        <div className="legend-wrap">
+          <button className="legend-toggle" onClick={function(){setLegendOpen(function(o){return !o;});}} aria-expanded={legendOpen}>{legendOpen?"▾":"▸"} Legend</button>
+          {legendOpen && (
+            <div className="legend-body">
+              <div className="legend-col">
+                <h4>Direction</h4>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#2F8F2A"}}></span><span className="legend-txt">Positive</span></div>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#B9860B"}}></span><span className="legend-txt">Mixed / depends</span></div>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#FF644E"}}></span><span className="legend-txt">Negative</span></div>
+              </div>
+              <div className="legend-col">
+                <h4>Alignment</h4>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#2F8F2A"}}></span><span className="legend-txt">Self-aligned</span></div>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#275DE2"}}></span><span className="legend-txt">Engineered alignment</span></div>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#FF644E"}}></span><span className="legend-txt">Needs collective action</span></div>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#B9860B"}}></span><span className="legend-txt">Mixed / depends</span></div>
+              </div>
+              <div className="legend-col">
+                <h4>Loop Effect</h4>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#2F8F2A"}}></span><span className="legend-txt">Strengthens</span></div>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#E07A26"}}></span><span className="legend-txt">Weakens</span></div>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#D1382A"}}></span><span className="legend-txt">Breaks / reverses</span></div>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#4B45C6"}}></span><span className="legend-txt">Reshapes</span></div>
+                <div className="legend-item"><span className="legend-sq" style={{background:"#6B6B5E"}}></span><span className="legend-txt">Neutral / unclear</span></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
