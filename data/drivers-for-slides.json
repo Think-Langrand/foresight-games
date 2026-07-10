@@ -1,0 +1,413 @@
+{
+  "generatedFrom": "NNPHI Airtable base appJbrDG28mXRJgfA",
+  "filter": "top-ranked drivers only",
+  "driverCount": 14,
+  "drivers": [
+    {
+      "name": "Public Health Under Political Fire",
+      "theme": "Trust, Legitimacy & Information",
+      "neutralHeadline": "Public health's mandate is being contested.",
+      "description": "Legal authority and the equity mandate are being actively rewritten at the state and federal levels.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Durable target or bipartisan floor?",
+          "question": "Does public health remain a durable partisan target through 2035, or is a bipartisan floor of basic preparedness and local legitimacy re-established?",
+          "poleA": "Durable partisan target",
+          "poleB": "Bipartisan preparedness floor re-established",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "PHIs: refuge or pulled into crossfire?",
+          "question": "Do mission-rooted PHIs absorb displaced public health functions while keeping their neutrality, or do they get pulled into the political crossfire and lose it?",
+          "poleA": "PHIs absorb functions and stay neutral",
+          "poleB": "PHIs pulled in and lose neutrality",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Authority curtailed or rebuilt?",
+          "question": "Does public health legal and emergency authority get permanently curtailed, or is it redefined and rebuilt on new, more durable footing?",
+          "poleA": "Authority permanently curtailed",
+          "poleB": "Authority rebuilt on new footing",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "The Trust Recession",
+      "theme": "Trust, Legitimacy & Information",
+      "neutralHeadline": "Trust is moving from institutions to people.",
+      "description": "Confidence is draining and splitting by party; authority now travels through local messengers rather than national logos.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Local trust rebuilds or fragments?",
+          "question": "Does trust rebuild from the local and relational level (clinicians, community health workers, local agencies), or does even local trust eventually fracture along the same partisan lines?",
+          "poleA": "Local/relational trust rebuilds",
+          "poleB": "Trust stays fragmented and partisan",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Who is the default trusted voice?",
+          "question": "By 2035, does the default trusted health voice become institutions and clinicians, or does it shift to individual influencers and AI assistants (or settle into no trusted voice at all)?",
+          "poleA": "Institutions/clinicians stay trusted",
+          "poleB": "Trust migrates to influencers/AI or no one",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Transparency or crisis competence?",
+          "question": "Is trust won back mainly through transparency and humility, or only through visible competence in the next crisis (with the risk that a mishandled crisis destroys it further)?",
+          "poleA": "Transparency and humility rebuild trust",
+          "poleB": "Only crisis competence proves it",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "The Epistemic Crisis",
+      "theme": "Trust, Legitimacy & Information",
+      "neutralHeadline": "What counts as evidence is being contested.",
+      "description": "A polluted, AI-saturated information environment and contested ideas about what even counts as evidence.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "AI clarifies or floods?",
+          "question": "Does AI become a net force for clarity, delivering verified, personalized, trustworthy guidance, or a net force for chaos, producing infinite cheap personalized misinformation?",
+          "poleA": "AI clarifies the information environment",
+          "poleB": "AI floods it with synthetic noise",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Shared facts or separate realities?",
+          "question": "By 2035, is there still a shared baseline of facts the public roughly agrees on, or have people settled into permanently separate epistemic realities?",
+          "poleA": "A shared factual baseline holds",
+          "poleB": "Separate epistemic realities harden",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Does public health own a channel?",
+          "question": "Does public health own any trusted information channel of its own by 2035, or does it only rent attention on platforms it does not control?",
+          "poleA": "Public health owns a trusted channel",
+          "poleB": "It only rents attention on others' platforms",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "The Amplified Individual (Power of One)",
+      "theme": "The Social Fabric",
+      "neutralHeadline": "One person can now do the work of an institution.",
+      "description": "AI, cheap tools, and platforms are collapsing what one person needs to build, broadcast, or deliver care, super-empowering the individual just as the collective fragments.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Help or harm public health?",
+          "question": "Does individual leverage net help public health (augmented CHWs, nimble tools, a real public voice) or net harm it (super-spreader influencers, lone biothreat actors, runaway private operators)?",
+          "poleA": "Force-multiplier for public health",
+          "poleB": "Accelerant of its threats",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Can PHIs actually wield it?",
+          "question": "Do PHIs have the talent, permission, and culture to vibe-code their own tools, run a breakout channel, and equip the frontline, or will they be out-maneuvered by faster private actors?",
+          "poleA": "PHIs harness it",
+          "poleB": "Private actors out-run PHIs",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Lift the floor or widen the gap?",
+          "question": "Does AI augmentation lift the floor (every community health worker becomes 10x) or widen the gap (only the well-resourced get the gear)?",
+          "poleA": "Lifts the floor for everyone",
+          "poleB": "Widens the capability gap",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "The Fragmenting Public",
+      "theme": "The Social Fabric",
+      "neutralHeadline": "One public is becoming many.",
+      "description": "Polarization, declining solidarity, and personalized everything are dissolving the shared 'we' public health acts on.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Re-bridgeable or fractured?",
+          "question": "By 2035, is there still a single public that health messaging can address, or must public health operate as many tailored micro-publics with no shared message?",
+          "poleA": "A re-bridgeable public",
+          "poleB": "Permanently fragmented micro-publics",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Tribes vs fluid enclaves",
+          "question": "Does fragmentation harden into durable health tribes with rival red and blue realities, or does it stay fluid enough that publics can be re-bridged?",
+          "poleA": "Durable rival tribes",
+          "poleB": "Fluid, re-bridgeable enclaves",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Collective vs individual action",
+          "question": "Can public health still mobilize collective action that depends on shared sacrifice like herd immunity and mandates, or is only voluntary individual behavior achievable?",
+          "poleA": "Shared-sacrifice action still possible",
+          "poleB": "Only voluntary individual behavior",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "The Patchwork Paradox",
+      "theme": "The Institutional Base",
+      "neutralHeadline": "Public health is becoming a 50-state network.",
+      "description": "Resilient as a network with no single point of failure, but any one institute can be hollowed out; does the network mutualize?",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Mutual aid vs winners-losers",
+          "question": "By 2035, does the PHI network actively mutualize with shared services, surge talent, and pooled funds, or does it harden into winners and losers?",
+          "poleA": "Network mutual aid",
+          "poleB": "Winners-and-losers patchwork",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Two-tier or re-converge?",
+          "question": "Does the fifty-state patchwork calcify into a permanent two-tier health geography, or do standards and capacity re-converge across states?",
+          "poleA": "Permanent two-tier geography",
+          "poleB": "Re-converging standards",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Decentralization: strength or risk?",
+          "question": "By 2035, is decentralization mostly a strength with no single point of failure and room to experiment, or mostly a vulnerability of inequity and no coordination?",
+          "poleA": "Resilient, experimental strength",
+          "poleB": "Inequitable, uncoordinated risk",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "Funding Whiplash & the Austerity Cliff",
+      "theme": "The Institutional Base",
+      "neutralHeadline": "How public health gets funded is being rewritten.",
+      "description": "Boom-bust financing makes durable workforce, data, and trust almost impossible to build.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Foundational vs boom-bust",
+          "question": "By 2035, does public health win durable foundational financing through mandatory funding, dedicated taxes, or ROI-tied streams, or does it stay locked in permanent boom-bust austerity cycles?",
+          "poleA": "Durable foundational financing",
+          "poleB": "Permanent boom-bust austerity",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Backfills durable or thin?",
+          "question": "As federal dollars recede, does funding durably relocate to states, philanthropy, Medicaid, and private payers, or do those backfills prove thin and temporary?",
+          "poleA": "Money durably relocates",
+          "poleB": "Backfills thin and temporary",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Stability with strings?",
+          "question": "If funding stabilizes, does it arrive clean, or with strings such as political conditions, narrow disease silos, and performance mandates that reshape the mission?",
+          "poleA": "Flexible, mission-aligned funding",
+          "poleB": "Conditional, mission-reshaping strings",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "The Workforce Cliff",
+      "theme": "The Institutional Base",
+      "neutralHeadline": "The public health workforce is being remade.",
+      "description": "Burnout, attrition, and a hard-to-fill technical and frontline gap, with community health workers as the emerging answer.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Does a new workforce model scale",
+          "question": "What does the public health workforce look like in 2035 (credentialed professionals, community health workers, gig and contract labor, AI-augmented generalists, or a blend), and does a new model actually scale to fill the gap left by the cliff?",
+          "poleA": "New workforce model scales",
+          "poleB": "Cliff wins, capacity collapses",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "CHW financing and career ladders",
+          "question": "Can community health workers scale fast enough and sustainably, backed by durable financing and real career ladders, or do they stay trapped in short grant cycles that never become permanent infrastructure?",
+          "poleA": "Durable CHW infrastructure",
+          "poleB": "Stuck in grant cycles",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "AI augmentation relief or harm",
+          "question": "Does AI augmentation genuinely relieve the workforce shortage by letting fewer people do more, or does it accelerate burnout, deskilling, and displacement of the workers who remain?",
+          "poleA": "Force-multiplier for staff",
+          "poleB": "Burnout and deskilling",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "The Great Subtraction",
+      "theme": "The Institutional Base",
+      "neutralHeadline": "Where public health capacity sits is being redrawn.",
+      "description": "Cuts, talent flight, and dismantled monitoring hollow out both capacity and visibility into emerging risks.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Reversible or permanent brain drain",
+          "question": "As scientists leave public health, is the loss reversible (talent returns, monitoring is rebuilt, institutional ties are restored) or does a generation of expertise and infrastructure walk out permanently?",
+          "poleA": "Capacity and visibility rebuild",
+          "poleB": "Permanent hollowing",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Where the lost capacity lands",
+          "question": "Where does departed public health talent actually go: recruited abroad by the EU, China, or the Gulf; absorbed into the domestic private sector; or simply lost from the field altogether?",
+          "poleA": "Recoverable and nearby",
+          "poleB": "Dispersed and gone",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Backfilling lost surveillance",
+          "question": "Can states, universities, philanthropy, or private actors backfill lost national data and surveillance capacity, or does the country operate partially blind to emerging threats?",
+          "poleA": "Distributed backfill works",
+          "poleB": "Operating partially blind",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "AI as Public Health Infrastructure",
+      "theme": "The Data & AI Inflection",
+      "neutralHeadline": "AI is becoming public health infrastructure.",
+      "description": "A force-multiplier for a thin workforce, or a trust-destroyer, depending on who governs it.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Governed vs ungoverned AI",
+          "question": "In a world where AI is powerful and ubiquitous, does it become governed, trusted public-health infrastructure, or an ungoverned trust-and-equity threat that agencies scramble to contain?",
+          "poleA": "Governed AI as trusted infrastructure",
+          "poleB": "Ungoverned AI as a trust-and-equity threat",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Who governs the AI",
+          "question": "Do public institutions set the terms for public-health AI and the data it trains on, or do commercial vendors and closed models control the stack that agencies depend on?",
+          "poleA": "Public institutions govern the models and data",
+          "poleB": "Vendors and closed models control the stack",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "AI closes or widens the gap",
+          "question": "Does AI close the capability gap between well-resourced and under-resourced PHIs by giving everyone advanced analysis, or does it widen it because only the well-funded can adopt and govern it well?",
+          "poleA": "AI levels the field for all PHIs",
+          "poleB": "AI widens the resource gap",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "Biodata Sovereignty",
+      "theme": "The Data & AI Inflection",
+      "neutralHeadline": "Who owns the body's data is an open question.",
+      "description": "Genomic, behavioral, and now neural data raise new questions of ownership, consent, and trust.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Public good vs private capture",
+          "question": "Can biodata be mobilized for population insight under consent and governance as a public good, or does it default to private capture, commercial exploitation, and personalization to the individual?",
+          "poleA": "Biodata as a governed public good",
+          "poleB": "Biodata privatized, captured, and personalized",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Who controls the body's data",
+          "question": "By 2035, who controls the body's data (individuals, public institutions, or whoever scrapes it first), and does that control serve population health or fragment it?",
+          "poleA": "Individuals and public institutions hold control",
+          "poleB": "Whoever scrapes it first controls it",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Population health vs n-of-1",
+          "question": "If health goes fully n-of-1 (precision everything, trials of one), does shared population-level evidence survive as a common good, or does it dissolve into private, personalized silos?",
+          "poleA": "Shared population evidence survives",
+          "poleB": "Health dissolves into n-of-1 silos",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "Data Modernization & Real-Time Surveillance",
+      "theme": "The Data & AI Inflection",
+      "neutralHeadline": "Disease surveillance is going real-time.",
+      "description": "The quiet shift from fax to cloud, with wastewater and genomic streams that see threats early.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Standing utility vs decay",
+          "question": "Does real-time surveillance (wastewater, genomic, syndromic) become permanent, trusted standing infrastructure, or does it ride the boom-bust cycle and decay, distrusted or privatized, between crises?",
+          "poleA": "A trusted real-time public-health data utility",
+          "poleB": "Decayed, distrusted, or privatized data",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Consent vs privacy freeze",
+          "question": "Can the data system earn a real data-for-the-public-good compact with public consent, or does privacy backlash freeze data sharing and starve surveillance of its inputs?",
+          "poleA": "Public consent and a data-for-good compact",
+          "poleB": "Privacy backlash freezes data sharing",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Public vs private ownership",
+          "question": "Do public agencies own and control the data streams as a shared utility, or do private platforms capture them into new proprietary silos that agencies must rent back?",
+          "poleA": "Public agencies own the streams",
+          "poleB": "Private platforms own the streams",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "The Chronic, Metabolic & Longevity Reckoning",
+      "theme": "The Shifting Burden of Disease",
+      "neutralHeadline": "New medicine is reshaping chronic disease.",
+      "description": "GLP-1s, an aging population, and longevity science reshuffle the burden and the inequities.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Upstream collective or downstream individual",
+          "question": "Does the proactive turn in chronic health go upstream and collective (food systems, environment, prevention) or downstream and individual (pills, optimization, biohacking) as the dominant model for the next decade?",
+          "poleA": "Upstream collective prevention",
+          "poleB": "Medicalized individual optimization",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "GLP-1s at scale or only for payers",
+          "question": "Do GLP-1s and longevity science bend the chronic-disease curve at population scale, or do the benefits accrue only to those who can pay, widening health inequity?",
+          "poleA": "Population-scale benefit",
+          "poleB": "Widening inequity",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Pharma crowds out or frees prevention",
+          "question": "Does pharma appearing to solve metabolic disease crowd out prevention funding and political will, or does it free public health to redirect scarce resources upstream?",
+          "poleA": "Frees prevention focus",
+          "poleB": "Crowds out prevention",
+          "sharpestAxis": false
+        }
+      ]
+    },
+    {
+      "name": "The Shadow Healthcare System",
+      "theme": "Decentralization & Consumerization",
+      "neutralHeadline": "A parallel health system is growing.",
+      "description": "A parallel, largely unregulated, invisible health economy for those who distrust or can't access the mainstream.",
+      "keyUncertainties": [
+        {
+          "uncertainty": "Visible vs invisible shadow",
+          "question": "Can public health gain visibility into the shadow system (surveillance, harm reduction, engagement) so it becomes integrated and visible, or does it stay a permanent, entrenched blind spot?",
+          "poleA": "Shadow system integrated and visible",
+          "poleB": "Shadow system entrenched and invisible",
+          "sharpestAxis": true
+        },
+        {
+          "uncertainty": "Growth vs reabsorption",
+          "question": "Does the shadow system keep growing as trust and affordability erode, or does the mainstream reabsorb and regulate it back in as a legitimate channel?",
+          "poleA": "Shadow system keeps growing",
+          "poleB": "Reabsorbed and regulated into mainstream",
+          "sharpestAxis": false
+        },
+        {
+          "uncertainty": "Net harm vs net asset",
+          "question": "Is the shadow system net harm (unsafe, unmonitored, inequitable) or net asset (access and innovation for the excluded), or does it cut both ways depending on who uses it?",
+          "poleA": "Net asset: access for the excluded",
+          "poleB": "Net harm: unsafe and inequitable",
+          "sharpestAxis": false
+        }
+      ]
+    }
+  ]
+}
