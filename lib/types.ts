@@ -66,8 +66,26 @@ export interface Driver {
   uncertainties: Uncertainty[];
 }
 
+// A curated, cross-cutting workshop axis sitting above the driver-level uncertainties.
+// Has its own poles/question but no outcomes of its own; links back to source drivers
+// and the driver-level uncertainties it merges.
+export interface ScenarioUncertainty {
+  id: string;
+  workshopId: string; // "U01" … "U24"
+  label: string;
+  question: string;
+  poleA: string;
+  poleB: string;
+  capabilityDomain: string; // "Permission to Act" | "Capacity to Act" | "Ability to See" | …
+  whyItMatters: string;
+  identityImplication: string;
+  sourceDriverIds: string[]; // → Drivers
+  mappedUncertaintyIds: string[]; // → driver-level Uncertainties
+}
+
 export interface Model {
   drivers: Driver[];
+  scenarioUncertainties: ScenarioUncertainty[];
 }
 
 // Theme sort order the explorer uses.

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getModel, findUncertainty } from "@/lib/model";
+import { getModel, findScenarioUncertainty } from "@/lib/model";
 import { airtableConfigured } from "@/lib/airtable";
 import { NewSessionForm } from "@/components/workshop/NewSessionForm";
 
@@ -12,7 +12,7 @@ export default async function NewSessionPage({
 }) {
   const { u } = await searchParams;
   const { model } = await getModel();
-  const found = u ? findUncertainty(model, u) : null;
+  const found = u ? findScenarioUncertainty(model, u) : null;
 
   if (!airtableConfigured()) {
     return (
@@ -41,30 +41,40 @@ export default async function NewSessionPage({
           <Link href="/explore" className="font-semibold text-blue underline">
             Explore
           </Link>{" "}
-          and hit <span className="font-semibold">Run workshop →</span> on an uncertainty.
+          and hit <span className="font-semibold">Run workshop →</span> on a scenario
+          uncertainty.
         </p>
       </Shell>
     );
   }
 
-  const { driver, uncertainty } = found;
+  const { scenario, sourceDrivers } = found;
+  const eyebrow = [scenario.capabilityDomain, scenario.workshopId]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <Shell>
       <Link href="/explore" className="eyebrow blue">
         ← Back to Explore
       </Link>
-      <span className="eyebrow mt-4 block">{driver.name}</span>
+      <span className="eyebrow mt-4 block">{eyebrow}</span>
       <h1 className="mt-2 text-[30px] font-extrabold uppercase leading-[1.05] tracking-tight">
-        {uncertainty.label}
+        {scenario.label}
       </h1>
       <p className="serif mt-3 text-[19px] italic leading-[1.35] text-muted">
-        {uncertainty.question}
+        {scenario.question}
       </p>
+      {sourceDrivers.length > 0 && (
+        <p className="mt-3 text-[12px] text-muted">
+          <span className="font-bold uppercase tracking-[0.08em]">Drivers:</span>{" "}
+          {sourceDrivers.map((d) => d.name).join(" · ")}
+        </p>
+      )}
       <NewSessionForm
-        uncertaintyId={uncertainty.id}
-        defaultPrompt={uncertainty.question}
-        poleA={uncertainty.poleA}
-        poleB={uncertainty.poleB}
+        scenarioId={scenario.id}
+        defaultPrompt={scenario.question}
+        poleA={scenario.poleA}
+        poleB={scenario.poleB}
       />
     </Shell>
   );

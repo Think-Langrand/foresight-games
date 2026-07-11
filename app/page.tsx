@@ -4,13 +4,10 @@ import { MarkText } from "@/components/Mark";
 
 export default async function Home() {
   const { model, source } = await getModel();
-  const drivers = model.drivers.length;
-  let uncertainties = 0;
-  let outcomes = 0;
-  for (const d of model.drivers) {
-    uncertainties += d.uncertainties.length;
-    for (const u of d.uncertainties) outcomes += u.outcomes.length;
-  }
+  const scenarios = model.scenarioUncertainties.length;
+  const referencedDrivers = new Set(
+    model.scenarioUncertainties.flatMap((s) => s.sourceDriverIds)
+  ).size;
 
   return (
     <main className="mx-auto max-w-[980px] px-6 py-16 md:py-24">
@@ -32,20 +29,20 @@ export default async function Home() {
           href="/explore"
           eyebrow="Browse the model"
           title="Explore"
-          body="Step through the drivers and their uncertainties. See the outcomes each can resolve into, their alignment, and how they hit the systems maps."
+          body="Step through the drivers and the scenario uncertainties that cut across them: the poles each swings between, why it matters, and what it implies for public health's identity."
         />
         <EntryCard
           href="/workshop"
           eyebrow="Run it live"
           title="Workshop"
-          body="Open any uncertainty as a live session. Participants add ways it could play out and react to the outcomes on their phones; results land in Airtable and show on the screen."
+          body="Open any scenario uncertainty as a live session. Participants add ways it could play out and upvote the sharpest on their phones; results land in Airtable and show on the screen."
           accent
         />
       </div>
 
       <div className="mt-14 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-[var(--rule)] pt-5 text-[12px] text-muted">
         <span className="font-semibold">
-          {drivers} drivers · {uncertainties} uncertainties · {outcomes} outcomes
+          {referencedDrivers} drivers · {scenarios} scenario uncertainties
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span

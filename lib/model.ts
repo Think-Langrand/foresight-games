@@ -14,14 +14,21 @@ import {
   type Model,
   type Outcome,
   type Uncertainty,
+  type ScenarioUncertainty,
   type LoopImpact,
   type Direction,
   type Alignment,
   type Effect,
   type Magnitude,
 } from "@/lib/types";
+import type { ScenarioLite } from "@/lib/workshop-types";
 
-const SEED = seed as Model;
+// The bundled seed predates scenario uncertainties; default that slice to empty.
+const SEED: Model = {
+  drivers: (seed as { drivers: Driver[] }).drivers,
+  scenarioUncertainties:
+    (seed as { scenarioUncertainties?: ScenarioUncertainty[] }).scenarioUncertainties ?? [],
+};
 
 // ---- Airtable field row shapes (only the fields we read) ----
 type DriverRow = {
@@ -69,6 +76,18 @@ type LoopRow = {
   Subsystem?: string;
   Tag?: string;
 };
+type ScenarioUncertaintyRow = {
+  Uncertainty?: string;
+  Question?: string;
+  "Workshop ID"?: string;
+  "Capability domain"?: { name?: string } | string;
+  "Pole A"?: string;
+  "Pole B"?: string;
+  "Why it matters for scenarios"?: string;
+  "Identity implication"?: string;
+  "Source drivers"?: string[];
+  "Maps to uncertainties"?: string[];
+};
 
 const DIR_RANK: Record<string, number> = {
   Positive: 0,
@@ -81,7 +100,8 @@ function assemble(
   uncertainties: AirtableRecord<UncertaintyRow>[],
   outcomes: AirtableRecord<OutcomeRow>[],
   impacts: AirtableRecord<LoopImpactRow>[],
-  loops: AirtableRecord<LoopRow>[]
+  loops: AirtableRecord<LoopRow>[],
+  scenarios: AirtableRecord<ScenarioUncertaintyRow>[]
 ): Model {
   const loopById = new Map(loops.map((l) => [l.id, l.fields]));
   const impactById = new Map(impacts.map((im) => [im.id, im]));
@@ -175,7 +195,30 @@ function assemble(
     return Number(b.topRight) - Number(a.topRight);
   });
 
-  return { drivers: builtDrivers };
+  const selectName = (v: { name?: string } | string | undefined): string =>
+    typeof v === "string" ? v : v?.name ?? "";
+
+  const builtScenarios: ScenarioUncertainty[] = scenarios
+    .map((rec) => {
+      const f = rec.fields;
+      return {
+        id: rec.id,
+        workshopId: f["Workshop ID"] ?? "",
+        label: f.Uncertainty ?? "",
+        question: f.Question ?? "",
+        poleA: f["Pole A"] ?? "",
+        poleB: f["Pole B"] ?? "",
+        capabilityDomain: selectName(f["Capability domain"]),
+        whyItMatters: f["Why it matters for scenarios"] ?? "",
+        identityImplication: f["Identity implication"] ?? "",
+        sourceDriverIds: f["Source drivers"] ?? [],
+        mappedUncertaintyIds: f["Maps to uncertainties"] ?? [],
+      };
+    })
+    // Order by the curated U01…U24 workshop id when present.
+    .sort((a, b) => a.workshopId.localeCompare(b.workshopId));
+
+  return { drivers: builtDrivers, scenarioUncertainties: builtScenarios };
 }
 
 /**
@@ -188,14 +231,15 @@ export async function getModel(): Promise<{ model: Model; source: "airtable" | "
   }
   try {
     const revalidate = 300; // content is near-static during a workshop; refresh every 5 min
-    const [drivers, uncertainties, outcomes, impacts, loops] = await Promise.all([
+    const [drivers, uncertainties, outcomes, impacts, loops, scenarios] = await Promise.all([
       listRecords<DriverRow>(TABLES.drivers, { revalidate }),
       listRecords<UncertaintyRow>(TABLES.uncertainties, { revalidate }),
       listRecords<OutcomeRow>(TABLES.outcomes, { revalidate }),
       listRecords<LoopImpactRow>(TABLES.loopImpacts, { revalidate }),
       listRecords<LoopRow>(TABLES.loops, { revalidate }),
+      listRecords<ScenarioUncertaintyRow>(TABLES.scenarioUncertainties, { revalidate }),
     ]);
-    const model = assemble(drivers, uncertainties, outcomes, impacts, loops);
+    const model = assemble(drivers, uncertainties, outcomes, impacts, loops, scenarios);
     // Guard against an empty / mis-scoped base: fall back to seed rather than an empty app.
     if (model.drivers.length === 0) return { model: SEED, source: "seed" };
     return { model, source: "airtable" };
@@ -216,4 +260,51 @@ export function findUncertainty(model: Model, uncertaintyId: string) {
     if (uncertainty) return { driver, uncertainty };
   }
   return null;
+}
+
+/** Find a scenario uncertainty (and its source drivers) by id in a model. */
+export function findScenarioUncertainty(model: Model, scenarioId: string) {
+  const scenario = model.scenarioUncertainties.find((s) => s.id === scenarioId);
+  if (!scenario) return null;
+  const byId = new Map(model.drivers.map((d) => [d.id, d]));
+  const sourceDrivers = scenario.sourceDriverIds
+    .map((id) => byId.get(id))
+    .filter((d): d is Driver => Boolean(d));
+  return { scenario, sourceDrivers };
+}
+
+// Capability-domain order used across Explore and the live workshop views.
+export const CAPABILITY_DOMAIN_ORDER = [
+  "Permission to Act",
+  "Capacity to Act",
+  "Ability to See",
+  "Ability to Speak & Be Believed",
+  "Ability to Adapt",
+];
+
+/** Ordered, client-safe scenario list for the live views (domain order, then U##). */
+export function getScenarioList(model: Model): ScenarioLite[] {
+  const nameById = new Map(model.drivers.map((d) => [d.id, d.name]));
+  const rank = (domain: string) => {
+    const i = CAPABILITY_DOMAIN_ORDER.indexOf(domain);
+    return i === -1 ? 999 : i;
+  };
+  return model.scenarioUncertainties
+    .map((s) => ({
+      id: s.id,
+      workshopId: s.workshopId,
+      label: s.label,
+      question: s.question,
+      poleA: s.poleA,
+      poleB: s.poleB,
+      capabilityDomain: s.capabilityDomain,
+      driverNames: s.sourceDriverIds
+        .map((id) => nameById.get(id))
+        .filter((n): n is string => Boolean(n)),
+    }))
+    .sort(
+      (a, b) =>
+        rank(a.capabilityDomain) - rank(b.capabilityDomain) ||
+        a.workshopId.localeCompare(b.workshopId)
+    );
 }

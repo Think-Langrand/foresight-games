@@ -2,53 +2,62 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import type { Driver, Model, Uncertainty } from "@/lib/types";
+import type { Model, ScenarioUncertainty } from "@/lib/types";
 import { MarkText } from "@/components/Mark";
 import { Poles } from "@/components/Poles";
-import { OutcomeBlock } from "@/components/OutcomeBlock";
-import { ALIGN } from "@/lib/ui";
+
+// Curated capability-domain order (matches the Airtable single-select order).
+const DOMAIN_ORDER = [
+  "Permission to Act",
+  "Capacity to Act",
+  "Ability to See",
+  "Ability to Speak & Be Believed",
+  "Ability to Adapt",
+];
+
+function domainRank(name: string): number {
+  const i = DOMAIN_ORDER.indexOf(name);
+  return i === -1 ? 999 : i;
+}
 
 export function ExploreClient({ model }: { model: Model }) {
-  const drivers = model.drivers;
-  const keystone = drivers.find((d) => d.name === "The Receding Public") ?? drivers[0];
-  const [activeId, setActiveId] = useState(keystone.id);
+  const scenarios = model.scenarioUncertainties;
+  const driverNameById = useMemo(
+    () => new Map(model.drivers.map((d) => [d.id, d.name])),
+    [model.drivers]
+  );
+
   const [search, setSearch] = useState("");
-  const [topOnly, setTopOnly] = useState(false);
-  const [neutral, setNeutral] = useState(false);
-  const [openUnc, setOpenUnc] = useState<Record<string, boolean>>({});
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   const mainRef = useRef<HTMLElement>(null);
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  const active = drivers.find((d) => d.id === activeId) ?? keystone;
-
+  // Group scenarios by capability domain, in curated order.
   const groups = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const order: string[] = [];
-    drivers.forEach((d) => {
-      if (topOnly && !d.topRight) return;
-      if (q && !d.name.toLowerCase().includes(q)) return;
-      if (!order.includes(d.theme)) order.push(d.theme);
-    });
-    return order.map((theme) => ({
-      theme,
-      rows: drivers.filter(
-        (d) =>
-          d.theme === theme &&
-          (!topOnly || d.topRight) &&
-          (!q || d.name.toLowerCase().includes(q))
-      ),
-    }));
-  }, [drivers, search, topOnly]);
+    const byDomain = new Map<string, ScenarioUncertainty[]>();
+    for (const s of scenarios) {
+      if (
+        q &&
+        !s.label.toLowerCase().includes(q) &&
+        !s.question.toLowerCase().includes(q)
+      )
+        continue;
+      const key = s.capabilityDomain || "Other";
+      if (!byDomain.has(key)) byDomain.set(key, []);
+      byDomain.get(key)!.push(s);
+    }
+    return [...byDomain.entries()]
+      .map(([domain, rows]) => ({
+        domain,
+        rows: rows.sort((a, b) => a.workshopId.localeCompare(b.workshopId)),
+      }))
+      .sort((a, b) => domainRank(a.domain) - domainRank(b.domain));
+  }, [scenarios, search]);
 
-  function selectDriver(id: string) {
-    setActiveId(id);
-    setOpenUnc({});
-    if (mainRef.current) mainRef.current.scrollTop = 0;
+  function jumpTo(domain: string) {
+    sectionRefs.current[domain]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
-
-  const driverName = neutral && active.neutralName ? active.neutralName : active.name;
-  const driverHeadline =
-    neutral && active.neutralHeadline ? active.neutralHeadline : active.headline;
-  const driverShort = neutral && active.neutralReading ? active.neutralReading : active.short;
 
   return (
     <div className="flex h-screen w-full bg-paper">
@@ -60,7 +69,7 @@ export function ExploreClient({ model }: { model: Model }) {
         <div className="mt-3">
           <MarkText>
             <span className="text-[19px] font-extrabold uppercase leading-[1.05] tracking-tight">
-              Driver Explorer
+              Scenario Explorer
             </span>
           </MarkText>
         </div>
@@ -68,200 +77,113 @@ export function ExploreClient({ model }: { model: Model }) {
 
         <input
           className="mt-4 w-full rounded-[2px] border border-[var(--hairline)] bg-card px-[11px] py-[9px] text-[13px] outline-none focus:border-ink"
-          placeholder="Filter drivers…"
+          placeholder="Filter uncertainties…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          aria-label="Filter drivers"
+          aria-label="Filter scenario uncertainties"
         />
 
-        <div className="mt-3.5 flex items-center gap-2.5">
-          <button
-            className={"sq-toggle" + (topOnly ? " on" : "")}
-            onClick={() => setTopOnly((t) => !t)}
-            role="switch"
-            aria-checked={topOnly}
-            aria-label="Top-ranked only"
-          >
-            <span className="knob" />
-          </button>
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.12em]">
-            Top-ranked only
-          </span>
+        <div className="mt-6 mb-1.5 border-b border-[var(--hairline)] pb-[7px]">
+          <span className="eyebrow">Capability domains</span>
         </div>
-        <div className="mt-2.5 flex items-center gap-2.5">
-          <button
-            className={"sq-toggle" + (neutral ? " on" : "")}
-            onClick={() => setNeutral((t) => !t)}
-            role="switch"
-            aria-checked={neutral}
-            aria-label="Neutral framing"
-          >
-            <span className="knob" />
-          </button>
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.12em]">
-            Neutral framing
-          </span>
-        </div>
-
         {groups.map((g) => (
-          <div key={g.theme} className="mt-6">
-            <div className="mb-1.5 border-b border-[var(--hairline)] pb-[7px]">
-              <span className="eyebrow">{g.theme}</span>
-            </div>
-            {g.rows.map((d) => (
-              <SidebarRow
-                key={d.id}
-                d={d}
-                neutral={neutral}
-                active={d.id === activeId}
-                onClick={() => selectDriver(d.id)}
-              />
-            ))}
-          </div>
+          <button
+            key={g.domain}
+            onClick={() => jumpTo(g.domain)}
+            className="flex w-full items-center justify-between gap-2 rounded-[2px] px-2 py-[9px] text-left hover:bg-[rgba(36,36,34,0.045)]"
+          >
+            <span className="text-[13.5px] font-medium leading-[1.2]">{g.domain}</span>
+            <span className="flex-none rounded-[2px] border border-[var(--hairline)] bg-card px-[6px] py-[2px] text-[10px] font-bold text-muted">
+              {g.rows.length}
+            </span>
+          </button>
         ))}
         {groups.length === 0 && (
-          <div className="mt-6 text-[13px] text-muted">No drivers match.</div>
+          <div className="mt-6 text-[13px] text-muted">No uncertainties match.</div>
         )}
       </aside>
 
       {/* Main */}
       <main ref={mainRef} className="h-screen flex-1 overflow-y-auto">
         <div className="sticky top-0 z-20 border-b border-[var(--rule)] bg-paper px-11 pb-5 pt-6">
-          <span className="eyebrow blue">{active.theme}</span>
+          <span className="eyebrow blue">NNPHI · Foresight for Public Health</span>
           <h1 className="mt-2 text-[32px] font-extrabold uppercase leading-[1.02] tracking-tight">
-            <MarkText>{driverName}</MarkText>
+            <MarkText>Scenario Uncertainties</MarkText>
           </h1>
-          <div className="serif mt-3.5 text-[24px] font-medium leading-[1.28] text-ink">
-            {driverHeadline}
-          </div>
-          <div className="mt-2.5 max-w-[760px] text-[14.5px] text-muted">{driverShort}</div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {active.impact && <MiniTag>Impact: {active.impact}</MiniTag>}
-            {active.uncertainty && <MiniTag>Uncertainty: {active.uncertainty}</MiniTag>}
-            <AlignTally driver={active} />
+          <div className="mt-2.5 max-w-[760px] text-[14.5px] text-muted">
+            The genuinely open questions whose resolution shapes the scenarios, grouped by the
+            capability each one tests. Hit{" "}
+            <span className="font-semibold text-ink">Run workshop</span> on any of them to open
+            a live session.
           </div>
         </div>
 
         <div className="px-11 pb-16 pt-6">
-          <div className="mb-4 inline-block">
-            <span className="text-[12px] font-bold uppercase tracking-[0.14em]">
-              Key Uncertainties
-            </span>
-            <svg
-              className="mt-0.5 block h-[9px] w-16"
-              viewBox="0 0 64 12"
-              preserveAspectRatio="none"
-              aria-hidden="true"
+          {groups.map((g) => (
+            <section
+              key={g.domain}
+              ref={(el) => {
+                sectionRefs.current[g.domain] = el;
+              }}
+              className="mb-10 scroll-mt-[150px]"
             >
-              <path
-                d="M2 8 C 16 4, 32 9, 48 6 S 60 5, 62 8"
-                stroke="var(--lime)"
-                strokeWidth="6"
-                fill="none"
-                strokeLinecap="round"
-              />
-            </svg>
-          </div>
+              <div className="mb-4 inline-block">
+                <span className="text-[12px] font-bold uppercase tracking-[0.14em]">
+                  {g.domain}
+                </span>
+                <svg
+                  className="mt-0.5 block h-[9px] w-16"
+                  viewBox="0 0 64 12"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M2 8 C 16 4, 32 9, 48 6 S 60 5, 62 8"
+                    stroke="var(--lime)"
+                    strokeWidth="6"
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
 
-          <div className="flex flex-col gap-3.5">
-            {active.uncertainties.map((u) => (
-              <UncertaintyCard
-                key={u.id}
-                u={u}
-                open={!!openUnc[u.id]}
-                onToggle={() => setOpenUnc((s) => ({ ...s, [u.id]: !s[u.id] }))}
-              />
-            ))}
-          </div>
+              <div className="flex flex-col gap-3.5">
+                {g.rows.map((s) => (
+                  <ScenarioCard
+                    key={s.id}
+                    s={s}
+                    driverNameById={driverNameById}
+                    open={!!open[s.id]}
+                    onToggle={() => setOpen((o) => ({ ...o, [s.id]: !o[s.id] }))}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+          {groups.length === 0 && (
+            <div className="text-[13px] text-muted">No scenario uncertainties match.</div>
+          )}
         </div>
       </main>
     </div>
   );
 }
 
-function SidebarRow({
-  d,
-  neutral,
-  active,
-  onClick,
-}: {
-  d: Driver;
-  neutral: boolean;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const name = neutral && d.neutralName ? d.neutralName : d.name;
-  return (
-    <button
-      onClick={onClick}
-      aria-current={active ? "true" : undefined}
-      className="relative flex w-full items-start gap-2 rounded-[2px] px-2 py-[7px] text-left leading-[1.25] hover:bg-[rgba(36,36,34,0.045)]"
-    >
-      <span
-        className="mt-[5px] h-2 w-2 flex-none rotate-45 bg-lime-deep"
-        style={{ visibility: d.topRight ? "visible" : "hidden" }}
-      />
-      {active && (
-        <span
-          className="pointer-events-none absolute left-6 right-2 top-1.5 bottom-1.5 z-0 rounded-[1px] bg-lime"
-          style={{ mixBlendMode: "multiply" }}
-        />
-      )}
-      <span
-        className={
-          "relative z-[1] text-[13.5px] " + (active ? "font-bold" : "font-medium")
-        }
-      >
-        {name}
-      </span>
-    </button>
-  );
-}
-
-function MiniTag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-[2px] border border-[var(--hairline)] bg-card px-[7px] py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
-      {children}
-    </span>
-  );
-}
-
-function AlignTally({ driver }: { driver: Driver }) {
-  const t: Record<string, number> = {
-    "Self-aligned": 0,
-    "Engineered alignment": 0,
-    "Needs collective action": 0,
-    "Mixed / depends": 0,
-  };
-  driver.uncertainties.forEach((u) =>
-    u.outcomes.forEach((o) => {
-      if (t[o.alignment] !== undefined) t[o.alignment]++;
-    })
-  );
-  return (
-    <span className="ml-1 flex items-center gap-2.5">
-      {(Object.keys(t) as (keyof typeof ALIGN)[]).map((k) => (
-        <span key={k} className="flex items-center gap-1" title={k}>
-          <span
-            className="h-2.5 w-2.5 flex-none rounded-[1px]"
-            style={{ background: ALIGN[k].c }}
-          />
-          <span className="text-[11px] font-bold">{t[k]}</span>
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function UncertaintyCard({
-  u,
+function ScenarioCard({
+  s,
+  driverNameById,
   open,
   onToggle,
 }: {
-  u: Uncertainty;
+  s: ScenarioUncertainty;
+  driverNameById: Map<string, string>;
   open: boolean;
   onToggle: () => void;
 }) {
+  const hasBody = Boolean(s.whyItMatters || s.identityImplication);
+  const driverNames = s.sourceDriverIds
+    .map((id) => driverNameById.get(id))
+    .filter((n): n is string => Boolean(n));
   return (
     <div className="overflow-hidden rounded-[2px] border border-[var(--hairline)] bg-card">
       <div className="flex items-start gap-3 p-[18px]">
@@ -271,44 +193,70 @@ function UncertaintyCard({
           className="flex flex-1 items-start gap-3 text-left"
         >
           <span className="mt-[3px] w-3 flex-none text-[12px] text-muted">
-            {open ? "▾" : "▸"}
+            {hasBody ? (open ? "▾" : "▸") : ""}
           </span>
           <span className="min-w-0 flex-1">
             <span className="text-[16px] font-bold leading-[1.2] text-ink">
-              {u.label}
-              {u.sharpest && (
+              {s.label}
+              {s.workshopId && (
                 <span className="ml-2.5 inline-block rounded-[2px] bg-lime px-1.5 py-[3px] align-middle text-[9px] font-bold uppercase tracking-[0.1em] text-ink">
-                  Sharpest Axis
+                  {s.workshopId}
                 </span>
               )}
             </span>
             <div className="serif mt-1.5 text-[16px] italic leading-[1.35] text-muted">
-              {u.question}
+              {s.question}
             </div>
             <div className="mt-3">
-              <Poles a={u.poleA} b={u.poleB} />
+              <Poles a={s.poleA} b={s.poleB} />
             </div>
+            {driverNames.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-[9.5px] font-bold uppercase tracking-[0.1em] text-muted">
+                  Drivers
+                </span>
+                {driverNames.map((n) => (
+                  <span
+                    key={n}
+                    className="rounded-[2px] border border-[var(--hairline)] bg-paper px-[7px] py-[3px] text-[10px] font-semibold text-muted"
+                  >
+                    {n}
+                  </span>
+                ))}
+              </div>
+            )}
           </span>
         </button>
         <div className="flex flex-none flex-col items-end gap-2">
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted">
-            {u.outcomes.length} outcomes
-          </span>
           <Link
-            href={`/workshop/new?u=${u.id}`}
+            href={`/workshop/new?u=${s.id}`}
             className="whitespace-nowrap rounded-[2px] border border-ink bg-lime px-[10px] py-[6px] text-[10px] font-bold uppercase tracking-[0.09em] text-ink hover:bg-lime-deep"
           >
             Run workshop →
           </Link>
         </div>
       </div>
-      {open && (
-        <div className="flex flex-col gap-3 px-[18px] pb-4">
-          {u.outcomes.map((o) => (
-            <OutcomeBlock key={o.id} o={o} />
-          ))}
+      {open && hasBody && (
+        <div className="flex flex-col gap-4 border-t border-[var(--hairline)] px-[18px] py-4">
+          {s.whyItMatters && (
+            <Field label="Why it matters for scenarios">{s.whyItMatters}</Field>
+          )}
+          {s.identityImplication && (
+            <Field label="Identity implication">{s.identityImplication}</Field>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+        {label}
+      </div>
+      <div className="mt-1 text-[14px] leading-[1.5] text-ink">{children}</div>
     </div>
   );
 }

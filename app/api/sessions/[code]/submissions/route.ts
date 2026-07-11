@@ -12,7 +12,13 @@ export async function POST(
     return NextResponse.json({ error: "Airtable not configured." }, { status: 503 });
   }
   const { code } = await params;
-  let body: { text?: string; author?: string; lean?: Lean | null; participantId?: string };
+  let body: {
+    text?: string;
+    author?: string;
+    lean?: Lean | null;
+    participantId?: string;
+    scenarioUncertaintyId?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -32,7 +38,8 @@ export async function POST(
     const submission = await addSubmission({
       sessionId: session.id,
       code: session.code,
-      uncertaintyId: session.uncertaintyId,
+      // Tag with the uncertainty the participant is viewing; fall back to the session's.
+      uncertaintyId: body.scenarioUncertaintyId ?? session.uncertaintyId,
       text,
       author: (body.author ?? "").trim().slice(0, 60),
       lean: body.lean ?? null,

@@ -4,28 +4,34 @@ import {
   listRecords,
   createRecords,
   updateRecords,
+  deleteRecords,
   airtableConfigured,
   type AirtableRecord,
 } from "@/lib/airtable";
-import type {
-  WorkshopMode,
-  SessionStatus,
-  Lean,
-  ResponseKind,
-  WorkshopSession,
-  Submission,
-  OutcomeStat,
-  SessionResults,
+import {
+  emptyUncertaintyResult,
+  type WorkshopMode,
+  type SessionStatus,
+  type SessionScope,
+  type Pacing,
+  type Lean,
+  type ResponseKind,
+  type WorkshopSession,
+  type Submission,
+  type UncertaintyResult,
+  type SessionResults,
 } from "@/lib/workshop-types";
 
 export type {
   WorkshopMode,
   SessionStatus,
+  SessionScope,
+  Pacing,
   Lean,
   ResponseKind,
   WorkshopSession,
   Submission,
-  OutcomeStat,
+  UncertaintyResult,
   SessionResults,
 };
 
@@ -40,25 +46,30 @@ interface WorkshopResponse {
   id: string;
   kind: ResponseKind;
   submissionId: string | null;
-  outcomeId: string | null;
+  uncertaintyId: string | null;
   pollKey: string;
   value: string;
   valueNumber: number | null;
   participantId: string;
+  createdTime: string;
 }
+
+const link = (v: unknown): string | null =>
+  Array.isArray(v) && v.length ? (v[0] as string) : null;
 
 // ---------- record mappers ----------
 function mapSession(r: AirtableRecord): WorkshopSession {
   const f = r.fields as Record<string, unknown>;
-  const link = (v: unknown): string | null =>
-    Array.isArray(v) && v.length ? (v[0] as string) : null;
   return {
     id: r.id,
     code: (f["Code"] as string) ?? "",
     title: (f["Title"] as string) ?? "",
-    uncertaintyId: link(f["Uncertainty"]),
+    scope: ((f["Scope"] as string) ?? "Single") as SessionScope,
+    pacing: (f["Pacing"] as Pacing) ?? null,
+    // Current / the uncertainty (falls back to the legacy driver-level link).
+    uncertaintyId: link(f["Scenario Uncertainty"]) ?? link(f["Uncertainty"]),
     driverId: link(f["Driver"]),
-    mode: ((f["Mode"] as string) ?? "Both") as WorkshopMode,
+    mode: ((f["Mode"] as string) ?? "Divergent") as WorkshopMode,
     prompt: (f["Prompt"] as string) ?? "",
     status: ((f["Status"] as string) ?? "Open") as SessionStatus,
     facilitator: (f["Facilitator"] as string) ?? "",
@@ -89,7 +100,9 @@ export async function getSessionByCode(code: string): Promise<WorkshopSession | 
 }
 
 export async function createSession(input: {
-  uncertaintyId: string;
+  scope: SessionScope;
+  pacing?: Pacing | null;
+  uncertaintyId: string | null; // the one (Single) or the starting current (Full)
   driverId?: string | null;
   mode: WorkshopMode;
   prompt: string;
@@ -106,11 +119,13 @@ export async function createSession(input: {
   const fields: Record<string, unknown> = {
     Title: input.title,
     Code: code,
-    Uncertainty: [input.uncertaintyId],
+    Scope: input.scope,
     Mode: input.mode,
     Prompt: input.prompt,
     Status: "Open",
   };
+  if (input.uncertaintyId) fields["Scenario Uncertainty"] = [input.uncertaintyId];
+  if (input.pacing) fields.Pacing = input.pacing;
   if (input.driverId) fields.Driver = [input.driverId];
   if (input.facilitator) fields.Facilitator = input.facilitator;
   const [rec] = await createRecords(WT.sessions, [{ fields }]);
@@ -121,12 +136,19 @@ export async function createSession(input: {
 export async function updateSession(
   id: string,
   code: string,
-  patch: Partial<{ mode: WorkshopMode; status: SessionStatus; prompt: string }>
+  patch: Partial<{
+    mode: WorkshopMode;
+    status: SessionStatus;
+    prompt: string;
+    currentUncertaintyId: string; // advance the facilitator's pointer
+  }>
 ): Promise<void> {
   const fields: Record<string, unknown> = {};
   if (patch.mode) fields.Mode = patch.mode;
   if (patch.status) fields.Status = patch.status;
   if (patch.prompt !== undefined) fields.Prompt = patch.prompt;
+  if (patch.currentUncertaintyId)
+    fields["Scenario Uncertainty"] = [patch.currentUncertaintyId];
   if (Object.keys(fields).length === 0) return;
   await updateRecords(WT.sessions, [{ id, fields }]);
   invalidate(code);
@@ -150,7 +172,7 @@ export async function addSubmission(input: {
     "Participant ID": input.participantId,
     Upvotes: 0,
   };
-  if (input.uncertaintyId) fields.Uncertainty = [input.uncertaintyId];
+  if (input.uncertaintyId) fields["Scenario Uncertainty"] = [input.uncertaintyId];
   if (input.lean) fields.Lean = input.lean;
   const [rec] = await createRecords(WT.submissions, [{ fields }]);
   invalidate(input.code);
@@ -169,10 +191,10 @@ export async function addSubmission(input: {
 export async function addResponse(input: {
   sessionId: string;
   code: string;
+  uncertaintyId: string | null;
   participantId: string;
   kind: ResponseKind;
   submissionId?: string | null;
-  outcomeId?: string | null;
   pollKey?: string;
   value?: string;
   valueNumber?: number | null;
@@ -185,13 +207,30 @@ export async function addResponse(input: {
     "Participant ID": input.participantId,
     Kind: input.kind,
   };
+  if (input.uncertaintyId) fields["Scenario Uncertainty"] = [input.uncertaintyId];
   if (input.submissionId) fields.Submission = [input.submissionId];
-  if (input.outcomeId) fields.Outcome = [input.outcomeId];
   if (input.pollKey) fields["Poll Key"] = input.pollKey;
   if (input.value !== undefined) fields.Value = input.value;
   if (input.valueNumber !== undefined && input.valueNumber !== null)
     fields["Value Number"] = input.valueNumber;
   await createRecords(WT.responses, [{ fields }]);
+  invalidate(input.code);
+}
+
+// Toggle off: remove this participant's upvote(s) for a submission.
+export async function removeUpvote(input: {
+  code: string;
+  participantId: string;
+  submissionId: string;
+}): Promise<void> {
+  const recs = await listRecords(WT.responses, {
+    filterByFormula: `AND({Session Code}='${input.code}', {Participant ID}='${input.participantId}', {Kind}='Upvote submission')`,
+    revalidate: false,
+  });
+  const ids = recs
+    .filter((r) => link((r.fields as Record<string, unknown>)["Submission"]) === input.submissionId)
+    .map((r) => r.id);
+  if (ids.length) await deleteRecords(WT.responses, ids);
   invalidate(input.code);
 }
 
@@ -208,101 +247,89 @@ async function computeResults(session: WorkshopSession): Promise<SessionResults>
     }),
   ]);
 
-  const responses: WorkshopResponse[] = respRecs.map((r) => {
-    const f = r.fields as Record<string, unknown>;
-    const link = (v: unknown): string | null =>
-      Array.isArray(v) && v.length ? (v[0] as string) : null;
-    return {
-      id: r.id,
-      kind: (f["Kind"] as ResponseKind) ?? "Poll answer",
-      submissionId: link(f["Submission"]),
-      outcomeId: link(f["Outcome"]),
-      pollKey: (f["Poll Key"] as string) ?? "",
-      value: (f["Value"] as string) ?? "",
-      valueNumber:
-        typeof f["Value Number"] === "number" ? (f["Value Number"] as number) : null,
-      participantId: (f["Participant ID"] as string) ?? "",
-    };
-  });
-
-  // upvote counts per submission
-  const upvotes: Record<string, number> = {};
-  for (const r of responses) {
-    if (r.kind === "Upvote submission" && r.submissionId) {
-      upvotes[r.submissionId] = (upvotes[r.submissionId] ?? 0) + 1;
-    }
-  }
-
-  const submissions: Submission[] = subRecs
+  const responses: WorkshopResponse[] = respRecs
     .map((r) => {
       const f = r.fields as Record<string, unknown>;
       return {
         id: r.id,
-        text: (f["Text"] as string) ?? "",
-        author: (f["Author"] as string) ?? "",
-        lean: (f["Lean"] as Lean) ?? null,
+        kind: (f["Kind"] as ResponseKind) ?? "Poll answer",
+        submissionId: link(f["Submission"]),
+        uncertaintyId: link(f["Scenario Uncertainty"]),
+        pollKey: (f["Poll Key"] as string) ?? "",
+        value: (f["Value"] as string) ?? "",
+        valueNumber:
+          typeof f["Value Number"] === "number" ? (f["Value Number"] as number) : null,
         participantId: (f["Participant ID"] as string) ?? "",
         createdTime: r.createdTime,
-        upvotes: upvotes[r.id] ?? 0,
       };
     })
-    .sort((a, b) => b.upvotes - a.upvotes || a.createdTime.localeCompare(b.createdTime));
+    // Oldest → newest, so "last write wins" for editable poll answers.
+    .sort((a, b) => a.createdTime.localeCompare(b.createdTime));
 
-  // pole-lean poll
-  const poleLean: Record<Lean, number> = {
-    "Toward Pole A": 0,
-    "Toward Pole B": 0,
-    "Neither / both": 0,
+  // upvote counts per submission — distinct participants (so a re-vote never double-counts)
+  const upvoters: Record<string, Set<string>> = {};
+  for (const r of responses) {
+    if (r.kind === "Upvote submission" && r.submissionId) {
+      (upvoters[r.submissionId] ??= new Set()).add(r.participantId);
+    }
+  }
+  const upvotes: Record<string, number> = {};
+  for (const [sid, set] of Object.entries(upvoters)) upvotes[sid] = set.size;
+
+  const byUncertainty: Record<string, UncertaintyResult> = {};
+  const bucket = (uid: string): UncertaintyResult => {
+    if (!byUncertainty[uid]) byUncertainty[uid] = emptyUncertaintyResult();
+    return byUncertainty[uid];
   };
+  // Fallback uncertainty for records created before per-uncertainty tagging.
+  const fallbackUid = session.uncertaintyId ?? "unknown";
+
+  for (const r of subRecs) {
+    const f = r.fields as Record<string, unknown>;
+    const uid = link(f["Scenario Uncertainty"]) ?? fallbackUid;
+    bucket(uid).submissions.push({
+      id: r.id,
+      text: (f["Text"] as string) ?? "",
+      author: (f["Author"] as string) ?? "",
+      lean: (f["Lean"] as Lean) ?? null,
+      participantId: (f["Participant ID"] as string) ?? "",
+      createdTime: r.createdTime,
+      upvotes: upvotes[r.id] ?? 0,
+    });
+  }
+
+  // pole-lean poll, per uncertainty — keep each participant's latest answer only
+  // (responses are sorted oldest→newest, so the last one written wins).
+  const latestLean = new Map<string, { uid: string; value: Lean }>();
   for (const r of responses) {
     if (r.kind === "Poll answer" && r.pollKey === "pole-lean") {
-      const v = r.value as Lean;
-      if (v in poleLean) poleLean[v]++;
+      const uid = r.uncertaintyId ?? fallbackUid;
+      latestLean.set(`${uid}|${r.participantId}`, { uid, value: r.value as Lean });
     }
+  }
+  for (const { uid, value } of latestLean.values()) {
+    const pl = bucket(uid).poleLean;
+    if (value in pl) pl[value]++;
   }
 
-  // per-outcome reaction stats
-  const outcomeStats: Record<string, OutcomeStat> = {};
-  const ensure = (id: string): OutcomeStat => {
-    if (!outcomeStats[id])
-      outcomeStats[id] = {
-        plausibility: { count: 0, avg: null, dist: {} },
-        desirability: { count: 0, avg: null, dist: {} },
-      };
-    return outcomeStats[id];
-  };
-  for (const r of responses) {
-    if (r.kind !== "Outcome reaction" || !r.outcomeId || r.valueNumber === null) continue;
-    const stat = ensure(r.outcomeId);
-    const bucket =
-      r.pollKey === "desirability" ? stat.desirability : stat.plausibility;
-    bucket.count++;
-    bucket.dist[r.valueNumber] = (bucket.dist[r.valueNumber] ?? 0) + 1;
-  }
-  for (const id of Object.keys(outcomeStats)) {
-    for (const key of ["plausibility", "desirability"] as const) {
-      const b = outcomeStats[id][key];
-      let sum = 0;
-      let n = 0;
-      for (const [val, cnt] of Object.entries(b.dist)) {
-        sum += Number(val) * cnt;
-        n += cnt;
-      }
-      b.avg = n ? sum / n : null;
-    }
+  // sort + counts per uncertainty
+  for (const uid of Object.keys(byUncertainty)) {
+    const b = byUncertainty[uid];
+    b.submissions.sort(
+      (a, c) => c.upvotes - a.upvotes || a.createdTime.localeCompare(c.createdTime)
+    );
+    b.submissionCount = b.submissions.length;
   }
 
   const participants = new Set<string>();
-  submissions.forEach((s) => s.participantId && participants.add(s.participantId));
+  for (const b of Object.values(byUncertainty))
+    b.submissions.forEach((s) => s.participantId && participants.add(s.participantId));
   responses.forEach((r) => r.participantId && participants.add(r.participantId));
 
   return {
     session,
     participantCount: participants.size,
-    submissions,
-    poleLean,
-    outcomeStats,
-    submissionCount: submissions.length,
+    byUncertainty,
     responseCount: responses.length,
     fetchedAt: Date.now(),
   };

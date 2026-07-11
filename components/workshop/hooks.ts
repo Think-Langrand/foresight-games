@@ -73,7 +73,13 @@ export function useSessionView(code: string, intervalMs = 2500) {
 // ---- write helpers ----
 export async function postSubmission(
   code: string,
-  body: { text: string; author: string; lean: string | null; participantId: string }
+  body: {
+    text: string;
+    author: string;
+    lean: string | null;
+    participantId: string;
+    scenarioUncertaintyId?: string;
+  }
 ) {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/submissions`, {
     method: "POST",
@@ -90,7 +96,7 @@ export async function postResponse(
     kind: string;
     participantId: string;
     submissionId?: string | null;
-    outcomeId?: string | null;
+    scenarioUncertaintyId?: string;
     pollKey?: string;
     value?: string;
     valueNumber?: number | null;
@@ -106,9 +112,22 @@ export async function postResponse(
   return res.json();
 }
 
+export async function deleteUpvote(
+  code: string,
+  body: { participantId: string; submissionId: string }
+) {
+  const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/responses`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
 export async function patchSession(
   code: string,
-  body: { mode?: string; status?: string; prompt?: string }
+  body: { status?: string; prompt?: string; currentUncertaintyId?: string }
 ) {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}`, {
     method: "PATCH",

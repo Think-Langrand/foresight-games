@@ -126,10 +126,27 @@ export async function updateRecords<F = Record<string, unknown>>(
   return updated;
 }
 
+export async function deleteRecords(table: string, ids: string[]): Promise<void> {
+  for (let i = 0; i < ids.length; i += 10) {
+    const batch = ids.slice(i, i + 10);
+    const params = new URLSearchParams();
+    batch.forEach((id) => params.append("records[]", id));
+    const res = await fetch(
+      `${API}/${AIRTABLE_BASE_ID}/${encodeURIComponent(table)}?${params}`,
+      { method: "DELETE", headers: headers(), cache: "no-store" }
+    );
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Airtable delete ${table} failed: ${res.status} ${body.slice(0, 300)}`);
+    }
+  }
+}
+
 // Table ids for the NNPHI base (stable across renames).
 export const TABLES = {
   drivers: "tblZR59af1NuvIFV2",
   uncertainties: "tblKUDDCUuYexX0XV",
+  scenarioUncertainties: "tblzqxc5plqJbtL6N",
   outcomes: "tblbUJE9HxNvtIqDL",
   loopImpacts: "tblqdBPTYjjEHUujK",
   loops: "tblpi7WizRFfjyVMu",

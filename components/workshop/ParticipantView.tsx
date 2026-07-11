@@ -7,37 +7,74 @@ import {
   useSessionView,
   postSubmission,
   postResponse,
+  deleteUpvote,
 } from "@/components/workshop/hooks";
 import { Poles } from "@/components/Poles";
-import type { Lean } from "@/lib/workshop-types";
-import { dirColor } from "@/lib/ui";
+import type { Lean, ScenarioLite } from "@/lib/workshop-types";
 
-// localStorage-backed set for gating one-shot actions per session/device.
+// localStorage-backed set, per session/uncertainty/device. Supports toggling entries.
 function useLocalSet(key: string) {
   const [set, setSet] = useState<Set<string>>(new Set());
   useEffect(() => {
     try {
       const raw = localStorage.getItem(key);
-      if (raw) setSet(new Set(JSON.parse(raw)));
-    } catch {}
+      setSet(raw ? new Set(JSON.parse(raw)) : new Set());
+    } catch {
+      setSet(new Set());
+    }
   }, [key]);
-  const add = useCallback(
-    (v: string) =>
+  const write = useCallback(
+    (mutate: (next: Set<string>) => void) =>
       setSet((prev) => {
         const next = new Set(prev);
-        next.add(v);
+        mutate(next);
         localStorage.setItem(key, JSON.stringify([...next]));
         return next;
       }),
     [key]
   );
-  return { set, add };
+  const add = useCallback((v: string) => write((n) => n.add(v)), [write]);
+  const remove = useCallback((v: string) => write((n) => n.delete(v)), [write]);
+  return { set, add, remove };
 }
 
-export function ParticipantView({ code }: { code: string }) {
+// localStorage-backed single value (for a poll answer the participant can change).
+function useLocalValue(key: string) {
+  const [value, setValue] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setValue(localStorage.getItem(key));
+    } catch {
+      setValue(null);
+    }
+  }, [key]);
+  const save = useCallback(
+    (v: string) => {
+      setValue(v);
+      localStorage.setItem(key, v);
+    },
+    [key]
+  );
+  return { value, save };
+}
+
+export function ParticipantView({
+  code,
+  scenarios,
+}: {
+  code: string;
+  scenarios: ScenarioLite[];
+}) {
   const { pid, nick, saveNick } = useParticipant();
   const { view, error, loading, refresh } = useSessionView(code, 3000);
   const [nickDraft, setNickDraft] = useState("");
+  const [selfIndex, setSelfIndex] = useState(0); // participant-paced position
+  const [showJump, setShowJump] = useState(false);
+
+  const byId = useMemo(
+    () => new Map(scenarios.map((s) => [s.id, s])),
+    [scenarios]
+  );
 
   useEffect(() => {
     setNickDraft(nick);
@@ -58,35 +95,92 @@ export function ParticipantView({ code }: { code: string }) {
     );
   if (!view) return null;
 
-  const { session, context } = view;
+  const { session } = view;
   const closed = session.status === "Closed";
-  const mode = session.mode;
-  const showDivergent = mode === "Divergent" || mode === "Both";
-  const showConvergent = mode === "Convergent" || mode === "Both";
+  const isFull = session.scope === "Full";
+  const participantPaced = isFull && session.pacing === "Participant-paced";
+
+  // Which uncertainty this participant is on right now.
+  const activeId = participantPaced
+    ? scenarios[Math.min(selfIndex, scenarios.length - 1)]?.id ?? ""
+    : session.uncertaintyId ?? "";
+  const active = byId.get(activeId);
+  const results = view.byUncertainty[activeId] ?? {
+    submissions: [],
+    poleLean: { "Toward Pole A": 0, "Toward Pole B": 0, "Neither / both": 0 },
+    submissionCount: 0,
+  };
+  const position = scenarios.findIndex((s) => s.id === activeId);
 
   return (
     <main className="mx-auto min-h-screen max-w-[560px] px-5 pb-24 pt-6">
       <div className="flex items-center justify-between">
-        <span className="eyebrow blue">{context?.driverName}</span>
+        <span className="eyebrow blue">
+          {active?.capabilityDomain || active?.driverNames[0] || "Workshop"}
+        </span>
         <span className="rounded-[2px] border border-ink bg-lime px-2 py-1 text-[11px] font-bold uppercase tracking-[0.14em]">
           {code}
         </span>
       </div>
-      <h1 className="mt-2 text-[24px] font-extrabold uppercase leading-[1.08] tracking-tight">
-        {context?.uncertaintyLabel}
-      </h1>
-      <p className="serif mt-2 text-[17px] italic leading-[1.35] text-muted">
-        {session.prompt}
-      </p>
-      {context && (
-        <div className="mt-4">
-          <Poles a={context.poleA} b={context.poleB} />
+
+      {/* Full-session navigation / progress */}
+      {isFull && (
+        <div className="mt-3 rounded-[2px] border border-[var(--hairline)] bg-card px-3 py-2.5">
+          {participantPaced ? (
+            <div className="flex items-center gap-2">
+              <NavBtn
+                disabled={position <= 0}
+                onClick={() => setSelfIndex((i) => Math.max(0, i - 1))}
+              >
+                ← Prev
+              </NavBtn>
+              <button
+                onClick={() => setShowJump((s) => !s)}
+                className="flex-1 text-center text-[11px] font-bold uppercase tracking-[0.08em] text-muted"
+              >
+                {position + 1} / {scenarios.length} · {active?.workshopId}
+              </button>
+              <NavBtn
+                disabled={position >= scenarios.length - 1}
+                onClick={() =>
+                  setSelfIndex((i) => Math.min(scenarios.length - 1, i + 1))
+                }
+              >
+                Next →
+              </NavBtn>
+            </div>
+          ) : (
+            <div className="text-center text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+              Following facilitator · {active?.workshopId} · {position + 1} /{" "}
+              {scenarios.length}
+            </div>
+          )}
+          {participantPaced && showJump && (
+            <JumpList
+              scenarios={scenarios}
+              activeId={activeId}
+              onPick={(idx) => {
+                setSelfIndex(idx);
+                setShowJump(false);
+              }}
+            />
+          )}
         </div>
       )}
 
-      {closed && (
-        <Banner>This session is closed. Thanks for taking part.</Banner>
+      <h1 className="mt-3 text-[24px] font-extrabold uppercase leading-[1.08] tracking-tight">
+        {active?.label}
+      </h1>
+      <p className="serif mt-2 text-[17px] italic leading-[1.35] text-muted">
+        {active?.question}
+      </p>
+      {active && (
+        <div className="mt-4">
+          <Poles a={active.poleA} b={active.poleB} />
+        </div>
       )}
+
+      {closed && <Banner>This session is closed. Thanks for taking part.</Banner>}
 
       {!nick && (
         <div className="mt-6 rounded-[3px] border border-[var(--hairline)] bg-card p-4">
@@ -108,50 +202,92 @@ export function ParticipantView({ code }: { code: string }) {
         </div>
       )}
 
-      {context && (
+      {active && (
         <PoleLeanPoll
+          key={`pole-${activeId}`}
           code={code}
           pid={pid}
-          labelA={context.poleA}
-          labelB={context.poleB}
+          uncertaintyId={activeId}
+          labelA={active.poleA}
+          labelB={active.poleB}
           disabled={closed}
           onDone={refresh}
         />
       )}
 
-      {showDivergent && context && (
+      {active && (
         <DivergentSection
+          key={`div-${activeId}`}
           code={code}
           pid={pid}
           nick={nick}
-          labelA={context.poleA}
-          labelB={context.poleB}
-          submissions={view.submissions}
-          disabled={closed}
-          onChange={refresh}
-        />
-      )}
-
-      {showConvergent && context && (
-        <ConvergentSection
-          code={code}
-          pid={pid}
-          outcomes={context.outcomes}
+          uncertaintyId={activeId}
+          labelA={active.poleA}
+          labelB={active.poleB}
+          submissions={results.submissions}
           disabled={closed}
           onChange={refresh}
         />
       )}
 
       <div className="mt-10 text-center text-[11px] text-muted">
-        {view.participantCount} in the room · {view.submissionCount} ideas
+        {view.participantCount} in the room · {results.submissionCount} ideas here
       </div>
     </main>
+  );
+}
+
+function NavBtn({
+  children,
+  disabled,
+  onClick,
+}: {
+  children: React.ReactNode;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-[2px] border border-ink bg-paper px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
+function JumpList({
+  scenarios,
+  activeId,
+  onPick,
+}: {
+  scenarios: ScenarioLite[];
+  activeId: string;
+  onPick: (idx: number) => void;
+}) {
+  return (
+    <div className="mt-3 max-h-[280px] overflow-y-auto border-t border-[var(--hairline)] pt-2">
+      {scenarios.map((s, idx) => (
+        <button
+          key={s.id}
+          onClick={() => onPick(idx)}
+          className={
+            "block w-full rounded-[2px] px-2 py-1.5 text-left text-[12.5px] leading-[1.25] " +
+            (s.id === activeId ? "bg-lime font-bold" : "hover:bg-[rgba(36,36,34,0.05)]")
+          }
+        >
+          <span className="text-muted">{s.workshopId}</span> {s.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
 function PoleLeanPoll({
   code,
   pid,
+  uncertaintyId,
   labelA,
   labelB,
   disabled,
@@ -159,27 +295,32 @@ function PoleLeanPoll({
 }: {
   code: string;
   pid: string;
+  uncertaintyId: string;
   labelA: string;
   labelB: string;
   disabled: boolean;
   onDone: () => void;
 }) {
-  const { set, add } = useLocalSet(`fpw:${code}:pole`);
-  const answered = set.has("done");
-  const [picked, setPicked] = useState<Lean | null>(null);
+  const { value: picked, save } = useLocalValue(`fpw:${code}:${uncertaintyId}:pole`);
+  const [busy, setBusy] = useState(false);
 
   async function pick(v: Lean) {
-    if (disabled || answered) return;
-    setPicked(v);
-    add("done");
-    await postResponse(code, {
-      kind: "Poll answer",
-      participantId: pid,
-      pollKey: "pole-lean",
-      value: v,
-      label: `Pole lean · ${v}`,
-    });
-    onDone();
+    if (disabled || busy || v === picked) return;
+    setBusy(true);
+    save(v);
+    try {
+      await postResponse(code, {
+        kind: "Poll answer",
+        participantId: pid,
+        scenarioUncertaintyId: uncertaintyId,
+        pollKey: "pole-lean",
+        value: v,
+        label: `Pole lean · ${v}`,
+      });
+      onDone();
+    } finally {
+      setBusy(false);
+    }
   }
 
   const opts: { v: Lean; label: string }[] = [
@@ -195,8 +336,9 @@ function PoleLeanPoll({
         {opts.map((o) => (
           <button
             key={o.v}
-            disabled={disabled || answered}
+            disabled={disabled || busy}
             onClick={() => pick(o.v)}
+            aria-pressed={picked === o.v}
             className={
               "rounded-[2px] border px-4 py-3 text-left text-[13.5px] font-semibold transition-colors " +
               (picked === o.v
@@ -208,8 +350,10 @@ function PoleLeanPoll({
           </button>
         ))}
       </div>
-      {answered && (
-        <div className="mt-2 text-[11px] font-semibold text-muted">Recorded. Thanks.</div>
+      {picked && (
+        <div className="mt-2 text-[11px] font-semibold text-muted">
+          Recorded — tap another to change your answer.
+        </div>
       )}
     </section>
   );
@@ -219,6 +363,7 @@ function DivergentSection({
   code,
   pid,
   nick,
+  uncertaintyId,
   labelA,
   labelB,
   submissions,
@@ -228,6 +373,7 @@ function DivergentSection({
   code: string;
   pid: string;
   nick: string;
+  uncertaintyId: string;
   labelA: string;
   labelB: string;
   submissions: { id: string; text: string; author: string; lean: Lean | null; upvotes: number }[];
@@ -237,7 +383,11 @@ function DivergentSection({
   const [text, setText] = useState("");
   const [lean, setLean] = useState<Lean | "">("");
   const [busy, setBusy] = useState(false);
-  const { set: upvoted, add: addUpvote } = useLocalSet(`fpw:${code}:upvotes`);
+  const {
+    set: upvoted,
+    add: addUpvote,
+    remove: removeUpvoteLocal,
+  } = useLocalSet(`fpw:${code}:${uncertaintyId}:upvotes`);
 
   async function submit() {
     const t = text.trim();
@@ -249,6 +399,7 @@ function DivergentSection({
         author: nick,
         lean: lean || null,
         participantId: pid,
+        scenarioUncertaintyId: uncertaintyId,
       });
       setText("");
       setLean("");
@@ -258,15 +409,21 @@ function DivergentSection({
     }
   }
 
-  async function upvote(id: string) {
-    if (upvoted.has(id) || disabled) return;
-    addUpvote(id);
-    await postResponse(code, {
-      kind: "Upvote submission",
-      participantId: pid,
-      submissionId: id,
-      label: "Upvote",
-    });
+  async function toggleUpvote(id: string) {
+    if (disabled) return;
+    if (upvoted.has(id)) {
+      removeUpvoteLocal(id);
+      await deleteUpvote(code, { participantId: pid, submissionId: id });
+    } else {
+      addUpvote(id);
+      await postResponse(code, {
+        kind: "Upvote submission",
+        participantId: pid,
+        scenarioUncertaintyId: uncertaintyId,
+        submissionId: id,
+        label: "Upvote",
+      });
+    }
     onChange();
   }
 
@@ -308,15 +465,17 @@ function DivergentSection({
             className="flex items-start gap-3 rounded-[2px] border border-[var(--hairline)] bg-card p-3"
           >
             <button
-              onClick={() => upvote(s.id)}
-              disabled={upvoted.has(s.id) || disabled}
+              onClick={() => toggleUpvote(s.id)}
+              disabled={disabled}
+              aria-pressed={upvoted.has(s.id)}
               className={
                 "flex flex-none flex-col items-center rounded-[2px] border px-2.5 py-1.5 text-[11px] font-bold transition-colors " +
                 (upvoted.has(s.id)
                   ? "border-lime-deep bg-lime"
                   : "border-[var(--hairline)] hover:border-ink disabled:opacity-50")
               }
-              aria-label="Upvote"
+              aria-label={upvoted.has(s.id) ? "Remove upvote" : "Upvote"}
+              title={upvoted.has(s.id) ? "Tap to remove your vote" : "Upvote"}
             >
               <span className="text-[12px] leading-none">▲</span>
               <span className="mt-0.5 tabular-nums">{s.upvotes}</span>
@@ -332,146 +491,6 @@ function DivergentSection({
         ))}
       </div>
     </section>
-  );
-}
-
-function ConvergentSection({
-  code,
-  pid,
-  outcomes,
-  disabled,
-  onChange,
-}: {
-  code: string;
-  pid: string;
-  outcomes: { id: string; label: string; direction: string; narrative: string }[];
-  disabled: boolean;
-  onChange: () => void;
-}) {
-  return (
-    <section className="mt-9">
-      <span className="eyebrow ink">React to the outcomes</span>
-      <div className="mt-3 flex flex-col gap-4">
-        {outcomes.map((o) => (
-          <OutcomeRater
-            key={o.id}
-            code={code}
-            pid={pid}
-            outcome={o}
-            disabled={disabled}
-            onChange={onChange}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function OutcomeRater({
-  code,
-  pid,
-  outcome,
-  disabled,
-  onChange,
-}: {
-  code: string;
-  pid: string;
-  outcome: { id: string; label: string; direction: string; narrative: string };
-  disabled: boolean;
-  onChange: () => void;
-}) {
-  const { set, add } = useLocalSet(`fpw:${code}:react:${outcome.id}`);
-  const dc = dirColor(outcome.direction);
-
-  async function rate(pollKey: "plausibility" | "desirability", n: number) {
-    if (disabled || set.has(pollKey)) return;
-    add(pollKey);
-    await postResponse(code, {
-      kind: "Outcome reaction",
-      participantId: pid,
-      outcomeId: outcome.id,
-      pollKey,
-      valueNumber: n,
-      label: `${pollKey} ${n} · ${outcome.label}`,
-    });
-    onChange();
-  }
-
-  return (
-    <div
-      className="rounded-r-[2px] bg-card px-4 py-3"
-      style={{ borderLeft: `3px solid ${dc}` }}
-    >
-      <div className="text-[15px] font-bold">{outcome.label}</div>
-      <div className="mt-1 text-[13px] leading-[1.45] text-muted">{outcome.narrative}</div>
-      <RatingRow
-        label="How plausible?"
-        lowLabel="Unlikely"
-        highLabel="Very likely"
-        answered={set.has("plausibility")}
-        disabled={disabled}
-        onPick={(n) => rate("plausibility", n)}
-      />
-      <RatingRow
-        label="Good or bad for public health?"
-        lowLabel="Bad"
-        highLabel="Good"
-        answered={set.has("desirability")}
-        disabled={disabled}
-        onPick={(n) => rate("desirability", n)}
-      />
-    </div>
-  );
-}
-
-function RatingRow({
-  label,
-  lowLabel,
-  highLabel,
-  answered,
-  disabled,
-  onPick,
-}: {
-  label: string;
-  lowLabel: string;
-  highLabel: string;
-  answered: boolean;
-  disabled: boolean;
-  onPick: (n: number) => void;
-}) {
-  const [picked, setPicked] = useState<number | null>(null);
-  return (
-    <div className="mt-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
-          {label}
-        </span>
-      </div>
-      <div className="mt-1.5 flex items-center gap-1.5">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            disabled={disabled || answered}
-            onClick={() => {
-              setPicked(n);
-              onPick(n);
-            }}
-            className={
-              "h-9 flex-1 rounded-[2px] border text-[13px] font-bold transition-colors " +
-              (picked === n
-                ? "border-ink bg-lime"
-                : "border-[var(--hairline)] bg-paper hover:border-ink disabled:opacity-50")
-            }
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      <div className="mt-1 flex justify-between text-[9.5px] font-semibold uppercase tracking-[0.05em] text-muted">
-        <span>{lowLabel}</span>
-        <span>{highLabel}</span>
-      </div>
-    </div>
   );
 }
 
