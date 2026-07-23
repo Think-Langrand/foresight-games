@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { TeamResult } from "@/components/workshop/TeamResult";
 import { roleHex } from "@/components/workshop/CardArt";
 import { teamTriadIds, type Card, type Team } from "@/lib/workshop-types";
 import type { DriverLite } from "@/lib/drivers-shared";
 
 export function AdminCardsSession({
-  code,
   teams,
   deck,
   drivers,
@@ -18,11 +16,9 @@ export function AdminCardsSession({
   deck: Card[];
   drivers: DriverLite[];
 }) {
-  const router = useRouter();
   const byId = useMemo(() => new Map(deck.map((c) => [c.id, c])), [deck]);
   const driversBySlug = useMemo(() => new Map(drivers.map((d) => [d.slug, d])), [drivers]);
   const [spotlight, setSpotlight] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
 
   const total = teams.length;
   useEffect(() => {
@@ -38,21 +34,6 @@ export function AdminCardsSession({
     return () => window.removeEventListener("keydown", onKey);
   }, [spotlight, total]);
 
-  async function removeTeam(team: Team) {
-    if (!confirm(`Delete team "${team.name || "Team"}"? This cannot be undone.`)) return;
-    setDeleting(team.id);
-    try {
-      const res = await fetch(`/api/sessions/${code}/teams/${team.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Delete failed");
-      setSpotlight(null);
-      router.refresh();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Delete failed");
-    } finally {
-      setDeleting(null);
-    }
-  }
-
   if (teams.length === 0) {
     return <p className="mt-8 text-[14px] text-muted">No teams in this session.</p>;
   }
@@ -67,14 +48,7 @@ export function AdminCardsSession({
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {teams.map((t, i) => (
-          <TeamTile
-            key={t.id}
-            team={t}
-            byId={byId}
-            onOpen={() => setSpotlight(i)}
-            onDelete={() => removeTeam(t)}
-            deleting={deleting === t.id}
-          />
+          <TeamTile key={t.id} team={t} byId={byId} onOpen={() => setSpotlight(i)} />
         ))}
       </div>
 
@@ -88,8 +62,6 @@ export function AdminCardsSession({
           onPrev={() => setSpotlight((i) => (i === null ? i : (i - 1 + total) % total))}
           onNext={() => setSpotlight((i) => (i === null ? i : (i + 1) % total))}
           onClose={() => setSpotlight(null)}
-          onDelete={() => removeTeam(teams[spotlight])}
-          deleting={deleting === teams[spotlight].id}
         />
       )}
     </>
@@ -100,14 +72,10 @@ function TeamTile({
   team,
   byId,
   onOpen,
-  onDelete,
-  deleting,
 }: {
   team: Team;
   byId: Map<string, Card>;
   onOpen: () => void;
-  onDelete: () => void;
-  deleting: boolean;
 }) {
   const triad = teamTriadIds(team)
     .map((id) => byId.get(id))
@@ -156,19 +124,12 @@ function TeamTile({
         ))}
       </div>
 
-      <div className="mt-4 flex items-center gap-4 border-t border-[var(--hairline)] pt-3">
+      <div className="mt-4 border-t border-[var(--hairline)] pt-3">
         <button
           onClick={onOpen}
           className="text-[11px] font-bold uppercase tracking-[0.06em] text-blue hover:underline"
         >
           View results →
-        </button>
-        <button
-          onClick={onDelete}
-          disabled={deleting}
-          className="ml-auto text-[11px] font-bold uppercase tracking-[0.06em] text-coral hover:underline disabled:opacity-50"
-        >
-          {deleting ? "Deleting…" : "Delete"}
         </button>
       </div>
     </div>
@@ -184,8 +145,6 @@ function Spotlight({
   onPrev,
   onNext,
   onClose,
-  onDelete,
-  deleting,
 }: {
   team: Team;
   byId: Map<string, Card>;
@@ -195,8 +154,6 @@ function Spotlight({
   onPrev: () => void;
   onNext: () => void;
   onClose: () => void;
-  onDelete: () => void;
-  deleting: boolean;
 }) {
   const triad = teamTriadIds(team)
     .map((id) => byId.get(id))
@@ -209,21 +166,12 @@ function Spotlight({
         <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
           Team {index + 1} of {total}
         </span>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onDelete}
-            disabled={deleting}
-            className="text-[11px] font-bold uppercase tracking-[0.06em] text-coral hover:underline disabled:opacity-50"
-          >
-            {deleting ? "Deleting…" : "Delete team"}
-          </button>
-          <button
-            onClick={onClose}
-            className="rounded-[2px] border border-ink bg-paper px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] hover:bg-coral hover:text-white"
-          >
-            Close ✕
-          </button>
-        </div>
+        <button
+          onClick={onClose}
+          className="rounded-[2px] border border-ink bg-paper px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] hover:bg-coral hover:text-white"
+        >
+          Close ✕
+        </button>
       </div>
 
       <div className="animate-rise flex-1 overflow-y-auto px-6 py-8 md:px-12">

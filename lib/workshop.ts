@@ -139,13 +139,6 @@ export async function listSessions(): Promise<SessionSummary[]> {
   });
 }
 
-// Delete a session; teams/submissions/responses cascade via FK (see migration 0001).
-export async function deleteSession(code: string): Promise<void> {
-  const c = code.trim().toUpperCase();
-  const { error } = await supabaseAdmin().from("sessions").delete().eq("code", c);
-  if (error) throw error;
-}
-
 export async function getSessionByCode(
   code: string,
   _opts: { force?: boolean } = {}

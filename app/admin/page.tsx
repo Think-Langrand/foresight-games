@@ -27,8 +27,8 @@ export default async function AdminPage() {
       </div>
 
       <div className="mt-4 rounded-[3px] border border-amber bg-amber/10 px-4 py-2.5 text-[12px] leading-[1.5]">
-        <span className="font-bold uppercase tracking-[0.06em]">No auth yet</span> — this page is
-        readable and can delete data by anyone with the URL. Add access control before sharing.
+        <span className="font-bold uppercase tracking-[0.06em]">Read-only · no auth yet</span> —
+        anyone with the URL can view these results. Add access control before sharing.
       </div>
 
       <AdminSessionsList sessions={sessions} />

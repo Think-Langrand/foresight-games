@@ -1,8 +1,4 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { SessionSummary } from "@/lib/workshop";
 
 function fmtDate(iso: string): string {
@@ -16,23 +12,6 @@ function fmtDate(iso: string): string {
 }
 
 export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) {
-  const router = useRouter();
-  const [deleting, setDeleting] = useState<string | null>(null);
-
-  async function remove(code: string) {
-    if (!confirm(`Delete session ${code} and all its data? This cannot be undone.`)) return;
-    setDeleting(code);
-    try {
-      const res = await fetch(`/api/sessions/${code}`, { method: "DELETE" });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Delete failed");
-      router.refresh();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Delete failed");
-    } finally {
-      setDeleting(null);
-    }
-  }
-
   if (sessions.length === 0) {
     return <p className="mt-10 text-[14px] text-muted">No sessions yet.</p>;
   }
@@ -49,7 +28,6 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
             <th className="py-2 pr-3 text-right">Teams</th>
             <th className="py-2 pr-3 text-right">Subs</th>
             <th className="py-2 pr-3">Created</th>
-            <th className="py-2" />
           </tr>
         </thead>
         <tbody>
@@ -92,23 +70,10 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
                 )}
               </td>
               <td className="py-2.5 pr-3 text-right tabular-nums">
-                {s.scope === "Cards" ? (
-                  <span className="text-muted">—</span>
-                ) : (
-                  submissionCount
-                )}
+                {s.scope === "Cards" ? <span className="text-muted">—</span> : submissionCount}
               </td>
               <td className="whitespace-nowrap py-2.5 pr-3 text-muted">
                 {fmtDate(s.createdTime)}
-              </td>
-              <td className="py-2.5 text-right">
-                <button
-                  onClick={() => remove(s.code)}
-                  disabled={deleting === s.code}
-                  className="text-[11px] font-bold uppercase tracking-[0.06em] text-coral hover:underline disabled:opacity-50"
-                >
-                  {deleting === s.code ? "Deleting…" : "Delete"}
-                </button>
               </td>
             </tr>
           ))}

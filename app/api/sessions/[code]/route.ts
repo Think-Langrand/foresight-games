@@ -3,7 +3,6 @@ import {
   getSessionResults,
   updateSession,
   getSessionByCode,
-  deleteSession,
   supabaseConfigured,
   type SessionStatus,
 } from "@/lib/workshop";
@@ -55,23 +54,5 @@ export async function PATCH(
   } catch (err) {
     console.error("[PATCH /api/sessions/:code]", err);
     return NextResponse.json({ error: "Failed to update session." }, { status: 500 });
-  }
-}
-
-// Admin: delete a session (cascades to its teams/submissions/responses).
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ code: string }> }
-) {
-  if (!supabaseConfigured()) {
-    return NextResponse.json({ error: "Database not configured." }, { status: 503 });
-  }
-  const { code } = await params;
-  try {
-    await deleteSession(code);
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("[DELETE /api/sessions/:code]", err);
-    return NextResponse.json({ error: "Failed to delete session." }, { status: 500 });
   }
 }
