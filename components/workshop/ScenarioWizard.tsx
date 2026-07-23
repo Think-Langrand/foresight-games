@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { patchTeam } from "@/components/workshop/hooks";
 import { CardArtBand, DriverChips, roleHex } from "@/components/workshop/CardArt";
+import { TeamResult } from "@/components/workshop/TeamResult";
 import {
   CAPTURE_SENTENCE,
   CAPTURE_PROMPTS,
@@ -118,7 +119,19 @@ export function ScenarioWizard({
   }
 
   // Submitted / closed → read-only recap.
-  if (locked) return <Recap team={team} triad={triad} />;
+  if (locked)
+    return (
+      <div className="animate-rise">
+        <TeamResult
+          team={team}
+          triad={triad}
+          wildcard={wildcard}
+          driversBySlug={driversBySlug}
+          size="md"
+          heading="Your submitted scenario"
+        />
+      </div>
+    );
 
   const current = STEPS[step];
   const isLast = step === STEPS.length - 1;
@@ -354,40 +367,3 @@ function ReviewList({ values }: { values: Record<string, string> }) {
   );
 }
 
-function Recap({ team, triad }: { team: Team; triad: Card[] }) {
-  const rows: { label: string; value: string }[] = [
-    ...CAPTURE_PROMPTS.map((p) => ({ label: p.label, value: team[p.key] })),
-    { label: CAPTURE_SENTENCE.label, value: team.convergence },
-  ].filter((r) => r.value?.trim());
-  return (
-    <section className="mt-8 border-t border-[var(--rule)] pt-6">
-      <span className="eyebrow ink">Your submitted scenario</span>
-      {team.worldTitle && (
-        <h2 className="mt-2 text-[22px] font-extrabold uppercase leading-[1.1] tracking-tight">
-          {team.worldTitle}
-        </h2>
-      )}
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {triad.map((c) => (
-          <span
-            key={c.id}
-            className="rounded-[2px] border border-[var(--hairline)] bg-paper px-2 py-1 text-[10.5px] font-semibold"
-            style={{ borderLeft: `3px solid ${roleHex(c.role)}` }}
-          >
-            {c.title}
-          </span>
-        ))}
-      </div>
-      <dl className="mt-4 flex flex-col gap-2.5">
-        {rows.map((r) => (
-          <div key={r.label}>
-            <dt className="text-[9px] font-bold uppercase tracking-[0.07em] text-muted">
-              {r.label}
-            </dt>
-            <dd className="mt-0.5 text-[13.5px] leading-[1.45]">{r.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-}

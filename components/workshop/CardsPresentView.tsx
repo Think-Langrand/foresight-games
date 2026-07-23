@@ -1,14 +1,42 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCardsView, patchSession } from "@/components/workshop/hooks";
+import { TeamResult } from "@/components/workshop/TeamResult";
 import { CAPTURE_PROMPTS } from "@/lib/capture";
 import { teamTriadIds, type Card, type Team } from "@/lib/workshop-types";
+import type { DriverLite } from "@/lib/drivers-shared";
 
-export function CardsPresentView({ code, deck }: { code: string; deck: Card[] }) {
+export function CardsPresentView({
+  code,
+  deck,
+  drivers = [],
+}: {
+  code: string;
+  deck: Card[];
+  drivers?: DriverLite[];
+}) {
   const { view, error, loading, refresh } = useCardsView(code, 4000);
   const byId = useMemo(() => new Map(deck.map((c) => [c.id, c])), [deck]);
+  const driversBySlug = useMemo(() => new Map(drivers.map((d) => [d.slug, d])), [drivers]);
   const [busy, setBusy] = useState(false);
+  const [spotlight, setSpotlight] = useState<number | null>(null);
+
+  const teamCount = view?.teams.length ?? 0;
+  useEffect(() => {
+    if (spotlight === null) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setSpotlight(null);
+      else if (e.key === "ArrowRight")
+        setSpotlight((i) => (i === null || teamCount === 0 ? i : (i + 1) % teamCount));
+      else if (e.key === "ArrowLeft")
+        setSpotlight((i) =>
+          i === null || teamCount === 0 ? i : (i - 1 + teamCount) % teamCount
+        );
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [spotlight, teamCount]);
 
   if (loading && !view) return <Centered>Loading…</Centered>;
   if (error && !view) return <Centered>{error}</Centered>;
@@ -85,16 +113,107 @@ export function CardsPresentView({ code, deck }: { code: string; deck: Card[] })
         </div>
       ) : (
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {teams.map((t) => (
-            <TeamCard key={t.id} team={t} byId={byId} />
+          {teams.map((t, i) => (
+            <TeamCard key={t.id} team={t} byId={byId} onOpen={() => setSpotlight(i)} />
           ))}
         </div>
+      )}
+
+      {spotlight !== null && teams[spotlight] && (
+        <Spotlight
+          team={teams[spotlight]}
+          byId={byId}
+          driversBySlug={driversBySlug}
+          index={spotlight}
+          total={teams.length}
+          onPrev={() => setSpotlight((i) => (i === null ? i : (i - 1 + teams.length) % teams.length))}
+          onNext={() => setSpotlight((i) => (i === null ? i : (i + 1) % teams.length))}
+          onClose={() => setSpotlight(null)}
+        />
       )}
     </main>
   );
 }
 
-function TeamCard({ team, byId }: { team: Team; byId: Map<string, Card> }) {
+function Spotlight({
+  team,
+  byId,
+  driversBySlug,
+  index,
+  total,
+  onPrev,
+  onNext,
+  onClose,
+}: {
+  team: Team;
+  byId: Map<string, Card>;
+  driversBySlug: Map<string, DriverLite>;
+  index: number;
+  total: number;
+  onPrev: () => void;
+  onNext: () => void;
+  onClose: () => void;
+}) {
+  const triad = teamTriadIds(team)
+    .map((id) => byId.get(id))
+    .filter((c): c is Card => Boolean(c));
+  const wildcard = team.wildcardId ? byId.get(team.wildcardId) ?? null : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-paper">
+      {/* top bar */}
+      <div className="flex items-center justify-between border-b border-[var(--rule)] px-5 py-3">
+        <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+          Team {index + 1} of {total}
+        </span>
+        <button
+          onClick={onClose}
+          className="rounded-[2px] border border-ink bg-paper px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] hover:bg-coral hover:text-white"
+        >
+          Close ✕
+        </button>
+      </div>
+
+      {/* body */}
+      <div className="animate-rise flex-1 overflow-y-auto px-6 py-8 md:px-12">
+        <TeamResult
+          team={team}
+          triad={triad}
+          wildcard={wildcard}
+          driversBySlug={driversBySlug}
+          size="lg"
+        />
+      </div>
+
+      {/* nav */}
+      <div className="flex items-center justify-between border-t border-[var(--rule)] px-5 py-3">
+        <button
+          onClick={onPrev}
+          className="rounded-[2px] border border-ink bg-paper px-4 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime"
+        >
+          ‹ Prev
+        </button>
+        <span className="text-[11px] text-muted">← / → to move · Esc to close</span>
+        <button
+          onClick={onNext}
+          className="rounded-[2px] border border-ink bg-paper px-4 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime"
+        >
+          Next ›
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TeamCard({
+  team,
+  byId,
+  onOpen,
+}: {
+  team: Team;
+  byId: Map<string, Card>;
+  onOpen: () => void;
+}) {
   const triad = teamTriadIds(team)
     .map((id) => byId.get(id))
     .filter((c): c is Card => Boolean(c));
@@ -103,7 +222,16 @@ function TeamCard({ team, byId }: { team: Team; byId: Map<string, Card> }) {
 
   return (
     <div
-      className="flex flex-col rounded-[3px] border border-[var(--hairline)] bg-card p-4"
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="group flex cursor-pointer flex-col rounded-[3px] border border-[var(--hairline)] bg-card p-4 transition-shadow hover:border-ink hover:shadow-[0_2px_0_var(--ink)] focus:outline-none focus-visible:border-ink"
       style={{ borderTop: `4px solid ${team.color}` }}
     >
       <div className="flex items-center justify-between">
@@ -114,13 +242,18 @@ function TeamCard({ team, byId }: { team: Team; byId: Map<string, Card> }) {
           />
           <span className="text-[14px] font-extrabold">{team.name}</span>
         </span>
-        <span
-          className={
-            "rounded-[2px] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] " +
-            (submitted ? "bg-lime text-ink" : "border border-[var(--hairline)] text-muted")
-          }
-        >
-          {submitted ? "Submitted" : "Drafting"}
+        <span className="inline-flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted opacity-0 transition-opacity group-hover:opacity-100">
+            Spotlight ⤢
+          </span>
+          <span
+            className={
+              "rounded-[2px] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] " +
+              (submitted ? "bg-lime text-ink" : "border border-[var(--hairline)] text-muted")
+            }
+          >
+            {submitted ? "Submitted" : "Drafting"}
+          </span>
         </span>
       </div>
 
