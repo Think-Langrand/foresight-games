@@ -288,34 +288,38 @@ function TeamPlay({
   ];
 
   return (
-    <main className="mx-auto min-h-screen max-w-[640px] px-5 pb-28 pt-6">
-      <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-2">
-          <Swatch hex={team.color} />
-          <span className="text-[15px] font-extrabold">{team.name}</span>
-        </span>
-        <span className="rounded-[2px] border border-ink bg-lime px-2 py-1 text-[11px] font-bold uppercase tracking-[0.14em]">
-          {code}
-        </span>
-      </div>
-      <p className="serif mt-3 text-[17px] italic leading-[1.35] text-muted">{prompt}</p>
-
-      {closed && <Banner>This session is closed.</Banner>}
-      {submitted && !closed && <Banner>Scenario submitted. Scroll down to review it.</Banner>}
-
-      {/* Three slots */}
-      <div className="mt-6">
-        <div className="flex items-baseline justify-between">
-          <span className="eyebrow ink">Build your three-card world</span>
-          <span className="text-[11px] font-bold text-muted">
-            {[slot1, slot2, slot3].filter(Boolean).length}/3 chosen
+    <main className="mx-auto min-h-screen max-w-[640px] px-5 pb-28 pt-6 lg:max-w-[1080px]">
+      <div className="lg:mx-auto lg:max-w-[720px]">
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-2">
+            <Swatch hex={team.color} />
+            <span className="text-[15px] font-extrabold">{team.name}</span>
+          </span>
+          <span className="rounded-[2px] border border-ink bg-lime px-2 py-1 text-[11px] font-bold uppercase tracking-[0.14em]">
+            {code}
           </span>
         </div>
-        <p className="mt-1 text-[12px] leading-[1.5] text-muted">
-          Slot one is locked to your uncertainty — choose an outcome for it. Then pick two more
-          uncertainties and an outcome for each.
-        </p>
-        <div className="mt-3 flex flex-col gap-3">
+        <p className="serif mt-3 text-[17px] italic leading-[1.35] text-muted">{prompt}</p>
+
+        {closed && <Banner>This session is closed.</Banner>}
+        {submitted && !closed && <Banner>Scenario submitted. Scroll down to review it.</Banner>}
+      </div>
+
+      {/* Three slots — stacked on mobile, spread across on desktop */}
+      <div className="mt-6">
+        <div className="lg:mx-auto lg:max-w-[720px]">
+          <div className="flex items-baseline justify-between">
+            <span className="eyebrow ink">Build your three-card world</span>
+            <span className="text-[11px] font-bold text-muted">
+              {[slot1, slot2, slot3].filter(Boolean).length}/3 chosen
+            </span>
+          </div>
+          <p className="mt-1 text-[12px] leading-[1.5] text-muted">
+            Slot one is locked to your uncertainty — choose an outcome for it. Then pick two more
+            uncertainties and an outcome for each.
+          </p>
+        </div>
+        <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-3">
           {slotDefs.map(({ slot, card, lockedUnc }) => {
             const prevFilled = slot === 1 || (slot === 2 ? Boolean(slot1) : Boolean(slot1 && slot2));
             return (
@@ -335,25 +339,27 @@ function TeamPlay({
       </div>
 
       {/* Triad → scenario wizard */}
-      {triadReady && (
-        <ScenarioWizard
-          code={code}
-          team={team}
-          triad={triadCards}
-          hasEdge={hasEdge}
-          wildcard={team.wildcardId ? byId.get(team.wildcardId) ?? null : null}
-          locked={locked}
-          driversBySlug={driversBySlug}
-          onChange={onChange}
-        />
-      )}
+      <div className="lg:mx-auto lg:max-w-[760px]">
+        {triadReady && (
+          <ScenarioWizard
+            code={code}
+            team={team}
+            triad={triadCards}
+            hasEdge={hasEdge}
+            wildcard={team.wildcardId ? byId.get(team.wildcardId) ?? null : null}
+            locked={locked}
+            driversBySlug={driversBySlug}
+            onChange={onChange}
+          />
+        )}
 
-      <button
-        onClick={onLeave}
-        className="mt-10 text-[11px] font-bold uppercase tracking-[0.08em] text-muted underline"
-      >
-        Leave this team on this device
-      </button>
+        <button
+          onClick={onLeave}
+          className="mt-10 text-[11px] font-bold uppercase tracking-[0.08em] text-muted underline"
+        >
+          Leave this team on this device
+        </button>
+      </div>
 
       {picker && !locked && (
         <PickerModal
@@ -390,7 +396,7 @@ function SlotButton({
     <button
       onClick={onOpen}
       disabled={disabled}
-      className="block w-full text-left disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex h-full w-full flex-col text-left disabled:cursor-not-allowed disabled:opacity-50"
     >
       <div className="mb-1 flex items-center gap-2">
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-paper">
@@ -403,25 +409,26 @@ function SlotButton({
         )}
       </div>
       {card ? (
-        <div className="ring-2 ring-ink ring-offset-2 ring-offset-paper rounded-[6px]">
+        <div className="flex-1 rounded-[6px] ring-2 ring-ink ring-offset-2 ring-offset-paper">
           <CardFace card={card} tone="kept" />
         </div>
       ) : lockedUnc ? (
         // Slot 1 empty: show the locked uncertainty, prompt to choose an outcome.
-        <div className="rounded-[6px] border-2 border-dashed border-ink bg-card p-4 transition-colors hover:bg-lime">
-          <div className="text-[9px] font-bold uppercase tracking-[0.08em] text-muted">
+        <div className="flex flex-1 flex-col rounded-[6px] border-2 border-dashed border-ink bg-card p-4 transition-colors hover:bg-lime">
+          <div className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-blue">
+            Uncertainty
+          </div>
+          <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
             {lockedUnc.domain}
           </div>
           <div className="mt-1 text-[16px] font-extrabold leading-[1.15]">{lockedUnc.title}</div>
-          <p className="serif mt-1 text-[13px] italic leading-[1.3] text-muted">
-            {lockedUnc.question}
-          </p>
-          <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-blue">
+          <p className="serif mt-2 text-[15.5px] italic leading-[1.35]">{lockedUnc.question}</p>
+          <div className="mt-auto pt-3 text-[11px] font-bold uppercase tracking-[0.08em] text-blue">
             Tap to choose an outcome →
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-center rounded-[6px] border-2 border-dashed border-[var(--hairline)] bg-card px-4 py-7 text-center transition-colors hover:border-ink hover:bg-lime">
+        <div className="flex flex-1 items-center justify-center rounded-[6px] border-2 border-dashed border-[var(--hairline)] bg-card px-4 py-7 text-center transition-colors hover:border-ink hover:bg-lime">
           <span className="text-[13px] font-bold uppercase tracking-[0.06em] text-muted">
             + Pick an uncertainty
           </span>
@@ -496,13 +503,14 @@ function PickerModal({
                   ← All uncertainties
                 </button>
               )}
-              <div className="text-[9px] font-bold uppercase tracking-[0.08em] text-muted">
+              <div className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-blue">
+                Uncertainty
+              </div>
+              <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
                 {activeUnc.domain}
               </div>
-              <div className="text-[18px] font-extrabold leading-[1.12]">{activeUnc.title}</div>
-              <p className="serif mt-0.5 text-[14px] italic leading-[1.3] text-muted">
-                {activeUnc.question}
-              </p>
+              <div className="mt-1 text-[18px] font-extrabold leading-[1.12]">{activeUnc.title}</div>
+              <p className="serif mt-1.5 text-[16px] italic leading-[1.35]">{activeUnc.question}</p>
               <DriverChips
                 sourceDriverIds={activeUnc.sourceDriverIds}
                 driversBySlug={driversBySlug}
@@ -599,25 +607,33 @@ function CardFace({
   const base =
     tone === "kept" ? "border-ink bg-lime" : "border-[var(--hairline)] bg-card hover:border-ink";
   return (
-    <div className={`overflow-hidden rounded-[6px] border transition-all ${base}`}>
+    <div className={`flex h-full flex-col overflow-hidden rounded-[6px] border transition-all ${base}`}>
       <div className="relative">
         <CardArtBand dimension={card.dimension} height={52} />
         <div className="absolute inset-x-0 bottom-0 h-[3px]" style={{ background: roleHex(card.role) }} />
       </div>
-      <div className="p-3.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-            {card.dimension}
-          </span>
+      <div className="flex flex-1 flex-col p-3.5">
+        {/* Uncertainty — the open question this card answers */}
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-blue">
+              Uncertainty
+            </div>
+            <div className="mt-0.5 text-[11.5px] font-bold uppercase leading-[1.15] tracking-[0.03em] text-muted">
+              {card.dimension}
+            </div>
+          </div>
           <RoleBadge role={card.role} />
         </div>
-        <div className="mt-1.5 text-[16px] font-extrabold leading-[1.15]">{card.title}</div>
-        <div className="mt-1.5 text-[13.5px] leading-[1.45]">{card.condition}</div>
         {!hideQuestion && card.seedingQuestion && (
-          <div className="serif mt-2 text-[13px] italic leading-[1.3] text-muted">
-            {card.seedingQuestion}
-          </div>
+          <p className="serif mt-2 text-[15.5px] italic leading-[1.35]">{card.seedingQuestion}</p>
         )}
+        {/* Outcome — one way that uncertainty could resolve */}
+        <div className="mt-3 border-t border-[var(--hairline)] pt-3">
+          <div className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-ink">Outcome</div>
+          <div className="mt-1 text-[16px] font-extrabold leading-[1.15]">{card.title}</div>
+          <div className="mt-1.5 text-[13.5px] leading-[1.45]">{card.condition}</div>
+        </div>
       </div>
     </div>
   );
