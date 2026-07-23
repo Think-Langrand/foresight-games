@@ -47,11 +47,11 @@ export default async function Home() {
         <span className="inline-flex items-center gap-1.5">
           <span
             className="inline-block h-2 w-2 rounded-full"
-            style={{ background: source === "airtable" ? "var(--green)" : "var(--amber)" }}
+            style={{ background: source === "supabase" ? "var(--green)" : "var(--amber)" }}
           />
-          {source === "airtable"
-            ? "Live from Airtable"
-            : "Bundled snapshot (Airtable not connected)"}
+          {source === "supabase"
+            ? "Live from Supabase"
+            : "Bundled snapshot (database not connected)"}
         </span>
       </div>
     </main>

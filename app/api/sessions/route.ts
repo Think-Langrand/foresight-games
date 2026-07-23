@@ -52,11 +52,11 @@ export async function POST(req: Request) {
     }
   }
 
-  const { model } = await getModel();
+  const { model, driverNameBySlug } = await getModel();
 
   // ---- Full workshop: one session that walks all scenario uncertainties ----
   if (scope === "Full") {
-    const list = getScenarioList(model);
+    const list = getScenarioList(model, driverNameBySlug);
     if (list.length === 0) {
       return NextResponse.json(
         { error: "No scenario uncertainties in the model." },
@@ -64,7 +64,8 @@ export async function POST(req: Request) {
       );
     }
     const first = list[0];
-    const firstDriver = findScenarioUncertainty(model, first.id)?.sourceDrivers[0] ?? null;
+    const firstDriver =
+      findScenarioUncertainty(model, first.id, driverNameBySlug)?.sourceDrivers[0] ?? null;
     try {
       const session = await createSession({
         scope: "Full",
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
   if (!scenarioId) {
     return NextResponse.json({ error: "scenarioId is required." }, { status: 400 });
   }
-  const found = findScenarioUncertainty(model, scenarioId);
+  const found = findScenarioUncertainty(model, scenarioId, driverNameBySlug);
   if (!found) {
     return NextResponse.json(
       { error: "Scenario uncertainty not found in model." },

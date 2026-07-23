@@ -1,0 +1,34 @@
+# Render blueprint for the Foresight Workshop app (Next.js).
+# https://render.com/docs/blueprint-spec
+#
+# NOTE: NEXT_PUBLIC_* vars are inlined into the client bundle at BUILD time, so
+# they must be present when `npm run build` runs (Render exposes envVars to the
+# build step). After changing any NEXT_PUBLIC_* value, trigger a fresh deploy
+# with "Clear build cache & deploy".
+services:
+  - type: web
+    name: foresight-games
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # --- Supabase (live workshop state + game content) ---
+      # URL + anon key are public (shipped to the browser for realtime).
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      # Server-only secret — never exposed to the client.
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # --- Airtable (optional; unused by the game as of the Supabase migration) ---
+      # Left as opt-in for future content re-imports via scripts/. Safe to omit.
+      - key: AIRTABLE_TOKEN
+        sync: false
+      - key: AIRTABLE_BASE_ID
+        sync: false
