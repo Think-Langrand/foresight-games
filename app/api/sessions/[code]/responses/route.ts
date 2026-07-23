@@ -3,9 +3,9 @@ import {
   getSessionByCode,
   addResponse,
   removeUpvote,
+  supabaseConfigured,
   type ResponseKind,
 } from "@/lib/workshop";
-import { airtableConfigured } from "@/lib/airtable";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +13,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  if (!airtableConfigured()) {
-    return NextResponse.json({ error: "Airtable not configured." }, { status: 503 });
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured." }, { status: 503 });
   }
   const { code } = await params;
   let body: {
@@ -34,12 +34,12 @@ export async function POST(
   }
   if (!body.kind) return NextResponse.json({ error: "kind is required." }, { status: 400 });
 
-  const session = await getSessionByCode(code);
-  if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
-  if (session.status === "Closed")
-    return NextResponse.json({ error: "Session is closed." }, { status: 403 });
-
   try {
+    const session = await getSessionByCode(code);
+    if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
+    if (session.status === "Closed")
+      return NextResponse.json({ error: "Session is closed." }, { status: 403 });
+
     await addResponse({
       sessionId: session.id,
       code: session.code,
@@ -64,8 +64,8 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  if (!airtableConfigured()) {
-    return NextResponse.json({ error: "Airtable not configured." }, { status: 503 });
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured." }, { status: 503 });
   }
   const { code } = await params;
   let body: { participantId?: string; submissionId?: string };
@@ -77,12 +77,12 @@ export async function DELETE(
   if (!body.submissionId)
     return NextResponse.json({ error: "submissionId is required." }, { status: 400 });
 
-  const session = await getSessionByCode(code);
-  if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
-  if (session.status === "Closed")
-    return NextResponse.json({ error: "Session is closed." }, { status: 403 });
-
   try {
+    const session = await getSessionByCode(code);
+    if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
+    if (session.status === "Closed")
+      return NextResponse.json({ error: "Session is closed." }, { status: 403 });
+
     await removeUpvote({
       code: session.code,
       participantId: (body.participantId ?? "anon").slice(0, 60),

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSessionByCode, addSubmission, type Lean } from "@/lib/workshop";
-import { airtableConfigured } from "@/lib/airtable";
+import {
+  getSessionByCode,
+  addSubmission,
+  supabaseConfigured,
+  type Lean,
+} from "@/lib/workshop";
 
 export const dynamic = "force-dynamic";
 
@@ -8,8 +12,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  if (!airtableConfigured()) {
-    return NextResponse.json({ error: "Airtable not configured." }, { status: 503 });
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured." }, { status: 503 });
   }
   const { code } = await params;
   let body: {
@@ -29,12 +33,12 @@ export async function POST(
   if (text.length > 600)
     return NextResponse.json({ error: "Text too long (max 600)." }, { status: 400 });
 
-  const session = await getSessionByCode(code);
-  if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
-  if (session.status === "Closed")
-    return NextResponse.json({ error: "Session is closed." }, { status: 403 });
-
   try {
+    const session = await getSessionByCode(code);
+    if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
+    if (session.status === "Closed")
+      return NextResponse.json({ error: "Session is closed." }, { status: 403 });
+
     const submission = await addSubmission({
       sessionId: session.id,
       code: session.code,

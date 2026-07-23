@@ -38,6 +38,24 @@ export default function WorkshopLanding() {
     }
   }
 
+  async function startCards() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: "Cards", facilitator }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start card game");
+      router.push(`/workshop/s/${data.code}/present`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-[720px] px-6 py-16 md:py-24">
       <Link href="/" className="eyebrow blue">
@@ -130,6 +148,25 @@ export default function WorkshopLanding() {
           className="mt-5 rounded-[2px] border border-ink bg-lime px-7 py-3 text-[13px] font-bold uppercase tracking-[0.1em] hover:bg-lime-deep disabled:opacity-50"
         >
           {busy ? "Opening…" : "Start workshop →"}
+        </button>
+      </div>
+
+      <div
+        className="mt-6 rounded-[3px] border border-[var(--hairline)] bg-card p-6"
+        style={{ borderTop: "3px solid var(--lime-deep)" }}
+      >
+        <span className="eyebrow">Play the card game</span>
+        <p className="mt-2 text-[14px] leading-[1.55] text-muted">
+          Teams are dealt a seed outcome card and a hand to choose from, then combine three cards
+          from different dimensions into a mini future scenario. Each table plays on its own device
+          (or a phone each); finished worlds land on the projector.
+        </p>
+        <button
+          onClick={startCards}
+          disabled={busy}
+          className="mt-4 rounded-[2px] border border-ink bg-lime px-7 py-3 text-[13px] font-bold uppercase tracking-[0.1em] hover:bg-lime-deep disabled:opacity-50"
+        >
+          {busy ? "Dealing…" : "Start card game →"}
         </button>
       </div>
 

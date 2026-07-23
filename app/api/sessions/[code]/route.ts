@@ -3,9 +3,9 @@ import {
   getSessionResults,
   updateSession,
   getSessionByCode,
+  supabaseConfigured,
   type SessionStatus,
 } from "@/lib/workshop";
-import { airtableConfigured } from "@/lib/airtable";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +13,8 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  if (!airtableConfigured()) {
-    return NextResponse.json({ error: "Airtable not configured." }, { status: 503 });
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured." }, { status: 503 });
   }
   const { code } = await params;
   try {
@@ -35,8 +35,8 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  if (!airtableConfigured()) {
-    return NextResponse.json({ error: "Airtable not configured." }, { status: 503 });
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured." }, { status: 503 });
   }
   const { code } = await params;
   let body: { status?: SessionStatus; prompt?: string; currentUncertaintyId?: string };
@@ -45,9 +45,9 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
-  const session = await getSessionByCode(code);
-  if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
   try {
+    const session = await getSessionByCode(code);
+    if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
     await updateSession(session.id, session.code, body);
     const results = await getSessionResults(code, { force: true });
     return NextResponse.json(results);

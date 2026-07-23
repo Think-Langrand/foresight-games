@@ -1,0 +1,128 @@
+{
+  "meta": {
+    "project": "NNPHI — The Future of Public Health",
+    "source": "Scenario Planning Session - July 24 - Materials.pdf (updated), Appendix (Driving Forces, slides 18–31)",
+    "setLabel": "The highest impact x uncertainty driver set from the June 26 workshop",
+    "count": 14,
+    "captured": "2026-07-23",
+    "changeLog": [
+      "The Patchwork Paradox removed; The Changing Nature of Disease added as driver 14. Still 14 total.",
+      "Climate as a Health Multiplier is cited by uncertainty U05 but is intentionally NOT a driver (a baseline condition, not an uncertainty). Trimmed from U05's sourceDriverIds.",
+      "Body text synced to the revised deck: driver 08 (AI) shortened; drivers 01, 06, 13 reworded; em-dashes removed."
+    ]
+  },
+  "drivers": [
+    {
+      "number": 1,
+      "slug": "trust-recession",
+      "theme": "Trust, Legitimacy & Information",
+      "name": "The Trust Recession",
+      "headline": "Trust is moving from institutions to people.",
+      "body": "Trust in health institutions is declining and relocating rather than simply vanishing. It's moving from national institutions toward local, relational messengers and splitting along political lines. That weakens top-down authority and points to where credibility can be rebuilt: the local and relational level."
+    },
+    {
+      "number": 2,
+      "slug": "evidence-question",
+      "theme": "Trust, Legitimacy & Information",
+      "name": "The Evidence Question",
+      "headline": "What counts as evidence is being contested.",
+      "body": "The information environment is being reshaped by ai-generated content and contested standards for what counts as evidence, making a shared factual baseline harder to sustain. That is a serious challenge to consensus and a prompt to rethink how credible information reaches people."
+    },
+    {
+      "number": 3,
+      "slug": "political-fire",
+      "theme": "Trust, Legitimacy & Information",
+      "name": "Public Health Under Political Fire",
+      "headline": "Public health's mandate is being contested.",
+      "body": "Public health's legal authority, mandate, and standing are being actively contested and rewritten at the state and federal levels. That is destabilizing, and it also forces a renegotiation of what authority is legitimate and durable."
+    },
+    {
+      "number": 4,
+      "slug": "plural-public",
+      "theme": "The Social Fabric",
+      "name": "The Plural Public",
+      "headline": "One public is becoming many.",
+      "body": "The single 'public' public health has addressed is fragmenting into many smaller publics, driven by polarization, personalization, and shifting solidarity. That complicates one-message-for-all approaches and rewards more tailored, community-rooted engagement."
+    },
+    {
+      "number": 5,
+      "slug": "funding-in-flux",
+      "theme": "The Institutional Base",
+      "name": "Funding in Flux",
+      "headline": "How public health gets funded is being rewritten.",
+      "body": "Public health financing is being restructured, cycling between emergency surges and lean periods and shifting among federal, state, philanthropic, and payer sources. The instability makes long-horizon building hard, and the same churn is opening a serious debate about durable, foundational financing."
+    },
+    {
+      "number": 6,
+      "slug": "great-reallocation",
+      "theme": "The Institutional Base",
+      "name": "The Great Reallocation",
+      "headline": "Where public health capacity sits is being redrawn.",
+      "body": "Public health capacity, expertise, and monitoring infrastructure are being rapidly reduced and redistributed to states, the private sector, and abroad. This lowers visibility into emerging risks and forces hard choices about what to rebuild, where capability should sit, and what to do differently."
+    },
+    {
+      "number": 7,
+      "slug": "workforce-remade",
+      "theme": "The Institutional Base",
+      "name": "The Workforce Remade",
+      "headline": "The public health workforce is being remade.",
+      "body": "The public health workforce is being reconstituted, both who does the work and through which roles and models, as the traditional pipeline strains and new models like community health workers and ai-augmented generalists emerge. There is real pressure from burnout and attrition, and a real opening to build a different, better-fit workforce."
+    },
+    {
+      "number": 8,
+      "slug": "ai-infrastructure",
+      "theme": "The Data & AI Inflection",
+      "name": "AI as Public Health Infrastructure",
+      "headline": "AI is becoming public health infrastructure.",
+      "body": "AI is becoming part of the basic infrastructure of public health, able to multiply a thin workforce or erode trust depending on who governs it and how."
+    },
+    {
+      "number": 9,
+      "slug": "data-modernization",
+      "theme": "The Data & AI Inflection",
+      "name": "Data Modernization & Real-Time Surveillance",
+      "headline": "Disease surveillance is going real-time.",
+      "body": "Public health data systems are modernizing from legacy tools toward real-time streams like wastewater, genomic, and syndromic that can see threats earlier. The upside is faster visibility; the open questions are privacy, consent, sustained funding, and whether faster data becomes faster action."
+    },
+    {
+      "number": 10,
+      "slug": "biodata-sovereignty",
+      "theme": "The Data & AI Inflection",
+      "name": "Biodata Sovereignty",
+      "headline": "Who owns the body's data is an open question.",
+      "body": "Genomic, behavioral, and increasingly neural data are becoming abundant, raising open questions of ownership, consent, and control. It is both a powerful resource for population health and a serious privacy and equity risk, depending on who governs it."
+    },
+    {
+      "number": 11,
+      "slug": "chronic-metabolic-longevity",
+      "theme": "The Shifting Burden of Disease",
+      "name": "The Chronic, Metabolic & Longevity Reckoning",
+      "headline": "New medicine is reshaping chronic disease.",
+      "body": "New tools like glp-1s and longevity science, together with an aging population, are reshuffling the chronic-disease burden and how it is addressed. This opens real gains against metabolic disease alongside real questions of cost, equity, and whether the response goes upstream or stays individual."
+    },
+    {
+      "number": 12,
+      "slug": "shadow-healthcare-system",
+      "theme": "Decentralization & Consumerization",
+      "name": "The Shadow Healthcare System",
+      "headline": "A parallel health system is growing.",
+      "body": "A parallel, largely unregulated health economy of online pharmacies, DIY care, peer networks, and telehealth arbitrage is growing for people who distrust or cannot access the mainstream. It is at once a source of access for the excluded and of unmonitored risk."
+    },
+    {
+      "number": 13,
+      "slug": "amplified-individual",
+      "theme": "The Social Fabric",
+      "name": "The Amplified Individual (Power of One)",
+      "headline": "One person can now do the work of an institution.",
+      "body": "Cheap tools, AI, and platforms are collapsing what a single person needs to build, broadcast, or deliver care, so individuals can do what once took institutions. It can super-empower a trusted community worker, a lone bad actor, or give one person the ability to reach millions."
+    },
+    {
+      "number": 14,
+      "slug": "changing-nature-of-disease",
+      "theme": "The Shifting Burden of Disease",
+      "name": "The Changing Nature of Disease",
+      "headline": "The nature of disease is changing.",
+      "body": "Faster spillover from animals to people, antimicrobial resistance, and a blurring line between infectious and chronic disease are reshaping what public health has to defend against. The tools and surveillance built for a familiar threat set may not fit the next one, and the open question is whether the system stays ahead of novel and complex threats or falls behind a thinned response."
+    }
+  ]
+}

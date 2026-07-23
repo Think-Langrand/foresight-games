@@ -1,0 +1,222 @@
+{
+  "meta": {
+    "project": "NNPHI — The Future of Public Health",
+    "source": "Scenario Planning Session - July 24 - Materials.pdf, Scenario Uncertainties (slides 4–16)",
+    "count": 13,
+    "outcomeCount": 52,
+    "captured": "2026-07-23",
+    "pairsWith": "drivers.seed.json",
+    "pendingDriverAdditions": [],
+    "droppedDrivers": ["Climate as a Health Multiplier", "Sick Care to Self-Care", "The Lowered Shield", "The Outsourced Mind", "The Decentralization of Care", "The Fringe Ascendant"]
+  },
+  "uncertainties": [
+    {
+      "number": 1,
+      "id": "shape-of-the-public",
+      "domain": "Permission to Act",
+      "title": "The shape of the public",
+      "question": "What still holds people together enough to act on health collectively?",
+      "sourceLineRaw": "FROM THE FRAGMENTING PUBLIC · FROM SICK CARE TO SELF-CARE",
+      "sourceDriverIds": ["plural-public"],
+      "unresolvedSources": ["Sick Care to Self-Care"],
+      "outcomes": [
+        { "code": "C01", "role": "Core", "title": "Shared civic public", "description": "People see health as a common responsibility and accept shared solutions." },
+        { "code": "C02", "role": "Core", "title": "Layered publics", "description": "National consensus is weak, but local and identity-based communities coordinate internally." },
+        { "code": "C03", "role": "Core", "title": "Personalized publics", "description": "People organize around individualized risks, values, and information feeds." },
+        { "code": "C04", "role": "Edge", "title": "No common public", "description": "Health is treated mainly as a private responsibility and consumer choice." }
+      ]
+    },
+    {
+      "number": 2,
+      "id": "permission-to-act",
+      "domain": "Permission to Act",
+      "title": "Public health's permission to act",
+      "question": "How much permission does public health have to act?",
+      "sourceLineRaw": "FROM PUBLIC HEALTH UNDER POLITICAL FIRE · THE LOWERED SHIELD",
+      "sourceDriverIds": ["political-fire"],
+      "unresolvedSources": ["The Lowered Shield"],
+      "outcomes": [
+        { "code": "C13", "role": "Core", "title": "Broad permission to act", "description": "Public health has durable civic support and clear legal authority." },
+        { "code": "C14", "role": "Core", "title": "Issue-by-issue permission", "description": "Authority is accepted for some threats but contested for others." },
+        { "code": "C15", "role": "Core", "title": "Place-dependent permission", "description": "Legitimacy and powers differ sharply across states and communities." },
+        { "code": "C16", "role": "Edge", "title": "Constant political resistance", "description": "Public health remains a routine target and its powers are tightly constrained." }
+      ]
+    },
+    {
+      "number": 3,
+      "id": "institutional-base",
+      "domain": "Capacity to Act",
+      "title": "The institutional base",
+      "question": "What kind of institutional base can public health sustain?",
+      "sourceLineRaw": "FROM THE GREAT SUBTRACTION · FUNDING WHIPLASH & THE AUSTERITY CLIFF",
+      "sourceDriverIds": ["great-reallocation", "funding-in-flux"],
+      "unresolvedSources": [],
+      "outcomes": [
+        { "code": "C17", "role": "Core", "title": "Strong public backbone", "description": "Core institutions have durable funding, staff, and infrastructure." },
+        { "code": "C18", "role": "Core", "title": "Lean core, shared capacity", "description": "Small institutions rely on networks, pooled funds, and shared services." },
+        { "code": "C19", "role": "Core", "title": "Strong nodes, weak gaps", "description": "Capable organizations coexist with major geographic and functional holes." },
+        { "code": "C20", "role": "Edge", "title": "Hollowed and outsourced", "description": "Critical functions move to vendors or disappear as public capacity shrinks." }
+      ]
+    },
+    {
+      "number": 4,
+      "id": "workforce-model",
+      "domain": "Capacity to Act",
+      "title": "The workforce model",
+      "question": "Who does the work of public health?",
+      "sourceLineRaw": "FROM THE WORKFORCE CLIFF · THE POWER OF ONE",
+      "sourceDriverIds": ["workforce-remade", "amplified-individual"],
+      "unresolvedSources": [],
+      "outcomes": [
+        { "code": "C21", "role": "Core", "title": "Rebuilt public workforce", "description": "A broader multidisciplinary workforce is recruited and retained." },
+        { "code": "C22", "role": "Core", "title": "Small ai-augmented core", "description": "Lean teams work through automation, chws, and shared specialists." },
+        { "code": "C23", "role": "Core", "title": "Distributed partner workforce", "description": "Contractors, community organizations, universities, and creators do more of the work." },
+        { "code": "C24", "role": "Edge", "title": "Chronic shortage and memory loss", "description": "Vacancies persist and capability resets with each departure." }
+      ]
+    },
+    {
+      "number": 5,
+      "id": "threat-environment",
+      "domain": "Capacity to Act",
+      "title": "The threat environment",
+      "question": "What kind of threat environment does public health face?",
+      "sourceLineRaw": "FROM CLIMATE AS A HEALTH MULTIPLIER · THE CHANGING NATURE OF DISEASE · THE LOWERED SHIELD",
+      "sourceDriverIds": ["changing-nature-of-disease"],
+      "unresolvedSources": ["Climate as a Health Multiplier", "The Lowered Shield"],
+      "outcomes": [
+        { "code": "C37", "role": "Core", "title": "Adaptation keeps pace", "description": "Known climate and disease pressures grow, but investments contain many impacts." },
+        { "code": "C38", "role": "Core", "title": "Compounding known threats", "description": "Heat, smoke, disasters, outbreaks, and displacement increasingly arrive together." },
+        { "code": "C39", "role": "Core", "title": "Slow-moving systemic crisis", "description": "AMR, chronic disease, and environmental exposure create sustained strain." },
+        { "code": "C40", "role": "Wildcard", "title": "Unfamiliar biological shock", "description": "A novel or engineered threat falls outside existing assumptions." }
+      ]
+    },
+    {
+      "number": 6,
+      "id": "what-ph-can-see",
+      "domain": "Ability to See",
+      "title": "What public health can see",
+      "question": "How visible is population health in real time?",
+      "sourceLineRaw": "FROM DATA MODERNIZATION & REAL-TIME SURVEILLANCE · THE SHADOW HEALTHCARE SYSTEM",
+      "sourceDriverIds": ["data-modernization", "shadow-healthcare-system"],
+      "unresolvedSources": [],
+      "outcomes": [
+        { "code": "C29", "role": "Core", "title": "Live public health picture", "description": "Integrated systems provide a trusted, real-time view of population health." },
+        { "code": "C30", "role": "Core", "title": "Connected local pictures", "description": "Federated systems share enough data to coordinate while remaining decentralized." },
+        { "code": "C31", "role": "Core", "title": "Private platforms see more", "description": "Companies have faster and richer data than public agencies." },
+        { "code": "C32", "role": "Edge", "title": "Growing blind spots", "description": "Fragmented systems and off-grid care leave public health partially blind." }
+      ]
+    },
+    {
+      "number": 7,
+      "id": "ai-infrastructure-access",
+      "domain": "Ability to See",
+      "title": "AI infrastructure and access",
+      "question": "Who controls and benefits from public-health AI?",
+      "sourceLineRaw": "FROM AI AS PUBLIC HEALTH INFRASTRUCTURE",
+      "sourceDriverIds": ["ai-infrastructure"],
+      "unresolvedSources": [],
+      "outcomes": [
+        { "code": "C25", "role": "Core", "title": "Public AI utility", "description": "Trusted, governed tools are available across the field." },
+        { "code": "C26", "role": "Core", "title": "Shared network services", "description": "Institutions pool AI capabilities, talent, and standards." },
+        { "code": "C27", "role": "Core", "title": "Vendor-owned stack", "description": "Agencies rent closed tools and infrastructure from private firms." },
+        { "code": "C28", "role": "Edge", "title": "Unequal AI arms race", "description": "Well-resourced actors accelerate while others fall further behind." }
+      ]
+    },
+    {
+      "number": 8,
+      "id": "control-of-body-data",
+      "domain": "Ability to See",
+      "title": "Control of body data",
+      "question": "Who owns and controls data from people's bodies?",
+      "sourceLineRaw": "FROM BIODATA SOVEREIGNTY",
+      "sourceDriverIds": ["biodata-sovereignty"],
+      "unresolvedSources": [],
+      "outcomes": [
+        { "code": "C33", "role": "Core", "title": "Trusted public use", "description": "Strong governance allows biodata to support population health." },
+        { "code": "C34", "role": "Core", "title": "Individual control", "description": "People decide who can use their data and may trade or license it." },
+        { "code": "C35", "role": "Core", "title": "Corporate control", "description": "Platforms and data brokers hold the most valuable datasets." },
+        { "code": "C36", "role": "Edge", "title": "Government access", "description": "Public agencies or law enforcement gain broad access for public or political purposes." }
+      ]
+    },
+    {
+      "number": 9,
+      "id": "where-trust-lives",
+      "domain": "Ability to Speak and Be Believed",
+      "title": "Where trust lives",
+      "question": "Who do people trust to guide health decisions?",
+      "sourceLineRaw": "FROM THE TRUST RECESSION · THE POWER OF ONE",
+      "sourceDriverIds": ["trust-recession", "amplified-individual"],
+      "unresolvedSources": [],
+      "outcomes": [
+        { "code": "C05", "role": "Core", "title": "Institutional recovery", "description": "Public institutions regain trust through performance, transparency, and accountability." },
+        { "code": "C06", "role": "Core", "title": "Trust goes local", "description": "Clinicians, community health workers, and local leaders become the trusted layer." },
+        { "code": "C07", "role": "Core", "title": "Trust moves to platforms", "description": "People rely on brands, influencers, and personal AI for health guidance." },
+        { "code": "C08", "role": "Edge", "title": "Identity-bound trust", "description": "People accept guidance mainly from sources aligned with their group." }
+      ]
+    },
+    {
+      "number": 10,
+      "id": "how-health-truth-is-established",
+      "domain": "Ability to Speak and Be Believed",
+      "title": "How health truth is established",
+      "question": "How do people decide what health information is real?",
+      "sourceLineRaw": "FROM THE EPISTEMIC CRISIS · THE OUTSOURCED MIND",
+      "sourceDriverIds": ["evidence-question"],
+      "unresolvedSources": ["The Outsourced Mind"],
+      "outcomes": [
+        { "code": "C09", "role": "Core", "title": "Verified evidence layer", "description": "Authentication and provenance restore a broadly shared factual baseline." },
+        { "code": "C10", "role": "Core", "title": "Human-ai mediation", "description": "Trusted people and supervised AI translate evidence for different audiences." },
+        { "code": "C11", "role": "Core", "title": "Competing evidence systems", "description": "Communities use different experts, facts, and standards of proof." },
+        { "code": "C12", "role": "Edge", "title": "Synthetic fog", "description": "False and real content become too difficult to distinguish at scale." }
+      ]
+    },
+    {
+      "number": 11,
+      "id": "model-of-prevention",
+      "domain": "Ability to Adapt",
+      "title": "The model of prevention",
+      "question": "How does society try to stay healthy?",
+      "sourceLineRaw": "FROM CHRONIC, METABOLIC & LONGEVITY RECKONING · FROM SICK CARE TO SELF-CARE",
+      "sourceDriverIds": ["chronic-metabolic-longevity"],
+      "unresolvedSources": ["Sick Care to Self-Care"],
+      "outcomes": [
+        { "code": "C41", "role": "Core", "title": "Healthier conditions first", "description": "Environments, food systems, housing, and social supports become the main intervention." },
+        { "code": "C42", "role": "Core", "title": "Medicine-led prevention", "description": "Drugs, diagnostics, and clinical monitoring manage risk at scale." },
+        { "code": "C43", "role": "Core", "title": "Consumer optimization", "description": "Wellness products, personal data, supplements, and biotech define prevention." },
+        { "code": "C44", "role": "Edge", "title": "Personal responsibility regime", "description": "Health is moralized as an individual choice regardless of structural conditions." }
+      ]
+    },
+    {
+      "number": 12,
+      "id": "structure-of-care",
+      "domain": "Ability to Adapt",
+      "title": "The structure of care",
+      "question": "How connected is care outside hospitals to the public system?",
+      "sourceLineRaw": "FROM THE DECENTRALIZATION OF CARE · THE SHADOW HEALTHCARE SYSTEM · THE FRINGE ASCENDANT",
+      "sourceDriverIds": ["shadow-healthcare-system"],
+      "unresolvedSources": ["The Decentralization of Care", "The Fringe Ascendant"],
+      "outcomes": [
+        { "code": "C45", "role": "Core", "title": "Distributed and connected", "description": "Home, retail, community, and public systems share data and responsibility." },
+        { "code": "C46", "role": "Core", "title": "Platform-led but regulated", "description": "Large platforms organize care under common rules and data standards." },
+        { "code": "C47", "role": "Core", "title": "Parallel systems with bridges", "description": "Formal and alternative systems remain distinct but connect at key points." },
+        { "code": "C48", "role": "Edge", "title": "Invisible shadow system", "description": "Large portions of care sit outside oversight, surveillance, and safeguards." }
+      ]
+    },
+    {
+      "number": 13,
+      "id": "individual-and-movement-power",
+      "domain": "Ability to Adapt",
+      "title": "Individual and movement power",
+      "question": "Who can shape health behavior and policy at scale?",
+      "sourceLineRaw": "FROM THE POWER OF ONE · THE FRINGE ASCENDANT",
+      "sourceDriverIds": ["amplified-individual"],
+      "unresolvedSources": ["The Fringe Ascendant"],
+      "outcomes": [
+        { "code": "C49", "role": "Core", "title": "Many local problem-solvers", "description": "Individuals and small groups use new tools to create useful public goods." },
+        { "code": "C50", "role": "Core", "title": "Trusted super-connectors", "description": "A small number of credible people become key partners and distribution nodes." },
+        { "code": "C51", "role": "Core", "title": "Influencers rival institutions", "description": "Reach and identity matter as much as expertise or formal authority." },
+        { "code": "C52", "role": "Edge", "title": "High-leverage disruption", "description": "One actor or small group can rapidly destabilize health behavior or systems." }
+      ]
+    }
+  ]
+}

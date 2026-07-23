@@ -1,13 +1,6 @@
 import "server-only";
 
-import {
-  listRecords,
-  createRecords,
-  updateRecords,
-  deleteRecords,
-  airtableConfigured,
-  type AirtableRecord,
-} from "@/lib/airtable";
+import { supabaseAdmin, supabaseConfigured } from "@/lib/supabase";
 import {
   emptyUncertaintyResult,
   type WorkshopMode,
@@ -35,45 +28,59 @@ export type {
   SessionResults,
 };
 
-// ---- Workshop table + field ids (created by the app in base appJbrDG28mXRJgfA) ----
-export const WT = {
-  sessions: "tblSyzgYjFOJ9YvaP",
-  submissions: "tblbSs9hkz2TQIIcr",
-  responses: "tblv4bFOOJqCY0z0N",
-} as const;
+// Re-export so existing route imports (`from "@/lib/workshop"`) keep working.
+export { supabaseConfigured };
 
-interface WorkshopResponse {
+// ---- row shapes (snake_case columns) ----
+interface SessionRow {
   id: string;
-  kind: ResponseKind;
-  submissionId: string | null;
-  uncertaintyId: string | null;
-  pollKey: string;
+  code: string;
+  title: string;
+  scope: string;
+  pacing: string | null;
+  uncertainty_id: string | null;
+  driver_id: string | null;
+  mode: string;
+  prompt: string;
+  status: string;
+  facilitator: string;
+  created_at: string;
+}
+interface SubmissionRow {
+  id: string;
+  uncertainty_id: string | null;
+  text: string;
+  author: string;
+  lean: string | null;
+  participant_id: string;
+  created_at: string;
+}
+interface ResponseRow {
+  id: string;
+  kind: string;
+  submission_id: string | null;
+  uncertainty_id: string | null;
+  poll_key: string;
   value: string;
-  valueNumber: number | null;
-  participantId: string;
-  createdTime: string;
+  value_number: number | null;
+  participant_id: string;
+  created_at: string;
 }
 
-const link = (v: unknown): string | null =>
-  Array.isArray(v) && v.length ? (v[0] as string) : null;
-
-// ---------- record mappers ----------
-function mapSession(r: AirtableRecord): WorkshopSession {
-  const f = r.fields as Record<string, unknown>;
+function mapSession(r: SessionRow): WorkshopSession {
   return {
     id: r.id,
-    code: (f["Code"] as string) ?? "",
-    title: (f["Title"] as string) ?? "",
-    scope: ((f["Scope"] as string) ?? "Single") as SessionScope,
-    pacing: (f["Pacing"] as Pacing) ?? null,
-    // Current / the uncertainty (falls back to the legacy driver-level link).
-    uncertaintyId: link(f["Scenario Uncertainty"]) ?? link(f["Uncertainty"]),
-    driverId: link(f["Driver"]),
-    mode: ((f["Mode"] as string) ?? "Divergent") as WorkshopMode,
-    prompt: (f["Prompt"] as string) ?? "",
-    status: ((f["Status"] as string) ?? "Open") as SessionStatus,
-    facilitator: (f["Facilitator"] as string) ?? "",
-    createdTime: r.createdTime,
+    code: r.code,
+    title: r.title ?? "",
+    scope: (r.scope ?? "Single") as SessionScope,
+    pacing: (r.pacing as Pacing) ?? null,
+    uncertaintyId: r.uncertainty_id,
+    driverId: r.driver_id,
+    mode: (r.mode ?? "Divergent") as WorkshopMode,
+    prompt: r.prompt ?? "",
+    status: (r.status ?? "Open") as SessionStatus,
+    facilitator: r.facilitator ?? "",
+    createdTime: r.created_at,
   };
 }
 
@@ -88,70 +95,76 @@ function randomCode(len = 4): string {
   return s;
 }
 
-export async function getSessionByCode(code: string): Promise<WorkshopSession | null> {
+export async function getSessionByCode(
+  code: string,
+  _opts: { force?: boolean } = {}
+): Promise<WorkshopSession | null> {
   const c = code.trim().toUpperCase();
   if (!c) return null;
-  const recs = await listRecords(WT.sessions, {
-    filterByFormula: `UPPER({Code})='${c}'`,
-    maxRecords: 1,
-    revalidate: false,
-  });
-  return recs[0] ? mapSession(recs[0]) : null;
+  const { data, error } = await supabaseAdmin()
+    .from("sessions")
+    .select("*")
+    .eq("code", c)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapSession(data as SessionRow) : null;
 }
 
 export async function createSession(input: {
   scope: SessionScope;
   pacing?: Pacing | null;
-  uncertaintyId: string | null; // the one (Single) or the starting current (Full)
+  uncertaintyId: string | null;
   driverId?: string | null;
   mode: WorkshopMode;
   prompt: string;
   title: string;
   facilitator?: string;
 }): Promise<WorkshopSession> {
-  // Find a free code (retry a few times on the rare collision).
-  let code = randomCode();
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const existing = await getSessionByCode(code);
-    if (!existing) break;
-    code = randomCode();
+  const db = supabaseAdmin();
+  // Insert with a fresh code; retry a few times on the rare unique collision.
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const code = randomCode();
+    const { data, error } = await db
+      .from("sessions")
+      .insert({
+        code,
+        title: input.title,
+        scope: input.scope,
+        pacing: input.pacing ?? null,
+        uncertainty_id: input.uncertaintyId,
+        driver_id: input.driverId ?? null,
+        mode: input.mode,
+        prompt: input.prompt,
+        status: "Open",
+        facilitator: input.facilitator ?? "",
+      })
+      .select("*")
+      .single();
+    if (!error) return mapSession(data as SessionRow);
+    // 23505 = unique_violation (code already taken) → try another code.
+    if ((error as { code?: string }).code !== "23505") throw error;
   }
-  const fields: Record<string, unknown> = {
-    Title: input.title,
-    Code: code,
-    Scope: input.scope,
-    Mode: input.mode,
-    Prompt: input.prompt,
-    Status: "Open",
-  };
-  if (input.uncertaintyId) fields["Scenario Uncertainty"] = [input.uncertaintyId];
-  if (input.pacing) fields.Pacing = input.pacing;
-  if (input.driverId) fields.Driver = [input.driverId];
-  if (input.facilitator) fields.Facilitator = input.facilitator;
-  const [rec] = await createRecords(WT.sessions, [{ fields }]);
-  invalidate(code);
-  return mapSession(rec);
+  throw new Error("Could not allocate a unique session code.");
 }
 
 export async function updateSession(
   id: string,
-  code: string,
+  _code: string,
   patch: Partial<{
     mode: WorkshopMode;
     status: SessionStatus;
     prompt: string;
-    currentUncertaintyId: string; // advance the facilitator's pointer
+    currentUncertaintyId: string;
   }>
 ): Promise<void> {
   const fields: Record<string, unknown> = {};
-  if (patch.mode) fields.Mode = patch.mode;
-  if (patch.status) fields.Status = patch.status;
-  if (patch.prompt !== undefined) fields.Prompt = patch.prompt;
-  if (patch.currentUncertaintyId)
-    fields["Scenario Uncertainty"] = [patch.currentUncertaintyId];
+  if (patch.mode) fields.mode = patch.mode;
+  if (patch.status) fields.status = patch.status;
+  if (patch.prompt !== undefined) fields.prompt = patch.prompt;
+  if (patch.currentUncertaintyId) fields.uncertainty_id = patch.currentUncertaintyId;
   if (Object.keys(fields).length === 0) return;
-  await updateRecords(WT.sessions, [{ id, fields }]);
-  invalidate(code);
+  const { error } = await supabaseAdmin().from("sessions").update(fields).eq("id", id);
+  if (error) throw error;
 }
 
 // ---------- submissions / responses (writes) ----------
@@ -164,26 +177,28 @@ export async function addSubmission(input: {
   lean: Lean | null;
   participantId: string;
 }): Promise<Submission> {
-  const fields: Record<string, unknown> = {
-    Text: input.text,
-    Session: [input.sessionId],
-    "Session Code": input.code,
-    Author: input.author,
-    "Participant ID": input.participantId,
-    Upvotes: 0,
-  };
-  if (input.uncertaintyId) fields["Scenario Uncertainty"] = [input.uncertaintyId];
-  if (input.lean) fields.Lean = input.lean;
-  const [rec] = await createRecords(WT.submissions, [{ fields }]);
-  invalidate(input.code);
-  const f = rec.fields as Record<string, unknown>;
+  const { data, error } = await supabaseAdmin()
+    .from("submissions")
+    .insert({
+      session_id: input.sessionId,
+      code: input.code,
+      uncertainty_id: input.uncertaintyId,
+      text: input.text,
+      author: input.author,
+      lean: input.lean,
+      participant_id: input.participantId,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  const r = data as SubmissionRow;
   return {
-    id: rec.id,
-    text: (f["Text"] as string) ?? input.text,
-    author: input.author,
-    lean: input.lean,
-    participantId: input.participantId,
-    createdTime: rec.createdTime,
+    id: r.id,
+    text: r.text,
+    author: r.author,
+    lean: (r.lean as Lean) ?? null,
+    participantId: r.participant_id,
+    createdTime: r.created_at,
     upvotes: 0,
   };
 }
@@ -200,21 +215,18 @@ export async function addResponse(input: {
   valueNumber?: number | null;
   label?: string;
 }): Promise<void> {
-  const fields: Record<string, unknown> = {
-    Label: input.label ?? `${input.kind} · ${input.participantId.slice(0, 6)}`,
-    Session: [input.sessionId],
-    "Session Code": input.code,
-    "Participant ID": input.participantId,
-    Kind: input.kind,
-  };
-  if (input.uncertaintyId) fields["Scenario Uncertainty"] = [input.uncertaintyId];
-  if (input.submissionId) fields.Submission = [input.submissionId];
-  if (input.pollKey) fields["Poll Key"] = input.pollKey;
-  if (input.value !== undefined) fields.Value = input.value;
-  if (input.valueNumber !== undefined && input.valueNumber !== null)
-    fields["Value Number"] = input.valueNumber;
-  await createRecords(WT.responses, [{ fields }]);
-  invalidate(input.code);
+  const { error } = await supabaseAdmin().from("responses").insert({
+    session_id: input.sessionId,
+    code: input.code,
+    uncertainty_id: input.uncertaintyId,
+    participant_id: input.participantId,
+    kind: input.kind,
+    submission_id: input.submissionId ?? null,
+    poll_key: input.pollKey ?? "",
+    value: input.value ?? "",
+    value_number: input.valueNumber ?? null,
+  });
+  if (error) throw error;
 }
 
 // Toggle off: remove this participant's upvote(s) for a submission.
@@ -223,88 +235,65 @@ export async function removeUpvote(input: {
   participantId: string;
   submissionId: string;
 }): Promise<void> {
-  const recs = await listRecords(WT.responses, {
-    filterByFormula: `AND({Session Code}='${input.code}', {Participant ID}='${input.participantId}', {Kind}='Upvote submission')`,
-    revalidate: false,
-  });
-  const ids = recs
-    .filter((r) => link((r.fields as Record<string, unknown>)["Submission"]) === input.submissionId)
-    .map((r) => r.id);
-  if (ids.length) await deleteRecords(WT.responses, ids);
-  invalidate(input.code);
+  const { error } = await supabaseAdmin()
+    .from("responses")
+    .delete()
+    .eq("code", input.code)
+    .eq("participant_id", input.participantId)
+    .eq("kind", "Upvote submission")
+    .eq("submission_id", input.submissionId);
+  if (error) throw error;
 }
 
 // ---------- aggregation ----------
 async function computeResults(session: WorkshopSession): Promise<SessionResults> {
-  const [subRecs, respRecs] = await Promise.all([
-    listRecords(WT.submissions, {
-      filterByFormula: `{Session Code}='${session.code}'`,
-      revalidate: false,
-    }),
-    listRecords(WT.responses, {
-      filterByFormula: `{Session Code}='${session.code}'`,
-      revalidate: false,
-    }),
+  const db = supabaseAdmin();
+  const [subRes, respRes] = await Promise.all([
+    db.from("submissions").select("*").eq("code", session.code),
+    db.from("responses").select("*").eq("code", session.code),
   ]);
+  if (subRes.error) throw subRes.error;
+  if (respRes.error) throw respRes.error;
 
-  const responses: WorkshopResponse[] = respRecs
-    .map((r) => {
-      const f = r.fields as Record<string, unknown>;
-      return {
-        id: r.id,
-        kind: (f["Kind"] as ResponseKind) ?? "Poll answer",
-        submissionId: link(f["Submission"]),
-        uncertaintyId: link(f["Scenario Uncertainty"]),
-        pollKey: (f["Poll Key"] as string) ?? "",
-        value: (f["Value"] as string) ?? "",
-        valueNumber:
-          typeof f["Value Number"] === "number" ? (f["Value Number"] as number) : null,
-        participantId: (f["Participant ID"] as string) ?? "",
-        createdTime: r.createdTime,
-      };
-    })
+  const subRows = (subRes.data ?? []) as SubmissionRow[];
+  const responses = ((respRes.data ?? []) as ResponseRow[])
     // Oldest → newest, so "last write wins" for editable poll answers.
-    .sort((a, b) => a.createdTime.localeCompare(b.createdTime));
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
-  // upvote counts per submission — distinct participants (so a re-vote never double-counts)
+  // upvote counts per submission — distinct participants (a re-vote never double-counts)
   const upvoters: Record<string, Set<string>> = {};
   for (const r of responses) {
-    if (r.kind === "Upvote submission" && r.submissionId) {
-      (upvoters[r.submissionId] ??= new Set()).add(r.participantId);
+    if (r.kind === "Upvote submission" && r.submission_id) {
+      (upvoters[r.submission_id] ??= new Set()).add(r.participant_id);
     }
   }
   const upvotes: Record<string, number> = {};
   for (const [sid, set] of Object.entries(upvoters)) upvotes[sid] = set.size;
 
   const byUncertainty: Record<string, UncertaintyResult> = {};
-  const bucket = (uid: string): UncertaintyResult => {
-    if (!byUncertainty[uid]) byUncertainty[uid] = emptyUncertaintyResult();
-    return byUncertainty[uid];
-  };
-  // Fallback uncertainty for records created before per-uncertainty tagging.
+  const bucket = (uid: string): UncertaintyResult =>
+    (byUncertainty[uid] ??= emptyUncertaintyResult());
   const fallbackUid = session.uncertaintyId ?? "unknown";
 
-  for (const r of subRecs) {
-    const f = r.fields as Record<string, unknown>;
-    const uid = link(f["Scenario Uncertainty"]) ?? fallbackUid;
+  for (const r of subRows) {
+    const uid = r.uncertainty_id ?? fallbackUid;
     bucket(uid).submissions.push({
       id: r.id,
-      text: (f["Text"] as string) ?? "",
-      author: (f["Author"] as string) ?? "",
-      lean: (f["Lean"] as Lean) ?? null,
-      participantId: (f["Participant ID"] as string) ?? "",
-      createdTime: r.createdTime,
+      text: r.text,
+      author: r.author,
+      lean: (r.lean as Lean) ?? null,
+      participantId: r.participant_id,
+      createdTime: r.created_at,
       upvotes: upvotes[r.id] ?? 0,
     });
   }
 
-  // pole-lean poll, per uncertainty — keep each participant's latest answer only
-  // (responses are sorted oldest→newest, so the last one written wins).
+  // pole-lean poll, per uncertainty — keep each participant's latest answer only.
   const latestLean = new Map<string, { uid: string; value: Lean }>();
   for (const r of responses) {
-    if (r.kind === "Poll answer" && r.pollKey === "pole-lean") {
-      const uid = r.uncertaintyId ?? fallbackUid;
-      latestLean.set(`${uid}|${r.participantId}`, { uid, value: r.value as Lean });
+    if (r.kind === "Poll answer" && r.poll_key === "pole-lean") {
+      const uid = r.uncertainty_id ?? fallbackUid;
+      latestLean.set(`${uid}|${r.participant_id}`, { uid, value: r.value as Lean });
     }
   }
   for (const { uid, value } of latestLean.values()) {
@@ -312,7 +301,6 @@ async function computeResults(session: WorkshopSession): Promise<SessionResults>
     if (value in pl) pl[value]++;
   }
 
-  // sort + counts per uncertainty
   for (const uid of Object.keys(byUncertainty)) {
     const b = byUncertainty[uid];
     b.submissions.sort(
@@ -324,7 +312,7 @@ async function computeResults(session: WorkshopSession): Promise<SessionResults>
   const participants = new Set<string>();
   for (const b of Object.values(byUncertainty))
     b.submissions.forEach((s) => s.participantId && participants.add(s.participantId));
-  responses.forEach((r) => r.participantId && participants.add(r.participantId));
+  responses.forEach((r) => r.participant_id && participants.add(r.participant_id));
 
   return {
     session,
@@ -335,37 +323,12 @@ async function computeResults(session: WorkshopSession): Promise<SessionResults>
   };
 }
 
-// ---------- single-flight cache (shields Airtable from poll storms) ----------
-const TTL_MS = 1500;
-type CacheEntry = { at: number; promise: Promise<SessionResults> };
-const cache = new Map<string, CacheEntry>();
-
-function invalidate(code: string) {
-  cache.delete(code.toUpperCase());
-}
-
 export async function getSessionResults(
   code: string,
-  opts: { force?: boolean } = {}
+  _opts: { force?: boolean } = {}
 ): Promise<SessionResults | null> {
-  if (!airtableConfigured()) return null;
-  const key = code.trim().toUpperCase();
-  const now = Date.now();
-  const hit = cache.get(key);
-  if (!opts.force && hit && now - hit.at < TTL_MS) {
-    return hit.promise;
-  }
-  const promise = (async () => {
-    const session = await getSessionByCode(key);
-    if (!session) throw new Error("session-not-found");
-    return computeResults(session);
-  })();
-  cache.set(key, { at: now, promise });
-  try {
-    return await promise;
-  } catch (err) {
-    cache.delete(key);
-    if (err instanceof Error && err.message === "session-not-found") return null;
-    throw err;
-  }
+  if (!supabaseConfigured()) return null;
+  const session = await getSessionByCode(code);
+  if (!session) return null;
+  return computeResults(session);
 }

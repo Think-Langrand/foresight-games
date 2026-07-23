@@ -1,0 +1,522 @@
+[
+  {
+    "id": "C01",
+    "dimension": "The shape of the public",
+    "sourceDrivers": "The Fragmenting Public; From Sick Care to Self-Care",
+    "level": "Level 3",
+    "seedingQuestion": "What still holds people together enough to act on health collectively?",
+    "title": "Shared civic public",
+    "condition": "People see health as a common responsibility and accept shared solutions.",
+    "role": "Core"
+  },
+  {
+    "id": "C02",
+    "dimension": "The shape of the public",
+    "sourceDrivers": "The Fragmenting Public; From Sick Care to Self-Care",
+    "level": "Level 3",
+    "seedingQuestion": "What still holds people together enough to act on health collectively?",
+    "title": "Layered publics",
+    "condition": "National consensus is weak, but local and identity-based communities coordinate internally.",
+    "role": "Core"
+  },
+  {
+    "id": "C03",
+    "dimension": "The shape of the public",
+    "sourceDrivers": "The Fragmenting Public; From Sick Care to Self-Care",
+    "level": "Level 3",
+    "seedingQuestion": "What still holds people together enough to act on health collectively?",
+    "title": "Personalized publics",
+    "condition": "People organize around individualized risks, values, and information feeds.",
+    "role": "Core"
+  },
+  {
+    "id": "C04",
+    "dimension": "The shape of the public",
+    "sourceDrivers": "The Fragmenting Public; From Sick Care to Self-Care",
+    "level": "Level 3",
+    "seedingQuestion": "What still holds people together enough to act on health collectively?",
+    "title": "No common public",
+    "condition": "Health is treated mainly as a private responsibility and consumer choice.",
+    "role": "Edge"
+  },
+  {
+    "id": "C05",
+    "dimension": "Where trust lives",
+    "sourceDrivers": "The Trust Recession; The Power of One",
+    "level": "Level 3",
+    "seedingQuestion": "Who do people trust to guide health decisions?",
+    "title": "Institutional recovery",
+    "condition": "Public institutions regain trust through performance, transparency, and accountability.",
+    "role": "Core"
+  },
+  {
+    "id": "C06",
+    "dimension": "Where trust lives",
+    "sourceDrivers": "The Trust Recession; The Power of One",
+    "level": "Level 3",
+    "seedingQuestion": "Who do people trust to guide health decisions?",
+    "title": "Trust goes local",
+    "condition": "Clinicians, community health workers, and local leaders become the trusted layer.",
+    "role": "Core"
+  },
+  {
+    "id": "C07",
+    "dimension": "Where trust lives",
+    "sourceDrivers": "The Trust Recession; The Power of One",
+    "level": "Level 3",
+    "seedingQuestion": "Who do people trust to guide health decisions?",
+    "title": "Trust moves to platforms",
+    "condition": "People rely on brands, influencers, and personal AI for health guidance.",
+    "role": "Core"
+  },
+  {
+    "id": "C08",
+    "dimension": "Where trust lives",
+    "sourceDrivers": "The Trust Recession; The Power of One",
+    "level": "Level 3",
+    "seedingQuestion": "Who do people trust to guide health decisions?",
+    "title": "Identity-bound trust",
+    "condition": "People accept guidance mainly from sources aligned with their group.",
+    "role": "Edge"
+  },
+  {
+    "id": "C09",
+    "dimension": "How health truth is established",
+    "sourceDrivers": "The Epistemic Crisis; The Outsourced Mind",
+    "level": "Level 3",
+    "seedingQuestion": "How do people decide what health information is real?",
+    "title": "Verified evidence layer",
+    "condition": "Authentication and provenance restore a broadly shared factual baseline.",
+    "role": "Core"
+  },
+  {
+    "id": "C10",
+    "dimension": "How health truth is established",
+    "sourceDrivers": "The Epistemic Crisis; The Outsourced Mind",
+    "level": "Level 3",
+    "seedingQuestion": "How do people decide what health information is real?",
+    "title": "Human-AI mediation",
+    "condition": "Trusted people and supervised AI translate evidence for different audiences.",
+    "role": "Core"
+  },
+  {
+    "id": "C11",
+    "dimension": "How health truth is established",
+    "sourceDrivers": "The Epistemic Crisis; The Outsourced Mind",
+    "level": "Level 3",
+    "seedingQuestion": "How do people decide what health information is real?",
+    "title": "Competing evidence systems",
+    "condition": "Communities use different experts, facts, and standards of proof.",
+    "role": "Core"
+  },
+  {
+    "id": "C12",
+    "dimension": "How health truth is established",
+    "sourceDrivers": "The Epistemic Crisis; The Outsourced Mind",
+    "level": "Level 3",
+    "seedingQuestion": "How do people decide what health information is real?",
+    "title": "Synthetic fog",
+    "condition": "False and real content become too difficult to distinguish at scale.",
+    "role": "Edge"
+  },
+  {
+    "id": "C13",
+    "dimension": "Public health's permission to act",
+    "sourceDrivers": "Public Health Under Political Fire; The Lowered Shield",
+    "level": "Level 3",
+    "seedingQuestion": "How much permission does public health have to act?",
+    "title": "Broad permission to act",
+    "condition": "Public health has durable civic support and clear legal authority.",
+    "role": "Core"
+  },
+  {
+    "id": "C14",
+    "dimension": "Public health's permission to act",
+    "sourceDrivers": "Public Health Under Political Fire; The Lowered Shield",
+    "level": "Level 3",
+    "seedingQuestion": "How much permission does public health have to act?",
+    "title": "Issue-by-issue permission",
+    "condition": "Authority is accepted for some threats but contested for others.",
+    "role": "Core"
+  },
+  {
+    "id": "C15",
+    "dimension": "Public health's permission to act",
+    "sourceDrivers": "Public Health Under Political Fire; The Lowered Shield",
+    "level": "Level 3",
+    "seedingQuestion": "How much permission does public health have to act?",
+    "title": "Place-dependent permission",
+    "condition": "Legitimacy and powers differ sharply across states and communities.",
+    "role": "Core"
+  },
+  {
+    "id": "C16",
+    "dimension": "Public health's permission to act",
+    "sourceDrivers": "Public Health Under Political Fire; The Lowered Shield",
+    "level": "Level 3",
+    "seedingQuestion": "How much permission does public health have to act?",
+    "title": "Constant political resistance",
+    "condition": "Public health remains a routine target and its powers are tightly constrained.",
+    "role": "Edge"
+  },
+  {
+    "id": "C17",
+    "dimension": "The institutional base",
+    "sourceDrivers": "The Great Subtraction; Funding Whiplash & the Austerity Cliff",
+    "level": "Level 3",
+    "seedingQuestion": "What kind of institutional base can public health sustain?",
+    "title": "Strong public backbone",
+    "condition": "Core institutions have durable funding, staff, and infrastructure.",
+    "role": "Core"
+  },
+  {
+    "id": "C18",
+    "dimension": "The institutional base",
+    "sourceDrivers": "The Great Subtraction; Funding Whiplash & the Austerity Cliff",
+    "level": "Level 3",
+    "seedingQuestion": "What kind of institutional base can public health sustain?",
+    "title": "Lean core, shared capacity",
+    "condition": "Small institutions rely on networks, pooled funds, and shared services.",
+    "role": "Core"
+  },
+  {
+    "id": "C19",
+    "dimension": "The institutional base",
+    "sourceDrivers": "The Great Subtraction; Funding Whiplash & the Austerity Cliff",
+    "level": "Level 3",
+    "seedingQuestion": "What kind of institutional base can public health sustain?",
+    "title": "Strong nodes, weak gaps",
+    "condition": "Capable organizations coexist with major geographic and functional holes.",
+    "role": "Core"
+  },
+  {
+    "id": "C20",
+    "dimension": "The institutional base",
+    "sourceDrivers": "The Great Subtraction; Funding Whiplash & the Austerity Cliff",
+    "level": "Level 3",
+    "seedingQuestion": "What kind of institutional base can public health sustain?",
+    "title": "Hollowed and outsourced",
+    "condition": "Critical functions move to vendors or disappear as public capacity shrinks.",
+    "role": "Edge"
+  },
+  {
+    "id": "C21",
+    "dimension": "The workforce model",
+    "sourceDrivers": "The Workforce Cliff; The Power of One",
+    "level": "Level 3",
+    "seedingQuestion": "Who does the work of public health?",
+    "title": "Rebuilt public workforce",
+    "condition": "A broader multidisciplinary workforce is recruited and retained.",
+    "role": "Core"
+  },
+  {
+    "id": "C22",
+    "dimension": "The workforce model",
+    "sourceDrivers": "The Workforce Cliff; The Power of One",
+    "level": "Level 3",
+    "seedingQuestion": "Who does the work of public health?",
+    "title": "Small AI-augmented core",
+    "condition": "Lean teams work through automation, CHWs, and shared specialists.",
+    "role": "Core"
+  },
+  {
+    "id": "C23",
+    "dimension": "The workforce model",
+    "sourceDrivers": "The Workforce Cliff; The Power of One",
+    "level": "Level 3",
+    "seedingQuestion": "Who does the work of public health?",
+    "title": "Distributed partner workforce",
+    "condition": "Contractors, community organizations, universities, and creators do more of the work.",
+    "role": "Core"
+  },
+  {
+    "id": "C24",
+    "dimension": "The workforce model",
+    "sourceDrivers": "The Workforce Cliff; The Power of One",
+    "level": "Level 3",
+    "seedingQuestion": "Who does the work of public health?",
+    "title": "Chronic shortage and memory loss",
+    "condition": "Vacancies persist and capability resets with each departure.",
+    "role": "Edge"
+  },
+  {
+    "id": "C25",
+    "dimension": "AI infrastructure and access",
+    "sourceDrivers": "AI as Public Health Infrastructure",
+    "level": "Level 3",
+    "seedingQuestion": "Who controls and benefits from public-health AI?",
+    "title": "Public AI utility",
+    "condition": "Trusted, governed tools are available across the field.",
+    "role": "Core"
+  },
+  {
+    "id": "C26",
+    "dimension": "AI infrastructure and access",
+    "sourceDrivers": "AI as Public Health Infrastructure",
+    "level": "Level 3",
+    "seedingQuestion": "Who controls and benefits from public-health AI?",
+    "title": "Shared network services",
+    "condition": "Institutions pool AI capabilities, talent, and standards.",
+    "role": "Core"
+  },
+  {
+    "id": "C27",
+    "dimension": "AI infrastructure and access",
+    "sourceDrivers": "AI as Public Health Infrastructure",
+    "level": "Level 3",
+    "seedingQuestion": "Who controls and benefits from public-health AI?",
+    "title": "Vendor-owned stack",
+    "condition": "Agencies rent closed tools and infrastructure from private firms.",
+    "role": "Core"
+  },
+  {
+    "id": "C28",
+    "dimension": "AI infrastructure and access",
+    "sourceDrivers": "AI as Public Health Infrastructure",
+    "level": "Level 3",
+    "seedingQuestion": "Who controls and benefits from public-health AI?",
+    "title": "Unequal AI arms race",
+    "condition": "Well-resourced actors accelerate while others fall further behind.",
+    "role": "Edge"
+  },
+  {
+    "id": "C29",
+    "dimension": "What public health can see",
+    "sourceDrivers": "Data Modernization & Real-Time Surveillance; The Shadow Healthcare System",
+    "level": "Level 3",
+    "seedingQuestion": "How visible is population health in real time?",
+    "title": "Live public health picture",
+    "condition": "Integrated systems provide a trusted, real-time view of population health.",
+    "role": "Core"
+  },
+  {
+    "id": "C30",
+    "dimension": "What public health can see",
+    "sourceDrivers": "Data Modernization & Real-Time Surveillance; The Shadow Healthcare System",
+    "level": "Level 3",
+    "seedingQuestion": "How visible is population health in real time?",
+    "title": "Connected local pictures",
+    "condition": "Federated systems share enough data to coordinate while remaining decentralized.",
+    "role": "Core"
+  },
+  {
+    "id": "C31",
+    "dimension": "What public health can see",
+    "sourceDrivers": "Data Modernization & Real-Time Surveillance; The Shadow Healthcare System",
+    "level": "Level 3",
+    "seedingQuestion": "How visible is population health in real time?",
+    "title": "Private platforms see more",
+    "condition": "Companies have faster and richer data than public agencies.",
+    "role": "Core"
+  },
+  {
+    "id": "C32",
+    "dimension": "What public health can see",
+    "sourceDrivers": "Data Modernization & Real-Time Surveillance; The Shadow Healthcare System",
+    "level": "Level 3",
+    "seedingQuestion": "How visible is population health in real time?",
+    "title": "Growing blind spots",
+    "condition": "Fragmented systems and off-grid care leave public health partially blind.",
+    "role": "Edge"
+  },
+  {
+    "id": "C33",
+    "dimension": "Control of body data",
+    "sourceDrivers": "Biodata Sovereignty",
+    "level": "Level 3",
+    "seedingQuestion": "Who owns and controls data from people's bodies?",
+    "title": "Trusted public use",
+    "condition": "Strong governance allows biodata to support population health.",
+    "role": "Core"
+  },
+  {
+    "id": "C34",
+    "dimension": "Control of body data",
+    "sourceDrivers": "Biodata Sovereignty",
+    "level": "Level 3",
+    "seedingQuestion": "Who owns and controls data from people's bodies?",
+    "title": "Individual control",
+    "condition": "People decide who can use their data and may trade or license it.",
+    "role": "Core"
+  },
+  {
+    "id": "C35",
+    "dimension": "Control of body data",
+    "sourceDrivers": "Biodata Sovereignty",
+    "level": "Level 3",
+    "seedingQuestion": "Who owns and controls data from people's bodies?",
+    "title": "Corporate control",
+    "condition": "Platforms and data brokers hold the most valuable datasets.",
+    "role": "Core"
+  },
+  {
+    "id": "C36",
+    "dimension": "Control of body data",
+    "sourceDrivers": "Biodata Sovereignty",
+    "level": "Level 3",
+    "seedingQuestion": "Who owns and controls data from people's bodies?",
+    "title": "Government access",
+    "condition": "Public agencies or law enforcement gain broad access for public or political purposes.",
+    "role": "Edge"
+  },
+  {
+    "id": "C37",
+    "dimension": "The threat environment",
+    "sourceDrivers": "Climate as a Health Multiplier; The Changing Nature of Disease; The Lowered Shield",
+    "level": "Level 1 baseline + Level 3 range + Level 4 wildcard",
+    "seedingQuestion": "What kind of threat environment does public health face?",
+    "title": "Adaptation keeps pace",
+    "condition": "Known climate and disease pressures grow, but investments contain many impacts.",
+    "role": "Core"
+  },
+  {
+    "id": "C38",
+    "dimension": "The threat environment",
+    "sourceDrivers": "Climate as a Health Multiplier; The Changing Nature of Disease; The Lowered Shield",
+    "level": "Level 1 baseline + Level 3 range + Level 4 wildcard",
+    "seedingQuestion": "What kind of threat environment does public health face?",
+    "title": "Compounding known threats",
+    "condition": "Heat, smoke, disasters, outbreaks, and displacement increasingly arrive together.",
+    "role": "Core"
+  },
+  {
+    "id": "C39",
+    "dimension": "The threat environment",
+    "sourceDrivers": "Climate as a Health Multiplier; The Changing Nature of Disease; The Lowered Shield",
+    "level": "Level 1 baseline + Level 3 range + Level 4 wildcard",
+    "seedingQuestion": "What kind of threat environment does public health face?",
+    "title": "Slow-moving systemic crisis",
+    "condition": "AMR, chronic disease, and environmental exposure create sustained strain.",
+    "role": "Core"
+  },
+  {
+    "id": "C40",
+    "dimension": "The threat environment",
+    "sourceDrivers": "Climate as a Health Multiplier; The Changing Nature of Disease; The Lowered Shield",
+    "level": "Level 1 baseline + Level 3 range + Level 4 wildcard",
+    "seedingQuestion": "What kind of threat environment does public health face?",
+    "title": "Unfamiliar biological shock",
+    "condition": "A novel or engineered threat falls outside existing assumptions.",
+    "role": "Wildcard"
+  },
+  {
+    "id": "C41",
+    "dimension": "The model of prevention",
+    "sourceDrivers": "Chronic, Metabolic & Longevity Reckoning; From Sick Care to Self-Care",
+    "level": "Level 3",
+    "seedingQuestion": "How does society try to stay healthy?",
+    "title": "Healthier conditions first",
+    "condition": "Environments, food systems, housing, and social supports become the main intervention.",
+    "role": "Core"
+  },
+  {
+    "id": "C42",
+    "dimension": "The model of prevention",
+    "sourceDrivers": "Chronic, Metabolic & Longevity Reckoning; From Sick Care to Self-Care",
+    "level": "Level 3",
+    "seedingQuestion": "How does society try to stay healthy?",
+    "title": "Medicine-led prevention",
+    "condition": "Drugs, diagnostics, and clinical monitoring manage risk at scale.",
+    "role": "Core"
+  },
+  {
+    "id": "C43",
+    "dimension": "The model of prevention",
+    "sourceDrivers": "Chronic, Metabolic & Longevity Reckoning; From Sick Care to Self-Care",
+    "level": "Level 3",
+    "seedingQuestion": "How does society try to stay healthy?",
+    "title": "Consumer optimization",
+    "condition": "Wellness products, personal data, supplements, and biotech define prevention.",
+    "role": "Core"
+  },
+  {
+    "id": "C44",
+    "dimension": "The model of prevention",
+    "sourceDrivers": "Chronic, Metabolic & Longevity Reckoning; From Sick Care to Self-Care",
+    "level": "Level 3",
+    "seedingQuestion": "How does society try to stay healthy?",
+    "title": "Personal responsibility regime",
+    "condition": "Health is moralized as an individual choice regardless of structural conditions.",
+    "role": "Edge"
+  },
+  {
+    "id": "C45",
+    "dimension": "The structure of care",
+    "sourceDrivers": "The Decentralization of Care; The Shadow Healthcare System; The Fringe Ascendant",
+    "level": "Level 1 direction + Level 3 expression",
+    "seedingQuestion": "How connected is care outside hospitals to the public system?",
+    "title": "Distributed and connected",
+    "condition": "Home, retail, community, and public systems share data and responsibility.",
+    "role": "Core"
+  },
+  {
+    "id": "C46",
+    "dimension": "The structure of care",
+    "sourceDrivers": "The Decentralization of Care; The Shadow Healthcare System; The Fringe Ascendant",
+    "level": "Level 1 direction + Level 3 expression",
+    "seedingQuestion": "How connected is care outside hospitals to the public system?",
+    "title": "Platform-led but regulated",
+    "condition": "Large platforms organize care under common rules and data standards.",
+    "role": "Core"
+  },
+  {
+    "id": "C47",
+    "dimension": "The structure of care",
+    "sourceDrivers": "The Decentralization of Care; The Shadow Healthcare System; The Fringe Ascendant",
+    "level": "Level 1 direction + Level 3 expression",
+    "seedingQuestion": "How connected is care outside hospitals to the public system?",
+    "title": "Parallel systems with bridges",
+    "condition": "Formal and alternative systems remain distinct but connect at key points.",
+    "role": "Core"
+  },
+  {
+    "id": "C48",
+    "dimension": "The structure of care",
+    "sourceDrivers": "The Decentralization of Care; The Shadow Healthcare System; The Fringe Ascendant",
+    "level": "Level 1 direction + Level 3 expression",
+    "seedingQuestion": "How connected is care outside hospitals to the public system?",
+    "title": "Invisible shadow system",
+    "condition": "Large portions of care sit outside oversight, surveillance, and safeguards.",
+    "role": "Edge"
+  },
+  {
+    "id": "C49",
+    "dimension": "Individual and movement power",
+    "sourceDrivers": "The Power of One; The Fringe Ascendant",
+    "level": "Level 3",
+    "seedingQuestion": "Who can shape health behavior and policy at scale?",
+    "title": "Many local problem-solvers",
+    "condition": "Individuals and small groups use new tools to create useful public goods.",
+    "role": "Core"
+  },
+  {
+    "id": "C50",
+    "dimension": "Individual and movement power",
+    "sourceDrivers": "The Power of One; The Fringe Ascendant",
+    "level": "Level 3",
+    "seedingQuestion": "Who can shape health behavior and policy at scale?",
+    "title": "Trusted super-connectors",
+    "condition": "A small number of credible people become key partners and distribution nodes.",
+    "role": "Core"
+  },
+  {
+    "id": "C51",
+    "dimension": "Individual and movement power",
+    "sourceDrivers": "The Power of One; The Fringe Ascendant",
+    "level": "Level 3",
+    "seedingQuestion": "Who can shape health behavior and policy at scale?",
+    "title": "Influencers rival institutions",
+    "condition": "Reach and identity matter as much as expertise or formal authority.",
+    "role": "Core"
+  },
+  {
+    "id": "C52",
+    "dimension": "Individual and movement power",
+    "sourceDrivers": "The Power of One; The Fringe Ascendant",
+    "level": "Level 3",
+    "seedingQuestion": "Who can shape health behavior and policy at scale?",
+    "title": "High-leverage disruption",
+    "condition": "One actor or small group can rapidly destabilize health behavior or systems.",
+    "role": "Edge"
+  }
+]

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getModel, findScenarioUncertainty, getScenarioList } from "@/lib/model";
-import { createSession } from "@/lib/workshop";
+import { createSession, supabaseConfigured } from "@/lib/workshop";
 import type { Pacing } from "@/lib/workshop-types";
-import { airtableConfigured } from "@/lib/airtable";
 
 export const dynamic = "force-dynamic";
 
@@ -12,14 +11,14 @@ const MONTHS = [
 ];
 
 export async function POST(req: Request) {
-  if (!airtableConfigured()) {
+  if (!supabaseConfigured()) {
     return NextResponse.json(
-      { error: "Airtable is not configured on the server." },
+      { error: "Database is not configured on the server." },
       { status: 503 }
     );
   }
   let body: {
-    scope?: "Single" | "Full";
+    scope?: "Single" | "Full" | "Cards";
     scenarioId?: string;
     pacing?: Pacing;
     prompt?: string;
@@ -31,10 +30,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
   const { scope, scenarioId, pacing, prompt, facilitator } = body;
-  const { model } = await getModel();
 
   const now = new Date();
   const dateLabel = `${MONTHS[now.getMonth()]} ${now.getDate()}`;
+
+  // ---- Card game: teams draw outcome cards and build scenario triads ----
+  if (scope === "Cards") {
+    try {
+      const session = await createSession({
+        scope: "Cards",
+        uncertaintyId: null,
+        mode: "Divergent",
+        prompt: prompt?.trim() || "Build a future scenario from your cards.",
+        title: `Scenario cards — ${dateLabel}`,
+        facilitator: facilitator?.trim() || "",
+      });
+      return NextResponse.json({ code: session.code, id: session.id });
+    } catch (err) {
+      console.error("[POST /api/sessions] cards", err);
+      return NextResponse.json({ error: "Failed to create session." }, { status: 500 });
+    }
+  }
+
+  const { model } = await getModel();
 
   // ---- Full workshop: one session that walks all scenario uncertainties ----
   if (scope === "Full") {

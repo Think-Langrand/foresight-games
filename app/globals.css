@@ -185,3 +185,61 @@ textarea:focus-visible {
   color: #fff;
   border-color: transparent;
 }
+
+/* --- card-game motion --- */
+@keyframes deal-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  55% {
+    transform: scale(1.035);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+/* deal-in cards start hidden, then animate; delay is set inline per index. */
+.animate-deal {
+  opacity: 0;
+  animation: deal-in 0.44s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.animate-rise {
+  animation: rise-in 0.34s ease-out both;
+}
+.animate-pop {
+  animation: pop 0.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .animate-deal {
+    opacity: 1;
+  }
+}

@@ -19,6 +19,34 @@ export interface AirtableRecord<F = Record<string, unknown>> {
   fields: F;
 }
 
+// Raised when Airtable rejects a request for rate-limit / monthly-quota
+// reasons (HTTP 429, incl. PUBLIC_API_BILLING_LIMIT_EXCEEDED). Callers should
+// surface this as a 503 rather than a generic 500 so it's not mistaken for a
+// code bug.
+export class AirtableQuotaError extends Error {
+  readonly status = 429;
+  constructor(message: string) {
+    super(message);
+    this.name = "AirtableQuotaError";
+  }
+}
+
+export function isAirtableQuotaError(err: unknown): err is AirtableQuotaError {
+  return err instanceof AirtableQuotaError;
+}
+
+// Read the error body and throw — a quota-typed error on 429, otherwise generic.
+async function throwAirtableError(
+  res: Response,
+  op: string,
+  table: string
+): Promise<never> {
+  const body = await res.text();
+  const msg = `Airtable ${op} ${table} failed: ${res.status} ${body.slice(0, 300)}`;
+  if (res.status === 429) throw new AirtableQuotaError(msg);
+  throw new Error(msg);
+}
+
 function headers(): HeadersInit {
   return {
     Authorization: `Bearer ${AIRTABLE_KEY}`,
@@ -68,10 +96,7 @@ export async function listRecords<F = Record<string, unknown>>(
       fetchInit.next = { revalidate: opts.revalidate };
     }
     const res = await fetch(url, fetchInit);
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Airtable list ${table} failed: ${res.status} ${body.slice(0, 300)}`);
-    }
+    if (!res.ok) await throwAirtableError(res, "list", table);
     const json = (await res.json()) as { records: AirtableRecord<F>[]; offset?: string };
     out.push(...json.records);
     offset = json.offset;
@@ -93,10 +118,7 @@ export async function createRecords<F = Record<string, unknown>>(
       body: JSON.stringify({ records: batch, typecast: true }),
       cache: "no-store",
     });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Airtable create ${table} failed: ${res.status} ${body.slice(0, 300)}`);
-    }
+    if (!res.ok) await throwAirtableError(res, "create", table);
     const json = (await res.json()) as { records: AirtableRecord<F>[] };
     created.push(...json.records);
   }
@@ -116,10 +138,7 @@ export async function updateRecords<F = Record<string, unknown>>(
       body: JSON.stringify({ records: batch, typecast: true }),
       cache: "no-store",
     });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Airtable update ${table} failed: ${res.status} ${body.slice(0, 300)}`);
-    }
+    if (!res.ok) await throwAirtableError(res, "update", table);
     const json = (await res.json()) as { records: AirtableRecord<F>[] };
     updated.push(...json.records);
   }
@@ -135,10 +154,7 @@ export async function deleteRecords(table: string, ids: string[]): Promise<void>
       `${API}/${AIRTABLE_BASE_ID}/${encodeURIComponent(table)}?${params}`,
       { method: "DELETE", headers: headers(), cache: "no-store" }
     );
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Airtable delete ${table} failed: ${res.status} ${body.slice(0, 300)}`);
-    }
+    if (!res.ok) await throwAirtableError(res, "delete", table);
   }
 }
 
