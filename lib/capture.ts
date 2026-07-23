@@ -16,7 +16,6 @@ export const CAPTURE_SENTENCE = {
 
 // --- Heather's five "internal logic" prompts ---
 export type CapturePromptKey =
-  | "primaryCondition"
   | "definingCharacteristics"
   | "centralTension"
   | "newNormal"
@@ -30,12 +29,6 @@ export interface CapturePrompt {
 }
 
 export const CAPTURE_PROMPTS: CapturePrompt[] = [
-  {
-    key: "primaryCondition",
-    label: "Primary organizing condition",
-    help: "The single condition that anchors this world.",
-    rows: 2,
-  },
   {
     key: "definingCharacteristics",
     label: "Two or three defining characteristics",

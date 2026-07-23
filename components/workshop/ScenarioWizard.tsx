@@ -20,8 +20,8 @@ type Step =
 
 const STEPS: Step[] = [
   { kind: "triad" },
-  { kind: "sentence" },
   ...CAPTURE_PROMPTS.map((p) => ({ kind: "prompt", prompt: p }) as Step),
+  { kind: "sentence" },
   { kind: "title" },
 ];
 
@@ -333,8 +333,8 @@ function TriadStep({
 
 function ReviewList({ values }: { values: Record<string, string> }) {
   const rows: { label: string; value: string }[] = [
-    { label: CAPTURE_SENTENCE.label, value: values.convergence },
     ...CAPTURE_PROMPTS.map((p) => ({ label: p.label, value: values[p.key] })),
+    { label: CAPTURE_SENTENCE.label, value: values.convergence },
   ].filter((r) => r.value?.trim());
   if (!rows.length) return null;
   return (
@@ -356,8 +356,8 @@ function ReviewList({ values }: { values: Record<string, string> }) {
 
 function Recap({ team, triad }: { team: Team; triad: Card[] }) {
   const rows: { label: string; value: string }[] = [
-    { label: CAPTURE_SENTENCE.label, value: team.convergence },
     ...CAPTURE_PROMPTS.map((p) => ({ label: p.label, value: team[p.key] })),
+    { label: CAPTURE_SENTENCE.label, value: team.convergence },
   ].filter((r) => r.value?.trim());
   return (
     <section className="mt-8 border-t border-[var(--rule)] pt-6">
