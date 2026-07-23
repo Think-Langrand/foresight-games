@@ -22,7 +22,7 @@ export default async function SessionPage({
     return <CardsTeamView code={upper} deck={deck} drivers={drivers} />;
   }
 
-  const { model } = await getModel();
-  const scenarios = getScenarioList(model);
+  const { model, driverNameBySlug } = await getModel();
+  const scenarios = getScenarioList(model, driverNameBySlug);
   return <ParticipantView code={upper} scenarios={scenarios} />;
 }

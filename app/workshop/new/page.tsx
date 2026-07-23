@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getModel, findScenarioUncertainty } from "@/lib/model";
-import { airtableConfigured } from "@/lib/airtable";
+import { supabaseConfigured } from "@/lib/supabase";
 import { NewSessionForm } from "@/components/workshop/NewSessionForm";
 
 export const dynamic = "force-dynamic";
@@ -11,20 +11,20 @@ export default async function NewSessionPage({
   searchParams: Promise<{ u?: string }>;
 }) {
   const { u } = await searchParams;
-  const { model } = await getModel();
-  const found = u ? findScenarioUncertainty(model, u) : null;
+  const { model, driverNameBySlug } = await getModel();
+  const found = u ? findScenarioUncertainty(model, u, driverNameBySlug) : null;
 
-  if (!airtableConfigured()) {
+  if (!supabaseConfigured()) {
     return (
       <Shell>
         <h1 className="text-[26px] font-extrabold uppercase tracking-tight">
-          Airtable not connected
+          Database not connected
         </h1>
         <p className="mt-3 text-[14px] leading-[1.6] text-muted">
-          Running a live workshop needs the server's Airtable Personal Access Token. Add
-          <code className="mx-1 rounded bg-card px-1.5 py-0.5">AIRTABLE_API_KEY</code> and
-          <code className="mx-1 rounded bg-card px-1.5 py-0.5">AIRTABLE_BASE_ID</code> to your
-          environment, then reload.
+          Running a live workshop needs the server&apos;s Supabase credentials. Add
+          <code className="mx-1 rounded bg-card px-1.5 py-0.5">NEXT_PUBLIC_SUPABASE_URL</code> and
+          <code className="mx-1 rounded bg-card px-1.5 py-0.5">SUPABASE_SERVICE_ROLE_KEY</code> to
+          your environment, then reload.
         </p>
       </Shell>
     );

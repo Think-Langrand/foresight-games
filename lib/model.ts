@@ -1,256 +1,88 @@
 import "server-only";
 
 import seed from "@/data/model.seed.json";
-import {
-  airtableConfigured,
-  listRecords,
-  TABLES,
-  type AirtableRecord,
-} from "@/lib/airtable";
-import {
-  THEME_ORDER,
-  shortDirection,
-  type Driver,
-  type Model,
-  type Outcome,
-  type Uncertainty,
-  type ScenarioUncertainty,
-  type LoopImpact,
-  type Direction,
-  type Alignment,
-  type Effect,
-  type Magnitude,
-} from "@/lib/types";
+import { getUncertaintyRows, type UncertaintyRow } from "@/lib/cards";
+import { getDrivers } from "@/lib/drivers";
+import { supabaseAdmin, supabaseConfigured } from "@/lib/supabase";
+import type { Driver, Model, ScenarioUncertainty } from "@/lib/types";
 import type { ScenarioLite } from "@/lib/workshop-types";
 
-// The bundled seed predates scenario uncertainties; default that slice to empty.
-const SEED: Model = {
-  drivers: (seed as { drivers: Driver[] }).drivers,
-  scenarioUncertainties:
-    (seed as { scenarioUncertainties?: ScenarioUncertainty[] }).scenarioUncertainties ?? [],
-};
+// A scenario's source drivers are referenced by slide-driver slug (see
+// data/uncertainties.seed.json + the `drivers` table), resolved to names here.
+export type DriverNameBySlug = Map<string, string>;
 
-// ---- Airtable field row shapes (only the fields we read) ----
-type DriverRow = {
-  Driver?: string;
-  Theme?: string;
-  Headline?: string;
-  Short?: string;
-  Long?: string;
-  Impact?: string;
-  Uncertainty?: string;
-  "Top-Right (ranked)"?: boolean;
-  Uncertainties?: string[];
-  "Neutral reading"?: string;
-  "Neutral headline"?: string;
-  "Neutral name"?: string;
-};
-type UncertaintyRow = {
-  Uncertainty?: string;
-  Question?: string;
-  Driver?: string[];
-  "Pole A"?: string;
-  "Pole B"?: string;
-  Outcomes?: string[];
-  "Sharpest Axis?"?: boolean;
-};
-type OutcomeRow = {
-  Outcome?: string;
-  Uncertainty?: string[];
-  Direction?: string;
-  Narrative?: string;
-  "Loop Impacts"?: string[];
-  Alignment?: string;
-  "Strategic move"?: string;
-};
-type LoopImpactRow = {
-  Impact?: string;
-  Outcome?: string[];
-  Loop?: string[];
-  Effect?: string;
-  Magnitude?: string;
-  Mechanism?: string;
-};
-type LoopRow = {
-  Name?: string;
-  Subsystem?: string;
-  Tag?: string;
-};
-type ScenarioUncertaintyRow = {
-  Uncertainty?: string;
-  Question?: string;
-  "Workshop ID"?: string;
-  "Capability domain"?: { name?: string } | string;
-  "Pole A"?: string;
-  "Pole B"?: string;
-  "Why it matters for scenarios"?: string;
-  "Identity implication"?: string;
-  "Source drivers"?: string[];
-  "Maps to uncertainties"?: string[];
-};
+// The foresight model has two parts:
+//   • drivers — the nested Explore model (drivers → uncertainties → outcomes →
+//     loop impacts). Stored as a JSONB document in Supabase `content['model']`,
+//     falling back to the bundled snapshot (data/model.seed.json).
+//   • scenarioUncertainties — the 13 workshop dimensions. Derived from the
+//     shared `uncertainties` table (see lib/cards.ts), so the deck and the
+//     workshop stay in lock-step. (Formerly both came from Airtable.)
 
-const DIR_RANK: Record<string, number> = {
-  Positive: 0,
-  "Mixed / depends": 1,
-  Negative: 2,
-};
+const SEED_DRIVERS: Driver[] = (seed as { drivers: Driver[] }).drivers;
 
-function assemble(
-  drivers: AirtableRecord<DriverRow>[],
-  uncertainties: AirtableRecord<UncertaintyRow>[],
-  outcomes: AirtableRecord<OutcomeRow>[],
-  impacts: AirtableRecord<LoopImpactRow>[],
-  loops: AirtableRecord<LoopRow>[],
-  scenarios: AirtableRecord<ScenarioUncertaintyRow>[]
-): Model {
-  const loopById = new Map(loops.map((l) => [l.id, l.fields]));
-  const impactById = new Map(impacts.map((im) => [im.id, im]));
-  const outcomeById = new Map(outcomes.map((o) => [o.id, o]));
-  const uncById = new Map(uncertainties.map((u) => [u.id, u]));
-
-  const buildImpact = (rec: AirtableRecord<LoopImpactRow>): LoopImpact => {
-    const loopId = rec.fields.Loop?.[0];
-    const loop = loopId ? loopById.get(loopId) : undefined;
-    return {
-      id: rec.id,
-      label: rec.fields.Impact ?? "",
-      effect: (rec.fields.Effect ?? "Neutral / unclear") as Effect,
-      magnitude: (rec.fields.Magnitude ?? "Medium") as Magnitude,
-      mechanism: rec.fields.Mechanism ?? "",
-      loopName: loop?.Name ?? "",
-      loopSubsystem: loop?.Subsystem ?? "",
-      loopCode: loop?.Tag ?? "",
-    };
-  };
-
-  const buildOutcome = (rec: AirtableRecord<OutcomeRow>): Outcome => {
-    const f = rec.fields;
-    const imps = (f["Loop Impacts"] ?? [])
-      .map((id) => impactById.get(id))
-      .filter((x): x is AirtableRecord<LoopImpactRow> => Boolean(x))
-      .map(buildImpact);
-    return {
-      id: rec.id,
-      label: f.Outcome ?? "",
-      direction: (f.Direction ?? "Mixed / depends") as Direction,
-      alignment: (f.Alignment ?? "Mixed / depends") as Alignment,
-      narrative: f.Narrative ?? "",
-      strategicMove: f["Strategic move"] ?? "",
-      impacts: imps,
-    };
-  };
-
-  const buildUncertainty = (rec: AirtableRecord<UncertaintyRow>): Uncertainty => {
-    const f = rec.fields;
-    const ocs = (f.Outcomes ?? [])
-      .map((id) => outcomeById.get(id))
-      .filter((x): x is AirtableRecord<OutcomeRow> => Boolean(x))
-      .map(buildOutcome)
-      .sort(
-        (a, b) =>
-          (DIR_RANK[shortDirection(a.direction)] ?? 1) -
-          (DIR_RANK[shortDirection(b.direction)] ?? 1)
-      );
-    return {
-      id: rec.id,
-      label: f.Uncertainty ?? "",
-      question: f.Question ?? "",
-      poleA: f["Pole A"] ?? "",
-      poleB: f["Pole B"] ?? "",
-      sharpest: Boolean(f["Sharpest Axis?"]),
-      outcomes: ocs,
-    };
-  };
-
-  const builtDrivers: Driver[] = drivers.map((rec) => {
-    const f = rec.fields;
-    const uncs = (f.Uncertainties ?? [])
-      .map((id) => uncById.get(id))
-      .filter((x): x is AirtableRecord<UncertaintyRow> => Boolean(x))
-      .map(buildUncertainty)
-      .sort((a, b) => Number(b.sharpest) - Number(a.sharpest));
-    return {
-      id: rec.id,
-      name: f.Driver ?? "",
-      theme: f.Theme ?? "",
-      headline: f.Headline ?? "",
-      short: f.Short ?? "",
-      neutralHeadline: f["Neutral headline"] ?? "",
-      neutralReading: f["Neutral reading"] ?? "",
-      neutralName: f["Neutral name"] ?? "",
-      topRight: Boolean(f["Top-Right (ranked)"]),
-      impact: f.Impact,
-      uncertainty: f.Uncertainty,
-      uncertainties: uncs,
-    };
-  });
-
-  // Sort: by theme order, then top-ranked first within a theme.
-  builtDrivers.sort((a, b) => {
-    const ta = THEME_ORDER.indexOf(a.theme as (typeof THEME_ORDER)[number]);
-    const tb = THEME_ORDER.indexOf(b.theme as (typeof THEME_ORDER)[number]);
-    const oa = ta === -1 ? 999 : ta;
-    const ob = tb === -1 ? 999 : tb;
-    if (oa !== ob) return oa - ob;
-    return Number(b.topRight) - Number(a.topRight);
-  });
-
-  const selectName = (v: { name?: string } | string | undefined): string =>
-    typeof v === "string" ? v : v?.name ?? "";
-
-  const builtScenarios: ScenarioUncertainty[] = scenarios
-    .map((rec) => {
-      const f = rec.fields;
-      return {
-        id: rec.id,
-        workshopId: f["Workshop ID"] ?? "",
-        label: f.Uncertainty ?? "",
-        question: f.Question ?? "",
-        poleA: f["Pole A"] ?? "",
-        poleB: f["Pole B"] ?? "",
-        capabilityDomain: selectName(f["Capability domain"]),
-        whyItMatters: f["Why it matters for scenarios"] ?? "",
-        identityImplication: f["Identity implication"] ?? "",
-        sourceDriverIds: f["Source drivers"] ?? [],
-        mappedUncertaintyIds: f["Maps to uncertainties"] ?? [],
-      };
-    })
-    // Order by the curated U01…U24 workshop id when present.
+// Turn a normalized uncertainty row into a scenario uncertainty. The curated
+// U01…U13 workshop id is derived from the uncertainty number.
+function deriveScenarios(rows: UncertaintyRow[]): ScenarioUncertainty[] {
+  return rows
+    .map((u) => ({
+      id: u.id,
+      workshopId: `U${String(u.number).padStart(2, "0")}`,
+      label: u.title,
+      question: u.question,
+      poleA: "",
+      poleB: "",
+      capabilityDomain: u.domain,
+      whyItMatters: "",
+      identityImplication: "",
+      sourceDriverIds: u.sourceDriverIds ?? [],
+      mappedUncertaintyIds: [],
+    }))
     .sort((a, b) => a.workshopId.localeCompare(b.workshopId));
+}
 
-  return { drivers: builtDrivers, scenarioUncertainties: builtScenarios };
+// Read the nested Explore drivers from Supabase content['model'] (or seed).
+async function getModelDrivers(): Promise<Driver[]> {
+  if (!supabaseConfigured()) return SEED_DRIVERS;
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("content")
+      .select("data")
+      .eq("key", "model")
+      .maybeSingle();
+    if (error) throw error;
+    const drivers = (data?.data as { drivers?: Driver[] } | null)?.drivers;
+    return drivers && drivers.length ? drivers : SEED_DRIVERS;
+  } catch (err) {
+    console.error("[getModelDrivers] Supabase read failed, using seed:", err);
+    return SEED_DRIVERS;
+  }
 }
 
 /**
- * The full foresight model. Reads from Airtable when configured (cached),
- * otherwise returns the bundled seed snapshot.
+ * The full foresight model. Reads from Supabase when configured, otherwise
+ * returns the bundled seed snapshot. Also returns a slug→name map for the
+ * scenario source drivers (from the slide `drivers` table).
  */
-export async function getModel(): Promise<{ model: Model; source: "airtable" | "seed" }> {
-  if (!airtableConfigured()) {
-    return { model: SEED, source: "seed" };
-  }
-  try {
-    const revalidate = 300; // content is near-static during a workshop; refresh every 5 min
-    const [drivers, uncertainties, outcomes, impacts, loops, scenarios] = await Promise.all([
-      listRecords<DriverRow>(TABLES.drivers, { revalidate }),
-      listRecords<UncertaintyRow>(TABLES.uncertainties, { revalidate }),
-      listRecords<OutcomeRow>(TABLES.outcomes, { revalidate }),
-      listRecords<LoopImpactRow>(TABLES.loopImpacts, { revalidate }),
-      listRecords<LoopRow>(TABLES.loops, { revalidate }),
-      listRecords<ScenarioUncertaintyRow>(TABLES.scenarioUncertainties, { revalidate }),
-    ]);
-    const model = assemble(drivers, uncertainties, outcomes, impacts, loops, scenarios);
-    // Guard against an empty / mis-scoped base: fall back to seed rather than an empty app.
-    if (model.drivers.length === 0) return { model: SEED, source: "seed" };
-    return { model, source: "airtable" };
-  } catch (err) {
-    console.error("[getModel] Airtable read failed, using seed:", err);
-    return { model: SEED, source: "seed" };
-  }
+export async function getModel(): Promise<{
+  model: Model;
+  source: "supabase" | "seed";
+  driverNameBySlug: DriverNameBySlug;
+}> {
+  const [drivers, uncRows, slideDrivers] = await Promise.all([
+    getModelDrivers(),
+    getUncertaintyRows(),
+    getDrivers(),
+  ]);
+  const model: Model = { drivers, scenarioUncertainties: deriveScenarios(uncRows) };
+  const driverNameBySlug: DriverNameBySlug = new Map(
+    slideDrivers.map((d) => [d.slug, d.name])
+  );
+  return { model, source: supabaseConfigured() ? "supabase" : "seed", driverNameBySlug };
 }
 
 export function getSeedModel(): Model {
-  return SEED;
+  return { drivers: SEED_DRIVERS, scenarioUncertainties: [] };
 }
 
 /** Find an uncertainty (and its driver) by id in a model. */
@@ -263,28 +95,34 @@ export function findUncertainty(model: Model, uncertaintyId: string) {
 }
 
 /** Find a scenario uncertainty (and its source drivers) by id in a model. */
-export function findScenarioUncertainty(model: Model, scenarioId: string) {
+export function findScenarioUncertainty(
+  model: Model,
+  scenarioId: string,
+  driverNameBySlug?: DriverNameBySlug
+) {
   const scenario = model.scenarioUncertainties.find((s) => s.id === scenarioId);
   if (!scenario) return null;
-  const byId = new Map(model.drivers.map((d) => [d.id, d]));
   const sourceDrivers = scenario.sourceDriverIds
-    .map((id) => byId.get(id))
-    .filter((d): d is Driver => Boolean(d));
+    .map((slug) => ({ id: slug, name: driverNameBySlug?.get(slug) ?? "" }))
+    .filter((d) => d.name);
   return { scenario, sourceDrivers };
 }
 
 // Capability-domain order used across Explore and the live workshop views.
+// Matches the domain strings on the uncertainties (see data/uncertainties.seed.json).
 export const CAPABILITY_DOMAIN_ORDER = [
   "Permission to Act",
   "Capacity to Act",
   "Ability to See",
-  "Ability to Speak & Be Believed",
+  "Ability to Speak and Be Believed",
   "Ability to Adapt",
 ];
 
 /** Ordered, client-safe scenario list for the live views (domain order, then U##). */
-export function getScenarioList(model: Model): ScenarioLite[] {
-  const nameById = new Map(model.drivers.map((d) => [d.id, d.name]));
+export function getScenarioList(
+  model: Model,
+  driverNameBySlug?: DriverNameBySlug
+): ScenarioLite[] {
   const rank = (domain: string) => {
     const i = CAPABILITY_DOMAIN_ORDER.indexOf(domain);
     return i === -1 ? 999 : i;
@@ -299,7 +137,7 @@ export function getScenarioList(model: Model): ScenarioLite[] {
       poleB: s.poleB,
       capabilityDomain: s.capabilityDomain,
       driverNames: s.sourceDriverIds
-        .map((id) => nameById.get(id))
+        .map((slug) => driverNameBySlug?.get(slug))
         .filter((n): n is string => Boolean(n)),
     }))
     .sort(

@@ -20,7 +20,7 @@ export default async function PresentPage({
     return <CardsPresentView code={upper} deck={deck.cards} />;
   }
 
-  const { model } = await getModel();
-  const scenarios = getScenarioList(model);
+  const { model, driverNameBySlug } = await getModel();
+  const scenarios = getScenarioList(model, driverNameBySlug);
   return <PresentView code={upper} scenarios={scenarios} />;
 }
