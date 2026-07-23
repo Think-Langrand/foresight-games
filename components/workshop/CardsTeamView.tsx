@@ -301,42 +301,46 @@ function TeamPlay({
         </div>
         <p className="serif mt-3 text-[17px] italic leading-[1.35] text-muted">{prompt}</p>
 
-        {closed && <Banner>This session is closed.</Banner>}
-        {submitted && !closed && <Banner>Scenario submitted. Scroll down to review it.</Banner>}
+        {closed && !submitted && <Banner>This session is closed.</Banner>}
+        {submitted && <Banner>✓ Scenario submitted — your world is below.</Banner>}
       </div>
 
-      {/* Three slots — stacked on mobile, spread across on desktop */}
-      <div className="mt-6">
-        <div className="lg:mx-auto lg:max-w-[720px]">
-          <div className="flex items-baseline justify-between">
-            <span className="eyebrow ink">Build your three-card world</span>
-            <span className="text-[11px] font-bold text-muted">
-              {[slot1, slot2, slot3].filter(Boolean).length}/3 chosen
-            </span>
+      {/* Three slots — the builder. Hidden once submitted (the results screen
+          below already shows the finished triad). */}
+      {!submitted && (
+        <div className="mt-6">
+          <div className="lg:mx-auto lg:max-w-[720px]">
+            <div className="flex items-baseline justify-between">
+              <span className="eyebrow ink">Build your three-card world</span>
+              <span className="text-[11px] font-bold text-muted">
+                {[slot1, slot2, slot3].filter(Boolean).length}/3 chosen
+              </span>
+            </div>
+            <p className="mt-1 text-[12px] leading-[1.5] text-muted">
+              Slot one is locked to your uncertainty — choose an outcome for it. Then pick two more
+              uncertainties and an outcome for each.
+            </p>
           </div>
-          <p className="mt-1 text-[12px] leading-[1.5] text-muted">
-            Slot one is locked to your uncertainty — choose an outcome for it. Then pick two more
-            uncertainties and an outcome for each.
-          </p>
+          <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-3">
+            {slotDefs.map(({ slot, card, lockedUnc }) => {
+              const prevFilled =
+                slot === 1 || (slot === 2 ? Boolean(slot1) : Boolean(slot1 && slot2));
+              return (
+                <SlotButton
+                  key={slot}
+                  index={slot}
+                  card={card}
+                  lockedUnc={lockedUnc}
+                  disabled={locked || !prevFilled}
+                  onOpen={() =>
+                    setPicker({ slot, uncertaintyId: slot === 1 ? team.seedUncertaintyId : null })
+                  }
+                />
+              );
+            })}
+          </div>
         </div>
-        <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-3">
-          {slotDefs.map(({ slot, card, lockedUnc }) => {
-            const prevFilled = slot === 1 || (slot === 2 ? Boolean(slot1) : Boolean(slot1 && slot2));
-            return (
-              <SlotButton
-                key={slot}
-                index={slot}
-                card={card}
-                lockedUnc={lockedUnc}
-                disabled={locked || !prevFilled}
-                onOpen={() =>
-                  setPicker({ slot, uncertaintyId: slot === 1 ? team.seedUncertaintyId : null })
-                }
-              />
-            );
-          })}
-        </div>
-      </div>
+      )}
 
       {/* Triad → scenario wizard */}
       <div className="lg:mx-auto lg:max-w-[760px]">

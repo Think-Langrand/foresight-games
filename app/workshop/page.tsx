@@ -181,6 +181,15 @@ export default function WorkshopLanding() {
           uncertainty for a focused session.
         </p>
       </div>
+
+      <div className="mt-10 border-t border-[var(--rule)] pt-5">
+        <Link
+          href="/admin"
+          className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted underline hover:text-ink"
+        >
+          Admin · review past sessions →
+        </Link>
+      </div>
     </main>
   );
 }
