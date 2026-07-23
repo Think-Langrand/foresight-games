@@ -121,7 +121,7 @@ export function ScenarioWizard({
   // Submitted / closed → read-only recap.
   if (locked)
     return (
-      <div className="animate-rise">
+      <div className="animate-rise mt-6 border-t border-[var(--rule)] pt-7">
         <TeamResult
           team={team}
           triad={triad}
