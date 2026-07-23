@@ -95,6 +95,57 @@ function randomCode(len = 4): string {
   return s;
 }
 
+// ---------- admin: list + delete ----------
+export interface SessionSummary {
+  session: WorkshopSession;
+  teamCount: number;
+  submittedTeamCount: number;
+  submissionCount: number;
+  responseCount: number;
+}
+
+// All sessions, newest first, each with rollup counts (for the admin index).
+export async function listSessions(): Promise<SessionSummary[]> {
+  if (!supabaseConfigured()) return [];
+  const db = supabaseAdmin();
+  const [sesRes, teamRes, subRes, respRes] = await Promise.all([
+    db.from("sessions").select("*").order("created_at", { ascending: false }),
+    db.from("teams").select("code, status"),
+    db.from("submissions").select("code"),
+    db.from("responses").select("code"),
+  ]);
+  for (const r of [sesRes, teamRes, subRes, respRes]) if (r.error) throw r.error;
+
+  const tally = (rows: { code: string }[]) => {
+    const m = new Map<string, number>();
+    for (const r of rows) m.set(r.code, (m.get(r.code) ?? 0) + 1);
+    return m;
+  };
+  const teams = (teamRes.data ?? []) as { code: string; status: string }[];
+  const teamCounts = tally(teams);
+  const submittedCounts = tally(teams.filter((t) => t.status === "Submitted"));
+  const subCounts = tally((subRes.data ?? []) as { code: string }[]);
+  const respCounts = tally((respRes.data ?? []) as { code: string }[]);
+
+  return (sesRes.data as SessionRow[]).map((r) => {
+    const session = mapSession(r);
+    return {
+      session,
+      teamCount: teamCounts.get(session.code) ?? 0,
+      submittedTeamCount: submittedCounts.get(session.code) ?? 0,
+      submissionCount: subCounts.get(session.code) ?? 0,
+      responseCount: respCounts.get(session.code) ?? 0,
+    };
+  });
+}
+
+// Delete a session; teams/submissions/responses cascade via FK (see migration 0001).
+export async function deleteSession(code: string): Promise<void> {
+  const c = code.trim().toUpperCase();
+  const { error } = await supabaseAdmin().from("sessions").delete().eq("code", c);
+  if (error) throw error;
+}
+
 export async function getSessionByCode(
   code: string,
   _opts: { force?: boolean } = {}

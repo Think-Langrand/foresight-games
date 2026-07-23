@@ -174,3 +174,8 @@ export async function updateTeam(
   if (error) throw error;
   return mapTeam(data as TeamRow);
 }
+
+export async function deleteTeam(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("teams").delete().eq("id", id);
+  if (error) throw error;
+}
