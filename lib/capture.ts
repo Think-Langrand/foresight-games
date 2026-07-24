@@ -23,32 +23,36 @@ export type CapturePromptKey =
 
 export interface CapturePrompt {
   key: CapturePromptKey;
+  // Short heading, used on the recap and projector.
   label: string;
-  help?: string;
+  // The plain-language question the team answers in the build wizard.
+  question: string;
   rows: number;
 }
 
 export const CAPTURE_PROMPTS: CapturePrompt[] = [
   {
     key: "definingCharacteristics",
-    label: "Two or three defining characteristics",
-    help: "What is true across this world.",
+    label: "Defining characteristics",
+    question: "What two or three things are true across this whole world?",
     rows: 3,
   },
   {
     key: "centralTension",
-    label: "The central tension or trade-off",
-    help: "What is being weighed against what.",
+    label: "Central tension",
+    question: "What is being weighed against what?",
     rows: 2,
   },
   {
     key: "newNormal",
-    label: "What has become normal that would feel unusual today",
+    label: "The new normal",
+    question: "What has become normal here that would feel strange today?",
     rows: 2,
   },
   {
     key: "brokenAssumption",
-    label: "An assumption about public health that no longer holds",
+    label: "Broken assumption",
+    question: "What assumption about public health no longer holds?",
     rows: 2,
   },
 ];
@@ -56,6 +60,7 @@ export const CAPTURE_PROMPTS: CapturePrompt[] = [
 export const CAPTURE_TITLE = {
   key: "worldTitle" as const,
   label: "World title",
+  question: "What would you call this world?",
   placeholder: "A short, evocative name for this future",
 };
 

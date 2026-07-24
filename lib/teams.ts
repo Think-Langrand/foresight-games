@@ -1,6 +1,6 @@
 import "server-only";
 
-import { supabaseAdmin, supabaseConfigured } from "@/lib/supabase";
+import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import { getDeck } from "@/lib/cards";
 import { STARTER_DIMENSIONS } from "@/lib/capture";
 import {
@@ -19,6 +19,7 @@ interface TeamRow {
   color: string;
   seed_uncertainty_id: string;
   seed_card_id: string;
+  seed_locked: boolean | null;
   kept_ids: string[] | null;
   wildcard_id: string | null;
   convergence: string;
@@ -41,6 +42,7 @@ function mapTeam(r: TeamRow): Team {
     color: r.color || TEAM_COLORS[0].hex,
     seedUncertaintyId: r.seed_uncertainty_id ?? "",
     seedCardId: r.seed_card_id ?? "",
+    seedLocked: r.seed_locked ?? false,
     keptIds: r.kept_ids ?? [],
     wildcardId: r.wildcard_id || null,
     convergence: r.convergence ?? "",
@@ -87,13 +89,16 @@ export async function getTeams(
   _opts: { force?: boolean } = {}
 ): Promise<Team[]> {
   if (!supabaseConfigured()) return [];
-  const { data, error } = await supabaseAdmin()
-    .from("teams")
-    .select("*")
-    .eq("code", code.trim().toUpperCase())
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  return (data as TeamRow[]).map(mapTeam);
+  const data = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("teams")
+      .select("*")
+      .eq("code", code.trim().toUpperCase())
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return data as TeamRow[];
+  });
+  return data.map(mapTeam);
 }
 
 export async function createTeam(input: {
@@ -112,22 +117,25 @@ export async function createTeam(input: {
   const color = TEAM_COLORS[existing.length % TEAM_COLORS.length].hex;
   const name = input.name?.trim() || `Team ${existing.length + 1}`;
 
-  const { data, error } = await supabaseAdmin()
-    .from("teams")
-    .insert({
-      session_id: input.sessionId,
-      code: input.code,
-      name,
-      color,
-      seed_uncertainty_id: seedUncertainty.id,
-      seed_card_id: "",
-      kept_ids: [],
-      status: "Drafting",
-    })
-    .select("*")
-    .single();
-  if (error) throw error;
-  return mapTeam(data as TeamRow);
+  const data = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("teams")
+      .insert({
+        session_id: input.sessionId,
+        code: input.code,
+        name,
+        color,
+        seed_uncertainty_id: seedUncertainty.id,
+        seed_card_id: "",
+        kept_ids: [],
+        status: "Drafting",
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as TeamRow;
+  });
+  return mapTeam(data);
 }
 
 export async function updateTeam(
@@ -135,7 +143,9 @@ export async function updateTeam(
   _code: string,
   patch: Partial<{
     name: string;
+    seedUncertaintyId: string;
     seedCardId: string;
+    seedLocked: boolean;
     keptIds: string[];
     convergence: string;
     worldTitle: string;
@@ -151,7 +161,9 @@ export async function updateTeam(
 ): Promise<Team> {
   const fields: Record<string, unknown> = {};
   if (patch.name !== undefined) fields.name = patch.name;
+  if (patch.seedUncertaintyId !== undefined) fields.seed_uncertainty_id = patch.seedUncertaintyId;
   if (patch.seedCardId !== undefined) fields.seed_card_id = patch.seedCardId;
+  if (patch.seedLocked !== undefined) fields.seed_locked = patch.seedLocked;
   if (patch.keptIds !== undefined) fields.kept_ids = patch.keptIds;
   if (patch.convergence !== undefined) fields.convergence = patch.convergence;
   if (patch.worldTitle !== undefined) fields.world_title = patch.worldTitle;
@@ -165,12 +177,15 @@ export async function updateTeam(
   if (patch.status !== undefined) fields.status = patch.status;
   if (patch.wildcardId !== undefined) fields.wildcard_id = patch.wildcardId;
 
-  const { data, error } = await supabaseAdmin()
-    .from("teams")
-    .update(fields)
-    .eq("id", id)
-    .select("*")
-    .single();
-  if (error) throw error;
-  return mapTeam(data as TeamRow);
+  const data = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("teams")
+      .update(fields)
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as TeamRow;
+  });
+  return mapTeam(data);
 }

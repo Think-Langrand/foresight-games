@@ -28,3 +28,28 @@ export function supabaseAdmin(): SupabaseClient {
   }
   return client;
 }
+
+/**
+ * Retry a Supabase call through transient origin failures. The project's
+ * Cloudflare edge intermittently returns 520/525 (origin dropped the request)
+ * under burst load; a short backoff lets the next attempt succeed instead of
+ * surfacing a user-facing error. `fn` must re-issue the query each attempt
+ * (PostgREST builders execute once), and should throw on `{ error }`.
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  { retries = 2, baseMs = 200 }: { retries?: number; baseMs?: number } = {}
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, baseMs * 2 ** attempt));
+      }
+    }
+  }
+  throw lastErr;
+}

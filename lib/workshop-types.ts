@@ -138,6 +138,7 @@ export interface Team {
   color: string; // one of TEAM_COLORS
   seedUncertaintyId: string; // locked slot-1 uncertainty, dealt distinct per team
   seedCardId: string; // the outcome chosen for slot 1 (empty until picked)
+  seedLocked: boolean; // true when the facilitator pre-assigned slot 1's outcome
   keptIds: string[]; // the two freely chosen outcomes (slots 2 & 3)
   wildcardId: string | null; // optional stress-test card, once drawn
   // Scenario capture. `convergence` holds the fill-in sentence; the five fields

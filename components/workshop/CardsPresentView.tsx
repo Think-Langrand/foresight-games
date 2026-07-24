@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCardsView, patchSession } from "@/components/workshop/hooks";
 import { TeamResult } from "@/components/workshop/TeamResult";
+import { TeamSetupPanel } from "@/components/workshop/TeamSetupPanel";
 import { CAPTURE_PROMPTS } from "@/lib/capture";
-import { teamTriadIds, type Card, type Team } from "@/lib/workshop-types";
+import { teamTriadIds, type Card, type Deck, type Team } from "@/lib/workshop-types";
 import type { DriverLite } from "@/lib/drivers-shared";
 
 export function CardsPresentView({
@@ -13,11 +14,11 @@ export function CardsPresentView({
   drivers = [],
 }: {
   code: string;
-  deck: Card[];
+  deck: Deck;
   drivers?: DriverLite[];
 }) {
   const { view, error, loading, refresh } = useCardsView(code, 4000);
-  const byId = useMemo(() => new Map(deck.map((c) => [c.id, c])), [deck]);
+  const byId = useMemo(() => new Map(deck.cards.map((c) => [c.id, c])), [deck]);
   const driversBySlug = useMemo(() => new Map(drivers.map((d) => [d.slug, d])), [drivers]);
   const [busy, setBusy] = useState(false);
   const [spotlight, setSpotlight] = useState<number | null>(null);
@@ -106,8 +107,12 @@ export function CardsPresentView({
         </div>
       </div>
 
+      {!closed && (
+        <TeamSetupPanel code={code} deck={deck} teams={teams} onChange={refresh} />
+      )}
+
       {teams.length === 0 ? (
-        <div className="mt-16 text-center text-[15px] text-muted">
+        <div className="mt-10 text-center text-[15px] text-muted">
           Waiting for teams to deal in… Share the code{" "}
           <span className="font-bold text-ink">{code}</span>.
         </div>
