@@ -282,7 +282,8 @@ function TriadStep({
       <div className="mt-1 text-[12px] leading-[1.45] text-muted">
         These are the conditions you&apos;re combining. For the next few minutes talk through them
         together with your team. What logic combines them? How does the field of public health show
-        up and act in this world? When you are ready, click next.
+        up and act in this world? You can move back and forth between the questions with Back and
+        Next as you go — when you&apos;re ready, click next.
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {triad.map((c) => (

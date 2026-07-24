@@ -39,8 +39,8 @@ export const CAPTURE_PROMPTS: CapturePrompt[] = [
   },
   {
     key: "centralTension",
-    label: "Central tension",
-    question: "What is being weighed against what?",
+    label: "Central theme",
+    question: "What's the central theme of this scenario — if there is one?",
     rows: 2,
   },
   {
