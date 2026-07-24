@@ -22,7 +22,7 @@ export default async function SessionPage({
     return <CardsTeamView code={upper} deck={deck} drivers={drivers} />;
   }
 
-  const { model, driverNameBySlug } = await getModel();
+  const [{ model, driverNameBySlug }, drivers] = await Promise.all([getModel(), getDrivers()]);
   const scenarios = getScenarioList(model, driverNameBySlug);
-  return <ParticipantView code={upper} scenarios={scenarios} />;
+  return <ParticipantView code={upper} scenarios={scenarios} drivers={drivers} />;
 }

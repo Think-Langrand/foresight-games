@@ -10,6 +10,8 @@ import {
   deleteUpvote,
 } from "@/components/workshop/hooks";
 import { Poles } from "@/components/Poles";
+import { ReferenceDrawer } from "@/components/workshop/ReferenceDrawer";
+import type { DriverLite } from "@/lib/drivers-shared";
 import type { Lean, ScenarioLite } from "@/lib/workshop-types";
 
 // localStorage-backed set, per session/uncertainty/device. Supports toggling entries.
@@ -61,9 +63,11 @@ function useLocalValue(key: string) {
 export function ParticipantView({
   code,
   scenarios,
+  drivers,
 }: {
   code: string;
   scenarios: ScenarioLite[];
+  drivers: DriverLite[];
 }) {
   const { pid, nick, saveNick } = useParticipant();
   const { view, error, loading, refresh } = useSessionView(code, 3000);
@@ -113,6 +117,7 @@ export function ParticipantView({
   const position = scenarios.findIndex((s) => s.id === activeId);
 
   return (
+    <>
     <main className="mx-auto min-h-screen max-w-[560px] px-5 pb-24 pt-6">
       <div className="flex items-center justify-between">
         <span className="eyebrow blue">
@@ -234,6 +239,16 @@ export function ParticipantView({
         {view.participantCount} in the room · {results.submissionCount} ideas here
       </div>
     </main>
+    <ReferenceDrawer
+      uncertainties={scenarios.map((s) => ({
+        id: s.id,
+        title: s.label,
+        domain: s.capabilityDomain,
+        question: s.question,
+      }))}
+      drivers={drivers}
+    />
+    </>
   );
 }
 

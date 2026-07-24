@@ -16,6 +16,7 @@ export async function PATCH(
   const { code, teamId } = await params;
   let body: {
     name?: string;
+    assignSeed?: string; // admin: lock slot 1 to this outcome card ("" clears)
     seedCardId?: string;
     keptIds?: string[];
     convergence?: string;
@@ -49,6 +50,33 @@ export async function PATCH(
     const cardById = new Map(deck.cards.map((c) => [c.id, c]));
 
     if (body.name !== undefined) patch.name = body.name.trim().slice(0, 60);
+
+    // Admin setup: lock slot 1 to a specific outcome, deriving its uncertainty.
+    // Unlike the participant path below, this may change the seed uncertainty
+    // (so two teams can share a question but never the same outcome).
+    if (body.assignSeed !== undefined) {
+      if (body.assignSeed === "") {
+        // Clear the assignment and unlock (the team can pick its own again).
+        patch.seedCardId = "";
+        patch.seedLocked = false;
+      } else {
+        const c = cardById.get(body.assignSeed);
+        if (!c)
+          return NextResponse.json({ error: "No such outcome card." }, { status: 400 });
+        // Outcomes are globally unique across the session's teams.
+        const others = (await getTeams(session.code, { force: true })).filter(
+          (t) => t.id !== teamId
+        );
+        if (others.some((t) => t.seedCardId === c.id))
+          return NextResponse.json(
+            { error: "Another team already has that outcome." },
+            { status: 409 }
+          );
+        patch.seedUncertaintyId = c.uncertaintyId;
+        patch.seedCardId = c.id;
+        patch.seedLocked = true;
+      }
+    }
 
     // Slot 1: must be an outcome of the team's locked uncertainty (or cleared).
     if (body.seedCardId !== undefined) {

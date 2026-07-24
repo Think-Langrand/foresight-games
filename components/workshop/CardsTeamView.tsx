@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCardsView, postTeam, patchTeam } from "@/components/workshop/hooks";
 import { CardArtBand, DriverChips, roleHex } from "@/components/workshop/CardArt";
 import { ScenarioWizard } from "@/components/workshop/ScenarioWizard";
+import { ReferenceDrawer } from "@/components/workshop/ReferenceDrawer";
 import type { DriverLite } from "@/lib/drivers-shared";
 import {
   DOMAIN_ORDER,
@@ -77,35 +78,55 @@ export function CardsTeamView({
   const closed = session.status === "Closed";
   const myTeam = teams.find((t) => t.id === teamId) ?? null;
 
+  // Read-only reference for both lobby and play — never navigates, so a team
+  // keeps their exact spot in the build.
+  const reference = (
+    <ReferenceDrawer
+      uncertainties={deck.uncertainties.map((u) => ({
+        id: u.id,
+        title: u.title,
+        domain: u.domain,
+        question: u.question,
+      }))}
+      drivers={drivers}
+    />
+  );
+
   if (!myTeam) {
     return (
-      <TeamLobby
-        code={code}
-        prompt={session.prompt}
-        teams={teams}
-        closed={closed}
-        onJoin={join}
-        onCreated={(id) => {
-          join(id);
-          refresh();
-        }}
-      />
+      <>
+        <TeamLobby
+          code={code}
+          prompt={session.prompt}
+          teams={teams}
+          closed={closed}
+          onJoin={join}
+          onCreated={(id) => {
+            join(id);
+            refresh();
+          }}
+        />
+        {reference}
+      </>
     );
   }
 
   return (
-    <TeamPlay
-      code={code}
-      prompt={session.prompt}
-      team={myTeam}
-      byId={byId}
-      uncertainties={deck.uncertainties}
-      uncById={uncById}
-      driversBySlug={driversBySlug}
-      closed={closed}
-      onLeave={leave}
-      onChange={refresh}
-    />
+    <>
+      <TeamPlay
+        code={code}
+        prompt={session.prompt}
+        team={myTeam}
+        byId={byId}
+        uncertainties={deck.uncertainties}
+        uncById={uncById}
+        driversBySlug={driversBySlug}
+        closed={closed}
+        onLeave={leave}
+        onChange={refresh}
+      />
+      {reference}
+    </>
   );
 }
 
@@ -279,7 +300,6 @@ function TeamPlay({
   const triadCards = teamTriadIds(team)
     .map((id) => byId.get(id))
     .filter((c): c is Card => Boolean(c));
-  const hasEdge = triadCards.some((c) => c.role === "Edge" || c.role === "Wildcard");
 
   const slotDefs = [
     { slot: 1 as const, card: slot1, lockedUnc: seedUnc },
@@ -317,20 +337,23 @@ function TeamPlay({
               </span>
             </div>
             <p className="mt-1 text-[12px] leading-[1.5] text-muted">
-              Slot one is locked to your uncertainty — choose an outcome for it. Then pick two more
-              uncertainties and an outcome for each.
+              {team.seedLocked
+                ? "Slot one was set by your facilitator. Pick two more uncertainties and an outcome for each."
+                : "Slot one is locked to your uncertainty — choose an outcome for it. Then pick two more uncertainties and an outcome for each."}
             </p>
           </div>
           <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-3">
             {slotDefs.map(({ slot, card, lockedUnc }) => {
               const prevFilled =
                 slot === 1 || (slot === 2 ? Boolean(slot1) : Boolean(slot1 && slot2));
+              const seedLocked = slot === 1 && team.seedLocked;
               return (
                 <SlotButton
                   key={slot}
                   index={slot}
                   card={card}
                   lockedUnc={lockedUnc}
+                  readOnly={seedLocked}
                   disabled={locked || !prevFilled}
                   onOpen={() =>
                     setPicker({ slot, uncertaintyId: slot === 1 ? team.seedUncertaintyId : null })
@@ -349,7 +372,6 @@ function TeamPlay({
             code={code}
             team={team}
             triad={triadCards}
-            hasEdge={hasEdge}
             wildcard={team.wildcardId ? byId.get(team.wildcardId) ?? null : null}
             locked={locked}
             driversBySlug={driversBySlug}
@@ -387,31 +409,49 @@ function SlotButton({
   index,
   card,
   lockedUnc,
+  readOnly,
   disabled,
   onOpen,
 }: {
   index: number;
   card?: Card;
   lockedUnc?: UncertaintyLite;
+  readOnly?: boolean;
   disabled: boolean;
   onOpen: () => void;
 }) {
+  const header = (
+    <div className="mb-1 flex items-center gap-2">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-paper">
+        {index}
+      </span>
+      {index === 1 && (
+        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
+          {readOnly ? "Locked by facilitator" : "Locked uncertainty"}
+        </span>
+      )}
+    </div>
+  );
+
+  // Facilitator-assigned slot 1: a fixed card the team can't change.
+  if (readOnly && card) {
+    return (
+      <div className="flex h-full w-full flex-col text-left">
+        {header}
+        <div className="flex-1 rounded-[6px] ring-2 ring-ink ring-offset-2 ring-offset-paper">
+          <CardFace card={card} tone="kept" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <button
       onClick={onOpen}
       disabled={disabled}
       className="flex h-full w-full flex-col text-left disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <div className="mb-1 flex items-center gap-2">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-paper">
-          {index}
-        </span>
-        {index === 1 && (
-          <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
-            Locked uncertainty
-          </span>
-        )}
-      </div>
+      {header}
       {card ? (
         <div className="flex-1 rounded-[6px] ring-2 ring-ink ring-offset-2 ring-offset-paper">
           <CardFace card={card} tone="kept" />

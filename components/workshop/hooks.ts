@@ -145,6 +145,7 @@ export async function patchTeam(
   teamId: string,
   body: {
     name?: string;
+    assignSeed?: string;
     seedCardId?: string;
     keptIds?: string[];
     convergence?: string;

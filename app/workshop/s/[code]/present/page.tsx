@@ -18,7 +18,7 @@ export default async function PresentPage({
   const session = await getSessionByCode(upper).catch(() => null);
   if (session?.scope === "Cards") {
     const [{ deck }, drivers] = await Promise.all([getDeck(), getDrivers()]);
-    return <CardsPresentView code={upper} deck={deck.cards} drivers={drivers} />;
+    return <CardsPresentView code={upper} deck={deck} drivers={drivers} />;
   }
 
   const { model, driverNameBySlug } = await getModel();
