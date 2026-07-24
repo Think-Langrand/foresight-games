@@ -38,6 +38,12 @@ export const CAPTURE_PROMPTS: CapturePrompt[] = [
     rows: 3,
   },
   {
+    key: "centralTension",
+    label: "Central theme",
+    question: "What's the central theme of this scenario — if there is one?",
+    rows: 2,
+  },
+  {
     key: "newNormal",
     label: "The new normal",
     question: "What has become normal here that would feel strange today?",
