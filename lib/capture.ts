@@ -38,12 +38,6 @@ export const CAPTURE_PROMPTS: CapturePrompt[] = [
     rows: 3,
   },
   {
-    key: "centralTension",
-    label: "Central tension",
-    question: "What is being weighed against what?",
-    rows: 2,
-  },
-  {
     key: "newNormal",
     label: "The new normal",
     question: "What has become normal here that would feel strange today?",
