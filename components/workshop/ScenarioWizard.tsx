@@ -42,7 +42,6 @@ export function ScenarioWizard({
   code,
   team,
   triad,
-  hasEdge,
   wildcard,
   locked,
   driversBySlug,
@@ -51,7 +50,6 @@ export function ScenarioWizard({
   code: string;
   team: Team;
   triad: Card[];
-  hasEdge: boolean;
   wildcard: Card | null;
   locked: boolean;
   driversBySlug: Map<string, DriverLite>;
@@ -159,7 +157,6 @@ export function ScenarioWizard({
         {current.kind === "triad" && (
           <TriadStep
             triad={triad}
-            hasEdge={hasEdge}
             wildcard={wildcard}
             driversBySlug={driversBySlug}
             onDrawWild={drawWild}
@@ -170,7 +167,7 @@ export function ScenarioWizard({
         {current.kind === "sentence" && (
           <Field
             label={CAPTURE_SENTENCE.label}
-            help="Fill the blanks out loud, then write it down. This is your warm-up."
+            help="Fill the blanks out loud, then write it down."
           >
             <textarea
               autoFocus
@@ -185,7 +182,7 @@ export function ScenarioWizard({
         )}
 
         {current.kind === "prompt" && (
-          <Field label={current.prompt.label} help={current.prompt.help}>
+          <Field label={current.prompt.question}>
             <textarea
               autoFocus
               value={values[current.prompt.key]}
@@ -199,7 +196,7 @@ export function ScenarioWizard({
 
         {current.kind === "title" && (
           <div>
-            <Field label={CAPTURE_TITLE.label} help="Give the world a name you'd put on a slide.">
+            <Field label={CAPTURE_TITLE.question}>
               <input
                 autoFocus
                 value={values.worldTitle}
@@ -268,14 +265,12 @@ function Field({
 
 function TriadStep({
   triad,
-  hasEdge,
   wildcard,
   driversBySlug,
   onDrawWild,
   drawing,
 }: {
   triad: Card[];
-  hasEdge: boolean;
   wildcard: Card | null;
   driversBySlug: Map<string, DriverLite>;
   onDrawWild: () => void;
@@ -285,8 +280,9 @@ function TriadStep({
     <div>
       <div className="text-[15px] font-extrabold">Your three-card world</div>
       <div className="mt-1 text-[12px] leading-[1.45] text-muted">
-        These are the conditions you&apos;re combining. Read them together and look for the logic
-        that links them.
+        These are the conditions you&apos;re combining. For the next few minutes talk through them
+        together with your team. What logic combines them? How does the field of public health show
+        up and act in this world? When you are ready, click next.
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {triad.map((c) => (
@@ -305,12 +301,6 @@ function TriadStep({
           </div>
         ))}
       </div>
-      {!hasEdge && (
-        <div className="text-amber mt-2 text-[12px] font-semibold">
-          ⚠ All three reinforce each other. A complicating card makes for a richer world.
-        </div>
-      )}
-
       {/* drivers behind the triad */}
       {triad.map((c) => (
         <DriverChips
