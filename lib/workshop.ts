@@ -1,6 +1,6 @@
 import "server-only";
 
-import { supabaseAdmin, supabaseConfigured } from "@/lib/supabase";
+import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import {
   emptyUncertaintyResult,
   type WorkshopMode,
@@ -145,12 +145,15 @@ export async function getSessionByCode(
 ): Promise<WorkshopSession | null> {
   const c = code.trim().toUpperCase();
   if (!c) return null;
-  const { data, error } = await supabaseAdmin()
-    .from("sessions")
-    .select("*")
-    .eq("code", c)
-    .maybeSingle();
-  if (error) throw error;
+  const data = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("sessions")
+      .select("*")
+      .eq("code", c)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  });
   return data ? mapSession(data as SessionRow) : null;
 }
 
@@ -291,16 +294,21 @@ export async function removeUpvote(input: {
 
 // ---------- aggregation ----------
 async function computeResults(session: WorkshopSession): Promise<SessionResults> {
-  const db = supabaseAdmin();
-  const [subRes, respRes] = await Promise.all([
-    db.from("submissions").select("*").eq("code", session.code),
-    db.from("responses").select("*").eq("code", session.code),
-  ]);
-  if (subRes.error) throw subRes.error;
-  if (respRes.error) throw respRes.error;
+  const { subRows, respRows } = await withRetry(async () => {
+    const db = supabaseAdmin();
+    const [subRes, respRes] = await Promise.all([
+      db.from("submissions").select("*").eq("code", session.code),
+      db.from("responses").select("*").eq("code", session.code),
+    ]);
+    if (subRes.error) throw subRes.error;
+    if (respRes.error) throw respRes.error;
+    return {
+      subRows: (subRes.data ?? []) as SubmissionRow[],
+      respRows: (respRes.data ?? []) as ResponseRow[],
+    };
+  });
 
-  const subRows = (subRes.data ?? []) as SubmissionRow[];
-  const responses = ((respRes.data ?? []) as ResponseRow[])
+  const responses = respRows
     // Oldest → newest, so "last write wins" for editable poll answers.
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
 

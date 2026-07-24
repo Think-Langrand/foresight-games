@@ -1,7 +1,8 @@
 import "server-only";
 
 import unc from "@/data/uncertainties.seed.json";
-import { supabaseAdmin, supabaseConfigured } from "@/lib/supabase";
+import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
+import { cached } from "@/lib/cache";
 import type { Card, CardRole, Deck, UncertaintyLite } from "@/lib/workshop-types";
 
 // The deck is derived from the canonical scenario-uncertainties set: 13
@@ -88,49 +89,57 @@ interface OutcomeRow {
  */
 export async function getUncertaintyRows(): Promise<UncertaintyRow[]> {
   if (!supabaseConfigured()) return SEED_UNCERTAINTIES;
-  try {
-    const sb = supabaseAdmin();
-    const [uncRes, outRes] = await Promise.all([
-      sb
-        .from("uncertainties")
-        .select("slug, number, domain, title, question, source_driver_ids")
-        .order("number", { ascending: true }),
-      sb
-        .from("card_outcomes")
-        .select("code, uncertainty_slug, role, title, description, sort_order")
-        .order("sort_order", { ascending: true }),
-    ]);
-    if (uncRes.error) throw uncRes.error;
-    if (outRes.error) throw outRes.error;
-    const uncs = (uncRes.data ?? []) as UncRow[];
-    const outs = (outRes.data ?? []) as OutcomeRow[];
-    if (uncs.length === 0 || outs.length === 0) return SEED_UNCERTAINTIES;
+  // Static content — cache it so team saves and live refetches don't re-read
+  // the whole deck from Supabase every time (retrying through transient 520s).
+  return cached("uncertainty-rows", 300_000, async () => {
+    try {
+      const { uncs, outs } = await withRetry(async () => {
+        const sb = supabaseAdmin();
+        const [uncRes, outRes] = await Promise.all([
+          sb
+            .from("uncertainties")
+            .select("slug, number, domain, title, question, source_driver_ids")
+            .order("number", { ascending: true }),
+          sb
+            .from("card_outcomes")
+            .select("code, uncertainty_slug, role, title, description, sort_order")
+            .order("sort_order", { ascending: true }),
+        ]);
+        if (uncRes.error) throw uncRes.error;
+        if (outRes.error) throw outRes.error;
+        return {
+          uncs: (uncRes.data ?? []) as UncRow[],
+          outs: (outRes.data ?? []) as OutcomeRow[],
+        };
+      });
+      if (uncs.length === 0 || outs.length === 0) return SEED_UNCERTAINTIES;
 
-    const bySlug = new Map<string, UncertaintyRow>();
-    for (const u of uncs) {
-      bySlug.set(u.slug, {
-        number: u.number,
-        id: u.slug,
-        domain: u.domain,
-        title: u.title,
-        question: u.question,
-        sourceDriverIds: u.source_driver_ids ?? [],
-        outcomes: [],
-      });
+      const bySlug = new Map<string, UncertaintyRow>();
+      for (const u of uncs) {
+        bySlug.set(u.slug, {
+          number: u.number,
+          id: u.slug,
+          domain: u.domain,
+          title: u.title,
+          question: u.question,
+          sourceDriverIds: u.source_driver_ids ?? [],
+          outcomes: [],
+        });
+      }
+      for (const o of outs) {
+        bySlug.get(o.uncertainty_slug)?.outcomes.push({
+          code: o.code,
+          role: o.role,
+          title: o.title,
+          description: o.description,
+        });
+      }
+      return [...bySlug.values()];
+    } catch (err) {
+      console.error("[getUncertaintyRows] Supabase read failed, using seed:", err);
+      return SEED_UNCERTAINTIES;
     }
-    for (const o of outs) {
-      bySlug.get(o.uncertainty_slug)?.outcomes.push({
-        code: o.code,
-        role: o.role,
-        title: o.title,
-        description: o.description,
-      });
-    }
-    return [...bySlug.values()];
-  } catch (err) {
-    console.error("[getUncertaintyRows] Supabase read failed, using seed:", err);
-    return SEED_UNCERTAINTIES;
-  }
+  });
 }
 
 /** The outcome-card deck, built from Supabase (or the bundled seed). */
