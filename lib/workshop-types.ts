@@ -6,8 +6,9 @@ export type Lean = "Toward Pole A" | "Toward Pole B" | "Neither / both";
 export type ResponseKind = "Upvote submission" | "Outcome reaction" | "Poll answer";
 
 // A session either works one uncertainty (launched from Explore), the whole
-// set, or the team card game (draw outcome cards, build scenario triads).
-export type SessionScope = "Single" | "Full" | "Cards";
+// set, the team card game (draw outcome cards, build scenario triads), or a
+// solo card game — one person building worlds on their own device, no lobby.
+export type SessionScope = "Single" | "Full" | "Cards" | "Solo";
 // For Full sessions: who drives the walk through the uncertainties.
 export type Pacing = "Facilitator-paced" | "Participant-paced";
 

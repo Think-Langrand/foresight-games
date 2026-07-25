@@ -45,13 +45,27 @@ export function CardsTeamView({
   code,
   deck,
   drivers,
+  solo = false,
 }: {
   code: string;
   deck: Deck;
   drivers: DriverLite[];
+  solo?: boolean;
 }) {
   const { view, error, loading, refresh } = useCardsView(code, 4000);
-  const { teamId, join, leave } = useJoinedTeam(code);
+  const { teamId: joinedTeamId, join, leave } = useJoinedTeam(code);
+  // Solo: the active world is named in the URL (?team=…), since one solo
+  // session holds many worlds — the per-code localStorage join doesn't apply.
+  const [soloTeamId, setSoloTeamId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!solo) return;
+    try {
+      setSoloTeamId(new URLSearchParams(window.location.search).get("team"));
+    } catch {
+      setSoloTeamId(null);
+    }
+  }, [solo]);
+  const teamId = solo ? soloTeamId : joinedTeamId;
   const byId = useMemo(() => new Map(deck.cards.map((c) => [c.id, c])), [deck]);
   const uncById = useMemo(
     () => new Map(deck.uncertainties.map((u) => [u.id, u])),
@@ -93,6 +107,20 @@ export function CardsTeamView({
   );
 
   if (!myTeam) {
+    // Solo has no lobby: the world is chosen back on /play. If the id is stale
+    // (deleted, cleared storage), send them back to their world-book.
+    if (solo) {
+      return (
+        <Centered>
+          <div className="text-center">
+            <div className="text-[18px] font-bold">World not found</div>
+            <Link href="/play" className="mt-4 inline-block text-blue underline">
+              ← My worlds
+            </Link>
+          </div>
+        </Centered>
+      );
+    }
     return (
       <>
         <TeamLobby
@@ -122,6 +150,7 @@ export function CardsTeamView({
         uncById={uncById}
         driversBySlug={driversBySlug}
         closed={closed}
+        solo={solo}
         onLeave={leave}
         onChange={refresh}
       />
@@ -241,6 +270,7 @@ function TeamPlay({
   uncById,
   driversBySlug,
   closed,
+  solo,
   onLeave,
   onChange,
 }: {
@@ -252,6 +282,7 @@ function TeamPlay({
   uncById: Map<string, UncertaintyLite>;
   driversBySlug: Map<string, DriverLite>;
   closed: boolean;
+  solo: boolean;
   onLeave: () => void;
   onChange: () => void;
 }) {
@@ -315,9 +346,18 @@ function TeamPlay({
             <Swatch hex={team.color} />
             <span className="text-[15px] font-extrabold">{team.name}</span>
           </span>
-          <span className="rounded-[2px] border border-ink bg-lime px-2 py-1 text-[11px] font-bold uppercase tracking-[0.14em]">
-            {code}
-          </span>
+          {solo ? (
+            <Link
+              href="/play"
+              className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
+            >
+              ← My worlds
+            </Link>
+          ) : (
+            <span className="rounded-[2px] border border-ink bg-lime px-2 py-1 text-[11px] font-bold uppercase tracking-[0.14em]">
+              {code}
+            </span>
+          )}
         </div>
         <p className="serif mt-3 text-[17px] italic leading-[1.35] text-muted">{prompt}</p>
 
@@ -379,12 +419,21 @@ function TeamPlay({
           />
         )}
 
-        <button
-          onClick={onLeave}
-          className="mt-10 text-[11px] font-bold uppercase tracking-[0.08em] text-muted underline"
-        >
-          Leave this team on this device
-        </button>
+        {solo ? (
+          <Link
+            href="/play"
+            className="mt-10 inline-block text-[11px] font-bold uppercase tracking-[0.08em] text-muted underline"
+          >
+            ← My worlds
+          </Link>
+        ) : (
+          <button
+            onClick={onLeave}
+            className="mt-10 text-[11px] font-bold uppercase tracking-[0.08em] text-muted underline"
+          >
+            Leave this team on this device
+          </button>
+        )}
       </div>
 
       {picker && !locked && (
