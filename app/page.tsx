@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getModel } from "@/lib/model";
 import { MarkText } from "@/components/Mark";
+import { CardGameLauncher } from "@/components/CardGameLauncher";
 
 export default async function Home() {
   const { model, source } = await getModel();
@@ -19,24 +20,27 @@ export default async function Home() {
         <MarkText>Future of Public Health</MarkText>
       </h1>
       <p className="serif mt-6 max-w-[720px] text-[22px] leading-[1.35] text-ink md:text-[26px]">
-        A relational model of how public health could change by 2035, and a live room for a
-        workshop to argue with it: the biggest drivers, their sharpest uncertainties, and the
-        ways each could resolve.
+        A relational model of how public health could change by 2035, and a live room to argue with
+        it: play the scenario card game, and browse the biggest drivers and their sharpest
+        uncertainties.
       </p>
 
-      <div className="mt-12 grid gap-5 md:grid-cols-2">
+      <div className="mt-12">
+        <CardGameLauncher />
+      </div>
+
+      <div className="mt-5 grid gap-5 md:grid-cols-2">
         <EntryCard
-          href="/explore"
+          href="/drivers"
           eyebrow="Browse the model"
-          title="Explore"
-          body="Step through the drivers and the scenario uncertainties that cut across them: the poles each swings between, why it matters, and what it implies for public health's identity."
+          title="Drivers"
+          body="The biggest forces reshaping public health to 2035 — each driver, the theme it belongs to, and the headline shift it names."
         />
         <EntryCard
-          href="/workshop"
-          eyebrow="Run it live"
-          title="Workshop"
-          body="Open any scenario uncertainty as a live session. Participants add ways it could play out and upvote the sharpest on their phones; results land in Airtable and show on the screen."
-          accent
+          href="/uncertainties"
+          eyebrow="Browse the model"
+          title="Uncertainties"
+          body="The sharpest open questions that cut across the drivers, each with the ways it could resolve — the outcome cards the game is built from."
         />
       </div>
 

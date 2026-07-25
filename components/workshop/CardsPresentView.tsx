@@ -75,7 +75,14 @@ export function CardsPresentView({
           <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
             Join at
           </div>
-          <div className="text-[15px] font-semibold">{joinUrl}</div>
+          <a
+            href={joinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[15px] font-semibold text-blue underline underline-offset-2 hover:text-ink"
+          >
+            {joinUrl}
+          </a>
           <div className="mt-2 inline-block rounded-[3px] border border-ink bg-lime px-4 py-2 text-[28px] font-extrabold uppercase tracking-[0.2em]">
             {code}
           </div>

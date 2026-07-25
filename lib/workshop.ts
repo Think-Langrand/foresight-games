@@ -214,6 +214,13 @@ export async function updateSession(
   if (error) throw error;
 }
 
+// Admin: delete a session by id. Teams/submissions/responses cascade via the
+// `on delete cascade` FKs on session_id (migration 0001).
+export async function deleteSession(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("sessions").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---------- submissions / responses (writes) ----------
 export async function addSubmission(input: {
   sessionId: string;
