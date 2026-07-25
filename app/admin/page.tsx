@@ -1,5 +1,9 @@
 import { listSessions, supabaseConfigured } from "@/lib/workshop";
+import { listAllTeams } from "@/lib/teams";
+import { getDeck } from "@/lib/cards";
 import { AdminSessionsList } from "@/components/admin/AdminSessionsList";
+import { AdminTeamsManager } from "@/components/admin/AdminTeamsManager";
+import { SignOutButton } from "@/components/admin/SignOutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -12,26 +16,38 @@ export default async function AdminPage() {
       </main>
     );
   }
-  const sessions = await listSessions();
+  const [sessions, teams, { deck }] = await Promise.all([
+    listSessions(),
+    listAllTeams(),
+    getDeck(),
+  ]);
 
   return (
     <main className="mx-auto min-h-screen max-w-[1100px] px-6 py-10">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--rule)] pb-5">
         <div>
-          <span className="eyebrow blue">Admin</span>
+          <span className="eyebrow blue">Admin · facilitator</span>
           <h1 className="mt-2 text-[30px] font-extrabold uppercase leading-[1.05] tracking-tight">
-            Sessions
+            Teams &amp; sessions
           </h1>
         </div>
-        <span className="text-[12px] text-muted">{sessions.length} total</span>
+        <div className="flex items-center gap-4">
+          <span className="text-[12px] text-muted">
+            {teams.length} teams · {sessions.length} sessions
+          </span>
+          <SignOutButton />
+        </div>
       </div>
 
-      <div className="mt-4 rounded-[3px] border border-amber bg-amber/10 px-4 py-2.5 text-[12px] leading-[1.5]">
-        <span className="font-bold uppercase tracking-[0.06em]">Read-only · no auth yet</span> —
-        anyone with the URL can view these results. Add access control before sharing.
-      </div>
+      <section className="mt-8">
+        <span className="eyebrow ink">All teams</span>
+        <AdminTeamsManager teams={teams} deck={deck.cards} />
+      </section>
 
-      <AdminSessionsList sessions={sessions} />
+      <section className="mt-12">
+        <span className="eyebrow ink">All sessions</span>
+        <AdminSessionsList sessions={sessions} />
+      </section>
     </main>
   );
 }

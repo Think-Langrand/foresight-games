@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SessionSummary } from "@/lib/workshop";
+import { DeleteSessionButton } from "@/components/admin/DeleteSessionButton";
 
 function fmtDate(iso: string): string {
   const d = new Date(iso);
@@ -28,6 +29,7 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
             <th className="py-2 pr-3 text-right">Teams</th>
             <th className="py-2 pr-3 text-right">Subs</th>
             <th className="py-2 pr-3">Created</th>
+            <th className="py-2 pr-3 text-right">Manage</th>
           </tr>
         </thead>
         <tbody>
@@ -74,6 +76,9 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
               </td>
               <td className="whitespace-nowrap py-2.5 pr-3 text-muted">
                 {fmtDate(s.createdTime)}
+              </td>
+              <td className="py-2.5 pr-3 text-right">
+                <DeleteSessionButton code={s.code} />
               </td>
             </tr>
           ))}

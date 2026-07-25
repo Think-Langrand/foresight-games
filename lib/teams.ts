@@ -101,6 +101,41 @@ export async function getTeams(
   return data.map(mapTeam);
 }
 
+// Every team across all sessions, newest first. Used by the public "scenario
+// molecules" gallery and the admin view-all screen. Pass onlySubmitted to hide
+// still-drafting tables from the public gallery.
+export async function listAllTeams(
+  opts: { onlySubmitted?: boolean } = {}
+): Promise<Team[]> {
+  if (!supabaseConfigured()) return [];
+  const data = await withRetry(async () => {
+    let q = supabaseAdmin()
+      .from("teams")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (opts.onlySubmitted) q = q.eq("status", "Submitted");
+    const { data, error } = await q;
+    if (error) throw error;
+    return data as TeamRow[];
+  });
+  return data.map(mapTeam);
+}
+
+// A single team by its uuid (for /scenario-molecules/[id]).
+export async function getTeamById(id: string): Promise<Team | null> {
+  if (!supabaseConfigured()) return null;
+  const data = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("teams")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as TeamRow | null;
+  });
+  return data ? mapTeam(data) : null;
+}
+
 export async function createTeam(input: {
   sessionId: string;
   code: string;
@@ -136,6 +171,12 @@ export async function createTeam(input: {
     return data as TeamRow;
   });
   return mapTeam(data);
+}
+
+// Admin: delete a single team by id.
+export async function deleteTeam(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("teams").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function updateTeam(

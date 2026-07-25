@@ -90,6 +90,22 @@ supabase/migrations/0002_content_deck_and_model.sql   # uncertainties, card_outc
 On a fresh Supabase project: run both migrations, then `npm run db:seed`, then set the three
 env vars above on the host and deploy.
 
+## Admin access (Supabase Auth)
+
+The public site (card game, `/drivers`, `/uncertainties`, `/scenario-molecules`) is open. The
+facilitator area at `/admin` — view/delete all teams and sessions — is gated by Supabase Auth
+(`proxy.ts` redirects unauthenticated requests to `/login`; the delete route handlers re-check
+the session). Auth reuses the existing `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+— no new env var.
+
+One-time setup on the Supabase project:
+
+1. **Authentication → Providers → Email**: enable it (turn off "Confirm email" for a password-only
+   facilitator login, or leave on and confirm the address).
+2. **Authentication → Users → Add user**: create the facilitator account (email + password).
+
+Then sign in at `/login`. Public scenario viewing stays at `/scenario-molecules` (read-only, no auth).
+
 ## Editing the foresight content
 
 Deck and drivers are editable rows in Supabase (`uncertainties`, `card_outcomes`, `drivers`);

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
-import { getTeams, updateTeam, drawWildcard } from "@/lib/teams";
+import { getTeams, updateTeam, deleteTeam, drawWildcard } from "@/lib/teams";
 import { getDeck } from "@/lib/cards";
+import { getSessionUser } from "@/lib/supabase-auth";
 import { KEEP_COUNT, type TeamStatus } from "@/lib/workshop-types";
 
 export const dynamic = "force-dynamic";
@@ -144,5 +145,30 @@ export async function PATCH(
   } catch (err) {
     console.error("[PATCH team]", err);
     return NextResponse.json({ error: "Failed to update team." }, { status: 500 });
+  }
+}
+
+// Admin-only: delete a single team.
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ code: string; teamId: string }> }
+) {
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured." }, { status: 503 });
+  }
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+
+  const { code, teamId } = await params;
+  try {
+    const session = await getSessionByCode(code);
+    if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
+    const team = (await getTeams(session.code, { force: true })).find((t) => t.id === teamId);
+    if (!team) return NextResponse.json({ error: "Team not found." }, { status: 404 });
+    await deleteTeam(teamId);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[DELETE team]", err);
+    return NextResponse.json({ error: "Failed to delete team." }, { status: 500 });
   }
 }

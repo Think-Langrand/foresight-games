@@ -3,9 +3,11 @@ import {
   getSessionResults,
   updateSession,
   getSessionByCode,
+  deleteSession,
   supabaseConfigured,
   type SessionStatus,
 } from "@/lib/workshop";
+import { getSessionUser } from "@/lib/supabase-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -54,5 +56,28 @@ export async function PATCH(
   } catch (err) {
     console.error("[PATCH /api/sessions/:code]", err);
     return NextResponse.json({ error: "Failed to update session." }, { status: 500 });
+  }
+}
+
+// Admin-only: delete a session (cascades teams/submissions/responses).
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ code: string }> }
+) {
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ error: "Database not configured." }, { status: 503 });
+  }
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+
+  const { code } = await params;
+  try {
+    const session = await getSessionByCode(code);
+    if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
+    await deleteSession(session.id);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[DELETE /api/sessions/:code]", err);
+    return NextResponse.json({ error: "Failed to delete session." }, { status: 500 });
   }
 }
