@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 // Home-page entry for the card game: start a fresh deal (creates a Cards session
@@ -42,7 +43,15 @@ export function CardGameLauncher() {
       className="rounded-[3px] border border-[var(--hairline)] bg-card p-6"
       style={{ borderTop: "3px solid var(--lime-deep)" }}
     >
-      <span className="eyebrow">Play the card game</span>
+      <div className="flex items-center justify-between gap-3">
+        <span className="eyebrow">Play the card game</span>
+        <Link
+          href="/scenario-molecules"
+          className="text-[11px] font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
+        >
+          View entries →
+        </Link>
+      </div>
       <div className="mt-2 flex items-baseline gap-2">
         <span className="font-sans text-[26px] font-extrabold uppercase tracking-tight">
           Card Game

@@ -57,12 +57,6 @@ export default async function Home() {
             ? "Live from Supabase"
             : "Bundled snapshot (database not connected)"}
         </span>
-        <Link
-          href="/scenario-molecules"
-          className="ml-auto font-bold uppercase tracking-[0.06em] underline hover:text-ink"
-        >
-          Scenario molecules →
-        </Link>
       </div>
     </main>
   );
