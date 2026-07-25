@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     );
   }
   let body: {
-    scope?: "Single" | "Full" | "Cards";
+    scope?: "Single" | "Full" | "Cards" | "Solo";
     scenarioId?: string;
     pacing?: Pacing;
     prompt?: string;
@@ -33,6 +33,26 @@ export async function POST(req: Request) {
 
   const now = new Date();
   const dateLabel = `${MONTHS[now.getMonth()]} ${now.getDate()}`;
+
+  // ---- Solo: one person's private world-book — same card game, no lobby.
+  // Each "world" is a team in this per-device session; the deck/rules are
+  // identical to Cards, so we reuse the whole team surface. ----
+  if (scope === "Solo") {
+    try {
+      const session = await createSession({
+        scope: "Solo",
+        uncertaintyId: null,
+        mode: "Divergent",
+        prompt: prompt?.trim() || "Build a future scenario from your cards.",
+        title: `Solo worlds — ${dateLabel}`,
+        facilitator: facilitator?.trim() || "",
+      });
+      return NextResponse.json({ code: session.code, id: session.id });
+    } catch (err) {
+      console.error("[POST /api/sessions] solo", err);
+      return NextResponse.json({ error: "Failed to create session." }, { status: 500 });
+    }
+  }
 
   // ---- Card game: teams draw outcome cards and build scenario triads ----
   if (scope === "Cards") {

@@ -4,6 +4,7 @@ import { getDeck } from "@/lib/cards";
 import { AdminSessionsList } from "@/components/admin/AdminSessionsList";
 import { AdminTeamsManager } from "@/components/admin/AdminTeamsManager";
 import { SignOutButton } from "@/components/admin/SignOutButton";
+import { CardGameLauncher } from "@/components/CardGameLauncher";
 
 export const dynamic = "force-dynamic";
 
@@ -28,19 +29,26 @@ export default async function AdminPage() {
         <div>
           <span className="eyebrow blue">Admin · facilitator</span>
           <h1 className="mt-2 text-[30px] font-extrabold uppercase leading-[1.05] tracking-tight">
-            Teams &amp; sessions
+            Entries &amp; sessions
           </h1>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-[12px] text-muted">
-            {teams.length} teams · {sessions.length} sessions
+            {teams.length} entries · {sessions.length} sessions
           </span>
           <SignOutButton />
         </div>
       </div>
 
       <section className="mt-8">
-        <span className="eyebrow ink">All teams</span>
+        <span className="eyebrow ink">Run a facilitated game</span>
+        <div className="mt-3">
+          <CardGameLauncher />
+        </div>
+      </section>
+
+      <section className="mt-12">
+        <span className="eyebrow ink">Entries</span>
         <AdminTeamsManager teams={teams} deck={deck.cards} />
       </section>
 

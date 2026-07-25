@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getModel } from "@/lib/model";
 import { MarkText } from "@/components/Mark";
-import { CardGameLauncher } from "@/components/CardGameLauncher";
+import { JoinSession } from "@/components/JoinSession";
 
 export default async function Home() {
   const { model, source } = await getModel();
@@ -21,12 +21,28 @@ export default async function Home() {
       </h1>
       <p className="serif mt-6 max-w-[720px] text-[22px] leading-[1.35] text-ink md:text-[26px]">
         A relational model of how public health could change by 2035, and a live room to argue with
-        it: play the scenario card game, and browse the biggest drivers and their sharpest
-        uncertainties.
+        it: build a future from the scenario cards, and browse the biggest drivers and their
+        sharpest uncertainties.
       </p>
 
-      <div className="mt-12">
-        <CardGameLauncher />
+      <div className="mt-12 grid gap-5 md:grid-cols-2">
+        <EntryCard
+          href="/play"
+          eyebrow="Play the card game"
+          title="Start a future"
+          body="Deal yourself a hand of outcomes and build a small future scenario."
+          accent
+        />
+        <EntryCard
+          href="/scenario-molecules"
+          eyebrow="The gallery"
+          title="View entries"
+          body="Every future scenario built so far — drivers and uncertainties bound into small worlds. See what the room has made."
+        />
+      </div>
+
+      <div className="mt-5">
+        <JoinSession />
       </div>
 
       <div className="mt-5 grid gap-5 md:grid-cols-2">

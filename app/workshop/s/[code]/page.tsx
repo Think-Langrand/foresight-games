@@ -15,11 +15,14 @@ export default async function SessionPage({
   const { code } = await params;
   const upper = code.toUpperCase();
 
-  // Cards sessions get the team/card surface; everything else the uncertainty view.
+  // Cards + Solo sessions get the team/card surface; everything else the
+  // uncertainty view. Solo swaps the lobby/code chrome for a "my worlds" flow.
   const session = await getSessionByCode(upper).catch(() => null);
-  if (session?.scope === "Cards") {
+  if (session?.scope === "Cards" || session?.scope === "Solo") {
     const [{ deck }, drivers] = await Promise.all([getDeck(), getDrivers()]);
-    return <CardsTeamView code={upper} deck={deck} drivers={drivers} />;
+    return (
+      <CardsTeamView code={upper} deck={deck} drivers={drivers} solo={session.scope === "Solo"} />
+    );
   }
 
   const [{ model, driverNameBySlug }, drivers] = await Promise.all([getModel(), getDrivers()]);
