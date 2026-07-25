@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getUncertaintyRows, type UncertaintyRow } from "@/lib/cards";
 import { getDrivers } from "@/lib/drivers";
-import { resolveDrivers } from "@/lib/drivers-shared";
+import { DriverChips } from "@/components/workshop/CardArt";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +47,6 @@ export default async function UncertaintiesPage() {
           <span className="eyebrow ink">{domain}</span>
           <div className="mt-4 flex flex-col gap-6">
             {group.map((u) => {
-              const sources = resolveDrivers(u.sourceDriverIds, bySlug);
               return (
                 <article
                   key={u.id}
@@ -67,21 +66,12 @@ export default async function UncertaintiesPage() {
                     </p>
                   )}
 
-                  {sources.length > 0 && (
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-                        Drivers
-                      </span>
-                      {sources.map((d) => (
-                        <span
-                          key={d.slug}
-                          className="rounded-[2px] border border-[var(--hairline)] bg-paper px-2 py-0.5 text-[10.5px] font-semibold"
-                        >
-                          {d.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  {/* Click a driver to reveal its theme / headline / body inline. */}
+                  <DriverChips
+                    sourceDriverIds={u.sourceDriverIds}
+                    driversBySlug={bySlug}
+                    label="Drivers · tap to expand"
+                  />
 
                   <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
                     {u.outcomes.map((o) => (
