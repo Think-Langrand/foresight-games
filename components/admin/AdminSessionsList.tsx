@@ -26,7 +26,9 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
             <th className="py-2 pr-3">Title</th>
             <th className="py-2 pr-3">Scope</th>
             <th className="py-2 pr-3">Status</th>
-            <th className="py-2 pr-3 text-right">Teams</th>
+            <th className="py-2 pr-3 text-right" title="Submitted teams / total teams">
+              Submitted / teams
+            </th>
             <th className="py-2 pr-3 text-right">Subs</th>
             <th className="py-2 pr-3">Created</th>
             <th className="py-2 pr-3 text-right">Manage</th>
@@ -62,11 +64,20 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
                   {s.status}
                 </span>
               </td>
-              <td className="py-2.5 pr-3 text-right tabular-nums">
+              <td
+                className="py-2.5 pr-3 text-right tabular-nums"
+                title={`${submittedTeamCount} submitted of ${teamCount} teams`}
+              >
                 {s.scope === "Cards" ? (
-                  <>
-                    {submittedTeamCount}/{teamCount}
-                  </>
+                  submittedTeamCount > 0 ? (
+                    <span className="font-bold">
+                      {submittedTeamCount}
+                      <span className="font-normal text-muted">/{teamCount}</span>
+                    </span>
+                  ) : (
+                    // No submissions — safe to clean up.
+                    <span className="text-muted">0/{teamCount}</span>
+                  )
                 ) : (
                   <span className="text-muted">—</span>
                 )}
