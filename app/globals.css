@@ -230,6 +230,19 @@ textarea:focus-visible {
   animation: pop 0.5s ease-out;
 }
 
+/* Slow horizontal pan for background bands. scale keeps edges off-screen. */
+@keyframes pan-x {
+  from {
+    transform: translateX(0) scale(1.15);
+  }
+  to {
+    transform: translateX(-8%) scale(1.15);
+  }
+}
+.animate-pan-x {
+  animation: pan-x 22s ease-in-out infinite alternate;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
