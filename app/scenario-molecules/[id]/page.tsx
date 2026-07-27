@@ -30,7 +30,7 @@ export default async function ScenarioMoleculePage({
     <main className="mx-auto min-h-screen max-w-[1160px] px-6 py-10 md:py-14">
       <div className="flex items-center justify-between">
         <Link href="/scenario-molecules" className="eyebrow blue">
-          ← All scenario molecules
+          ← All scenario-blocks
         </Link>
       </div>
       <div className="mt-8">

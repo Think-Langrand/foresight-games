@@ -88,22 +88,26 @@ export function CardArtBand({
   dimension,
   className,
   height = 56,
+  strokeColor,
+  bg,
 }: {
   dimension: string;
   className?: string;
-  height?: number;
+  height?: number | string;
+  strokeColor?: string; // override the motif stroke (e.g. white over a colour fill)
+  bg?: string; // override the band background
 }) {
   const { hue, image } = artFor(dimension);
   return (
     <div
       className={`relative overflow-hidden ${className ?? ""}`}
-      style={{ height, background: `${hue}14` }}
+      style={{ height, background: bg ?? `${hue}14` }}
     >
       {image ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <MotifSvg motif={artFor(dimension).motif} hue={hue} seed={dimension} />
+        <MotifSvg motif={artFor(dimension).motif} hue={strokeColor ?? hue} seed={dimension} />
       )}
     </div>
   );
