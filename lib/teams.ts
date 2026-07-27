@@ -144,13 +144,19 @@ export async function createTeam(input: {
   sessionId: string;
   code: string;
   name?: string;
+  // Solo builders pick all three cards themselves, so we skip the locked slot-1
+  // seed. Facilitated sessions still deal each team a distinct starter uncertainty.
+  freeSeed?: boolean;
 }): Promise<Team> {
   const { deck } = await getDeck();
   const existing = await getTeams(input.code);
 
-  // Lock slot 1 to a starter uncertainty no other group already holds.
+  // Lock slot 1 to a starter uncertainty no other group already holds — unless
+  // this is a free-seed (solo) build, where slot 1 is chosen like the others.
   const usedUncertainties = existing.map((t) => t.seedUncertaintyId).filter(Boolean);
-  const seedUncertainty = dealSeedUncertainty(deck, usedUncertainties);
+  const seedUncertainty = input.freeSeed
+    ? null
+    : dealSeedUncertainty(deck, usedUncertainties);
 
   // Round-robin colour + default name off the current team count.
   const color = TEAM_COLORS[existing.length % TEAM_COLORS.length].hex;
@@ -164,7 +170,7 @@ export async function createTeam(input: {
         code: input.code,
         name,
         color,
-        seed_uncertainty_id: seedUncertainty.id,
+        seed_uncertainty_id: seedUncertainty?.id ?? "",
         seed_card_id: "",
         kept_ids: [],
         status: "Drafting",

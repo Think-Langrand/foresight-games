@@ -291,14 +291,20 @@ function TeamPlay({
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Slot 1 is locked to a dealt uncertainty in facilitated play. Solo builders
+  // get no seed, so slot 1 becomes a free pick like the other two.
+  const slot1Locked = Boolean(team.seedUncertaintyId);
   const seedUnc = uncById.get(team.seedUncertaintyId);
   const slot1 = team.seedCardId ? byId.get(team.seedCardId) : undefined;
   const slot2 = team.keptIds[0] ? byId.get(team.keptIds[0]) : undefined;
   const slot3 = team.keptIds[1] ? byId.get(team.keptIds[1]) : undefined;
 
-  // Uncertainty ids already used across the filled slots.
+  // Uncertainty ids already used across the filled slots. A locked seed is always
+  // in play; a free slot 1 contributes its chosen card's uncertainty like any slot.
   const usedUncIds = (exceptSlot: 1 | 2 | 3) => {
-    const s = new Set<string>([team.seedUncertaintyId]);
+    const s = new Set<string>();
+    if (slot1Locked) s.add(team.seedUncertaintyId);
+    else if (exceptSlot !== 1 && slot1) s.add(slot1.uncertaintyId);
     if (exceptSlot !== 2 && slot2) s.add(slot2.uncertaintyId);
     if (exceptSlot !== 3 && slot3) s.add(slot3.uncertaintyId);
     return s;
@@ -377,7 +383,9 @@ function TeamPlay({
               </span>
             </div>
             <p className="mt-1 text-[12px] leading-[1.5] text-muted">
-              {team.seedLocked
+              {!slot1Locked
+                ? "Pick an uncertainty and an outcome for each of the three slots to build your world."
+                : team.seedLocked
                 ? "Slot one was set by your facilitator. Pick two more uncertainties and an outcome for each."
                 : "Slot one is locked to your uncertainty — choose an outcome for it. Then pick two more uncertainties and an outcome for each."}
             </p>
@@ -393,10 +401,14 @@ function TeamPlay({
                   index={slot}
                   card={card}
                   lockedUnc={lockedUnc}
+                  showLockLabel={slot === 1 && slot1Locked}
                   readOnly={seedLocked}
                   disabled={locked || !prevFilled}
                   onOpen={() =>
-                    setPicker({ slot, uncertaintyId: slot === 1 ? team.seedUncertaintyId : null })
+                    setPicker({
+                      slot,
+                      uncertaintyId: slot === 1 && slot1Locked ? team.seedUncertaintyId : null,
+                    })
                   }
                 />
               );
@@ -440,6 +452,7 @@ function TeamPlay({
         <PickerModal
           picker={picker}
           setPicker={setPicker}
+          slot1Locked={slot1Locked}
           uncertainties={uncertainties}
           uncById={uncById}
           byId={byId}
@@ -458,6 +471,7 @@ function SlotButton({
   index,
   card,
   lockedUnc,
+  showLockLabel,
   readOnly,
   disabled,
   onOpen,
@@ -465,6 +479,7 @@ function SlotButton({
   index: number;
   card?: Card;
   lockedUnc?: UncertaintyLite;
+  showLockLabel?: boolean;
   readOnly?: boolean;
   disabled: boolean;
   onOpen: () => void;
@@ -474,7 +489,7 @@ function SlotButton({
       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-paper">
         {index}
       </span>
-      {index === 1 && (
+      {showLockLabel && (
         <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
           {readOnly ? "Locked by facilitator" : "Locked uncertainty"}
         </span>
@@ -535,6 +550,7 @@ function SlotButton({
 function PickerModal({
   picker,
   setPicker,
+  slot1Locked,
   uncertainties,
   uncById,
   byId,
@@ -545,6 +561,7 @@ function PickerModal({
 }: {
   picker: PickerState;
   setPicker: (p: PickerState | null) => void;
+  slot1Locked: boolean;
   uncertainties: UncertaintyLite[];
   uncById: Map<string, UncertaintyLite>;
   byId: Map<string, Card>;
@@ -554,7 +571,10 @@ function PickerModal({
   onChoose: (slot: 1 | 2 | 3, cardId: string) => void;
 }) {
   const activeUnc = picker.uncertaintyId ? uncById.get(picker.uncertaintyId) : null;
-  const showBoard = picker.slot !== 1 && !activeUnc;
+  // Only slot 1 with a dealt seed skips the uncertainty board (its question is
+  // fixed); every free slot picks an uncertainty first, then an outcome.
+  const seedFixed = picker.slot === 1 && slot1Locked;
+  const showBoard = !seedFixed && !activeUnc;
 
   return (
     <div
@@ -588,7 +608,7 @@ function PickerModal({
         ) : (
           activeUnc && (
             <div className="mt-3">
-              {picker.slot !== 1 && (
+              {!seedFixed && (
                 <button
                   onClick={() => setPicker({ ...picker, uncertaintyId: null })}
                   className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted hover:text-ink"
