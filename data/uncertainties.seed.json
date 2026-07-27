@@ -31,15 +31,15 @@
       "id": "permission-to-act",
       "domain": "Permission to Act",
       "title": "Public health's permission to act",
-      "question": "How much permission does public health have to act?",
+      "question": "Does the public see public health as legitimate — and follow its lead?",
       "sourceLineRaw": "FROM PUBLIC HEALTH UNDER POLITICAL FIRE · THE LOWERED SHIELD",
       "sourceDriverIds": ["political-fire"],
       "unresolvedSources": ["The Lowered Shield"],
       "outcomes": [
-        { "code": "C13", "role": "Core", "title": "Broad permission to act", "description": "Public health has durable civic support and clear legal authority." },
-        { "code": "C14", "role": "Core", "title": "Issue-by-issue permission", "description": "Authority is accepted for some threats but contested for others." },
-        { "code": "C15", "role": "Core", "title": "Place-dependent permission", "description": "Legitimacy and powers differ sharply across states and communities." },
-        { "code": "C16", "role": "Edge", "title": "Constant political resistance", "description": "Public health remains a routine target and its powers are tightly constrained." }
+        { "code": "C13", "role": "Core", "title": "Broad permission to act", "description": "The public broadly trusts public health, sees its role as legitimate, and follows its lead." },
+        { "code": "C14", "role": "Core", "title": "Issue-by-issue permission", "description": "The public accepts public health's role on some issues but questions its legitimacy on others." },
+        { "code": "C15", "role": "Core", "title": "Place-dependent permission", "description": "Trust in public health and acceptance of its role differ sharply across states and communities." },
+        { "code": "C16", "role": "Edge", "title": "Constant political resistance", "description": "Public health is widely distrusted and its guidance is routinely ignored or resisted." }
       ]
     },
     {
