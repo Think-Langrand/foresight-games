@@ -58,51 +58,45 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
           className="fixed inset-0 z-[100] flex items-center justify-center bg-cover bg-center px-5"
           style={{ backgroundImage: `url(${gateImage.src})` }}
         >
-          {/* Deep-blue scrim, echoing the entry cards on the home page. */}
+          {/* Light scrim, just enough to keep the text legible over the photo. */}
           <div
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(to top, rgba(13,28,61,0.92) 10%, rgba(13,28,61,0.72) 55%, rgba(13,28,61,0.60) 100%)",
+                "linear-gradient(to top, rgba(13,28,61,0.55) 0%, rgba(13,28,61,0.30) 60%, rgba(13,28,61,0.35) 100%)",
             }}
           />
-          <form
-            onSubmit={submit}
-            className="relative w-full max-w-[400px] rounded-[3px] border border-white/40 bg-[rgba(245,244,236,0.55)] p-7 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md"
-          >
-            <span className="eyebrow blue">NNPHI · Foresight for Public Health</span>
-            <h1 className="mt-3 font-sans text-[26px] font-extrabold uppercase leading-[1.05] tracking-tight">
+          <form onSubmit={submit} className="relative w-full max-w-[360px] text-center">
+            <span className="eyebrow" style={{ color: "rgba(255,255,255,0.72)" }}>
+              NNPHI · Langrand
+            </span>
+            <h1 className="mt-2 font-sans text-[30px] font-extrabold uppercase leading-[1.05] tracking-tight text-white [text-shadow:0_2px_18px_rgba(0,0,0,0.45)]">
               Future of Public Health
             </h1>
-            <p className="serif mt-2 text-[16px] italic leading-[1.35] text-muted">
-              This preview is private. Enter the password to continue.
-            </p>
 
-            <label className="eyebrow mt-6 block" htmlFor="site-password">
-              Password
-            </label>
             <input
               id="site-password"
               type="password"
               autoFocus
               autoComplete="off"
+              placeholder="Password"
               value={value}
               onChange={(e) => {
                 setValue(e.target.value);
                 if (error) setError(false);
               }}
-              className="mt-2 w-full rounded-[2px] border border-ink bg-[rgba(251,250,243,0.45)] px-3 py-2.5 text-[15px] outline-none backdrop-blur-sm focus:border-blue focus:bg-[rgba(251,250,243,0.7)]"
+              className="mt-7 w-full rounded-[2px] border border-white/50 bg-white/10 px-3 py-2.5 text-center text-[15px] text-white outline-none backdrop-blur-sm placeholder:text-white/55 focus:border-lime focus:bg-white/20"
             />
 
             {error && (
-              <div className="mt-3 text-[13px] font-semibold text-coral">
+              <div className="mt-3 text-[13px] font-semibold text-[#ffb4a8]">
                 That&rsquo;s not it — try again.
               </div>
             )}
 
             <button
               type="submit"
-              className="mt-6 w-full rounded-[2px] border border-ink bg-lime px-6 py-3 text-[13px] font-bold uppercase tracking-[0.1em] hover:bg-lime-deep"
+              className="mt-4 w-full rounded-[2px] border border-ink bg-lime px-6 py-3 text-[13px] font-bold uppercase tracking-[0.1em] text-ink hover:bg-lime-deep"
             >
               Unlock →
             </button>
