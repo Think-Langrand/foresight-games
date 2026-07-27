@@ -54,10 +54,13 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
     <>
       {children}
       {status !== "unlocked" && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-cover bg-center px-5"
-          style={{ backgroundImage: `url(${gateImage.src})` }}
-        >
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden px-5">
+          {/* Heavily blurred photo — reads as soft abstract texture, not a photo.
+              Scaled up so the blur doesn't feather transparent edges into view. */}
+          <div
+            className="absolute inset-0 scale-110 bg-cover bg-center"
+            style={{ backgroundImage: `url(${gateImage.src})`, filter: "blur(22px)" }}
+          />
           {/* Light scrim, just enough to keep the text legible over the photo. */}
           <div
             className="absolute inset-0"
