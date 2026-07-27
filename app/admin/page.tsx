@@ -62,6 +62,24 @@ export default async function AdminPage() {
       </section>
 
       <section className="mt-12">
+        <span className="eyebrow ink">Content</span>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <Link
+            href="/admin/drivers"
+            className="rounded-[3px] border border-[var(--rule)] bg-paper px-4 py-3 text-[13px] font-bold hover:border-ink hover:bg-card"
+          >
+            Edit drivers →
+          </Link>
+          <Link
+            href="/admin/uncertainties"
+            className="rounded-[3px] border border-[var(--rule)] bg-paper px-4 py-3 text-[13px] font-bold hover:border-ink hover:bg-card"
+          >
+            Edit uncertainties &amp; outcomes →
+          </Link>
+        </div>
+      </section>
+
+      <section className="mt-12">
         <span className="eyebrow ink">All sessions</span>
         <AdminSessionsList sessions={sessions} />
       </section>
