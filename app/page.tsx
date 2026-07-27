@@ -91,6 +91,9 @@ export default async function Home() {
             ? "Live from Supabase"
             : "Bundled snapshot (database not connected)"}
         </span>
+        <Link href="/admin" className="ml-auto font-semibold text-muted hover:text-ink hover:underline">
+          Facilitator admin →
+        </Link>
       </div>
     </main>
   );

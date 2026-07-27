@@ -176,12 +176,20 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
                     />
                   </td>
                   <td className="py-2.5 pr-3">
-                    <Link
-                      href={`/admin/s/${s.code}`}
-                      className="font-bold tracking-[0.08em] text-blue underline"
-                    >
-                      {s.code}
-                    </Link>
+                    <div className="flex flex-col">
+                      <Link
+                        href={`/admin/s/${s.code}`}
+                        className="font-bold tracking-[0.08em] text-blue underline"
+                      >
+                        {s.code}
+                      </Link>
+                      <Link
+                        href={`/sessions/${s.code}/analysis`}
+                        className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted hover:text-ink hover:underline"
+                      >
+                        Analysis →
+                      </Link>
+                    </div>
                   </td>
                   <td className="max-w-[280px] truncate py-2.5 pr-3" title={s.title}>
                     {s.title || <span className="text-muted">—</span>}

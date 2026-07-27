@@ -154,6 +154,10 @@ export interface Team {
   brokenAssumption: string;
   status: TeamStatus;
   createdTime: string;
+  // Facilitator judgement tags for the Analysis view (§5). Nullable; set from
+  // the analysis UI, never during play.
+  tone?: "hopeful" | "dark" | null;
+  family?: string | null;
 }
 
 // The seed + kept cards form the scenario triad.
