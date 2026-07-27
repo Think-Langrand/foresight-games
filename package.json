@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "db:seed": "node scripts/seed-supabase.mjs"
+    "db:seed": "node scripts/seed-supabase.mjs",
+    "tags:all": "node scripts/tag-all-kernels.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
