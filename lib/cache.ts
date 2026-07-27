@@ -12,6 +12,13 @@ import "server-only";
 type Entry<T> = { exp: number; val: Promise<T> };
 const store = new Map<string, Entry<unknown>>();
 
+// Drop a cached entry so the next read re-fetches from source. Call after a
+// write to the underlying table so edits show up immediately instead of waiting
+// out the TTL. Per-instance and best-effort (other instances expire on TTL).
+export function bust(key: string): void {
+  store.delete(key);
+}
+
 export function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const now = Date.now();
   const hit = store.get(key) as Entry<T> | undefined;
