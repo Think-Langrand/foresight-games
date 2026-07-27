@@ -120,20 +120,27 @@ export async function createUncertainty(input: UncertaintyInput): Promise<void> 
     });
     if (error) throw error;
   });
-  const codes = await nextCodes(input.outcomes.length, new Set());
-  const rows = input.outcomes.map((o, i) => ({
-    code: codes[i],
-    uncertainty_slug: input.slug,
-    role: o.role,
-    title: o.title,
-    description: o.description,
-    sort_order: i,
-  }));
-  if (rows.length) {
-    await withRetry(async () => {
-      const { error } = await sb.from("card_outcomes").insert(rows);
-      if (error) throw error;
-    });
+  // If the outcome insert fails, roll back the just-created uncertainty so we
+  // never persist a headerless one — the create is effectively atomic.
+  try {
+    const codes = await nextCodes(input.outcomes.length, new Set());
+    const rows = input.outcomes.map((o, i) => ({
+      code: codes[i],
+      uncertainty_slug: input.slug,
+      role: o.role,
+      title: o.title,
+      description: o.description,
+      sort_order: i,
+    }));
+    if (rows.length) {
+      await withRetry(async () => {
+        const { error } = await sb.from("card_outcomes").insert(rows);
+        if (error) throw error;
+      });
+    }
+  } catch (err) {
+    await sb.from("uncertainties").delete().eq("slug", input.slug);
+    throw err;
   }
   bust(UNC_CACHE);
 }

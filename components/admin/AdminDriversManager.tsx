@@ -52,19 +52,23 @@ function DriverForm({
     setBusy(true);
     setError(null);
     const url = isNew ? "/api/admin/drivers" : `/api/admin/drivers/${initial!.slug}`;
-    const res = await fetch(url, {
-      method: isNew ? "POST" : "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...f, number: Number(f.number) }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Save failed.");
+    try {
+      const res = await fetch(url, {
+        method: isNew ? "POST" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...f, number: Number(f.number) }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Save failed.");
+        setBusy(false);
+        return;
+      }
+      onDone();
+    } catch {
+      setError("Network error — please try again.");
       setBusy(false);
-      return;
     }
-    setBusy(false);
-    onDone();
   }
 
   return (
@@ -154,13 +158,19 @@ export function AdminDriversManager({ drivers }: { drivers: DriverLite[] }) {
     if (!confirm(`Delete driver "${d.name}"? This can't be undone.`)) return;
     setBusy(d.slug);
     setError(null);
-    const res = await fetch(`/api/admin/drivers/${d.slug}`, { method: "DELETE" });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Delete failed.");
+    try {
+      const res = await fetch(`/api/admin/drivers/${d.slug}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Delete failed.");
+        setBusy(null);
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error — please try again.");
+      setBusy(null);
     }
-    setBusy(null);
-    router.refresh();
   }
 
   return (

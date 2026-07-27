@@ -80,19 +80,23 @@ function UncertaintyForm({
     setBusy(true);
     setError(null);
     const url = isNew ? "/api/admin/uncertainties" : `/api/admin/uncertainties/${initial!.id}`;
-    const res = await fetch(url, {
-      method: isNew ? "POST" : "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...f, number: Number(f.number) }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Save failed.");
+    try {
+      const res = await fetch(url, {
+        method: isNew ? "POST" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...f, number: Number(f.number) }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Save failed.");
+        setBusy(false);
+        return;
+      }
+      onDone();
+    } catch {
+      setError("Network error — please try again.");
       setBusy(false);
-      return;
     }
-    setBusy(false);
-    onDone();
   }
 
   return (
@@ -259,13 +263,19 @@ export function AdminUncertaintiesManager({
       return;
     setBusy(u.id);
     setError(null);
-    const res = await fetch(`/api/admin/uncertainties/${u.id}`, { method: "DELETE" });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Delete failed.");
+    try {
+      const res = await fetch(`/api/admin/uncertainties/${u.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Delete failed.");
+        setBusy(null);
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error — please try again.");
+      setBusy(null);
     }
-    setBusy(null);
-    router.refresh();
   }
 
   return (
