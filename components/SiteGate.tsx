@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import gateImage from "@/public/image4.png";
+import gateImage from "@/public/image3.png";
 
 // Soft, site-wide password screen. This is a light gate for a private preview —
 // the password lives client-side, so it keeps the curious out, not attackers.
@@ -68,7 +68,7 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
           />
           <form
             onSubmit={submit}
-            className="relative w-full max-w-[400px] rounded-[3px] border border-ink bg-paper p-7 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+            className="relative w-full max-w-[400px] rounded-[3px] border border-white/40 bg-[rgba(245,244,236,0.55)] p-7 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md"
           >
             <span className="eyebrow blue">NNPHI · Foresight for Public Health</span>
             <h1 className="mt-3 font-sans text-[26px] font-extrabold uppercase leading-[1.05] tracking-tight">
@@ -91,7 +91,7 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
                 setValue(e.target.value);
                 if (error) setError(false);
               }}
-              className="mt-2 w-full rounded-[2px] border border-ink bg-card px-3 py-2.5 text-[15px] outline-none focus:border-blue"
+              className="mt-2 w-full rounded-[2px] border border-ink bg-[rgba(251,250,243,0.45)] px-3 py-2.5 text-[15px] outline-none backdrop-blur-sm focus:border-blue focus:bg-[rgba(251,250,243,0.7)]"
             />
 
             {error && (
