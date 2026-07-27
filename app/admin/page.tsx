@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listSessions, supabaseConfigured } from "@/lib/workshop";
 import { listAllTeams } from "@/lib/teams";
 import { getDeck } from "@/lib/cards";
@@ -48,7 +49,15 @@ export default async function AdminPage() {
       </section>
 
       <section className="mt-12">
-        <span className="eyebrow ink">Entries</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="eyebrow ink">Entries</span>
+          <Link
+            href="/analysis"
+            className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
+          >
+            View analysis →
+          </Link>
+        </div>
         <AdminTeamsManager teams={teams} deck={deck.cards} />
       </section>
 

@@ -32,6 +32,8 @@ interface TeamRow {
   broken_assumption: string;
   status: string;
   created_at: string;
+  tone: string | null;
+  family: string | null;
 }
 
 function mapTeam(r: TeamRow): Team {
@@ -55,6 +57,8 @@ function mapTeam(r: TeamRow): Team {
     brokenAssumption: r.broken_assumption ?? "",
     status: (r.status ?? "Drafting") as TeamStatus,
     createdTime: r.created_at,
+    tone: (r.tone as Team["tone"]) ?? null,
+    family: r.family ?? null,
   };
 }
 
@@ -198,6 +202,8 @@ export async function updateTeam(
     brokenAssumption: string;
     status: TeamStatus;
     wildcardId: string;
+    tone: "hopeful" | "dark" | null;
+    family: string | null;
   }>
 ): Promise<Team> {
   const fields: Record<string, unknown> = {};
@@ -217,6 +223,8 @@ export async function updateTeam(
   if (patch.brokenAssumption !== undefined) fields.broken_assumption = patch.brokenAssumption;
   if (patch.status !== undefined) fields.status = patch.status;
   if (patch.wildcardId !== undefined) fields.wildcard_id = patch.wildcardId;
+  if (patch.tone !== undefined) fields.tone = patch.tone;
+  if (patch.family !== undefined) fields.family = patch.family;
 
   const data = await withRetry(async () => {
     const { data, error } = await supabaseAdmin()

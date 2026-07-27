@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import { getTeams, updateTeam, deleteTeam, drawWildcard } from "@/lib/teams";
 import { getDeck } from "@/lib/cards";
 import { getSessionUser } from "@/lib/supabase-auth";
+import { autoTagTeam, llmConfigured } from "@/lib/analysis/suggest";
 import { KEEP_COUNT, type TeamStatus } from "@/lib/workshop-types";
 
 export const dynamic = "force-dynamic";
@@ -141,6 +142,14 @@ export async function PATCH(
       return NextResponse.json({ team });
 
     const updated = await updateTeam(teamId, session.code, patch);
+
+    // When a team crosses into Submitted, kick off a best-effort LLM tag AFTER
+    // the response is sent, so the participant's submit isn't slowed by the LLM
+    // round-trip. Only untagged teams are touched (autoTagTeam guards this).
+    if (patch.status === "Submitted" && !updated.tone && llmConfigured()) {
+      after(() => autoTagTeam(updated));
+    }
+
     return NextResponse.json({ team: updated });
   } catch (err) {
     console.error("[PATCH team]", err);

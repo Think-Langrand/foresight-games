@@ -1,0 +1,1361 @@
+[
+  {
+    "code": "NK78",
+    "name": "one",
+    "worldTitle": "Protopia",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "Healthier and safer environment but continuing lack of consensus - improved coordination",
+    "centralTension": "Better social services Vs less individual choice",
+    "newNormal": "Standardized care and universal access",
+    "brokenAssumption": "it is entirely for profit",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T00:48:52.246016+00:00",
+    "cards": [
+      {
+        "title": "Connected local pictures",
+        "role": "Core",
+        "dimension": "What public health can see",
+        "condition": "Federated systems share enough data to coordinate while remaining decentralized."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      },
+      {
+        "title": "Competing evidence systems",
+        "role": "Core",
+        "dimension": "How health truth is established",
+        "condition": "Communities use different experts, facts, and standards of proof."
+      }
+    ]
+  },
+  {
+    "code": "NK78",
+    "name": "two",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T00:49:10.456341+00:00",
+    "cards": [
+      {
+        "title": "Institutional recovery",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Public institutions regain trust through performance, transparency, and accountability."
+      },
+      {
+        "title": "Compounding known threats",
+        "role": "Core",
+        "dimension": "The threat environment",
+        "condition": "Heat, smoke, disasters, outbreaks, and displacement increasingly arrive together."
+      },
+      {
+        "title": "Public AI utility",
+        "role": "Core",
+        "dimension": "AI infrastructure and access",
+        "condition": "Trusted, governed tools are available across the field."
+      }
+    ]
+  },
+  {
+    "code": "NK78",
+    "name": "three",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T00:49:19.027127+00:00",
+    "cards": []
+  },
+  {
+    "code": "NK78",
+    "name": "four",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T00:49:27.754212+00:00",
+    "cards": []
+  },
+  {
+    "code": "NK78",
+    "name": "five",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T00:49:36.707984+00:00",
+    "cards": []
+  },
+  {
+    "code": "NK78",
+    "name": "six",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T00:49:42.753989+00:00",
+    "cards": []
+  },
+  {
+    "code": "NK78",
+    "name": "seven",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T00:49:51.392619+00:00",
+    "cards": []
+  },
+  {
+    "code": "NK78",
+    "name": "eight",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T00:50:01.796701+00:00",
+    "cards": []
+  },
+  {
+    "code": "DPJB",
+    "name": "Team 1",
+    "worldTitle": "The Privatized Commons",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T12:58:10.410859+00:00",
+    "cards": [
+      {
+        "title": "No common public",
+        "role": "Edge",
+        "dimension": "The shape of the public",
+        "condition": "Health is treated mainly as a private responsibility and consumer choice."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      }
+    ]
+  },
+  {
+    "code": "DPJB",
+    "name": "Team 2",
+    "worldTitle": "Local Trust, Lean Core",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T12:58:19.353091+00:00",
+    "cards": [
+      {
+        "title": "Small AI-augmented core",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "Lean teams work through automation, CHWs, and shared specialists."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      }
+    ]
+  },
+  {
+    "code": "DPJB",
+    "name": "Team 3",
+    "worldTitle": "Bodies Under Watch",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T12:58:20.819138+00:00",
+    "cards": [
+      {
+        "title": "Individual control",
+        "role": "Core",
+        "dimension": "Control of body data",
+        "condition": "People decide who can use their data and may trade or license it."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      }
+    ]
+  },
+  {
+    "code": "DPJB",
+    "name": "Team 4",
+    "worldTitle": "Patchwork Permissions",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T12:58:21.80798+00:00",
+    "cards": [
+      {
+        "title": "Place-dependent permission",
+        "role": "Core",
+        "dimension": "Public health's permission to act",
+        "condition": "Legitimacy and powers differ sharply across states and communities."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      }
+    ]
+  },
+  {
+    "code": "DPJB",
+    "name": "Team 5",
+    "worldTitle": "Truth by Machine",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T12:58:22.849316+00:00",
+    "cards": [
+      {
+        "title": "Human-AI mediation",
+        "role": "Core",
+        "dimension": "How health truth is established",
+        "condition": "Trusted people and supervised AI translate evidence for different audiences."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      }
+    ]
+  },
+  {
+    "code": "DPJB",
+    "name": "Team 6",
+    "worldTitle": "Care Without Walls",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T12:58:23.844791+00:00",
+    "cards": [
+      {
+        "title": "Distributed and connected",
+        "role": "Core",
+        "dimension": "The structure of care",
+        "condition": "Home, retail, community, and public systems share data and responsibility."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      }
+    ]
+  },
+  {
+    "code": "DPJB",
+    "name": "Team 7",
+    "worldTitle": "A Thousand Local Fixes",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T12:58:29.488272+00:00",
+    "cards": [
+      {
+        "title": "Many local problem-solvers",
+        "role": "Core",
+        "dimension": "Individual and movement power",
+        "condition": "Individuals and small groups use new tools to create useful public goods."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      }
+    ]
+  },
+  {
+    "code": "RH75",
+    "name": "Team 1",
+    "worldTitle": "Distributed Strength",
+    "status": "Submitted",
+    "convergence": "because trust has developed int his directon, but funding has been able to be found by providing services directly and rebuilt publici workforce that is much more decentralized may have more reach and access than ever before.",
+    "primaryCondition": "",
+    "definingCharacteristics": "there is rebult public workforce but it is at a more community based level. ",
+    "centralTension": "Trust is found at the local level, because trust has completed receded at an instituational level.",
+    "newNormal": "Community Health Workers work with AI to become health care deliverers. ",
+    "brokenAssumption": "The idea of a shared public has largely vanished. ",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T14:27:35.46439+00:00",
+    "cards": [
+      {
+        "title": "Layered publics",
+        "role": "Core",
+        "dimension": "The shape of the public",
+        "condition": "National consensus is weak, but local and identity-based communities coordinate internally."
+      },
+      {
+        "title": "Rebuilt public workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "A broader multidisciplinary workforce is recruited and retained."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      }
+    ]
+  },
+  {
+    "code": "RH75",
+    "name": "Team 2",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T14:27:40.190418+00:00",
+    "cards": [
+      {
+        "title": "No common public",
+        "role": "Edge",
+        "dimension": "The shape of the public",
+        "condition": "Health is treated mainly as a private responsibility and consumer choice."
+      }
+    ]
+  },
+  {
+    "code": "RH75",
+    "name": "Team 3",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T14:27:41.93172+00:00",
+    "cards": [
+      {
+        "title": "Distributed partner workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "Contractors, community organizations, universities, and creators do more of the work."
+      }
+    ]
+  },
+  {
+    "code": "26RE",
+    "name": "Team 1",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "There is a rebuilt publc workforce but it is deployed and owned at a more community based level.\nPolarizatoni has not decreased and thus large institutions are largely contested. ",
+    "centralTension": "Public heath has shifted towards the community level, people ",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:51:14.715312+00:00",
+    "cards": [
+      {
+        "title": "Layered publics",
+        "role": "Core",
+        "dimension": "The shape of the public",
+        "condition": "National consensus is weak, but local and identity-based communities coordinate internally."
+      },
+      {
+        "title": "Rebuilt public workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "A broader multidisciplinary workforce is recruited and retained."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      }
+    ]
+  },
+  {
+    "code": "QR26",
+    "name": "Team 1",
+    "worldTitle": "1984 corporate style",
+    "status": "Submitted",
+    "convergence": "public health, health disparities, shorter life spans for many, ",
+    "primaryCondition": "",
+    "definingCharacteristics": "1. Corporations will continue to amass power, resources, data on individual lives, 2. Elected officials do not have the ability or backbone to resist (and cede public health response to private entities), 3. Health disparities widen (more and more benefit attached to people who can afford and people who also don't resist) ",
+    "centralTension": "Corporations taking on role of governmental public health. Less and less interest in caring for your neighbor",
+    "newNormal": "",
+    "brokenAssumption": "Public health doesn't serve the people, but the corporations.",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:51:40.231387+00:00",
+    "cards": [
+      {
+        "title": "No common public",
+        "role": "Edge",
+        "dimension": "The shape of the public",
+        "condition": "Health is treated mainly as a private responsibility and consumer choice."
+      },
+      {
+        "title": "Constant political resistance",
+        "role": "Edge",
+        "dimension": "Public health's permission to act",
+        "condition": "Public health remains a routine target and its powers are tightly constrained."
+      },
+      {
+        "title": "Corporate control",
+        "role": "Core",
+        "dimension": "Control of body data",
+        "condition": "Platforms and data brokers hold the most valuable datasets."
+      }
+    ]
+  },
+  {
+    "code": "QR26",
+    "name": "Team 2",
+    "worldTitle": "",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "Well resourced communities continue to thrive and advacne, while ithers are left behind. Inequitues are magnified and accelerated. Mutual aid stregthens among lesser-resourced communities (could be positive or negative-positive if communities mobilize effectively vs pulling together crumbs).",
+    "centralTension": "Widening inequities-draw away from community care, better resourced communities reap benifits of AI efficiencies ",
+    "newNormal": "total dismissal of evidence based medicine in exchange for AI doctors wellness influencer sellers ",
+    "brokenAssumption": "scientists and public health leaders are the trusted messengers. The internet is the platform for information and delivering communications (replaed by AI platforms)",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:51:43.300972+00:00",
+    "cards": [
+      {
+        "title": "Personal responsibility regime",
+        "role": "Edge",
+        "dimension": "The model of prevention",
+        "condition": "Health is moralized as an individual choice regardless of structural conditions."
+      },
+      {
+        "title": "Layered publics",
+        "role": "Core",
+        "dimension": "The shape of the public",
+        "condition": "National consensus is weak, but local and identity-based communities coordinate internally."
+      },
+      {
+        "title": "Unequal AI arms race",
+        "role": "Edge",
+        "dimension": "AI infrastructure and access",
+        "condition": "Well-resourced actors accelerate while others fall further behind."
+      }
+    ]
+  },
+  {
+    "code": "QR26",
+    "name": "Team 3",
+    "worldTitle": "",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "Public likes quick and easy health information.\nLack of policies, guardrails, and guidance on the use AI in public health and ethical considerations. \nPeople increasingly interested/awareness of their individual health (to avoid negative health consequences, medical debt) ",
+    "centralTension": "public health and governance not keeping up with technology innovations ",
+    "newNormal": "Public health more engaged with corporate health, AI, and influencers",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:51:44.990166+00:00",
+    "cards": [
+      {
+        "title": "Small AI-augmented core",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "Lean teams work through automation, CHWs, and shared specialists."
+      },
+      {
+        "title": "Corporate control",
+        "role": "Core",
+        "dimension": "Control of body data",
+        "condition": "Platforms and data brokers hold the most valuable datasets."
+      },
+      {
+        "title": "Trust moves to platforms",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "People rely on brands, influencers, and personal AI for health guidance."
+      }
+    ]
+  },
+  {
+    "code": "QR26",
+    "name": "Team 4",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:51:46.596836+00:00",
+    "cards": [
+      {
+        "title": "Individual control",
+        "role": "Core",
+        "dimension": "Control of body data",
+        "condition": "People decide who can use their data and may trade or license it."
+      },
+      {
+        "title": "Growing blind spots",
+        "role": "Edge",
+        "dimension": "What public health can see",
+        "condition": "Fragmented systems and off-grid care leave public health partially blind."
+      },
+      {
+        "title": "Place-dependent permission",
+        "role": "Core",
+        "dimension": "Public health's permission to act",
+        "condition": "Legitimacy and powers differ sharply across states and communities."
+      }
+    ]
+  },
+  {
+    "code": "QR26",
+    "name": "Team 5",
+    "worldTitle": "",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "There is notable fragmentation across state and local PH and most other sectors\nPublic/private partnerships, and notable resources of private entities are important.",
+    "centralTension": "confusion?\n",
+    "newNormal": "none of this feels strange today, but it is unsettling because it is not true to a vision of promoting public health.",
+    "brokenAssumption": "that its public, or serves the broad and general public.",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:51:47.780625+00:00",
+    "cards": [
+      {
+        "title": "Layered publics",
+        "role": "Core",
+        "dimension": "The shape of the public",
+        "condition": "National consensus is weak, but local and identity-based communities coordinate internally."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Private platforms see more",
+        "role": "Core",
+        "dimension": "What public health can see",
+        "condition": "Companies have faster and richer data than public agencies."
+      }
+    ]
+  },
+  {
+    "code": "QR26",
+    "name": "Team 6",
+    "worldTitle": "Acting together, flip the script",
+    "status": "Submitted",
+    "convergence": "Because federal public health has developed in this direction, direct participation in decision-making about health priorities and funding has become more common, which ultimately changes the nature of public health from top-down intervention to liberated decisions.\n\nBecause decisions to act have developed, changing behaviours have become common. This enables our communities, which changes our approach to public health  ",
+    "primaryCondition": "",
+    "definingCharacteristics": "Shape of public: The question links back to where should the public health system have the ability to act. Acting on health collectively. Drive to have public health system , agrees to have the PH system anointed with the responsibility at the community level (federal/state/local). Institutional base: what's true in world when there is constant political upheaval. Mistrust in the public health government. No confidence in governmental PH, lack of large funding streams, increased expectation of individual accountability. Shared civic approach to public health. While there is mistrust in PH government, there is increased trust in 3rd sector (non profit). ",
+    "centralTension": "central theme: continued ascendancy of the individual (people/population/indiviudal centric)  \nsecond theme: accountability \n\nshared civic public- shows us people's ability to invest in their communities. If we had stronger sense of shared community/public health we wouldn't need governments to intervene top down, it would be more bottom up",
+    "newNormal": "People would demand services from public health infrastructure opposed to being recipients of services. People centricity would feel unusual in the absence of strongly funded PH programs. Sense of ownership of the resources that we put into our collective government that would help communities address issues. ",
+    "brokenAssumption": "FLIP THE SCRIPT- top down no longer serves, we are looking for bottom up. Driving to solutions to act because we aren't looking for \"we know what is best for you\" any more. This calls on  governance",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:51:48.712337+00:00",
+    "cards": [
+      {
+        "title": "Constant political resistance",
+        "role": "Edge",
+        "dimension": "Public health's permission to act",
+        "condition": "Public health remains a routine target and its powers are tightly constrained."
+      },
+      {
+        "title": "Hollowed and outsourced",
+        "role": "Edge",
+        "dimension": "The institutional base",
+        "condition": "Critical functions move to vendors or disappear as public capacity shrinks."
+      },
+      {
+        "title": "Shared civic public",
+        "role": "Core",
+        "dimension": "The shape of the public",
+        "condition": "People see health as a common responsibility and accept shared solutions."
+      }
+    ]
+  },
+  {
+    "code": "QR26",
+    "name": "Team 7",
+    "worldTitle": "",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "Rapid change, shifting narrative, complexity, tech is connected to all three",
+    "centralTension": "Complex narrative change, do more with less, diversity and communication platforms. the multiplicity of the influencers- dissemination sources. Social monitoring. Is this novel or been around? Is it just the pace that has gotten quicker.\n",
+    "newNormal": "It seems this world is more about the individual vs the collective. A lot of our messaging has been around the collective. We are seeing signals where people going to AI or social influencers  or Dr Google for their health advice. We are seeing these signals are not completely mainstream but it can be mainstream.  Don't go to doctor and just go to AI for help.",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:51:50.41234+00:00",
+    "cards": [
+      {
+        "title": "Personalized publics",
+        "role": "Core",
+        "dimension": "The shape of the public",
+        "condition": "People organize around individualized risks, values, and information feeds."
+      },
+      {
+        "title": "Compounding known threats",
+        "role": "Core",
+        "dimension": "The threat environment",
+        "condition": "Heat, smoke, disasters, outbreaks, and displacement increasingly arrive together."
+      },
+      {
+        "title": "High-leverage disruption",
+        "role": "Edge",
+        "dimension": "Individual and movement power",
+        "condition": "One actor or small group can rapidly destabilize health behavior or systems."
+      }
+    ]
+  },
+  {
+    "code": "QR26",
+    "name": "Team 8",
+    "worldTitle": "overwhelmed by individual data",
+    "status": "Submitted",
+    "convergence": "because consumer data has developed in this direction, individual data decisions become increasingly common for those that have access to the technology.  this creates more disparities both on individuals that are overwhelmed with information or not sure how to use and for those without access by choice or financial limitations.   ",
+    "primaryCondition": "",
+    "definingCharacteristics": "1. abundance of data available for people that can afford access to the consumer products\\\n2. creates disparity by access to the consumer products and therefore the Health data \n3. decentralized control over how data used. not clear on who has data and who controls.   in theory individuals can make more decisions with the info, but also government can control access based on the data and corporations can buy populations of people based on data",
+    "centralTension": "robust amounts of individualized data availability and lack of clarity on public use and where disparity headed",
+    "newNormal": "access to our personal data to make decisions about our health.  level of privacy and regulation that might protect it that doesn't exist today",
+    "brokenAssumption": "evidence based concept is not the trusted source.   the idea of having this much data and the opportunity to make population heath decisions but it isn't clear where public health would sit the table.  are we becoming more individualized to make care decisions and not population health.?",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:54:50.325633+00:00",
+    "cards": [
+      {
+        "title": "Consumer optimization",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Wellness products, personal data, supplements, and biotech define prevention."
+      },
+      {
+        "title": "Trust moves to platforms",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "People rely on brands, influencers, and personal AI for health guidance."
+      },
+      {
+        "title": "Individual control",
+        "role": "Core",
+        "dimension": "Control of body data",
+        "condition": "People decide who can use their data and may trade or license it."
+      }
+    ]
+  },
+  {
+    "code": "HTVR",
+    "name": "Team 1",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:57:19.302154+00:00",
+    "cards": [
+      {
+        "title": "Shared network services",
+        "role": "Core",
+        "dimension": "AI infrastructure and access",
+        "condition": "Institutions pool AI capabilities, talent, and standards."
+      }
+    ]
+  },
+  {
+    "code": "HTVR",
+    "name": "Team 2",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:57:21.921441+00:00",
+    "cards": [
+      {
+        "title": "Distributed partner workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "Contractors, community organizations, universities, and creators do more of the work."
+      }
+    ]
+  },
+  {
+    "code": "HTVR",
+    "name": "Team 3",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T16:57:23.395482+00:00",
+    "cards": [
+      {
+        "title": "Private platforms see more",
+        "role": "Core",
+        "dimension": "What public health can see",
+        "condition": "Companies have faster and richer data than public agencies."
+      }
+    ]
+  },
+  {
+    "code": "CS7W",
+    "name": "Team 1",
+    "worldTitle": "The Neighborhood Cure",
+    "status": "Submitted",
+    "convergence": "Because trust has gone local, community messengers become the front line, which enables prevention through healthier conditions and ultimately changes public health from broadcaster to convener.",
+    "primaryCondition": "",
+    "definingCharacteristics": "Health is a private, local matter; institutions have durable authority but people trust neighbors first.",
+    "centralTension": "",
+    "newNormal": "Public health mostly convenes and equips local trusted messengers rather than issuing top-down guidance.",
+    "brokenAssumption": "That a single national authority can speak for everyone's health.",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T17:40:54.817874+00:00",
+    "cards": [
+      {
+        "title": "Broad permission to act",
+        "role": "Core",
+        "dimension": "Public health's permission to act",
+        "condition": "Public health has durable civic support and clear legal authority."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      }
+    ]
+  },
+  {
+    "code": "CS7W",
+    "name": "Team 2",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T17:50:52.139733+00:00",
+    "cards": [
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      },
+      {
+        "title": "Broad permission to act",
+        "role": "Core",
+        "dimension": "Public health's permission to act",
+        "condition": "Public health has durable civic support and clear legal authority."
+      }
+    ]
+  },
+  {
+    "code": "K2VE",
+    "name": "Team 1",
+    "worldTitle": "",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "adfadfa",
+    "centralTension": "adfadfa",
+    "newNormal": "adfdff",
+    "brokenAssumption": "adfadf",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T17:53:55.844469+00:00",
+    "cards": [
+      {
+        "title": "Rebuilt public workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "A broader multidisciplinary workforce is recruited and retained."
+      },
+      {
+        "title": "Strong public backbone",
+        "role": "Core",
+        "dimension": "The institutional base",
+        "condition": "Core institutions have durable funding, staff, and infrastructure."
+      },
+      {
+        "title": "Shared network services",
+        "role": "Core",
+        "dimension": "AI infrastructure and access",
+        "condition": "Institutions pool AI capabilities, talent, and standards."
+      }
+    ]
+  },
+  {
+    "code": "K2VE",
+    "name": "Team 2",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T17:54:01.767668+00:00",
+    "cards": []
+  },
+  {
+    "code": "P946",
+    "name": "Team 1",
+    "worldTitle": "",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "There is a rebuilt public wokforce but it is deployed at a more community based level. ",
+    "centralTension": "Trust is local and public health has built around that idea.",
+    "newNormal": "community health workers augmented by Ai and technology have become delivery mechanisms of health care.",
+    "brokenAssumption": "there is no concept of a shared public",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:01:54.0738+00:00",
+    "cards": [
+      {
+        "title": "Layered publics",
+        "role": "Core",
+        "dimension": "The shape of the public",
+        "condition": "National consensus is weak, but local and identity-based communities coordinate internally."
+      },
+      {
+        "title": "Rebuilt public workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "A broader multidisciplinary workforce is recruited and retained."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      }
+    ]
+  },
+  {
+    "code": "P946",
+    "name": "Team 2",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:06:24.553983+00:00",
+    "cards": [
+      {
+        "title": "Distributed and connected",
+        "role": "Core",
+        "dimension": "The structure of care",
+        "condition": "Home, retail, community, and public systems share data and responsibility."
+      },
+      {
+        "title": "Live public health picture",
+        "role": "Core",
+        "dimension": "What public health can see",
+        "condition": "Integrated systems provide a trusted, real-time view of population health."
+      },
+      {
+        "title": "Shared network services",
+        "role": "Core",
+        "dimension": "AI infrastructure and access",
+        "condition": "Institutions pool AI capabilities, talent, and standards."
+      }
+    ]
+  },
+  {
+    "code": "X4VR",
+    "name": "Team 1",
+    "worldTitle": "",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "the public health workforce has been reestablished but is mainly deployed at the community level. ",
+    "centralTension": "Public health has largely shifted downwards towards the community. ",
+    "newNormal": "Communicty Healthworkers augmented with AI and technology have become healthcare delivery agents.",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:08:14.777938+00:00",
+    "cards": [
+      {
+        "title": "Layered publics",
+        "role": "Core",
+        "dimension": "The shape of the public",
+        "condition": "National consensus is weak, but local and identity-based communities coordinate internally."
+      },
+      {
+        "title": "Rebuilt public workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "A broader multidisciplinary workforce is recruited and retained."
+      },
+      {
+        "title": "Verified evidence layer",
+        "role": "Core",
+        "dimension": "How health truth is established",
+        "condition": "Authentication and provenance restore a broadly shared factual baseline."
+      }
+    ]
+  },
+  {
+    "code": "6SJB",
+    "name": "Team 1",
+    "worldTitle": "Mycellium ",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "1. The role of the university is changing -- with educational offerings becoming more accessible and less expensive, universities need to clearly articulate their value. \n2. In this scenario, we are living in a constant ethos of adaptation. We do not rely on doing the same thing over and over, we value a comprehensive and inclusive approach to understanding the world and collaboratively working to make it better. We see less assumed power across government and corporations, connection is held with the people. ",
+    "centralTension": "This scenario speaks to a future where connection is kept and fostered by the people and isn't lost to political system or corporations. There's a responsiveness to how and when we need to adapt and we can do that because we can see institutional recovery take place due to our distributed partner workforce. ",
+    "newNormal": "The role of governmental public health could shift to new roles due to the more distributed public health workforce. In this scenario, work would align with partners based on strengths.",
+    "brokenAssumption": "Public health isn't driving for more money and more staff, but rather deeper connections, more effective programs and greater accountability. ",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:10:38.563805+00:00",
+    "cards": [
+      {
+        "title": "Adaptation keeps pace",
+        "role": "Core",
+        "dimension": "The threat environment",
+        "condition": "Known climate and disease pressures grow, but investments contain many impacts."
+      },
+      {
+        "title": "Institutional recovery",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Public institutions regain trust through performance, transparency, and accountability."
+      },
+      {
+        "title": "Distributed partner workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "Contractors, community organizations, universities, and creators do more of the work."
+      }
+    ]
+  },
+  {
+    "code": "6SJB",
+    "name": "Team 2",
+    "worldTitle": "Rosey the Riveter",
+    "status": "Submitted",
+    "convergence": "Because public health infrastructure has developed in this direction, trust in mission-driven public health institutions becomes increasingly common, this causes or enable better utilization of pubic health services and healthy behavior change, which ultimately improves community health outcomes across the nation, and especially in the most underserved and unhealthiest communites.",
+    "primaryCondition": "",
+    "definingCharacteristics": "Public funding is still the main financial resource, people maintain meningful work and human connection in service delivery, and trust in public health institutions is restored and sustained. Public health pieline is stregthened, people want to work in public health ",
+    "centralTension": "connection across healhcare and public health, and people over machines, doube-down on our committment to people slow the roll of AI ",
+    "newNormal": "sustainable funding, lowered stress and anxiety among the field ",
+    "brokenAssumption": "Strategies and intended outcomes of Public Health 3.0 - this may have taken us away from fpcus on community and how we should function and may have led to mistrust. Need a narrower and more focused scope on key areas of service delivery, because other public services are well resourced and less reliant on public health to fill the gaps (chief health startegist in 3,0 assume it is our role to ensure other parts of infrastructure work in service to public health)",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:10:41.851068+00:00",
+    "cards": [
+      {
+        "title": "Strong public backbone",
+        "role": "Core",
+        "dimension": "The institutional base",
+        "condition": "Core institutions have durable funding, staff, and infrastructure."
+      },
+      {
+        "title": "Distributed and connected",
+        "role": "Core",
+        "dimension": "The structure of care",
+        "condition": "Home, retail, community, and public systems share data and responsibility."
+      },
+      {
+        "title": "Rebuilt public workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "A broader multidisciplinary workforce is recruited and retained."
+      }
+    ]
+  },
+  {
+    "code": "6SJB",
+    "name": "Team 3",
+    "worldTitle": "Going Over the Prevention Edge - No More Safety",
+    "status": "Submitted",
+    "convergence": "prevention\ndisparities\nhigher morbidity rates\nAI\ndata ",
+    "primaryCondition": "",
+    "definingCharacteristics": "Shifting away from upstream prevention and moving towards secondary/tertiary prevention.\nPolitical resistance will drive rising healthcare costs and continue pulling back of healthcare supports.",
+    "centralTension": "Compounding known threats are harder to address because people only show up in the tertiary phase (i.e., they already have the disease, morbidity is evident, outbreaks are happening) - \"putting band aids on wounds.\"",
+    "newNormal": "Reactionary - PH has always strived to be proactive by focusing on upstream interventions...naming systems that'll impact racism and health outcomes. Wiped away the progress made through / immediately after pandemic. ",
+    "brokenAssumption": "Public health is for the good of the people ",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:10:43.93884+00:00",
+    "cards": [
+      {
+        "title": "Medicine-led prevention",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Drugs, diagnostics, and clinical monitoring manage risk at scale."
+      },
+      {
+        "title": "Constant political resistance",
+        "role": "Edge",
+        "dimension": "Public health's permission to act",
+        "condition": "Public health remains a routine target and its powers are tightly constrained."
+      },
+      {
+        "title": "Compounding known threats",
+        "role": "Core",
+        "dimension": "The threat environment",
+        "condition": "Heat, smoke, disasters, outbreaks, and displacement increasingly arrive together."
+      }
+    ]
+  },
+  {
+    "code": "6SJB",
+    "name": "Team 4",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:10:45.944549+00:00",
+    "cards": [
+      {
+        "title": "Trusted public use",
+        "role": "Core",
+        "dimension": "Control of body data",
+        "condition": "Strong governance allows biodata to support population health."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Distributed partner workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "Contractors, community organizations, universities, and creators do more of the work."
+      }
+    ]
+  },
+  {
+    "code": "6SJB",
+    "name": "Team 5",
+    "worldTitle": "",
+    "status": "Submitted",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "Polarized individuals choose the evidence that speaks to their politics.\nPrevention is being defined at individual levels as well as by powerful corporations driven more by profit than population health.\nPrevention will be defined differently based on the person, group, etc defining it - influenced by culture, SES, etc.",
+    "centralTension": "Instead of public health, it is becoming self-centered health.",
+    "newNormal": "products/interventions being offered to you by companies that have info about you that you didnt know that those companies have about you.\nNormal for someone to call you up having knowledge of your personal health information (that you may or may not even have yourself).",
+    "brokenAssumption": "Data privacy, power, importance, relevance still exist.\nWe could understand efficacy of interventions based on public health data",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:10:47.75789+00:00",
+    "cards": [
+      {
+        "title": "Consumer optimization",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Wellness products, personal data, supplements, and biotech define prevention."
+      },
+      {
+        "title": "Constant political resistance",
+        "role": "Edge",
+        "dimension": "Public health's permission to act",
+        "condition": "Public health remains a routine target and its powers are tightly constrained."
+      },
+      {
+        "title": "Competing evidence systems",
+        "role": "Core",
+        "dimension": "How health truth is established",
+        "condition": "Communities use different experts, facts, and standards of proof."
+      }
+    ]
+  },
+  {
+    "code": "6SJB",
+    "name": "Team 6",
+    "worldTitle": "Invisible Elephants in the Room",
+    "status": "Submitted",
+    "convergence": "We don't see science the same way. The assumption of public health no longer holds.",
+    "primaryCondition": "",
+    "definingCharacteristics": "Who is scientific authority? Information comes from other places. We don't define scientific authority the same as we used to. Fragmenting of understanding. This is why one actor can cause disruption. ",
+    "centralTension": "Uncertainty. Social contract doesn't hold to help us understand what we don't know",
+    "newNormal": "There are a lot of \"invisible elephants in the room\", big things happening that we aren't discussing- this feel strange and unsettling",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:10:49.781807+00:00",
+    "cards": [
+      {
+        "title": "High-leverage disruption",
+        "role": "Edge",
+        "dimension": "Individual and movement power",
+        "condition": "One actor or small group can rapidly destabilize health behavior or systems."
+      },
+      {
+        "title": "Synthetic fog",
+        "role": "Edge",
+        "dimension": "How health truth is established",
+        "condition": "False and real content become too difficult to distinguish at scale."
+      },
+      {
+        "title": "Place-dependent permission",
+        "role": "Core",
+        "dimension": "Public health's permission to act",
+        "condition": "Legitimacy and powers differ sharply across states and communities."
+      }
+    ]
+  },
+  {
+    "code": "6SJB",
+    "name": "Team 7",
+    "worldTitle": "Real funds for public health",
+    "status": "Submitted",
+    "convergence": "Because public health workforce has expanded and broaden, support for public health from the public increases therefore which increases funding public health.",
+    "primaryCondition": "",
+    "definingCharacteristics": "More positive, people first, policy and system benefit people over profit, broader definition of  your workforce",
+    "centralTension": "People first",
+    "newNormal": "Investing in prevention (for real),more money spent on public health than health care.  This is really investing in prevention.",
+    "brokenAssumption": "Health care is not for everyone.  Everyone is welcomed at our table.  You are wanted even in a different discipline.",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:10:51.680227+00:00",
+    "cards": [
+      {
+        "title": "Rebuilt public workforce",
+        "role": "Core",
+        "dimension": "The workforce model",
+        "condition": "A broader multidisciplinary workforce is recruited and retained."
+      },
+      {
+        "title": "Trust goes local",
+        "role": "Core",
+        "dimension": "Where trust lives",
+        "condition": "Clinicians, community health workers, and local leaders become the trusted layer."
+      },
+      {
+        "title": "Healthier conditions first",
+        "role": "Core",
+        "dimension": "The model of prevention",
+        "condition": "Environments, food systems, housing, and social supports become the main intervention."
+      }
+    ]
+  },
+  {
+    "code": "6SJB",
+    "name": "Team 8",
+    "worldTitle": "big brother ",
+    "status": "Submitted",
+    "convergence": "because access to data is utilized for political or law enforcement purposes, authoritarianism becomes increasingly common.  this causes or enables less participation in the Health system, which ultimately changes the ability of  public health to be population based and increases inequities.  ",
+    "primaryCondition": "",
+    "definingCharacteristics": "1. emergency response situation leading to more power to certain institutions that have access to high levels of individual data. \n2. data used for monitoring by law enforcement that then impacts ability to respond to public health threats",
+    "centralTension": "health protection instead of promotion, reactive instead of proactive approaches",
+    "newNormal": "levels of data access and what its used for",
+    "brokenAssumption": "idea that public health is not political ",
+    "worldDescription": "",
+    "createdTime": "2026-07-24T18:10:53.416753+00:00",
+    "cards": [
+      {
+        "title": "Government access",
+        "role": "Edge",
+        "dimension": "Control of body data",
+        "condition": "Public agencies or law enforcement gain broad access for public or political purposes."
+      },
+      {
+        "title": "Compounding known threats",
+        "role": "Core",
+        "dimension": "The threat environment",
+        "condition": "Heat, smoke, disasters, outbreaks, and displacement increasingly arrive together."
+      },
+      {
+        "title": "High-leverage disruption",
+        "role": "Edge",
+        "dimension": "Individual and movement power",
+        "condition": "One actor or small group can rapidly destabilize health behavior or systems."
+      }
+    ]
+  },
+  {
+    "code": "CWG9",
+    "name": "World 1",
+    "worldTitle": "",
+    "status": "Drafting",
+    "convergence": "",
+    "primaryCondition": "",
+    "definingCharacteristics": "",
+    "centralTension": "",
+    "newNormal": "",
+    "brokenAssumption": "",
+    "worldDescription": "",
+    "createdTime": "2026-07-25T18:40:17.976495+00:00",
+    "cards": [
+      {
+        "title": "Broad permission to act",
+        "role": "Core",
+        "dimension": "Public health's permission to act",
+        "condition": "Public health has durable civic support and clear legal authority."
+      }
+    ]
+  }
+]
