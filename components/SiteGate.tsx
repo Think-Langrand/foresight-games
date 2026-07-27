@@ -17,6 +17,9 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<"checking" | "locked" | "unlocked">("checking");
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
+  // Once the password lands, fade the gate out over the revealed app before
+  // unmounting it — a soft crossfade rather than an instant cut.
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     try {
@@ -44,7 +47,8 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
       } catch {
         // Non-fatal: they're in for this visit, just not remembered.
       }
-      setStatus("unlocked");
+      setLeaving(true);
+      window.setTimeout(() => setStatus("unlocked"), 650);
       return;
     }
     setError(true);
@@ -54,7 +58,12 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
     <>
       {children}
       {status !== "unlocked" && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden px-5">
+        <div
+          className={
+            "fixed inset-0 z-[100] flex items-center justify-center overflow-hidden px-5 transition-opacity duration-[650ms] ease-out " +
+            (leaving ? "pointer-events-none opacity-0" : "opacity-100")
+          }
+        >
           {/* Heavily blurred photo — reads as soft abstract texture, not a photo.
               Scaled up so the blur doesn't feather transparent edges into view. */}
           <div
