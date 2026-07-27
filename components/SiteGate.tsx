@@ -7,7 +7,9 @@ import gateImage from "@/public/image4.png";
 // the password lives client-side, so it keeps the curious out, not attackers.
 // Once unlocked, the flag is remembered on the device so returning visitors skip it.
 const UNLOCK_KEY = "fpw:site:unlocked";
-const PASSWORD = "publicHealth35";
+// Swap the gate password via NEXT_PUBLIC_SITE_PASSWORD (inlined at build time,
+// since this runs in the browser). Falls back to the launch password if unset.
+const PASSWORD = process.env.NEXT_PUBLIC_SITE_PASSWORD || "publicHealth35";
 
 export function SiteGate({ children }: { children: React.ReactNode }) {
   // "checking" until the client reads storage; render the gate over the content
