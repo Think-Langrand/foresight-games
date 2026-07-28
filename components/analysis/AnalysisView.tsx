@@ -12,7 +12,12 @@ import {
   type PairStat,
   type Tone,
 } from "@/lib/analysis/types";
-import type { ClusterResponse } from "@/lib/analysis/theme-types";
+import type {
+  ClusterResponse,
+  ThemeCluster,
+  ThemeMember,
+  ThemeTally,
+} from "@/lib/analysis/theme-types";
 
 // ---------------------------------------------------------------- tooltip
 
@@ -328,6 +333,135 @@ function cohesionLabel(c: number): string {
   return "loose";
 }
 
+// A labelled count row (uncertainty / driver / card), with an "×N" when shared.
+function TallyRow({ items }: { items: ThemeTally[] }) {
+  if (items.length === 0) return <span className="av-theme-none">—</span>;
+  return (
+    <div className="av-theme-tally">
+      {items.map((t) => (
+        <span className="av-cardchip" key={t.key}>
+          {t.label}
+          {t.count > 1 && <span className="av-tally-n"> ×{t.count}</span>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function MemberDetail({ m }: { m: ThemeMember }) {
+  return (
+    <div className="av-member">
+      <div className="av-member-head">
+        <span className="av-member-title">{m.worldTitle || "Untitled world"}</span>
+        <span className="av-member-meta">
+          {[m.code, m.name, m.family].filter(Boolean).join(" · ")}
+        </span>
+        {m.tone && <ToneChip tone={m.tone} />}
+      </div>
+      <div>
+        {NARRATIVE_FIELDS.map((f) => {
+          const text = (m.narrative[f] ?? "").trim();
+          if (!text) return null;
+          return (
+            <div key={f}>
+              <div className="av-field-label">{NARRATIVE_LABELS[f]}</div>
+              <div className="av-field-text">{text}</div>
+            </div>
+          );
+        })}
+        {m.worldDescription.trim() && (
+          <div>
+            <div className="av-field-label">World description</div>
+            <div className="av-field-text">{m.worldDescription.trim()}</div>
+          </div>
+        )}
+      </div>
+      <div className="av-member-cards">
+        {m.cards.map((c) => (
+          <div className="av-member-card" key={c.id} title={c.condition}>
+            <div className="av-member-card-dim">{c.dimension}</div>
+            <div className="av-member-card-title">
+              {c.title}
+              {c.role === "Edge" && <span className="av-cardchip-edge"> (edge)</span>}
+            </div>
+            {c.condition && <div className="av-member-card-cond">{c.condition}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ThemeBlock({ cluster, index }: { cluster: ThemeCluster; index: number }) {
+  const c = cluster;
+  const tone = c.toneCounts;
+  return (
+    <div className="av-theme">
+      <div className="av-theme-head">
+        <span className="av-theme-name">{c.label || `Theme ${index + 1}`}</span>
+        <span className="av-theme-count av-num">{c.size}</span>
+      </div>
+      {c.summary && <p className="av-theme-summary">{c.summary}</p>}
+      <div className="av-theme-members">
+        {c.members.map((m) => (
+          <span className="av-cardchip" key={m.id} title={`${m.code} · ${m.name}`}>
+            {m.worldTitle || "Untitled"}
+          </span>
+        ))}
+      </div>
+      <div className="av-theme-cohesion">
+        {cohesionLabel(c.cohesion)} cohesion
+        {" · "}
+        {tone.hopeful}▲ {tone.dark}▼{tone.untagged ? ` · ${tone.untagged} untagged` : ""}
+      </div>
+
+      <details className="av-disclosure av-theme-more">
+        <summary>Open — uncertainties, drivers &amp; full worlds</summary>
+
+        <div className="av-theme-agg">
+          <div>
+            <div className="av-field-label">Uncertainties combined</div>
+            <TallyRow items={c.dimensions} />
+          </div>
+          <div>
+            <div className="av-field-label">Drivers traced</div>
+            <TallyRow items={c.drivers} />
+          </div>
+          <div>
+            <div className="av-field-label">Outcome cards</div>
+            <TallyRow items={c.cards} />
+          </div>
+          {c.families.length > 0 && (
+            <div>
+              <div className="av-field-label">Facilitator families</div>
+              <TallyRow items={c.families} />
+            </div>
+          )}
+        </div>
+
+        <div className="av-members">
+          {c.members.map((m) => (
+            <MemberDetail key={m.id} m={m} />
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function downloadJson(result: ClusterResponse) {
+  const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const stamp = result.generatedAt.slice(0, 19).replace(/[:T]/g, "-");
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `kernel-themes-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function ThemesSection() {
   const [level, setLevel] = useState(1); // index into GROUPING_LEVELS
   const [busy, setBusy] = useState(false);
@@ -370,6 +504,11 @@ function ThemesSection() {
           <button className="av-btn" onClick={run} disabled={busy}>
             {busy ? "Clustering…" : result ? "Re-cluster" : "Cluster into themes"}
           </button>
+          {result && (
+            <button className="av-btn" onClick={() => downloadJson(result)} disabled={busy}>
+              Export JSON
+            </button>
+          )}
         </div>
       </div>
 
@@ -378,7 +517,8 @@ function ThemesSection() {
       {!result && !error && (
         <p className="av-empty">
           Group the submitted kernels by what they mean, not just the cards they share. Embeds each
-          world (cached) and names the clusters with GPT-5.
+          world (cached) and names the clusters with GPT-5. Open any theme to see the uncertainties,
+          drivers, and full worlds it combines — or export it all as JSON.
         </p>
       )}
 
@@ -391,21 +531,7 @@ function ThemesSection() {
           ) : (
             <div className="av-themes">
               {result.clusters.map((c, i) => (
-                <div className="av-theme" key={i}>
-                  <div className="av-theme-head">
-                    <span className="av-theme-name">{c.label || `Theme ${i + 1}`}</span>
-                    <span className="av-theme-count av-num">{c.size}</span>
-                  </div>
-                  {c.summary && <p className="av-theme-summary">{c.summary}</p>}
-                  <div className="av-theme-members">
-                    {c.members.map((m) => (
-                      <span className="av-cardchip" key={m.id} title={`${m.code} · ${m.name}`}>
-                        {m.worldTitle || "Untitled"}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="av-theme-cohesion">{cohesionLabel(c.cohesion)} cohesion</div>
-                </div>
+                <ThemeBlock cluster={c} index={i} key={i} />
               ))}
             </div>
           )}
