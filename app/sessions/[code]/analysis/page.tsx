@@ -34,6 +34,6 @@ export default async function SessionAnalysisPage({
         : `Session ${upper} — ${data.kept.length} of ${submitted} submitted kernels analysed.`;
 
   return (
-    <AnalysisView data={data} canEdit={Boolean(user)} scope={scope} backHref="/analysis" />
+    <AnalysisView data={data} canEdit={Boolean(user)} scope={scope} backHref="/admin/analysis" />
   );
 }

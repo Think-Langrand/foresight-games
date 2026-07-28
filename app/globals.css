@@ -5,6 +5,10 @@
  * Archivo (sans) + Cormorant (serif).
  * ------------------------------------------------------------------ */
 :root {
+  /* App chrome is a single light palette — force native controls (selects,
+     option popups, the selected option) to render light so they don't come
+     back black-on-black on a dark-mode OS. */
+  color-scheme: light;
   --paper: #f5f4ec;
   --card: #fbfaf3;
   --ink: #242424;

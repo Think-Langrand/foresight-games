@@ -42,26 +42,6 @@ export default async function AdminPage() {
       </div>
 
       <section className="mt-8">
-        <span className="eyebrow ink">Run a facilitated game</span>
-        <div className="mt-3">
-          <CardGameLauncher />
-        </div>
-      </section>
-
-      <section className="mt-12">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="eyebrow ink">Entries</span>
-          <Link
-            href="/analysis"
-            className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
-          >
-            View analysis →
-          </Link>
-        </div>
-        <AdminTeamsManager teams={teams} deck={deck.cards} />
-      </section>
-
-      <section className="mt-12">
         <span className="eyebrow ink">Content</span>
         <div className="mt-3 flex flex-wrap gap-3">
           <Link
@@ -77,6 +57,26 @@ export default async function AdminPage() {
             Edit uncertainties &amp; outcomes →
           </Link>
         </div>
+      </section>
+
+      <section className="mt-12">
+        <span className="eyebrow ink">Run a facilitated game</span>
+        <div className="mt-3">
+          <CardGameLauncher />
+        </div>
+      </section>
+
+      <section className="mt-12">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="eyebrow ink">Entries</span>
+          <Link
+            href="/admin/analysis"
+            className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
+          >
+            View analysis →
+          </Link>
+        </div>
+        <AdminTeamsManager teams={teams} deck={deck.cards} />
       </section>
 
       <section className="mt-12">
