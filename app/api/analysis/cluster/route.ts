@@ -56,8 +56,12 @@ export async function POST(req: Request) {
   const { kept } = cleanEntries(entries);
   const byId = new Map<string, KernelEntry>(kept.filter((e) => e.id).map((e) => [e.id as string, e]));
 
+  // Mean-center before clustering: OpenAI embeddings are anisotropic and a
+  // single-topic corpus collapses into one blob otherwise (see cluster.ts).
+  // minSimilarity is therefore a CENTERED cosine; 0.10 is the balanced default.
+  const minSim = minSimilarity ?? 0.1;
   const vectors = await getKernelVectors(kept);
-  const clusters = clusterVectors(vectors, minSimilarity != null ? { minSimilarity } : {});
+  const clusters = clusterVectors(vectors, { center: true, minSimilarity: minSim });
 
   const toMember = (id: string): ThemeMember | null => {
     const e = byId.get(id);
@@ -97,7 +101,7 @@ export async function POST(req: Request) {
     clusters: labeled,
     singletons,
     embedded: vectors.length,
-    minSimilarity: minSimilarity ?? 0.55,
+    minSimilarity: minSim,
   };
   return NextResponse.json(payload);
 }

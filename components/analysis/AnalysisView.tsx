@@ -311,12 +311,22 @@ function KernelCard({
 // ---------------------------------------------------------------- themes
 
 // How tightly to group. Higher = more, smaller, purer themes; lower = fewer,
-// broader ones. Maps to the cosine cutoff the route passes to the clusterer.
+// broader ones. These are CENTERED cosine cutoffs (the route mean-centers the
+// embeddings first) — calibrated against the real corpus, where raw cosine has
+// no usable spread but centered similarity separates themes cleanly.
 const GROUPING_LEVELS: { label: string; minSimilarity: number }[] = [
-  { label: "Broad", minSimilarity: 0.42 },
-  { label: "Balanced", minSimilarity: 0.52 },
-  { label: "Tight", minSimilarity: 0.62 },
+  { label: "Broad", minSimilarity: 0.03 },
+  { label: "Balanced", minSimilarity: 0.1 },
+  { label: "Tight", minSimilarity: 0.18 },
 ];
+
+// Centered intra-cluster similarity runs small (~0.05–0.28), so a raw percent
+// would read misleadingly low — describe it qualitatively instead.
+function cohesionLabel(c: number): string {
+  if (c >= 0.18) return "tight";
+  if (c >= 0.08) return "medium";
+  return "loose";
+}
 
 function ThemesSection() {
   const [level, setLevel] = useState(1); // index into GROUPING_LEVELS
@@ -394,7 +404,7 @@ function ThemesSection() {
                       </span>
                     ))}
                   </div>
-                  <div className="av-theme-cohesion">cohesion {(c.cohesion * 100).toFixed(0)}%</div>
+                  <div className="av-theme-cohesion">{cohesionLabel(c.cohesion)} cohesion</div>
                 </div>
               ))}
             </div>

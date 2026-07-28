@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { clusterVectors, cosineSimilarity, type LabeledVector } from "./cluster";
+import { clusterVectors, cosineSimilarity, centerVectors, type LabeledVector } from "./cluster";
 
 describe("cosineSimilarity", () => {
   it("is 1 for identical directions and 0 for orthogonal", () => {
@@ -63,6 +63,35 @@ describe("clusterVectors", () => {
     const clusters = clusterVectors(threeGroups(), { minSimilarity: -1 });
     expect(clusters).toHaveLength(1);
     expect(clusters[0].size).toBe(6);
+  });
+
+  it("centering separates an anisotropic corpus that raw cosine cannot", () => {
+    // All vectors share a large common component (the '10' on axis 0) plus a
+    // small distinguishing signal — the shape of real embeddings. Raw cosine is
+    // ~1 for every pair, so nothing separates; centering removes the common
+    // component and recovers the two natural groups.
+    const points: LabeledVector[] = [
+      { id: "x1", vector: [10, 1, 0] },
+      { id: "x2", vector: [10, 1.1, 0] },
+      { id: "y1", vector: [10, 0, 1] },
+      { id: "y2", vector: [10, 0, 1.1] },
+    ];
+    // Raw: everything collapses into one cluster even at a high cutoff.
+    expect(clusterVectors(points, { minSimilarity: 0.9 })).toHaveLength(1);
+    // Centered: the two pairs separate.
+    const centered = clusterVectors(points, { center: true, minSimilarity: 0.5 });
+    expect(centered).toHaveLength(2);
+    for (const c of centered) expect(c.size).toBe(2);
+  });
+
+  it("centerVectors subtracts the centroid (mean becomes ~0)", () => {
+    const centered = centerVectors([
+      { id: "a", vector: [1, 3] },
+      { id: "b", vector: [3, 1] },
+    ]);
+    // Centroid is (2,2); centered vectors are (-1,1) and (1,-1).
+    expect(centered[0].vector).toEqual([-1, 1]);
+    expect(centered[1].vector).toEqual([1, -1]);
   });
 
   it("reports higher cohesion for a tight group than a loose one", () => {

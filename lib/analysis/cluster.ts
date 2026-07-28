@@ -29,12 +29,32 @@ export interface Cluster {
 
 export interface ClusterOptions {
   // Stop merging once the best average-linkage similarity drops below this.
-  // Cosine on text-embedding-3-small: unrelated kernels ~0.1–0.4, same-theme
-  // ~0.5+. 0.55 is a sane default; the route lets callers tune it.
+  // The value lives in whatever space the vectors are in — see `center`.
   minSimilarity?: number;
+  // Mean-center the vectors before measuring similarity. OpenAI embeddings are
+  // strongly anisotropic: a topical corpus (every kernel is a "future of public
+  // health" world) piles into a narrow high-cosine band — raw similarities sit
+  // ~0.36–0.74 with no usable gap, so any single threshold either merges
+  // everything or nothing. Subtracting the corpus centroid removes that shared
+  // component and spreads similarities around zero, where real themes separate
+  // cleanly. When centering, minSimilarity is a CENTERED cosine (~0.03 broad,
+  // ~0.18 tight), not a raw one.
+  center?: boolean;
 }
 
-const DEFAULT_MIN_SIMILARITY = 0.55;
+// Centered-cosine default (see `center`): a mid "balanced" grouping.
+const DEFAULT_MIN_SIMILARITY = 0.1;
+
+// Subtract the corpus centroid from every vector.
+export function centerVectors(points: LabeledVector[]): LabeledVector[] {
+  if (points.length === 0) return [];
+  const dim = points[0].vector.length;
+  const mean = new Array(dim).fill(0);
+  for (const p of points) {
+    for (let i = 0; i < dim; i++) mean[i] += p.vector[i] / points.length;
+  }
+  return points.map((p) => ({ id: p.id, vector: p.vector.map((x, i) => x - mean[i]) }));
+}
 
 /** Cosine similarity of two equal-length vectors. Returns 0 if either is zero. */
 export function cosineSimilarity(a: number[], b: number[]): number {
@@ -80,13 +100,16 @@ export function clusterVectors(
   if (n === 1) {
     return [{ ids: [points[0].id], size: 1, cohesion: 1 }];
   }
+  // Optionally de-anisotropize before measuring anything (see ClusterOptions).
+  const pts = opts.center ? centerVectors(points) : points;
 
-  // Pairwise similarity matrix over the original points (fixed for cohesion).
+  // Pairwise similarity matrix over the (possibly centered) points; also the
+  // basis for each cluster's cohesion score.
   const sim: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
   for (let i = 0; i < n; i++) {
     sim[i][i] = 1;
     for (let j = i + 1; j < n; j++) {
-      const s = cosineSimilarity(points[i].vector, points[j].vector);
+      const s = cosineSimilarity(pts[i].vector, pts[j].vector);
       sim[i][j] = s;
       sim[j][i] = s;
     }
@@ -95,7 +118,7 @@ export function clusterVectors(
   // Active clusters, each carrying its member indices. `link[a][b]` holds the
   // current average-linkage similarity between clusters a and b, updated in
   // place via the Lance–Williams recurrence for UPGMA as clusters merge.
-  const members: number[][] = points.map((_, i) => [i]);
+  const members: number[][] = pts.map((_, i) => [i]);
   const link: number[][] = sim.map((row) => row.slice());
   const alive = new Array(n).fill(true);
 
