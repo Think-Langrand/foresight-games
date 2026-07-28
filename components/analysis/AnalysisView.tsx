@@ -12,6 +12,7 @@ import {
   type PairStat,
   type Tone,
 } from "@/lib/analysis/types";
+import type { ClusterResponse } from "@/lib/analysis/theme-types";
 
 // ---------------------------------------------------------------- tooltip
 
@@ -303,6 +304,117 @@ function KernelCard({
         ))}
       </div>
       {canEdit && entry.id && <TagEditor entry={entry} families={families} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- themes
+
+// How tightly to group. Higher = more, smaller, purer themes; lower = fewer,
+// broader ones. Maps to the cosine cutoff the route passes to the clusterer.
+const GROUPING_LEVELS: { label: string; minSimilarity: number }[] = [
+  { label: "Broad", minSimilarity: 0.42 },
+  { label: "Balanced", minSimilarity: 0.52 },
+  { label: "Tight", minSimilarity: 0.62 },
+];
+
+function ThemesSection() {
+  const [level, setLevel] = useState(1); // index into GROUPING_LEVELS
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ClusterResponse | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/analysis/cluster", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ minSimilarity: GROUPING_LEVELS[level].minSimilarity }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Clustering failed (${res.status}).`);
+      setResult(data as ClusterResponse);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Clustering failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="av-section">
+      <div className="av-filters" style={{ justifyContent: "space-between" }}>
+        <h2 className="av-section-title" style={{ margin: 0, border: 0, padding: 0 }}>
+          Themes{result ? ` (${result.clusters.length})` : ""}
+        </h2>
+        <div className="av-filters" style={{ marginBottom: 0 }}>
+          <select value={level} onChange={(e) => setLevel(Number(e.target.value))} disabled={busy}>
+            {GROUPING_LEVELS.map((g, i) => (
+              <option key={g.label} value={i}>
+                {g.label} grouping
+              </option>
+            ))}
+          </select>
+          <button className="av-btn" onClick={run} disabled={busy}>
+            {busy ? "Clustering…" : result ? "Re-cluster" : "Cluster into themes"}
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="av-suggestion">{error}</p>}
+
+      {!result && !error && (
+        <p className="av-empty">
+          Group the submitted kernels by what they mean, not just the cards they share. Embeds each
+          world (cached) and names the clusters with GPT-5.
+        </p>
+      )}
+
+      {result && (
+        <>
+          {result.clusters.length === 0 ? (
+            <p className="av-empty">
+              No themes at this grouping — every world stands on its own. Try a broader grouping.
+            </p>
+          ) : (
+            <div className="av-themes">
+              {result.clusters.map((c, i) => (
+                <div className="av-theme" key={i}>
+                  <div className="av-theme-head">
+                    <span className="av-theme-name">{c.label || `Theme ${i + 1}`}</span>
+                    <span className="av-theme-count av-num">{c.size}</span>
+                  </div>
+                  {c.summary && <p className="av-theme-summary">{c.summary}</p>}
+                  <div className="av-theme-members">
+                    {c.members.map((m) => (
+                      <span className="av-cardchip" key={m.id} title={`${m.code} · ${m.name}`}>
+                        {m.worldTitle || "Untitled"}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="av-theme-cohesion">cohesion {(c.cohesion * 100).toFixed(0)}%</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {result.singletons.length > 0 && (
+            <details className="av-disclosure">
+              <summary>
+                {result.singletons.length} unclustered {result.singletons.length === 1 ? "world" : "worlds"}
+              </summary>
+              <div className="av-theme-members" style={{ marginTop: 10 }}>
+                {result.singletons.map((m) => (
+                  <span className="av-cardchip" key={m.id} title={`${m.code} · ${m.name}`}>
+                    {m.worldTitle || "Untitled"}
+                  </span>
+                ))}
+              </div>
+            </details>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -604,6 +716,8 @@ export function AnalysisView({
                 </div>
               </div>
             )}
+
+            {canEdit && data.kept.length >= 2 && <ThemesSection />}
 
             <KernelBrowser
               kept={data.kept}
