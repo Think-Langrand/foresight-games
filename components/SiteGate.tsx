@@ -10,11 +10,20 @@ const UNLOCK_KEY = "fpw:site:unlocked";
 // Swap the gate password via NEXT_PUBLIC_SITE_PASSWORD (inlined at build time,
 // since this runs in the browser). Falls back to the launch password if unset.
 const PASSWORD = process.env.NEXT_PUBLIC_SITE_PASSWORD || "publicHealth35";
+// Turn the gate off entirely with NEXT_PUBLIC_SITE_GATE_ENABLED=false (also
+// inlined at build time). Anything other than an explicit off value keeps the
+// gate on, so the default — and any misconfiguration — stays locked.
+const GATE_ENABLED = !["false", "0", "off"].includes(
+  (process.env.NEXT_PUBLIC_SITE_GATE_ENABLED ?? "").trim().toLowerCase()
+);
 
 export function SiteGate({ children }: { children: React.ReactNode }) {
   // "checking" until the client reads storage; render the gate over the content
-  // meanwhile so nothing leaks on a locked device.
-  const [status, setStatus] = useState<"checking" | "locked" | "unlocked">("checking");
+  // meanwhile so nothing leaks on a locked device. When the gate is disabled we
+  // start "unlocked" so the content shows immediately and no gate ever renders.
+  const [status, setStatus] = useState<"checking" | "locked" | "unlocked">(
+    GATE_ENABLED ? "checking" : "unlocked"
+  );
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
   // Once the password lands, fade the gate out over the revealed app before
@@ -22,6 +31,7 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
+    if (!GATE_ENABLED) return; // gate off — stay unlocked, never touch storage
     try {
       setStatus(localStorage.getItem(UNLOCK_KEY) === "1" ? "unlocked" : "locked");
     } catch {
