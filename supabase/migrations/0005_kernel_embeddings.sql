@@ -20,3 +20,11 @@ create table if not exists public.kernel_embeddings (
   embedding  jsonb not null,
   updated_at timestamptz not null default now()
 );
+
+-- Server-only table: it is read and written exclusively through the service_role
+-- client (lib/analysis/embeddings.ts), which BYPASSES RLS. Unlike the other
+-- public tables it is never read from the browser, so it gets NO policies —
+-- enabling RLS with an empty policy set default-denies the anon/authenticated
+-- roles entirely, so the anon key shipped to the client can't read or tamper
+-- with the embedding cache.
+alter table public.kernel_embeddings enable row level security;
