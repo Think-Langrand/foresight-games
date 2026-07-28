@@ -80,23 +80,45 @@ export async function PATCH(
       }
     }
 
-    // Slot 1: must be an outcome of the team's locked uncertainty (or cleared).
+    // Solo builds have no dealt seed uncertainty — slot 1 is a free pick like the
+    // others. Facilitated teams keep their locked slot-1 uncertainty.
+    const freeSeed = !team.seedUncertaintyId;
+    // Slot 1's uncertainty: the locked one, or (free seed) the one implied by the
+    // currently chosen slot-1 card.
+    const slot1UncId =
+      team.seedUncertaintyId ||
+      (team.seedCardId ? cardById.get(team.seedCardId)?.uncertaintyId : undefined);
+
+    // Slot 1: an outcome of the locked uncertainty (facilitated), or any outcome
+    // whose uncertainty isn't already in slots 2 or 3 (solo). "" clears it.
     if (body.seedCardId !== undefined) {
       if (body.seedCardId === "") {
         patch.seedCardId = "";
       } else {
         const c = cardById.get(body.seedCardId);
-        if (!c || c.uncertaintyId !== team.seedUncertaintyId)
+        if (!c)
+          return NextResponse.json({ error: "No such outcome card." }, { status: 400 });
+        if (!freeSeed && c.uncertaintyId !== team.seedUncertaintyId)
           return NextResponse.json(
             { error: "That outcome isn't part of your locked uncertainty." },
             { status: 400 }
           );
+        if (freeSeed) {
+          const keptUncs = (body.keptIds ?? team.keptIds)
+            .map((id) => cardById.get(id)?.uncertaintyId)
+            .filter(Boolean);
+          if (keptUncs.includes(c.uncertaintyId))
+            return NextResponse.json(
+              { error: "That uncertainty is already one of your other slots." },
+              { status: 400 }
+            );
+        }
         patch.seedCardId = body.seedCardId;
       }
     }
 
     // Slots 2 & 3: real outcomes, from distinct uncertainties, none of them the
-    // locked slot-1 uncertainty.
+    // slot-1 uncertainty.
     if (body.keptIds !== undefined) {
       const kept = [...new Set(body.keptIds)].filter((id) => cardById.has(id));
       if (kept.length > KEEP_COUNT)
@@ -110,7 +132,7 @@ export async function PATCH(
           { error: "Pick outcomes from different uncertainties." },
           { status: 400 }
         );
-      if (uncs.includes(team.seedUncertaintyId))
+      if (slot1UncId && uncs.includes(slot1UncId))
         return NextResponse.json(
           { error: "That uncertainty is already your first slot." },
           { status: 400 }

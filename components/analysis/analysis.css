@@ -9,6 +9,7 @@
  * ------------------------------------------------------------------ */
 
 .av {
+  color-scheme: light;
   --av-page: #f5f4ec;
   --av-surface: #fbfaf3;
   --av-ink: #242424;
@@ -32,6 +33,7 @@
 
 @media (prefers-color-scheme: dark) {
   .av:not([data-theme="light"]) {
+    color-scheme: dark;
     --av-page: #17170f;
     --av-surface: #201f18;
     --av-ink: #ececdf;
@@ -50,6 +52,7 @@
 }
 
 .av[data-theme="dark"] {
+  color-scheme: dark;
   --av-page: #17170f;
   --av-surface: #201f18;
   --av-ink: #ececdf;

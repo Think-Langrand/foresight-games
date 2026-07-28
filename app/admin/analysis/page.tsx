@@ -39,6 +39,6 @@ export default async function AnalysisPage({
     : `Every submitted kernel across all sessions — ${data.kept.length} kept.`;
 
   return (
-    <AnalysisView data={data} canEdit={Boolean(user)} scope={scope} backHref="/" />
+    <AnalysisView data={data} canEdit={Boolean(user)} scope={scope} backHref="/admin" />
   );
 }

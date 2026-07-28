@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo, Cormorant } from "next/font/google";
 import "./globals.css";
+import { SiteGate } from "@/components/SiteGate";
 
 const archivo = Archivo({
   variable: "--font-archivo",
@@ -28,7 +29,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${archivo.variable} ${cormorant.variable} h-full`}>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <SiteGate>{children}</SiteGate>
+      </body>
     </html>
   );
 }

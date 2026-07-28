@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getModel } from "@/lib/model";
 import { MarkText } from "@/components/Mark";
 import { JoinSession } from "@/components/JoinSession";
 import type { StaticImageData } from "next/image";
@@ -17,13 +16,7 @@ const cardImages = {
   uncertainties: solarpunkCity, // a dense open world of what-ifs
 } satisfies Record<string, StaticImageData>;
 
-export default async function Home() {
-  const { model, source } = await getModel();
-  const scenarios = model.scenarioUncertainties.length;
-  const referencedDrivers = new Set(
-    model.scenarioUncertainties.flatMap((s) => s.sourceDriverIds)
-  ).size;
-
+export default function Home() {
   return (
     <main className="mx-auto max-w-[980px] px-6 py-16 md:py-24">
       <span className="eyebrow blue">NNPHI · Foresight for Public Health · to 2035</span>
@@ -79,18 +72,7 @@ export default async function Home() {
       </div>
 
       <div className="mt-14 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-[var(--rule)] pt-5 text-[12px] text-muted">
-        <span className="font-semibold">
-          {referencedDrivers} drivers · {scenarios} scenario uncertainties
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ background: source === "supabase" ? "var(--green)" : "var(--amber)" }}
-          />
-          {source === "supabase"
-            ? "Live from Supabase"
-            : "Bundled snapshot (database not connected)"}
-        </span>
+        <span className="font-semibold">Langrand 2026</span>
         <Link href="/admin" className="ml-auto font-semibold text-muted hover:text-ink hover:underline">
           Facilitator admin →
         </Link>
