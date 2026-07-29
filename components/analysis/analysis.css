@@ -485,3 +485,151 @@
     transition: width 0.3s ease;
   }
 }
+
+/* themes (Tier 2 clustering) */
+.av-themes {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+  margin-top: 6px;
+}
+@media (min-width: 720px) {
+  .av-themes {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.av-theme {
+  background: var(--av-surface);
+  border: 1px solid var(--av-hairline);
+  border-radius: 4px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.av-theme-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.av-theme-name {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.av-theme-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--av-muted);
+  flex: none;
+}
+.av-theme-summary {
+  font-size: 13px;
+  color: var(--av-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+.av-theme-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.av-theme-cohesion {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--av-muted);
+}
+
+/* expanded theme detail */
+.av-theme-more {
+  margin-top: 4px;
+}
+.av-theme-agg {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0 4px;
+  padding: 12px;
+  border: 1px solid var(--av-hairline);
+  border-radius: 4px;
+  background: var(--av-page);
+}
+.av-theme-tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.av-theme-none {
+  color: var(--av-muted);
+  font-size: 13px;
+}
+.av-tally-n {
+  color: var(--av-muted);
+  font-weight: 700;
+}
+.av-members {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+.av-member {
+  border-top: 1px dashed var(--av-hairline);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.av-member-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.av-member-title {
+  font-size: 15px;
+  font-weight: 800;
+}
+.av-member-meta {
+  font-size: 11.5px;
+  color: var(--av-muted);
+  letter-spacing: 0.02em;
+}
+.av-member-cards {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .av-member-cards {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+.av-member-card {
+  border: 1px solid var(--av-hairline);
+  border-radius: 3px;
+  padding: 8px 10px;
+  background: var(--av-surface);
+}
+.av-member-card-dim {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--av-muted);
+  margin-bottom: 3px;
+}
+.av-member-card-title {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.av-member-card-cond {
+  font-size: 11.5px;
+  color: var(--av-muted);
+  margin-top: 3px;
+  line-height: 1.35;
+}
