@@ -290,12 +290,20 @@ function TeamPlay({
   const locked = closed || submitted;
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [busy, setBusy] = useState(false);
+  // Solo slot 1 is PRE-SELECTED but unlockable: it presents as locked until the
+  // builder opts to change it, then it behaves like any free pick. Ephemeral —
+  // a fresh visit re-locks the current card, which reads as "this is set, tap to
+  // change" rather than nagging them to re-pick.
+  const [seedUnlocked, setSeedUnlocked] = useState(false);
 
   // Slot 1 is locked to a dealt uncertainty in facilitated play. Solo builders
-  // get no seed, so slot 1 becomes a free pick like the other two.
+  // get slot 1 pre-seeded (uncertainty derived from the card), so it stays a
+  // free pick — just gated behind an unlock until they choose to change it.
   const slot1Locked = Boolean(team.seedUncertaintyId);
   const seedUnc = uncById.get(team.seedUncertaintyId);
   const slot1 = team.seedCardId ? byId.get(team.seedCardId) : undefined;
+  // The soft solo lock: a pre-selected slot-1 card the builder hasn't unlocked.
+  const soloSeedLocked = solo && Boolean(slot1) && !seedUnlocked && !locked;
   const slot2 = team.keptIds[0] ? byId.get(team.keptIds[0]) : undefined;
   const slot3 = team.keptIds[1] ? byId.get(team.keptIds[1]) : undefined;
 
@@ -383,7 +391,9 @@ function TeamPlay({
               </span>
             </div>
             <p className="mt-1 text-[12px] leading-[1.5] text-muted">
-              {!slot1Locked
+              {solo && slot1
+                ? "Slot one comes pre-selected to get you started — keep it, or unlock to choose your own. Then pick two more uncertainties and an outcome for each."
+                : !slot1Locked
                 ? "Pick an uncertainty and an outcome for each of the three slots to build your world."
                 : team.seedLocked
                 ? "Slot one was set by your facilitator. Pick two more uncertainties and an outcome for each."
@@ -403,6 +413,8 @@ function TeamPlay({
                   lockedUnc={lockedUnc}
                   showLockLabel={slot === 1 && slot1Locked}
                   readOnly={seedLocked}
+                  soloLocked={slot === 1 && soloSeedLocked}
+                  onUnlock={() => setSeedUnlocked(true)}
                   disabled={locked || !prevFilled}
                   onOpen={() =>
                     setPicker({
@@ -473,6 +485,8 @@ function SlotButton({
   lockedUnc,
   showLockLabel,
   readOnly,
+  soloLocked,
+  onUnlock,
   disabled,
   onOpen,
 }: {
@@ -481,6 +495,8 @@ function SlotButton({
   lockedUnc?: UncertaintyLite;
   showLockLabel?: boolean;
   readOnly?: boolean;
+  soloLocked?: boolean;
+  onUnlock?: () => void;
   disabled: boolean;
   onOpen: () => void;
 }) {
@@ -494,6 +510,11 @@ function SlotButton({
           {readOnly ? "Locked by facilitator" : "Locked uncertainty"}
         </span>
       )}
+      {soloLocked && (
+        <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
+          Pre-selected
+        </span>
+      )}
     </div>
   );
 
@@ -505,6 +526,26 @@ function SlotButton({
         <div className="flex-1 rounded-[6px] ring-2 ring-ink ring-offset-2 ring-offset-paper">
           <CardFace card={card} tone="kept" />
         </div>
+      </div>
+    );
+  }
+
+  // Solo slot 1: pre-selected but unlockable — show the card with an unlock
+  // control instead of opening the picker directly.
+  if (soloLocked && card) {
+    return (
+      <div className="flex h-full w-full flex-col text-left">
+        {header}
+        <div className="flex-1 rounded-[6px] ring-2 ring-ink ring-offset-2 ring-offset-paper">
+          <CardFace card={card} tone="kept" />
+        </div>
+        <button
+          onClick={onUnlock}
+          disabled={disabled}
+          className="mt-2 inline-flex items-center gap-1 self-start rounded-[2px] border border-[var(--hairline)] bg-card px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Unlock to change
+        </button>
       </div>
     );
   }

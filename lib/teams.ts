@@ -144,19 +144,34 @@ export async function createTeam(input: {
   sessionId: string;
   code: string;
   name?: string;
-  // Solo builders pick all three cards themselves, so we skip the locked slot-1
-  // seed. Facilitated sessions still deal each team a distinct starter uncertainty.
+  // Free-seed (solo) builds get slot 1 PRE-SELECTED with a starter outcome card
+  // they can freely change ("unlockable") — so we leave seed_uncertainty_id blank
+  // (that's what keeps slot 1 a free pick) and only pre-fill seed_card_id.
+  // Facilitated sessions instead LOCK slot 1 to a distinct starter uncertainty.
   freeSeed?: boolean;
 }): Promise<Team> {
   const { deck } = await getDeck();
   const existing = await getTeams(input.code);
+  const cardById = new Map(deck.cards.map((c) => [c.id, c]));
 
-  // Lock slot 1 to a starter uncertainty no other group already holds — unless
-  // this is a free-seed (solo) build, where slot 1 is chosen like the others.
-  const usedUncertainties = existing.map((t) => t.seedUncertaintyId).filter(Boolean);
-  const seedUncertainty = input.freeSeed
-    ? null
-    : dealSeedUncertainty(deck, usedUncertainties);
+  // Starter uncertainties already in play across this session's teams — for a
+  // locked seed it's the seed uncertainty; for a solo pre-seed it's the one its
+  // pre-selected card belongs to. Avoid repeating so builds start varied.
+  const usedUncertainties = existing
+    .map((t) => t.seedUncertaintyId || cardById.get(t.seedCardId ?? "")?.uncertaintyId)
+    .filter((id): id is string => Boolean(id));
+
+  let seedUncertaintyId = "";
+  let seedCardId = "";
+  if (input.freeSeed) {
+    // Solo: pre-select a starter outcome, but keep the slot changeable by NOT
+    // pinning the uncertainty (its uncertainty is derived from the card).
+    const unc = dealSeedUncertainty(deck, usedUncertainties);
+    const outcomes = deck.cards.filter((c) => c.uncertaintyId === unc.id && c.role !== "Wildcard");
+    seedCardId = outcomes.length ? pick(outcomes).id : "";
+  } else {
+    seedUncertaintyId = dealSeedUncertainty(deck, usedUncertainties).id;
+  }
 
   // Round-robin colour + default name off the current team count.
   const color = TEAM_COLORS[existing.length % TEAM_COLORS.length].hex;
@@ -170,8 +185,8 @@ export async function createTeam(input: {
         code: input.code,
         name,
         color,
-        seed_uncertainty_id: seedUncertainty?.id ?? "",
-        seed_card_id: "",
+        seed_uncertainty_id: seedUncertaintyId,
+        seed_card_id: seedCardId,
         kept_ids: [],
         status: "Drafting",
       })

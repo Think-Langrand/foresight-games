@@ -54,7 +54,8 @@ export async function POST(
       sessionId: session.id,
       code: session.code,
       name: (body.name ?? "").trim().slice(0, 60),
-      // Solo builders choose all three cards, including slot 1's uncertainty.
+      // Solo: slot 1 is pre-selected but unlockable (uncertainty stays free);
+      // facilitated sessions lock slot 1 to a dealt uncertainty instead.
       freeSeed: session.scope === "Solo",
     });
     return NextResponse.json({ team });
