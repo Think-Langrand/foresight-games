@@ -81,7 +81,16 @@ export default async function ScenarioDetailPage({
   const next = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null;
 
   const horizon = scenario.timeHorizon.label ?? String(scenario.timeHorizon.year);
-  const images = scenario.images.filter((im) => im.url);
+  // Order the signed images by `position` (which is not 0-indexed — real data
+  // uses values like 2,3,4), then fill the layout slots in that order. Sorting
+  // rather than indexing the raw array keeps the order deterministic; each slot
+  // is undefined if there's no image for it, and FigureImage collapses cleanly.
+  const orderedImages = scenario.images
+    .filter((im) => im.url)
+    .sort((a, b) => a.position - b.position);
+  const heroImage = orderedImages[0];
+  const livedImage = orderedImages[1];
+  const questionImage = orderedImages[2];
 
   // Pull just the sections this layout surfaces; everything else is omitted.
   const sections = (scenario.sections ?? {}) as Record<string, unknown>;
@@ -120,9 +129,9 @@ export default async function ScenarioDetailPage({
 
       {/* Overview — hero image left, standfirst (teaser) right. */}
       <section className="mt-10 grid items-start gap-8 lg:grid-cols-2 lg:gap-12">
-        <FigureImage image={images[0]} alt={scenario.title} ratio="aspect-[4/3]" />
+        <FigureImage image={heroImage} alt={scenario.title} ratio="aspect-[4/3]" />
         {scenario.teaser && (
-          <div className={images[0] ? undefined : "lg:col-span-2"}>
+          <div className={heroImage ? undefined : "lg:col-span-2"}>
             <span className="eyebrow ink">Overview</span>
             <p className="mt-3 max-w-[560px] text-[17px] leading-[1.65] text-ink">
               {scenario.teaser}
@@ -153,7 +162,7 @@ export default async function ScenarioDetailPage({
       )}
 
       {/* Open question — question left, third image right. */}
-      {(scenario.openQuestion || images[2]) && (
+      {(scenario.openQuestion || questionImage) && (
         <section className="mt-14 grid items-center gap-8 border-t border-[var(--rule)] pt-10 lg:grid-cols-2 lg:gap-12">
           {scenario.openQuestion ? (
             <div>
@@ -166,7 +175,7 @@ export default async function ScenarioDetailPage({
             <div />
           )}
           <FigureImage
-            image={images[2]}
+            image={questionImage}
             alt={`${scenario.title} — image 3`}
             ratio="aspect-[4/3]"
           />
@@ -174,11 +183,11 @@ export default async function ScenarioDetailPage({
       )}
 
       {/* Lived moment — second image on the left, prose on the right. */}
-      {(livedMoment || images[1]) && (
+      {(livedMoment || livedImage) && (
         <section className="mt-14 grid items-start gap-8 border-t border-[var(--rule)] pt-10 lg:grid-cols-2 lg:gap-12">
           <div className="lg:sticky lg:top-8">
             <FigureImage
-              image={images[1]}
+              image={livedImage}
               alt={`${scenario.title} — image 2`}
               ratio="aspect-[4/5]"
             />

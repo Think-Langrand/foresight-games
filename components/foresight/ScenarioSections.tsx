@@ -82,6 +82,10 @@ export function ScenarioSections({
       if (raw) {
         const arr = JSON.parse(raw);
         if (Array.isArray(arr)) {
+          // Deliberate: hydrate from storage AFTER mount. A lazy useState
+          // initializer can't read localStorage on the server and would cause a
+          // hydration mismatch, so the effect is the correct place for this.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setHidden(new Set(arr.filter((x): x is string => typeof x === "string")));
         }
       }
@@ -156,6 +160,7 @@ export function ScenarioSections({
                 <button
                   type="button"
                   onClick={() => toggleExpanded(section.key)}
+                  aria-expanded={isOpen}
                   className="flex flex-1 items-center gap-2 text-left"
                 >
                   <Caret open={isOpen} />
@@ -199,6 +204,7 @@ export function ScenarioSections({
                                 type="button"
                                 onClick={() => toggleExpanded(item.id)}
                                 disabled={!item.body}
+                                aria-expanded={item.body ? itemOpen : undefined}
                                 className="flex flex-1 items-center gap-2 text-left disabled:cursor-default"
                               >
                                 <Caret open={itemOpen} muted spacer={!item.body} />
