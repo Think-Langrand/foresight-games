@@ -10,6 +10,8 @@ import "server-only";
 // wrapper with per-call cache control.
 
 import type {
+  PublicDriverCard,
+  PublicUncertainty,
   Scenario,
   ScenarioCard,
   ScenarioSet,
@@ -169,4 +171,27 @@ export async function getScenario(
     if (isForesightNotFound(err)) return null;
     throw err;
   }
+}
+
+// --- Model down-flow: a project's drivers + uncertainties ------------------
+// These power the per-project /project/<slug>/{drivers,uncertainties} pages.
+// Driver cards carry signed, expiring imageUrls, so no-store here too.
+
+// GET /projects/{ref}/drivers — the project's driver cards (unpaginated).
+export function getForesightDrivers(
+  ref: string = DEFAULT_PROJECT_REF
+): Promise<PublicDriverCard[]> {
+  return foresight<PublicDriverCard[]>(
+    `/projects/${encodeURIComponent(ref)}/drivers`
+  );
+}
+
+// GET /projects/{ref}/uncertainties — full list, ordered by number, each with
+// its complete outcomes[] inline (the deck's raw material).
+export function getForesightUncertainties(
+  ref: string = DEFAULT_PROJECT_REF
+): Promise<PublicUncertainty[]> {
+  return foresight<PublicUncertainty[]>(
+    `/projects/${encodeURIComponent(ref)}/uncertainties`
+  );
 }

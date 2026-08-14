@@ -56,6 +56,12 @@ export default async function AdminPage() {
           >
             Edit uncertainties &amp; outcomes →
           </Link>
+          <Link
+            href="/admin/projects"
+            className="rounded-[3px] border border-[var(--rule)] bg-paper px-4 py-3 text-[13px] font-bold hover:border-ink hover:bg-card"
+          >
+            Manage projects →
+          </Link>
         </div>
       </section>
 

@@ -122,3 +122,71 @@ export interface Scenario {
   sections: Record<string, unknown>;
   updatedAt: string;
 }
+
+// --- Model down-flow: drivers + uncertainties per project ------------------
+// Shapes from the "Carmelita Foresight Display API" (drivers / uncertainties /
+// domain maps). Everything returned is approved-only and safe to render; lists
+// are not paginated. Driver `imageUrl` is a signed, expiring URL — re-fetch,
+// don't cache. `code` may be null, so `id` (uuid) is the stable ref.
+
+export interface Tag {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+// GET /projects/{ref}/drivers → PublicDriverCard[]
+export interface PublicDriverCard {
+  id: string; // uuid — stable ref
+  code: string | null; // slug-style; may be null
+  name: string;
+  shortDescription: string;
+  imageUrl: string | null; // signed, expiring
+  tags: Tag[];
+  updatedAt: string;
+}
+
+// GET /projects/{ref}/drivers/{driverRef} → PublicDriver (card + these)
+export interface PublicDriver extends PublicDriverCard {
+  description: string;
+  imagePrompt: string;
+  sourceArticleIds: string[];
+}
+
+// Outcome carried inline on each uncertainty (the list already has full outcomes).
+export interface PublicOutcome {
+  code: string;
+  role: string; // Core | Edge | Wildcard
+  title: string;
+  description: string;
+  direction: string;
+  alignment: string;
+  narrative: string;
+  strategicMove: string;
+}
+
+export interface UncertaintyAttribute {
+  label: string;
+  value: string;
+  primary: boolean;
+}
+
+export interface PublicLinkedDriver {
+  driverId: string; // uuid
+  code: string | null;
+  name: string;
+}
+
+// GET /projects/{ref}/uncertainties → PublicUncertainty[] (ordered by number)
+export interface PublicUncertainty {
+  id: string; // == code, the stable ref
+  number: number;
+  title: string;
+  question: string;
+  domain: string; // primary attribute value
+  attributes: UncertaintyAttribute[];
+  sharpest: boolean;
+  sourceDriverIds: string[]; // driver uuids
+  linkedDrivers: PublicLinkedDriver[];
+  outcomes: PublicOutcome[];
+}
