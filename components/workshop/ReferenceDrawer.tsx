@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { DriverLite } from "@/lib/drivers-shared";
-import { DOMAIN_ORDER } from "@/lib/workshop-types";
+import { orderedDomains } from "@/lib/workshop-types";
 
 // Minimal shape the drawer needs — both play surfaces map their own data to this.
 export interface RefUncertainty {
@@ -124,13 +124,11 @@ function TabHandle({
 }
 
 function UncertaintyList({ uncertainties }: { uncertainties: RefUncertainty[] }) {
-  const domains = DOMAIN_ORDER.filter((d) => uncertainties.some((u) => u.domain === d));
-  // Anything with an unexpected/empty domain still gets shown, at the end.
-  const rest = uncertainties.filter((u) => !DOMAIN_ORDER.includes(u.domain));
-  const groups = [
-    ...domains.map((d) => ({ domain: d, items: uncertainties.filter((u) => u.domain === d) })),
-    ...(rest.length ? [{ domain: "Other", items: rest }] : []),
-  ];
+  // Known capability domains first, then any deck-specific (Carmelita) domains.
+  const groups = orderedDomains(uncertainties).map((d) => ({
+    domain: d,
+    items: uncertainties.filter((u) => u.domain === d),
+  }));
 
   return (
     <div className="flex flex-col gap-5">

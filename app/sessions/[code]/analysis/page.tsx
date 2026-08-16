@@ -1,5 +1,6 @@
 import { getTeams } from "@/lib/teams";
-import { getDeck } from "@/lib/cards";
+import { getDeckForProjectId } from "@/lib/cards";
+import { getSessionByCode } from "@/lib/workshop";
 import { getSessionUser } from "@/lib/supabase-auth";
 import { teamsToKernelEntries } from "@/lib/analysis/from-teams";
 import { buildAnalysisData } from "@/lib/analysis/view-data";
@@ -7,7 +8,8 @@ import { AnalysisView } from "@/components/analysis/AnalysisView";
 
 export const dynamic = "force-dynamic";
 
-// Single-session analysis — same component, pre-filtered to one code.
+// Single-session analysis — same component, pre-filtered to one code. The deck is
+// resolved from the session's project (its Carmelita deck, or the global deck).
 export default async function SessionAnalysisPage({
   params,
 }: {
@@ -16,9 +18,10 @@ export default async function SessionAnalysisPage({
   const { code } = await params;
   const upper = code.toUpperCase();
 
+  const session = await getSessionByCode(upper).catch(() => null);
   const [teams, { deck }, user] = await Promise.all([
     getTeams(upper),
-    getDeck(),
+    getDeckForProjectId(session?.projectId ?? null),
     getSessionUser(),
   ]);
 

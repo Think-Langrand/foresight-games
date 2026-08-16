@@ -26,6 +26,9 @@ export interface WorkshopSession {
   status: SessionStatus;
   facilitator: string;
   createdTime: string;
+  // null = the global game (shared Supabase deck); set = a per-project game whose
+  // deck comes from that project's Carmelita model.
+  projectId: string | null;
 }
 
 export interface Submission {
@@ -110,6 +113,9 @@ export interface UncertaintyLite {
   question: string;
   sourceDriverIds: string[];
   outcomeCodes: string[]; // its 4 card ids
+  // May seed slot 1 (curated starters for the global deck; the Carmelita
+  // `sharpest` flag for a project deck). Decided in buildDeck where the source is known.
+  isStarter: boolean;
 }
 
 // Deck for the UI: flat cards, ordered dimensions, and grouped uncertainties.
@@ -117,9 +123,10 @@ export interface Deck {
   cards: Card[];
   dimensions: string[]; // distinct dimensions in deck order
   uncertainties: UncertaintyLite[];
+  domains: string[]; // deck-derived capability-domain order for the board
 }
 
-// Capability-domain order for grouping the uncertainty board.
+// Capability-domain order for grouping the uncertainty board (the global deck).
 export const DOMAIN_ORDER = [
   "Permission to Act",
   "Capacity to Act",
@@ -127,6 +134,28 @@ export const DOMAIN_ORDER = [
   "Ability to Speak and Be Believed",
   "Ability to Adapt",
 ];
+
+// Board grouping order for any deck: the known capability domains first (so the
+// global deck's order is unchanged), then any deck-specific domains in first-seen
+// order (so a Carmelita project's arbitrary domains still appear, and in a stable
+// order). For the global deck this returns exactly DOMAIN_ORDER.
+export function orderedDomains(items: { domain: string }[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const d of DOMAIN_ORDER) {
+    if (items.some((u) => u.domain === d)) {
+      out.push(d);
+      seen.add(d);
+    }
+  }
+  for (const u of items) {
+    if (u.domain && !seen.has(u.domain)) {
+      out.push(u.domain);
+      seen.add(u.domain);
+    }
+  }
+  return out;
+}
 
 export type TeamStatus = "Drafting" | "Submitted";
 
@@ -158,6 +187,10 @@ export interface Team {
   // the analysis UI, never during play.
   tone?: "hopeful" | "dark" | null;
   family?: string | null;
+  // null = a global-game world (render against the shared Supabase deck); set =
+  // a per-project world (render against that project's Carmelita deck). This is
+  // what card lookups key off — see lib/cards.ts getDeckForProjectId.
+  projectId: string | null;
 }
 
 // The seed + kept cards form the scenario triad.

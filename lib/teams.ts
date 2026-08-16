@@ -2,7 +2,6 @@ import "server-only";
 
 import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import { getDeck } from "@/lib/cards";
-import { STARTER_DIMENSIONS } from "@/lib/capture";
 import {
   TEAM_COLORS,
   type Card,
@@ -34,6 +33,7 @@ interface TeamRow {
   created_at: string;
   tone: string | null;
   family: string | null;
+  project_id: string | null;
 }
 
 function mapTeam(r: TeamRow): Team {
@@ -59,6 +59,7 @@ function mapTeam(r: TeamRow): Team {
     createdTime: r.created_at,
     tone: (r.tone as Team["tone"]) ?? null,
     family: r.family ?? null,
+    projectId: r.project_id ?? null,
   };
 }
 
@@ -75,7 +76,9 @@ export function dealSeedUncertainty(
   excludeUncertaintyIds: string[] = []
 ): UncertaintyLite {
   const excluded = new Set(excludeUncertaintyIds);
-  const starters = deck.uncertainties.filter((u) => STARTER_DIMENSIONS.includes(u.title));
+  // Starters come from the deck (global: curated STARTER_DIMENSIONS; project:
+  // Carmelita `sharpest`), decided in buildDeck via UncertaintyLite.isStarter.
+  const starters = deck.uncertainties.filter((u) => u.isStarter);
   const fresh = starters.filter((u) => !excluded.has(u.id));
   const pool = fresh.length ? fresh : starters.length ? starters : deck.uncertainties;
   return pick(pool);
@@ -109,7 +112,7 @@ export async function getTeams(
 // molecules" gallery and the admin view-all screen. Pass onlySubmitted to hide
 // still-drafting tables from the public gallery.
 export async function listAllTeams(
-  opts: { onlySubmitted?: boolean } = {}
+  opts: { onlySubmitted?: boolean; projectId?: string | null } = {}
 ): Promise<Team[]> {
   if (!supabaseConfigured()) return [];
   const data = await withRetry(async () => {
@@ -118,6 +121,11 @@ export async function listAllTeams(
       .select("*")
       .order("created_at", { ascending: false });
     if (opts.onlySubmitted) q = q.eq("status", "Submitted");
+    // Three-state: key ABSENT = every project (admin / bulk-tag); null = only
+    // global worlds (the global gallery); a string = that one project's worlds.
+    if (opts.projectId !== undefined) {
+      q = opts.projectId === null ? q.is("project_id", null) : q.eq("project_id", opts.projectId);
+    }
     const { data, error } = await q;
     if (error) throw error;
     return data as TeamRow[];
@@ -149,8 +157,12 @@ export async function createTeam(input: {
   // (that's what keeps slot 1 a free pick) and only pre-fill seed_card_id.
   // Facilitated sessions instead LOCK slot 1 to a distinct starter uncertainty.
   freeSeed?: boolean;
+  // The session's project. projectId is stamped onto the team (results isolation);
+  // projectRef resolves the deck the seed is dealt from (null = global deck).
+  projectId?: string | null;
+  projectRef?: string | null;
 }): Promise<Team> {
-  const { deck } = await getDeck();
+  const { deck } = await getDeck(input.projectRef ?? undefined);
   const existing = await getTeams(input.code);
   const cardById = new Map(deck.cards.map((c) => [c.id, c]));
 
@@ -189,6 +201,7 @@ export async function createTeam(input: {
         seed_card_id: seedCardId,
         kept_ids: [],
         status: "Drafting",
+        project_id: input.projectId ?? null,
       })
       .select("*")
       .single();

@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getTeamById } from "@/lib/teams";
 import { getDeck } from "@/lib/cards";
 import { getDrivers } from "@/lib/drivers";
+import { getProjectById } from "@/lib/projects";
 import { teamTriadIds, type Card } from "@/lib/workshop-types";
 import { TeamResult } from "@/components/workshop/TeamResult";
 
@@ -16,6 +17,13 @@ export default async function ScenarioMoleculePage({
   const { id } = await params;
   const team = await getTeamById(id);
   if (!team) notFound();
+
+  // A project world lives behind its project's gate + renders against its own
+  // deck — send it to the per-project detail route.
+  if (team.projectId) {
+    const project = await getProjectById(team.projectId);
+    if (project) redirect(`/project/${project.slug}/scenario-molecules/${id}`);
+  }
 
   const [{ deck }, drivers] = await Promise.all([getDeck(), getDrivers()]);
   const byId = new Map(deck.cards.map((c) => [c.id, c]));

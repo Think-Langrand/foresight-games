@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { getSessionByCode, getSessionResults, supabaseConfigured } from "@/lib/workshop";
 import { getTeams } from "@/lib/teams";
-import { getDeck } from "@/lib/cards";
-import { getDrivers } from "@/lib/drivers";
+import { getDeckForProjectId, getDriversForProjectRef } from "@/lib/cards";
 import { getModel, getScenarioList } from "@/lib/model";
 import { AdminCardsSession } from "@/components/admin/AdminCardsSession";
 import { AdminResults } from "@/components/admin/AdminResults";
@@ -27,10 +26,11 @@ export default async function AdminSessionPage({
   }
 
   if (session.scope === "Cards") {
-    const [teams, { deck }, drivers] = await Promise.all([
+    // Resolve this session's deck from its project (global deck when project_id null).
+    const { deck, ref } = await getDeckForProjectId(session.projectId);
+    const [teams, drivers] = await Promise.all([
       getTeams(upper),
-      getDeck(),
-      getDrivers(),
+      getDriversForProjectRef(ref),
     ]);
     return (
       <Shell code={upper} session={session}>

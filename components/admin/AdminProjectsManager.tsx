@@ -348,6 +348,12 @@ export function AdminProjectsManager({ projects }: { projects: AdminProject[] })
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <a
+                    href={`/admin/projects/${p.slug}`}
+                    className="text-[11px] font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
+                  >
+                    Dashboard →
+                  </a>
+                  <a
                     href={`/project/${p.slug}`}
                     target="_blank"
                     rel="noreferrer"

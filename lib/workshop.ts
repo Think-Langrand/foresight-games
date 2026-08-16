@@ -45,6 +45,7 @@ interface SessionRow {
   status: string;
   facilitator: string;
   created_at: string;
+  project_id: string | null;
 }
 interface SubmissionRow {
   id: string;
@@ -81,6 +82,7 @@ function mapSession(r: SessionRow): WorkshopSession {
     status: (r.status ?? "Open") as SessionStatus,
     facilitator: r.facilitator ?? "",
     createdTime: r.created_at,
+    projectId: r.project_id ?? null,
   };
 }
 
@@ -105,11 +107,23 @@ export interface SessionSummary {
 }
 
 // All sessions, newest first, each with rollup counts (for the admin index).
-export async function listSessions(): Promise<SessionSummary[]> {
+// Three-state projectId: absent = every project; null = only global; id = one project.
+// Counts are keyed by code and joined back to the (filtered) sessions, so filtering
+// the sessions query alone is sufficient.
+export async function listSessions(
+  opts: { projectId?: string | null } = {}
+): Promise<SessionSummary[]> {
   if (!supabaseConfigured()) return [];
   const db = supabaseAdmin();
+  let sesQuery = db.from("sessions").select("*").order("created_at", { ascending: false });
+  if (opts.projectId !== undefined) {
+    sesQuery =
+      opts.projectId === null
+        ? sesQuery.is("project_id", null)
+        : sesQuery.eq("project_id", opts.projectId);
+  }
   const [sesRes, teamRes, subRes, respRes] = await Promise.all([
-    db.from("sessions").select("*").order("created_at", { ascending: false }),
+    sesQuery,
     db.from("teams").select("code, status"),
     db.from("submissions").select("code"),
     db.from("responses").select("code"),
@@ -166,6 +180,8 @@ export async function createSession(input: {
   prompt: string;
   title: string;
   facilitator?: string;
+  // null (default) = the global game; set = a per-project game.
+  projectId?: string | null;
 }): Promise<WorkshopSession> {
   const db = supabaseAdmin();
   // Insert with a fresh code; retry a few times on the rare unique collision.
@@ -184,6 +200,7 @@ export async function createSession(input: {
         prompt: input.prompt,
         status: "Open",
         facilitator: input.facilitator ?? "",
+        project_id: input.projectId ?? null,
       })
       .select("*")
       .single();

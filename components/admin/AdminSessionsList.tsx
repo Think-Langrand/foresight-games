@@ -15,7 +15,13 @@ function fmtDate(iso: string): string {
   });
 }
 
-export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) {
+export function AdminSessionsList({
+  sessions,
+  projectNameById = {},
+}: {
+  sessions: SessionSummary[];
+  projectNameById?: Record<string, string>;
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -146,6 +152,7 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
               </th>
               <th className="py-2 pr-3">Code</th>
               <th className="py-2 pr-3">Title</th>
+              <th className="py-2 pr-3">Project</th>
               <th className="py-2 pr-3">Scope</th>
               <th className="py-2 pr-3">Status</th>
               <th className="py-2 pr-3 text-right" title="Submitted teams / total teams">
@@ -193,6 +200,15 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
                   </td>
                   <td className="max-w-[280px] truncate py-2.5 pr-3" title={s.title}>
                     {s.title || <span className="text-muted">—</span>}
+                  </td>
+                  <td className="py-2.5 pr-3">
+                    {s.projectId ? (
+                      <span className="text-[12px] font-semibold text-blue">
+                        {projectNameById[s.projectId] ?? "Project"}
+                      </span>
+                    ) : (
+                      <span className="text-muted">Global</span>
+                    )}
                   </td>
                   <td className="py-2.5 pr-3">{s.scope}</td>
                   <td className="py-2.5 pr-3">

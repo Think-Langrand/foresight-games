@@ -8,7 +8,7 @@ import { ScenarioWizard } from "@/components/workshop/ScenarioWizard";
 import { ReferenceDrawer } from "@/components/workshop/ReferenceDrawer";
 import type { DriverLite } from "@/lib/drivers-shared";
 import {
-  DOMAIN_ORDER,
+  orderedDomains,
   teamTriadIds,
   type Card,
   type Deck,
@@ -46,11 +46,15 @@ export function CardsTeamView({
   deck,
   drivers,
   solo = false,
+  basePath = "",
 }: {
   code: string;
   deck: Deck;
   drivers: DriverLite[];
   solo?: boolean;
+  // "" for the global game; "/project/<slug>" for a per-project game — every
+  // internal link below is prefixed with it so navigation stays inside the tenant.
+  basePath?: string;
 }) {
   const { view, error, loading, refresh } = useCardsView(code, 4000);
   const { teamId: joinedTeamId, join, leave } = useJoinedTeam(code);
@@ -80,7 +84,7 @@ export function CardsTeamView({
         <div className="text-center">
           <div className="text-[18px] font-bold">Session {code} not found</div>
           <div className="mt-2 text-[13px] text-muted">{error}</div>
-          <Link href="/workshop" className="mt-4 inline-block text-blue underline">
+          <Link href={basePath || "/workshop"} className="mt-4 inline-block text-blue underline">
             Try another code
           </Link>
         </div>
@@ -114,7 +118,7 @@ export function CardsTeamView({
         <Centered>
           <div className="text-center">
             <div className="text-[18px] font-bold">World not found</div>
-            <Link href="/play" className="mt-4 inline-block text-blue underline">
+            <Link href={`${basePath}/play`} className="mt-4 inline-block text-blue underline">
               ← My worlds
             </Link>
           </div>
@@ -151,6 +155,7 @@ export function CardsTeamView({
         driversBySlug={driversBySlug}
         closed={closed}
         solo={solo}
+        basePath={basePath}
         onLeave={leave}
         onChange={refresh}
       />
@@ -271,6 +276,7 @@ function TeamPlay({
   driversBySlug,
   closed,
   solo,
+  basePath,
   onLeave,
   onChange,
 }: {
@@ -283,6 +289,7 @@ function TeamPlay({
   driversBySlug: Map<string, DriverLite>;
   closed: boolean;
   solo: boolean;
+  basePath: string;
   onLeave: () => void;
   onChange: () => void;
 }) {
@@ -362,7 +369,7 @@ function TeamPlay({
           </span>
           {solo ? (
             <Link
-              href="/play"
+              href={`${basePath}/play`}
               className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
             >
               ← My worlds
@@ -445,7 +452,7 @@ function TeamPlay({
 
         {solo ? (
           <Link
-            href="/play"
+            href={`${basePath}/play`}
             className="mt-10 inline-block text-[11px] font-bold uppercase tracking-[0.08em] text-muted underline"
           >
             ← My worlds
@@ -703,7 +710,7 @@ function UncertaintyBoard({
   excludeUncIds: Set<string>;
   onPick: (id: string) => void;
 }) {
-  const domains = DOMAIN_ORDER.filter((d) => uncertainties.some((u) => u.domain === d));
+  const domains = orderedDomains(uncertainties);
   return (
     <div className="mt-3 flex flex-col gap-4">
       {domains.map((domain) => {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import { getTeams, createTeam } from "@/lib/teams";
+import { getProjectById } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,10 @@ export async function POST(
     if (session.status === "Closed")
       return NextResponse.json({ error: "Session is closed." }, { status: 403 });
 
+    // The team inherits the session's project: stamp project_id (results isolation)
+    // and deal the seed from that project's Carmelita deck (null ref = global deck).
+    const project = session.projectId ? await getProjectById(session.projectId) : null;
+
     const team = await createTeam({
       sessionId: session.id,
       code: session.code,
@@ -57,6 +62,8 @@ export async function POST(
       // Solo: slot 1 is pre-selected but unlockable (uncertainty stays free);
       // facilitated sessions lock slot 1 to a dealt uncertainty instead.
       freeSeed: session.scope === "Solo",
+      projectId: session.projectId,
+      projectRef: project?.carmelitaProjectRef ?? null,
     });
     return NextResponse.json({ team });
   } catch (err) {

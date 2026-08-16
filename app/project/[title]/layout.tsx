@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { getProjectBySlug } from "@/lib/projects";
+import { getSessionUser } from "@/lib/supabase-auth";
 import { cookieNameFor, verifyUnlock } from "@/lib/project-gate";
 import { ProjectGate } from "@/components/project/ProjectGate";
 
@@ -29,6 +30,11 @@ export default async function ProjectLayout({
     store.get(cookieNameFor(project.id))?.value
   );
   if (unlocked) return <>{children}</>;
+
+  // Facilitator bypass: a signed-in admin can view any project's gated content
+  // without its passphrase (so the admin dashboard's View/Open links just work).
+  // Checked only here — open/unlocked requests never pay the auth round-trip.
+  if (await getSessionUser()) return <>{children}</>;
 
   return <ProjectGate title={title} projectName={project.name} />;
 }

@@ -40,16 +40,16 @@ const CARD_ITEMS: Record<CardKey, CardDef> = {
   play: {
     eyebrow: "Play the card game",
     title: "Start a future",
-    body: "Deal yourself a hand of outcomes and build a small future scenario.",
+    body: "Deal yourself a hand of this project's outcome cards and build a small future scenario.",
     image: playImg,
-    href: () => "/play",
+    href: (slug) => `/project/${slug}/play`,
   },
   gallery: {
     eyebrow: "The gallery",
     title: "View entries",
-    body: "Every submitted scenario starter built so far — drivers and uncertainties bound into small worlds. See what the room has made.",
+    body: "Every scenario built for this project — drivers and uncertainties bound into small worlds.",
     image: galleryImg,
-    href: () => "/scenario-molecules",
+    href: (slug) => `/project/${slug}/scenario-molecules`,
   },
   drivers: {
     eyebrow: "Browse the model",
@@ -115,7 +115,7 @@ export function ProjectHome({
       <div className="mt-12 flex flex-col gap-5">
         {segments.map((seg, i) =>
           seg.type === "join" ? (
-            <JoinSession key={`join-${i}`} />
+            <JoinSession key={`join-${i}`} basePath={`/project/${slug}`} />
           ) : (
             <div key={`cards-${i}`} className="grid gap-5 md:grid-cols-2">
               {seg.keys.map((key) => {

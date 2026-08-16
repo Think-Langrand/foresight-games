@@ -48,6 +48,10 @@ function cacheKey(slug: string): string {
   return `project:${slug}`;
 }
 
+function idCacheKey(id: string): string {
+  return `project:id:${id}`;
+}
+
 /** Resolve an ENABLED project by its route slug, or null. Cached ~60s. */
 export async function getProjectBySlug(slug: string): Promise<Project | null> {
   if (!supabaseConfigured()) return null;
@@ -58,6 +62,48 @@ export async function getProjectBySlug(slug: string): Promise<Project | null> {
         .select(COLS)
         .eq("slug", slug)
         .eq("enabled", true)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as ProjectRow | null;
+    });
+    return row ? fromRow(row) : null;
+  });
+}
+
+/**
+ * Resolve a project by id, INCLUDING disabled ones. Used to resolve a session's
+ * deck from its project_id — a game must still render even if the project was
+ * later disabled. (getProjectBySlug stays enabled-only, for routing/gating.)
+ */
+export async function getProjectById(id: string): Promise<Project | null> {
+  if (!supabaseConfigured()) return null;
+  return cached(idCacheKey(id), 60_000, async () => {
+    const row = await withRetry(async () => {
+      const { data, error } = await supabaseAdmin()
+        .from("projects")
+        .select(COLS)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as ProjectRow | null;
+    });
+    return row ? fromRow(row) : null;
+  });
+}
+
+/**
+ * Resolve a project by slug INCLUDING disabled ones — for the admin dashboard
+ * (an admin still manages a project they've disabled). Distinct cache key from the
+ * enabled-only getProjectBySlug (which gates the public/player routes).
+ */
+export async function getProjectBySlugAny(slug: string): Promise<Project | null> {
+  if (!supabaseConfigured()) return null;
+  return cached(`project:any:${slug}`, 60_000, async () => {
+    const row = await withRetry(async () => {
+      const { data, error } = await supabaseAdmin()
+        .from("projects")
+        .select(COLS)
+        .eq("slug", slug)
         .maybeSingle();
       if (error) throw error;
       return (data ?? null) as ProjectRow | null;
@@ -136,6 +182,7 @@ export async function updateProject(id: string, patch: UpdateProjectPatch): Prom
     return (data as { slug: string } | null)?.slug ?? null;
   });
   if (slug) bust(cacheKey(slug));
+  bust(idCacheKey(id));
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -150,4 +197,5 @@ export async function deleteProject(id: string): Promise<void> {
     return (data as { slug: string } | null)?.slug ?? null;
   });
   if (slug) bust(cacheKey(slug));
+  bust(idCacheKey(id));
 }

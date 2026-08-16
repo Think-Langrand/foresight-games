@@ -6,11 +6,23 @@ import { useRouter } from "next/navigation";
 
 // Home-page entry for the card game: start a fresh deal (creates a Cards session
 // and jumps to the projector), or join an existing table with its code.
-// Mirrors startCards()/join() from the workshop landing.
-export function CardGameLauncher() {
+// Mirrors startCards()/join() from the workshop landing. A project can be selected
+// so the game runs on that project's Carmelita deck with results isolated to it
+// ("" = the global game); the global /workshop route redirects project sessions
+// to their gated project route, so joining by code stays correct either way.
+export function CardGameLauncher({
+  projects = [],
+  lockedProject,
+}: {
+  projects?: { slug: string; name: string }[];
+  // When set (project admin dashboard), the game always runs under this project —
+  // no selector, no "Global" option.
+  lockedProject?: { slug: string; name: string };
+}) {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [facilitator, setFacilitator] = useState("");
+  const [projectSlug, setProjectSlug] = useState(lockedProject?.slug ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,11 +39,16 @@ export function CardGameLauncher() {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scope: "Cards", facilitator }),
+        body: JSON.stringify({
+          scope: "Cards",
+          facilitator,
+          projectSlug: projectSlug || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start card game");
-      router.push(`/workshop/s/${data.code}/present`);
+      const base = projectSlug ? `/project/${projectSlug}` : "";
+      router.push(`${base}/workshop/s/${data.code}/present`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
       setBusy(false);
@@ -63,12 +80,35 @@ export function CardGameLauncher() {
         projector.
       </p>
 
-      <input
-        value={facilitator}
-        onChange={(e) => setFacilitator(e.target.value)}
-        placeholder="Facilitator name (optional)"
-        className="mt-4 w-full max-w-xs rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-2.5 text-[14px] outline-none focus:border-ink"
-      />
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          value={facilitator}
+          onChange={(e) => setFacilitator(e.target.value)}
+          placeholder="Facilitator name (optional)"
+          className="w-full max-w-xs rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-2.5 text-[14px] outline-none focus:border-ink"
+        />
+        {lockedProject ? (
+          <span className="text-[12px] font-semibold text-muted">
+            Project: <span className="text-ink">{lockedProject.name}</span>
+          </span>
+        ) : projects.length > 0 ? (
+          <label className="flex items-center gap-2 text-[12px] font-semibold text-muted">
+            Project
+            <select
+              value={projectSlug}
+              onChange={(e) => setProjectSlug(e.target.value)}
+              className="rounded-[2px] border border-[var(--hairline)] bg-paper px-2 py-2 text-[13px] text-ink outline-none focus:border-ink"
+            >
+              <option value="">Global (shared deck)</option>
+              {projects.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
 
       {error && <div className="mt-3 text-[13px] font-semibold text-coral">{error}</div>}
 

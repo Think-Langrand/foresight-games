@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getModel, findScenarioUncertainty, getScenarioList } from "@/lib/model";
 import { createSession, supabaseConfigured } from "@/lib/workshop";
+import { getProjectBySlug } from "@/lib/projects";
 import type { Pacing } from "@/lib/workshop-types";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,9 @@ export async function POST(req: Request) {
     pacing?: Pacing;
     prompt?: string;
     facilitator?: string;
+    // Optional: which project this game belongs to. Absent = the global game
+    // (project_id null) — fully backward compatible.
+    projectSlug?: string;
   };
   try {
     body = await req.json();
@@ -30,6 +34,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
   const { scope, scenarioId, pacing, prompt, facilitator } = body;
+
+  // Only the card game (Cards/Solo) is project-scoped; Single/Full stay global.
+  // getProjectBySlug is enabled-only — you can't start a game under a disabled project.
+  const project = body.projectSlug ? await getProjectBySlug(body.projectSlug) : null;
+  const projectId = project?.id ?? null;
 
   const now = new Date();
   const dateLabel = `${MONTHS[now.getMonth()]} ${now.getDate()}`;
@@ -46,6 +55,7 @@ export async function POST(req: Request) {
         prompt: prompt?.trim() || "Build a future scenario from your cards.",
         title: `Solo worlds — ${dateLabel}`,
         facilitator: facilitator?.trim() || "",
+        projectId,
       });
       return NextResponse.json({ code: session.code, id: session.id });
     } catch (err) {
@@ -64,6 +74,7 @@ export async function POST(req: Request) {
         prompt: prompt?.trim() || "Build a future scenario from your cards.",
         title: `Scenario cards — ${dateLabel}`,
         facilitator: facilitator?.trim() || "",
+        projectId,
       });
       return NextResponse.json({ code: session.code, id: session.id });
     } catch (err) {

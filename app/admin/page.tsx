@@ -2,6 +2,8 @@ import Link from "next/link";
 import { listSessions, supabaseConfigured } from "@/lib/workshop";
 import { listAllTeams } from "@/lib/teams";
 import { getDeck } from "@/lib/cards";
+import { listProjects } from "@/lib/projects";
+import type { Card } from "@/lib/workshop-types";
 import { AdminSessionsList } from "@/components/admin/AdminSessionsList";
 import { AdminTeamsManager } from "@/components/admin/AdminTeamsManager";
 import { SignOutButton } from "@/components/admin/SignOutButton";
@@ -18,11 +20,38 @@ export default async function AdminPage() {
       </main>
     );
   }
-  const [sessions, teams, { deck }] = await Promise.all([
+  const [sessions, teams, projects, globalDeck] = await Promise.all([
     listSessions(),
     listAllTeams(),
+    listProjects(),
     getDeck(),
   ]);
+
+  // Card codes collide across projects, so the admin resolves one deck per project
+  // present among the teams (plus the global deck). A project whose Carmelita
+  // backend is down degrades to no triad cards rather than 500-ing the admin.
+  const projById = new Map(projects.map((p) => [p.id, p]));
+  const projectIds = [...new Set(teams.map((t) => t.projectId).filter((x): x is string => Boolean(x)))];
+  const projDeckEntries = await Promise.all(
+    projectIds.map(async (id): Promise<[string, Card[]]> => {
+      const p = projById.get(id);
+      try {
+        const { deck } = await getDeck(p?.carmelitaProjectRef ?? undefined);
+        return [id, deck.cards];
+      } catch {
+        return [id, []];
+      }
+    })
+  );
+  const cardsByProject: Record<string, Card[]> = {
+    global: globalDeck.deck.cards,
+    ...Object.fromEntries(projDeckEntries),
+  };
+  const projectMeta = Object.fromEntries(
+    projects.map((p) => [p.id, { slug: p.slug, name: p.name }])
+  );
+  const projectNameById = Object.fromEntries(projects.map((p) => [p.id, p.name]));
+  const launcherProjects = projects.filter((p) => p.enabled).map((p) => ({ slug: p.slug, name: p.name }));
 
   return (
     <main className="mx-auto min-h-screen max-w-[1100px] px-6 py-10">
@@ -68,7 +97,7 @@ export default async function AdminPage() {
       <section className="mt-12">
         <span className="eyebrow ink">Run a facilitated game</span>
         <div className="mt-3">
-          <CardGameLauncher />
+          <CardGameLauncher projects={launcherProjects} />
         </div>
       </section>
 
@@ -82,12 +111,16 @@ export default async function AdminPage() {
             View analysis →
           </Link>
         </div>
-        <AdminTeamsManager teams={teams} deck={deck.cards} />
+        <AdminTeamsManager
+          teams={teams}
+          cardsByProject={cardsByProject}
+          projectMeta={projectMeta}
+        />
       </section>
 
       <section className="mt-12">
         <span className="eyebrow ink">All sessions</span>
-        <AdminSessionsList sessions={sessions} />
+        <AdminSessionsList sessions={sessions} projectNameById={projectNameById} />
       </section>
     </main>
   );
