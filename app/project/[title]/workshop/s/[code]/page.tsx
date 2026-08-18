@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getProjectBySlug } from "@/lib/projects";
 import { getSessionByCode } from "@/lib/workshop";
-import { getRippleScenario } from "@/lib/ripples";
+import { getRippleScenario, getRippleDrivers } from "@/lib/ripples";
 import { getDeckForProjectId, getDriversForProjectRef } from "@/lib/cards";
 import { CardsTeamView } from "@/components/workshop/CardsTeamView";
 import { RipplesTeamView } from "@/components/workshop/RipplesTeamView";
@@ -30,8 +30,18 @@ export default async function ProjectSessionPage({
 
   // Ripples needs no deck (its premise is snapshotted on the session at create).
   if (session.scope === "Ripples") {
-    const scenario = await getRippleScenario(session);
-    return <RipplesTeamView code={upper} scenario={scenario} basePath={`/project/${title}`} />;
+    const [scenario, drivers] = await Promise.all([
+      getRippleScenario(session),
+      getRippleDrivers(session),
+    ]);
+    return (
+      <RipplesTeamView
+        code={upper}
+        scenario={scenario}
+        drivers={drivers}
+        basePath={`/project/${title}`}
+      />
+    );
   }
 
   // A project deck has no seed fallback — resolve it, surfacing the platform being

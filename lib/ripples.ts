@@ -1,8 +1,8 @@
 import "server-only";
 
 import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
-import { getScenario, foresightConfigured } from "@/lib/foresight/client";
-import type { Scenario } from "@/lib/foresight/types";
+import { getForesightDrivers, getScenario, foresightConfigured } from "@/lib/foresight/client";
+import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import { TEAM_COLORS, type WorkshopSession } from "@/lib/workshop-types";
 import {
   resolveConfig,
@@ -184,6 +184,20 @@ export async function getRippleScenario(session: WorkshopSession): Promise<Scena
   } catch (err) {
     console.error("[getRippleScenario]", err);
     return null;
+  }
+}
+
+// The project's driver cards, for the Drivers tab on the scenario backdrop. The
+// reader filters these down to the scenario's linked drivers. Non-fatal: an empty
+// list just hides the tab. Same project ref as the scenario.
+export async function getRippleDrivers(session: WorkshopSession): Promise<PublicDriverCard[]> {
+  const cfg = resolveConfig(session.config);
+  if (!cfg.scenarioRef || !foresightConfigured()) return [];
+  try {
+    return await getForesightDrivers(cfg.projectRef ?? undefined);
+  } catch (err) {
+    console.error("[getRippleDrivers]", err);
+    return [];
   }
 }
 

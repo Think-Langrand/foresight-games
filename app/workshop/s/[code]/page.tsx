@@ -6,7 +6,7 @@ import { getModel, getScenarioList } from "@/lib/model";
 import { getDeck } from "@/lib/cards";
 import { getDrivers } from "@/lib/drivers";
 import { getSessionByCode } from "@/lib/workshop";
-import { getRippleScenario } from "@/lib/ripples";
+import { getRippleScenario, getRippleDrivers } from "@/lib/ripples";
 import { getProjectById } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
@@ -32,8 +32,11 @@ export default async function SessionPage({
   // Ripples: the implications-mapping surface (no deck; premise + config live on
   // the session, delivered live via the ripples payload).
   if (session?.scope === "Ripples") {
-    const scenario = await getRippleScenario(session);
-    return <RipplesTeamView code={upper} scenario={scenario} />;
+    const [scenario, drivers] = await Promise.all([
+      getRippleScenario(session),
+      getRippleDrivers(session),
+    ]);
+    return <RipplesTeamView code={upper} scenario={scenario} drivers={drivers} />;
   }
 
   // Cards + Solo sessions get the team/card surface; everything else the

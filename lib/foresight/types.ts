@@ -135,6 +135,15 @@ export interface Tag {
   slug: string;
 }
 
+// A source article behind a driver — its "signals": real-world evidence the driver
+// is already showing up. `url`/`publisher` may be null.
+export interface DriverSource {
+  id: string;
+  title: string;
+  url: string | null;
+  publisher: string | null;
+}
+
 // GET /projects/{ref}/drivers → PublicDriverCard[]
 export interface PublicDriverCard {
   id: string; // uuid — stable ref
@@ -143,6 +152,7 @@ export interface PublicDriverCard {
   shortDescription: string;
   imageUrl: string | null; // signed, expiring
   tags: Tag[];
+  sources: DriverSource[]; // signal articles behind the driver (may be empty)
   updatedAt: string;
 }
 

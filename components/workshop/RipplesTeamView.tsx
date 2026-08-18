@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ScenarioBody } from "@/components/foresight/ScenarioBody";
-import { ScenarioReader } from "@/components/foresight/ScenarioReader";
+import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
 import { ImplicationTree } from "@/components/workshop/ImplicationTree";
 import { RippleCountdown } from "@/components/workshop/RippleCountdown";
 import { RippleArtBand } from "@/components/workshop/RippleArt";
 import { downloadRipplesExport } from "@/components/workshop/ripplesExport";
-import type { Scenario } from "@/lib/foresight/types";
+import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import {
   useParticipant,
   useRipplesView,
@@ -71,10 +71,12 @@ export function RipplesTeamView({
   code,
   basePath = "",
   scenario = null,
+  drivers = [],
 }: {
   code: string;
   basePath?: string;
   scenario?: Scenario | null;
+  drivers?: PublicDriverCard[];
 }) {
   const { view, error, loading } = useRipplesView(code);
   const { pid, nick, saveNick } = useParticipant();
@@ -186,6 +188,7 @@ export function RipplesTeamView({
         <PhaseHeader phase={phase} endsAt={null} title={config.scenarioTitle} art={heroArt} solo={solo} team={solo ? undefined : myTeam.name} teamColor={myTeam.color} />
         <DoneSummary
           scenario={scenario}
+          drivers={drivers}
           config={config}
           cards={myCards}
           answers={myPlayer.answers}
@@ -285,7 +288,7 @@ export function RipplesTeamView({
         <p className="mb-5 text-[13px] text-muted">Read the scenario. The facilitator will open the worksheet.</p>
       )}
 
-      <ScenarioContext scenario={scenario} config={config} />
+      <ScenarioContext scenario={scenario} drivers={drivers} config={config} />
 
       {/* One persistent green toggle: opens the worksheet (advancing solo into BUILD)
           and hides it again. Visible as soon as the scenario is up. */}
@@ -705,6 +708,7 @@ function QuestionsSection({
 // ---------- done: the finished map ----------
 function DoneSummary({
   scenario,
+  drivers,
   config,
   cards,
   answers,
@@ -713,6 +717,7 @@ function DoneSummary({
   closed,
 }: {
   scenario: Scenario | null;
+  drivers: PublicDriverCard[];
   config: RipplesConfig;
   cards: RippleCard[];
   answers: Record<string, string>;
@@ -769,7 +774,7 @@ function DoneSummary({
             Revisit the scenario
           </summary>
           <div className="mt-4">
-            <ScenarioReader scenario={scenario} />
+            <ScenarioTabs scenario={scenario} drivers={drivers} />
           </div>
         </details>
       )}
@@ -835,11 +840,19 @@ function Panel({ children }: { children: React.ReactNode }) {
   return <div className="rounded-[3px] border border-[var(--hairline)] bg-card p-5">{children}</div>;
 }
 
-function ScenarioContext({ scenario, config }: { scenario: Scenario | null; config: RipplesConfig }) {
+function ScenarioContext({
+  scenario,
+  drivers,
+  config,
+}: {
+  scenario: Scenario | null;
+  drivers: PublicDriverCard[];
+  config: RipplesConfig;
+}) {
   return (
     <div className="flex flex-col gap-4">
       {scenario ? (
-        <ScenarioReader scenario={scenario} />
+        <ScenarioTabs scenario={scenario} drivers={drivers} />
       ) : (
         <div className="rounded-[3px] border border-[var(--hairline)] bg-card p-5">
           {config.premise ? (

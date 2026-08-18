@@ -5,11 +5,13 @@ import { notFound } from "next/navigation";
 import {
   describeForesightFailure,
   foresightConfigured,
+  getForesightDrivers,
   getScenario,
   getScenarioSet,
   getScenarioSets,
 } from "@/lib/foresight/client";
 import type {
+  PublicDriverCard,
   Scenario,
   ScenarioCard as ScenarioCardData,
   ScenarioSet,
@@ -20,7 +22,7 @@ import {
   ForesightUnavailable,
 } from "@/components/foresight/notice";
 import { ScenarioCard } from "@/components/foresight/ScenarioCard";
-import { ScenarioReader } from "@/components/foresight/ScenarioReader";
+import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
 
 // Shared render for the three scenario-sets views, parametrized so both the
 // legacy global routes (/scenario-sets/**) and the per-project routes
@@ -262,6 +264,15 @@ export async function ScenarioDetailView({
   }
   if (!scenario) notFound();
 
+  // The scenario's linked drivers, for the Drivers tab. Non-fatal: if the drivers
+  // endpoint is down we just render the reader without the tab.
+  let drivers: PublicDriverCard[] = [];
+  try {
+    drivers = await getForesightDrivers(projectRef);
+  } catch {
+    /* drivers tab hidden */
+  }
+
   // Prev/next within the set, in reading order.
   const ordered: ScenarioCardData[] = set
     ? [...set.scenarios].sort((a, b) => a.position - b.position)
@@ -277,7 +288,7 @@ export async function ScenarioDetailView({
       </Link>
 
       <div className="mt-4">
-        <ScenarioReader scenario={scenario} />
+        <ScenarioTabs scenario={scenario} drivers={drivers} />
       </div>
 
       {/* Prev/next within the set. */}
