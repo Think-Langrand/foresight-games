@@ -388,6 +388,9 @@ function WorksheetSheet({
         (open ? "translate-y-0" : "translate-y-full")
       }
       aria-hidden={!open}
+      // When slid off-screen, `inert` removes the still-mounted controls from tab
+      // order and the a11y tree so keyboard/SR users can't reach hidden inputs.
+      inert={!open || undefined}
     >
       <div className="flex flex-none items-center justify-between gap-3 border-b border-[var(--rule)] px-5 py-3">
         <div className="min-w-0">
@@ -635,9 +638,22 @@ function BrainstormSection({
                   ) : (
                     <p
                       onClick={() => mine && startEdit(c)}
+                      onKeyDown={
+                        mine
+                          ? (e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                startEdit(c);
+                              }
+                            }
+                          : undefined
+                      }
+                      role={mine ? "button" : undefined}
+                      tabIndex={mine ? 0 : undefined}
                       title={mine ? "Click to edit" : undefined}
                       className={
-                        "px-2.5 pb-2.5 text-[12.5px] leading-[1.35] " + (mine ? "cursor-text" : "")
+                        "px-2.5 pb-2.5 text-[12.5px] leading-[1.35] " +
+                        (mine ? "cursor-text rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ink" : "")
                       }
                     >
                       {c.text}

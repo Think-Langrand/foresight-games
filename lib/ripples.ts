@@ -34,7 +34,6 @@ interface PlayerRow {
   team_id: string;
   display_name: string;
   lens_id: string | null;
-  answers: Record<string, string> | null;
   submitted_at: string | null;
   created_at: string;
 }
@@ -69,13 +68,14 @@ function mapTeam(r: TeamRow): RippleTeam {
     createdTime: r.created_at,
   };
 }
-function mapPlayer(r: PlayerRow): RipplePlayer {
+// Answers live in a separate, non-public table (0010); the caller supplies them.
+function mapPlayer(r: PlayerRow, answers: Record<string, string> = {}): RipplePlayer {
   return {
     id: r.id,
     teamId: r.team_id,
     displayName: r.display_name ?? "",
     lensId: r.lens_id ?? null,
-    answers: r.answers ?? {},
+    answers,
     submittedAt: r.submitted_at ?? null,
     createdTime: r.created_at,
   };
@@ -125,27 +125,31 @@ export async function getRippleTeams(code: string): Promise<RippleTeam[]> {
 // The full live board for a session: teams, players, cards, chips + resolved config.
 export async function getRipplesView(session: WorkshopSession): Promise<RipplesView> {
   const code = up(session.code);
-  const { teams, players, cards, chips } = await withRetry(async () => {
+  const { teams, players, cards, chips, answers } = await withRetry(async () => {
     const db = supabaseAdmin();
-    const [teamRes, playerRes, cardRes, chipRes] = await Promise.all([
+    const [teamRes, playerRes, cardRes, chipRes, answerRes] = await Promise.all([
       db.from("ripple_teams").select("*").eq("code", code).order("join_order", { ascending: true }),
       db.from("ripple_players").select("*").eq("code", code).order("created_at", { ascending: true }),
       db.from("ripple_cards").select("*").eq("code", code).order("created_at", { ascending: true }),
       db.from("ripple_chips").select("*").eq("code", code),
+      // Private table (service-role only) — answers are never exposed via anon/realtime.
+      db.from("ripple_player_answers").select("player_id, answers").eq("code", code),
     ]);
-    for (const r of [teamRes, playerRes, cardRes, chipRes]) if (r.error) throw r.error;
+    for (const r of [teamRes, playerRes, cardRes, chipRes, answerRes]) if (r.error) throw r.error;
     return {
       teams: (teamRes.data ?? []) as TeamRow[],
       players: (playerRes.data ?? []) as PlayerRow[],
       cards: (cardRes.data ?? []) as CardRow[],
       chips: (chipRes.data ?? []) as ChipRow[],
+      answers: (answerRes.data ?? []) as { player_id: string; answers: Record<string, string> | null }[],
     };
   });
+  const answersByPlayer = new Map(answers.map((a) => [a.player_id, a.answers ?? {}]));
   return {
     session,
     config: resolveConfig(session.config),
     teams: teams.map(mapTeam),
-    players: players.map(mapPlayer),
+    players: players.map((p) => mapPlayer(p, answersByPlayer.get(p.id) ?? {})),
     cards: cards.map(mapCard),
     chips: chips.map(mapChip),
     fetchedAt: Date.now(),
@@ -346,12 +350,20 @@ export async function submitAnswers(input: {
   answers: Record<string, string>;
   submittedAt: string;
 }): Promise<void> {
-  const { error } = await supabaseAdmin()
+  const db = supabaseAdmin();
+  const code = up(input.code);
+  // Answers go to the private table; only the submit marker stays on ripple_players.
+  const { error: answersErr } = await db.from("ripple_player_answers").upsert(
+    { player_id: input.playerId, code, answers: input.answers, updated_at: input.submittedAt },
+    { onConflict: "player_id" }
+  );
+  if (answersErr) throw answersErr;
+  const { error: playerErr } = await db
     .from("ripple_players")
-    .update({ answers: input.answers, submitted_at: input.submittedAt })
-    .eq("code", up(input.code))
+    .update({ submitted_at: input.submittedAt })
+    .eq("code", code)
     .eq("id", input.playerId);
-  if (error) throw error;
+  if (playerErr) throw playerErr;
 }
 
 // ---------- cards ----------

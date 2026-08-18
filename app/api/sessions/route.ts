@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getModel, findScenarioUncertainty, getScenarioList } from "@/lib/model";
 import { createSession, supabaseConfigured } from "@/lib/workshop";
 import { getProjectBySlug } from "@/lib/projects";
-import { getScenario, foresightConfigured, DEFAULT_PROJECT_REF } from "@/lib/foresight/client";
+import { getScenario, foresightConfigured } from "@/lib/foresight/client";
 import { resolveConfig, type RipplesConfig } from "@/lib/ripples-types";
 import type { Pacing } from "@/lib/workshop-types";
 
@@ -93,6 +93,15 @@ export async function POST(req: Request) {
 
   // ---- Ripples: implications mapping against an existing Foresight scenario ----
   if (scope === "Ripples") {
+    // Gate: implication mapping is per-project only. Without a valid (enabled)
+    // project we refuse — global/old clients must not reach the scenarios in any
+    // way, and the global entry routes are 404'd to match.
+    if (!project) {
+      return NextResponse.json(
+        { error: "Implication mapping is only available within a project." },
+        { status: 403 }
+      );
+    }
     if (!body.scenarioRef) {
       return NextResponse.json({ error: "scenarioRef is required." }, { status: 400 });
     }
@@ -102,9 +111,7 @@ export async function POST(req: Request) {
         { status: 503 }
       );
     }
-    // Same tenant seam as the card game: a project resolves its Carmelita ref,
-    // else the default tenant (the ref the global drivers/uncertainties use).
-    const projectRef = project?.carmelitaProjectRef ?? DEFAULT_PROJECT_REF;
+    const projectRef = project.carmelitaProjectRef;
     try {
       const scenario = await getScenario(body.scenarioRef, projectRef);
       if (!scenario) {
@@ -119,7 +126,7 @@ export async function POST(req: Request) {
         solo,
         challengeEnabled: solo ? false : resolveConfig(body.config ?? null).challengeEnabled,
         scenarioRef: scenario.id,
-        projectRef: project?.carmelitaProjectRef ?? null,
+        projectRef: project.carmelitaProjectRef,
         scenarioTitle: scenario.title,
         premise: scenario.body || scenario.teaser || "",
         resolutions: (scenario.linkedUncertainties ?? []).map((u) => ({
