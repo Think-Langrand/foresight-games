@@ -1,12 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { CardsView, SessionView, Team, TeamStatus } from "@/lib/workshop-types";
+import type { RippleCard, RipplesView } from "@/lib/ripples-types";
 
 // Tables whose changes should refresh each view (filtered by session code).
 const SESSION_TABLES = ["sessions", "submissions", "responses"] as const;
 const CARDS_TABLES = ["sessions", "teams"] as const;
+const RIPPLES_TABLES = [
+  "sessions",
+  "ripple_teams",
+  "ripple_players",
+  "ripple_cards",
+  "ripple_chips",
+  "ripple_card_votes",
+] as const;
 
 // Shared live-view engine: one initial fetch of the aggregated API payload, then
 // refetch whenever Supabase realtime reports a change to the session's rows. No
@@ -130,6 +139,246 @@ export function useCardsView(code: string, _intervalMs = 5000) {
   return useLiveView<CardsView>(code, "/teams", CARDS_TABLES);
 }
 
+// Live Ripples view (the whole board) — realtime-driven.
+export function useRipplesView(code: string) {
+  return useLiveView<RipplesView>(code, "/ripples", RIPPLES_TABLES);
+}
+
+// Optimistic overlay for the card board. The realtime view is eventually-consistent
+// but laggy (network → Postgres → broadcast → 250ms debounce → refetch), so writes
+// feel slow and the tree re-renders only after the round-trip. This layers instant
+// local mutations on top of the server list and reconciles them away as the refetch
+// catches up. When nothing is pending it returns the server array *by reference*, so
+// downstream memos (buildChildrenMap) don't churn.
+export function useOptimisticCards(serverCards: RippleCard[]) {
+  const [adds, setAdds] = useState<RippleCard[]>([]);
+  const [deletes, setDeletes] = useState<Set<string>>(() => new Set());
+  const [sorts, setSorts] = useState<Map<string, number>>(() => new Map());
+  const [edits, setEdits] = useState<Map<string, string>>(() => new Map());
+  const [seen, setSeen] = useState(serverCards);
+
+  // Reconcile overlays the instant a fresh server list arrives — a render-time state
+  // adjustment (not an effect, so no cascading double-paint): drop adds the server
+  // now has, deletes it has honored, and sort overrides it has caught up to. Pruning
+  // confirmed adds is what stops a since-deleted card from being resurrected by its
+  // own stale optimistic entry. React re-runs this render with the pruned state
+  // before committing, so `cards` below never flashes the unreconciled set.
+  if (seen !== serverCards) {
+    setSeen(serverCards);
+    const ids = new Set(serverCards.map((c) => c.id));
+    setAdds((prev) => (prev.some((a) => ids.has(a.id)) ? prev.filter((a) => !ids.has(a.id)) : prev));
+    setDeletes((prev) => {
+      const next = new Set([...prev].filter((id) => ids.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+    setSorts((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, s] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        if (!server || server.sort === s) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    setEdits((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, t] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        if (!server || server.text === t) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }
+
+  const cards = useMemo(() => {
+    const serverIds = new Set(serverCards.map((c) => c.id));
+    const merged = adds.length
+      ? [...serverCards, ...adds.filter((a) => !serverIds.has(a.id))]
+      : serverCards;
+    if (!deletes.size && !sorts.size && !edits.size) return merged;
+    return merged
+      .filter((c) => !deletes.has(c.id))
+      .map((c) => {
+        if (!sorts.has(c.id) && !edits.has(c.id)) return c;
+        return {
+          ...c,
+          ...(sorts.has(c.id) ? { sort: sorts.get(c.id)! } : {}),
+          ...(edits.has(c.id) ? { text: edits.get(c.id)! } : {}),
+        };
+      });
+  }, [serverCards, adds, deletes, sorts, edits]);
+
+  const addLocal = useCallback((c: RippleCard) => setAdds((p) => [...p, c]), []);
+  const removeLocal = useCallback((id: string) => setDeletes((p) => new Set(p).add(id)), []);
+  const unremoveLocal = useCallback(
+    (id: string) =>
+      setDeletes((p) => {
+        if (!p.has(id)) return p;
+        const next = new Set(p);
+        next.delete(id);
+        return next;
+      }),
+    []
+  );
+  const reorderLocal = useCallback(
+    (id: string, sort: number) => setSorts((p) => new Map(p).set(id, sort)),
+    []
+  );
+  const editLocal = useCallback(
+    (id: string, text: string) => setEdits((p) => new Map(p).set(id, text)),
+    []
+  );
+
+  return { cards, addLocal, removeLocal, unremoveLocal, reorderLocal, editLocal };
+}
+
+// ---- Ripples write helpers ----
+export async function postRipplePlayer(
+  code: string,
+  body: { participantId: string; displayName: string; teamId?: string; teamName?: string }
+) {
+  const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/players`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+export async function postRippleCard(
+  code: string,
+  body: {
+    participantId: string;
+    cardOrder: string;
+    parentCardId?: string | null;
+    text: string;
+    sort?: number;
+  }
+) {
+  const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/cards`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+export async function reorderRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; sort: number }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reorder", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+export async function editRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; text: string }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "text", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+export async function patchRippleCard(
+  code: string,
+  cardId: string,
+  body: { action: "flag" | "vote"; participantId: string }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+export async function deleteRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+export async function postRippleChip(
+  code: string,
+  body: { participantId: string; cardId: string }
+) {
+  const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/chips`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+export async function deleteRippleChip(
+  code: string,
+  body: { participantId: string; cardId: string }
+) {
+  const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/chips`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+export async function postRippleSubmit(
+  code: string,
+  body: { participantId: string; answers: string[] }
+) {
+  const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
 export async function postTeam(code: string, body: { name?: string }): Promise<{ team: Team }> {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/teams`, {
     method: "POST",
@@ -229,7 +478,14 @@ export async function deleteUpvote(
 
 export async function patchSession(
   code: string,
-  body: { status?: string; prompt?: string; currentUncertaintyId?: string }
+  body: {
+    status?: string;
+    prompt?: string;
+    currentUncertaintyId?: string;
+    phase?: string;
+    phaseEndsAt?: string | null;
+    config?: Record<string, unknown>;
+  }
 ) {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}`, {
     method: "PATCH",

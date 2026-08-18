@@ -7,10 +7,12 @@ import communityWellness from "@/public/image2.png";
 import muralStreet from "@/public/image3.png";
 import ecoCityVista from "@/public/image4.png";
 import solarpunkCity from "@/public/image5.png";
+import ripplingFuture from "@/public/image.png";
 
 // One image per entry card, matched to what each destination is about.
 const cardImages = {
   play: communityWellness, // human-scale, inviting — where you begin
+  ripples: ripplingFuture, // one future, consequences spreading outward
   gallery: muralStreet, // "Our Health, Our Community, Our Future" — the room's made worlds
   drivers: ecoCityVista, // epic forces reshaping the future
   uncertainties: solarpunkCity, // a dense open world of what-ifs
@@ -32,7 +34,7 @@ export default function Home() {
         sharpest uncertainties.
       </p>
 
-      <div className="mt-12 grid gap-5 md:grid-cols-2">
+      <div className="mt-12">
         <EntryCard
           href="/play"
           eyebrow="Play the card game"
@@ -41,6 +43,9 @@ export default function Home() {
           image={cardImages.play}
           accent
         />
+      </div>
+
+      <div className="mt-5">
         <EntryCard
           href="/scenario-molecules"
           eyebrow="The gallery"

@@ -5,10 +5,16 @@
 import type { Mood, Theme, TimeHorizon } from "@/lib/foresight/types";
 
 export function ThemeBadge({ theme }: { theme: Theme }) {
-  return <span className="chip">{theme.label}</span>;
+  // The API sometimes returns a blank label — render nothing rather than an empty chip.
+  const label = theme.label?.trim();
+  if (!label) return null;
+  return <span className="chip">{label}</span>;
 }
 
 export function MoodBadge({ mood }: { mood: Mood }) {
+  // No label → no chip (a lone color dot reads as noise).
+  const label = mood.label?.trim();
+  if (!label) return null;
   return (
     <span
       className="chip inline-flex items-center gap-1.5"
@@ -18,7 +24,7 @@ export function MoodBadge({ mood }: { mood: Mood }) {
         className="inline-block h-2.5 w-2.5 shrink-0 rounded-[1px] ring-1 ring-[var(--hairline)]"
         style={{ background: mood.colorHex }}
       />
-      {mood.label}
+      {label}
     </span>
   );
 }

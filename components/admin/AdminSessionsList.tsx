@@ -15,7 +15,13 @@ function fmtDate(iso: string): string {
   });
 }
 
-export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) {
+export function AdminSessionsList({
+  sessions,
+  projectNameById = {},
+}: {
+  sessions: SessionSummary[];
+  projectNameById?: Record<string, string>;
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -28,12 +34,12 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
   );
   const allSelected = selected.size > 0 && selected.size === codes.length;
 
-  // A session has real results worth protecting if any team submitted (Cards)
-  // or any text submission landed (Full/Single).
+  // A session has real results worth protecting if any team submitted (Cards),
+  // any team joined a Ripples board, or any text submission landed (Full/Single).
   function hasResults(summary: SessionSummary): boolean {
-    return summary.session.scope === "Cards"
-      ? summary.submittedTeamCount > 0
-      : summary.submissionCount > 0;
+    if (summary.session.scope === "Cards") return summary.submittedTeamCount > 0;
+    if (summary.session.scope === "Ripples") return summary.rippleTeamCount > 0;
+    return summary.submissionCount > 0;
   }
 
   function toggle(code: string) {
@@ -69,8 +75,17 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
       const list = withResults
         .map((s) => {
           const n =
-            s.session.scope === "Cards" ? s.submittedTeamCount : s.submissionCount;
-          const kind = s.session.scope === "Cards" ? "submitted team(s)" : "submission(s)";
+            s.session.scope === "Cards"
+              ? s.submittedTeamCount
+              : s.session.scope === "Ripples"
+                ? s.rippleTeamCount
+                : s.submissionCount;
+          const kind =
+            s.session.scope === "Cards"
+              ? "submitted team(s)"
+              : s.session.scope === "Ripples"
+                ? "team(s)"
+                : "submission(s)";
           return `  • ${s.session.code}${s.session.title ? ` — ${s.session.title}` : ""}: ${n} ${kind}`;
         })
         .join("\n");
@@ -146,6 +161,7 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
               </th>
               <th className="py-2 pr-3">Code</th>
               <th className="py-2 pr-3">Title</th>
+              <th className="py-2 pr-3">Project</th>
               <th className="py-2 pr-3">Scope</th>
               <th className="py-2 pr-3">Status</th>
               <th className="py-2 pr-3 text-right" title="Submitted teams / total teams">
@@ -156,7 +172,7 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
             </tr>
           </thead>
           <tbody>
-            {sessions.map(({ session: s, teamCount, submittedTeamCount, submissionCount }) => {
+            {sessions.map(({ session: s, teamCount, submittedTeamCount, submissionCount, rippleTeamCount }) => {
               const checked = selected.has(s.code);
               return (
                 <tr
@@ -194,6 +210,15 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
                   <td className="max-w-[280px] truncate py-2.5 pr-3" title={s.title}>
                     {s.title || <span className="text-muted">—</span>}
                   </td>
+                  <td className="py-2.5 pr-3">
+                    {s.projectId ? (
+                      <span className="text-[12px] font-semibold text-blue">
+                        {projectNameById[s.projectId] ?? "Project"}
+                      </span>
+                    ) : (
+                      <span className="text-muted">Global</span>
+                    )}
+                  </td>
                   <td className="py-2.5 pr-3">{s.scope}</td>
                   <td className="py-2.5 pr-3">
                     <span
@@ -221,6 +246,10 @@ export function AdminSessionsList({ sessions }: { sessions: SessionSummary[] }) 
                         // No submissions — safe to clean up.
                         <span className="text-muted">0/{teamCount}</span>
                       )
+                    ) : s.scope === "Ripples" ? (
+                      <span className={rippleTeamCount > 0 ? "font-bold" : "text-muted"}>
+                        {rippleTeamCount} team{rippleTeamCount === 1 ? "" : "s"}
+                      </span>
                     ) : (
                       <span className="text-muted">—</span>
                     )}

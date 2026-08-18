@@ -7,14 +7,14 @@ import joinBg from "@/public/image.png";
 
 // Slim "join a table" entry for the home page: type a session code, go to its
 // play surface. (Facilitators start games from /admin.)
-export function JoinSession() {
+export function JoinSession({ basePath = "" }: { basePath?: string }) {
   const router = useRouter();
   const [code, setCode] = useState("");
 
   function join(e: React.FormEvent) {
     e.preventDefault();
     const c = code.trim().toUpperCase();
-    if (c) router.push(`/workshop/s/${encodeURIComponent(c)}`);
+    if (c) router.push(`${basePath}/workshop/s/${encodeURIComponent(c)}`);
   }
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import gateImage from "@/public/image3.png";
 
 // Soft, site-wide password screen. This is a light gate for a private preview —
@@ -18,9 +19,16 @@ const GATE_ENABLED = !["false", "0", "off"].includes(
 );
 
 export function SiteGate({ children }: { children: React.ReactNode }) {
+  // /project/* routes have their own server-validated per-project gate
+  // (app/project/[title]/layout.tsx). Suppress the global gate there so a
+  // project micro-site isn't double-gated.
+  const pathname = usePathname();
+  const onProjectRoute = pathname?.startsWith("/project/") ?? false;
+
   // "checking" until the client reads storage; render the gate over the content
   // meanwhile so nothing leaks on a locked device. When the gate is disabled we
   // start "unlocked" so the content shows immediately and no gate ever renders.
+  // (On project routes the overlay is suppressed in render regardless of status.)
   const [status, setStatus] = useState<"checking" | "locked" | "unlocked">(
     GATE_ENABLED ? "checking" : "unlocked"
   );
@@ -39,15 +47,16 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Stop the page behind the gate from scrolling while it's shown.
+  // Stop the page behind the gate from scrolling while it's shown. Never lock on
+  // project routes, where the overlay is suppressed (the server gate handles it).
   useEffect(() => {
-    if (status === "unlocked") return;
+    if (status === "unlocked" || onProjectRoute) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [status]);
+  }, [status, onProjectRoute]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,7 +76,7 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      {status !== "unlocked" && (
+      {status !== "unlocked" && !onProjectRoute && (
         <div
           className={
             "fixed inset-0 z-[100] flex items-center justify-center overflow-hidden px-5 transition-opacity duration-[650ms] ease-out " +

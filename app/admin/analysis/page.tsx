@@ -22,7 +22,9 @@ export default async function AnalysisPage({
 
   const [teams, { deck }, user] = await Promise.all([
     // Analysis runs over submitted worlds only; cleanEntries also enforces this.
-    listAllTeams({ onlySubmitted: true }),
+    // Scoped to global (project_id null) worlds — per-project analysis is a
+    // follow-up (project decks/codes don't match this global deck).
+    listAllTeams({ onlySubmitted: true, projectId: null }),
     getDeck(),
     getSessionUser(),
   ]);

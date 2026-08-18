@@ -3,7 +3,22 @@ import "server-only";
 import unc from "@/data/uncertainties.seed.json";
 import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import { cached } from "@/lib/cache";
-import type { Card, CardRole, Deck, UncertaintyLite } from "@/lib/workshop-types";
+import {
+  orderedDomains,
+  type Card,
+  type CardRole,
+  type Deck,
+  type UncertaintyLite,
+} from "@/lib/workshop-types";
+import {
+  getForesightDrivers,
+  getForesightUncertainties,
+} from "@/lib/foresight/client";
+import type { PublicUncertainty } from "@/lib/foresight/types";
+import { getProjectById } from "@/lib/projects";
+import { getDrivers } from "@/lib/drivers";
+import type { DriverLite } from "@/lib/drivers-shared";
+import { STARTER_DIMENSIONS } from "@/lib/capture";
 
 // The deck is derived from the canonical scenario-uncertainties set: 13
 // uncertainties x 4 outcome cards = 52. It is read from Supabase (tables
@@ -11,7 +26,7 @@ import type { Card, CardRole, Deck, UncertaintyLite } from "@/lib/workshop-types
 // (data/uncertainties.seed.json). Driver linkage lives on the uncertainty
 // (sourceDriverIds), so cards inherit it.
 
-// Normalized uncertainty row (Supabase or seed), before deck assembly.
+// Normalized uncertainty row (Supabase, seed, or Carmelita), before deck assembly.
 export interface UncertaintyRow {
   number: number;
   id: string; // slug
@@ -20,6 +35,9 @@ export interface UncertaintyRow {
   question: string;
   sourceDriverIds: string[];
   outcomes: { code: string; role: string; title: string; description: string }[];
+  // Carmelita rows carry the platform's `sharpest` flag (the per-project starter
+  // pool). Undefined for global rows, where STARTER_DIMENSIONS decides.
+  sharpest?: boolean;
 }
 
 const SEED_UNCERTAINTIES = (unc as { uncertainties: UncertaintyRow[] }).uncertainties;
@@ -60,8 +78,31 @@ function buildDeck(uncertaintiesInput: UncertaintyRow[]): Deck {
     question: u.question,
     sourceDriverIds: u.sourceDriverIds ?? [],
     outcomeCodes: u.outcomes.map((o) => o.code),
+    // Carmelita: its `sharpest` flag; global: the curated STARTER_DIMENSIONS list.
+    isStarter: u.sharpest !== undefined ? u.sharpest : STARTER_DIMENSIONS.includes(u.title),
   }));
-  return { cards, dimensions, uncertainties };
+  return { cards, dimensions, uncertainties, domains: orderedDomains(uncertaintiesInput) };
+}
+
+// Map a Carmelita PublicUncertainty into the deck's normalized row. sourceDriverIds
+// are driver UUIDs (not slugs); getProjectDriverLites keys its map by the same UUIDs
+// so the driver chips still resolve.
+function mapPublicUncertaintyToRow(u: PublicUncertainty): UncertaintyRow {
+  return {
+    number: u.number,
+    id: u.id, // == code, the stable per-project ref
+    domain: u.domain,
+    title: u.title,
+    question: u.question,
+    sourceDriverIds: u.sourceDriverIds,
+    outcomes: u.outcomes.map((o) => ({
+      code: o.code,
+      role: o.role,
+      title: o.title,
+      description: o.description,
+    })),
+    sharpest: u.sharpest,
+  };
 }
 
 // Supabase row shapes.
@@ -87,7 +128,17 @@ interface OutcomeRow {
  * uncertainty number, then card sort order), else the bundled seed. Shared by
  * the deck (here) and the scenario-uncertainty model (lib/model.ts).
  */
-export async function getUncertaintyRows(): Promise<UncertaintyRow[]> {
+export async function getUncertaintyRows(ref?: string): Promise<UncertaintyRow[]> {
+  // Per-project: pull the project's Carmelita uncertainties and map to rows. The
+  // underlying foresight fetch is no-store, but the mapped rows carry no expiring
+  // URLs, so caching them in-process (5 min, per-ref key) is safe and keeps team
+  // saves / live refetches from re-hitting the platform each time.
+  if (ref) {
+    return cached(`uncertainty-rows:${ref}`, 300_000, async () => {
+      const pub = await getForesightUncertainties(ref);
+      return pub.map(mapPublicUncertaintyToRow);
+    });
+  }
   if (!supabaseConfigured()) return SEED_UNCERTAINTIES;
   // Static content — cache it so team saves and live refetches don't re-read
   // the whole deck from Supabase every time (retrying through transient 520s).
@@ -142,11 +193,84 @@ export async function getUncertaintyRows(): Promise<UncertaintyRow[]> {
   });
 }
 
-/** The outcome-card deck, built from Supabase (or the bundled seed). */
-export async function getDeck(): Promise<{ deck: Deck; source: "supabase" | "seed" }> {
+/**
+ * The outcome-card deck. With no `ref`, the global deck (Supabase, or the bundled
+ * seed). With a `ref`, that project's deck built from its Carmelita uncertainties.
+ */
+export async function getDeck(
+  ref?: string
+): Promise<{ deck: Deck; source: "supabase" | "seed" | "carmelita" }> {
+  if (ref) {
+    const rows = await getUncertaintyRows(ref);
+    return { deck: buildDeck(rows), source: "carmelita" };
+  }
   const rows = await getUncertaintyRows();
   const source = supabaseConfigured() && rows !== SEED_UNCERTAINTIES ? "supabase" : "seed";
   return { deck: buildDeck(rows), source };
+}
+
+/**
+ * Resolve the deck for a world/session by its stored `project_id`. This is THE
+ * backward-compat seam: null → the global deck (unchanged); set → that project's
+ * Carmelita deck. `getProjectById` is NOT enabled-filtered, so a session whose
+ * project was later disabled still resolves. Returns the resolved carmelita `ref`
+ * too, so callers know which driver source to use.
+ */
+export async function getDeckForProjectId(
+  projectId: string | null
+): Promise<{ deck: Deck; source: string; ref: string | null }> {
+  if (!projectId) {
+    const g = await getDeck();
+    return { ...g, ref: null };
+  }
+  const project = await getProjectById(projectId);
+  const ref = project?.carmelitaProjectRef ?? null;
+  const d = await getDeck(ref ?? undefined);
+  return { ...d, ref };
+}
+
+/**
+ * Driver "lites" for a project deck, keyed by driver UUID (slug := d.id) so the
+ * views' `new Map(drivers.map(d => [d.slug, d]))` + resolveDrivers() match the
+ * UUID sourceDriverIds that project cards carry (global cards use slug keys —
+ * resolveDrivers is key-agnostic). Falls back to the uncertainties' linkedDrivers
+ * if the drivers endpoint is unavailable.
+ */
+export async function getProjectDriverLites(ref: string): Promise<DriverLite[]> {
+  try {
+    const cards = await getForesightDrivers(ref);
+    return cards.map((d, i) => ({
+      slug: d.id,
+      number: i + 1,
+      name: d.name,
+      theme: d.tags[0]?.name ?? "",
+      headline: d.shortDescription ?? "",
+      body: "",
+    }));
+  } catch {
+    const uncs = await getForesightUncertainties(ref).catch(() => []);
+    const byId = new Map<string, DriverLite>();
+    for (const u of uncs) {
+      for (const d of u.linkedDrivers) {
+        if (!byId.has(d.driverId)) {
+          byId.set(d.driverId, {
+            slug: d.driverId,
+            number: byId.size + 1,
+            name: d.name,
+            theme: "",
+            headline: "",
+            body: "",
+          });
+        }
+      }
+    }
+    return [...byId.values()];
+  }
+}
+
+/** Drivers for a world/session by project_id: global slug-keyed, or project UUID-keyed. */
+export async function getDriversForProjectRef(ref: string | null): Promise<DriverLite[]> {
+  return ref ? getProjectDriverLites(ref) : getDrivers();
 }
 
 export function getSeedDeck(): Deck {

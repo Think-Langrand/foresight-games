@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import { getTeams, updateTeam, deleteTeam, drawWildcard } from "@/lib/teams";
-import { getDeck } from "@/lib/cards";
+import { getDeckForProjectId } from "@/lib/cards";
 import { getSessionUser } from "@/lib/supabase-auth";
 import { autoTagTeam, llmConfigured } from "@/lib/analysis/suggest";
 import { KEEP_COUNT, type TeamStatus } from "@/lib/workshop-types";
@@ -48,7 +48,10 @@ export async function PATCH(
     if (!team) return NextResponse.json({ error: "Team not found." }, { status: 404 });
 
     const patch: Parameters<typeof updateTeam>[2] = {};
-    const { deck } = await getDeck();
+    // Validate picks against THIS session's deck (its project's Carmelita deck, or
+    // the global deck when project_id is null). Card codes collide across projects,
+    // so the global deck must never validate a project session's picks.
+    const { deck } = await getDeckForProjectId(session.projectId);
     const cardById = new Map(deck.cards.map((c) => [c.id, c]));
 
     if (body.name !== undefined) patch.name = body.name.trim().slice(0, 60);

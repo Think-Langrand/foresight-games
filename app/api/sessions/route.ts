@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getModel, findScenarioUncertainty, getScenarioList } from "@/lib/model";
 import { createSession, supabaseConfigured } from "@/lib/workshop";
+import { getProjectBySlug } from "@/lib/projects";
+import { getScenario, foresightConfigured } from "@/lib/foresight/client";
+import { resolveConfig, type RipplesConfig } from "@/lib/ripples-types";
 import type { Pacing } from "@/lib/workshop-types";
 
 export const dynamic = "force-dynamic";
@@ -18,11 +21,20 @@ export async function POST(req: Request) {
     );
   }
   let body: {
-    scope?: "Single" | "Full" | "Cards" | "Solo";
+    scope?: "Single" | "Full" | "Cards" | "Solo" | "Ripples";
     scenarioId?: string;
+    // Ripples: the Foresight scenario slug to run against, plus config overrides
+    // (timers, chips, toggles). The premise + resolutions are snapshotted from it.
+    scenarioRef?: string;
+    config?: Record<string, unknown>;
+    // Ripples: one-person self-paced play (no lobby/facilitator, challenge off).
+    solo?: boolean;
     pacing?: Pacing;
     prompt?: string;
     facilitator?: string;
+    // Optional: which project this game belongs to. Absent = the global game
+    // (project_id null) — fully backward compatible.
+    projectSlug?: string;
   };
   try {
     body = await req.json();
@@ -30,6 +42,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
   const { scope, scenarioId, pacing, prompt, facilitator } = body;
+
+  // Only the card game (Cards/Solo) is project-scoped; Single/Full stay global.
+  // getProjectBySlug is enabled-only — you can't start a game under a disabled project.
+  const project = body.projectSlug ? await getProjectBySlug(body.projectSlug) : null;
+  const projectId = project?.id ?? null;
 
   const now = new Date();
   const dateLabel = `${MONTHS[now.getMonth()]} ${now.getDate()}`;
@@ -46,6 +63,7 @@ export async function POST(req: Request) {
         prompt: prompt?.trim() || "Build a future scenario from your cards.",
         title: `Solo worlds — ${dateLabel}`,
         facilitator: facilitator?.trim() || "",
+        projectId,
       });
       return NextResponse.json({ code: session.code, id: session.id });
     } catch (err) {
@@ -64,10 +82,74 @@ export async function POST(req: Request) {
         prompt: prompt?.trim() || "Build a future scenario from your cards.",
         title: `Scenario cards — ${dateLabel}`,
         facilitator: facilitator?.trim() || "",
+        projectId,
       });
       return NextResponse.json({ code: session.code, id: session.id });
     } catch (err) {
       console.error("[POST /api/sessions] cards", err);
+      return NextResponse.json({ error: "Failed to create session." }, { status: 500 });
+    }
+  }
+
+  // ---- Ripples: implications mapping against an existing Foresight scenario ----
+  if (scope === "Ripples") {
+    // Gate: implication mapping is per-project only. Without a valid (enabled)
+    // project we refuse — global/old clients must not reach the scenarios in any
+    // way, and the global entry routes are 404'd to match.
+    if (!project) {
+      return NextResponse.json(
+        { error: "Implication mapping is only available within a project." },
+        { status: 403 }
+      );
+    }
+    if (!body.scenarioRef) {
+      return NextResponse.json({ error: "scenarioRef is required." }, { status: 400 });
+    }
+    if (!foresightConfigured()) {
+      return NextResponse.json(
+        { error: "Scenario platform is not configured on the server." },
+        { status: 503 }
+      );
+    }
+    const projectRef = project.carmelitaProjectRef;
+    try {
+      const scenario = await getScenario(body.scenarioRef, projectRef);
+      if (!scenario) {
+        return NextResponse.json({ error: "Scenario not found." }, { status: 404 });
+      }
+      const solo = body.solo === true;
+      // Start from validated overrides (timers/chips/toggles), then snapshot the
+      // scenario premise + resolutions authoritatively (never client-controlled).
+      const config: RipplesConfig = {
+        ...resolveConfig(body.config ?? null),
+        // Solo is a group-free, self-paced mode: no challenge vote.
+        solo,
+        challengeEnabled: solo ? false : resolveConfig(body.config ?? null).challengeEnabled,
+        scenarioRef: scenario.id,
+        projectRef: project.carmelitaProjectRef,
+        scenarioTitle: scenario.title,
+        premise: scenario.body || scenario.teaser || "",
+        resolutions: (scenario.linkedUncertainties ?? []).map((u) => ({
+          uncertaintyId: u.uncertaintyId,
+          title: u.title,
+          resolution: u.resolution,
+        })),
+      };
+      const session = await createSession({
+        scope: "Ripples",
+        uncertaintyId: null,
+        mode: "Divergent",
+        prompt: scenario.title,
+        title: scenario.title || `Ripples — ${dateLabel}`,
+        facilitator: facilitator?.trim() || "",
+        projectId,
+        config: config as unknown as Record<string, unknown>,
+        // Solo skips the lobby — drop the player straight into the premise.
+        phase: solo ? "PREMISE" : undefined,
+      });
+      return NextResponse.json({ code: session.code, id: session.id });
+    } catch (err) {
+      console.error("[POST /api/sessions] ripples", err);
       return NextResponse.json({ error: "Failed to create session." }, { status: 500 });
     }
   }

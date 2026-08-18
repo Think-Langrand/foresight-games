@@ -8,12 +8,29 @@ import { teamTriadIds, type Card, type Team } from "@/lib/workshop-types";
 
 type StatusFilter = "all" | "submitted" | "drafting";
 
-// Admin "entries" surface across every session: filter by status, gather a
-// selection into a group, and export that group as CSV or a JSON array. Public
-// viewing lives at /scenario-molecules; this is the managed copy.
-export function AdminTeamsManager({ teams, deck }: { teams: Team[]; deck: Card[] }) {
+// Admin "entries" surface across every session AND project: filter by status,
+// gather a selection into a group, and export that group as CSV or a JSON array.
+// Card codes collide across projects, so each team's triad is resolved against
+// ITS project's deck (cardsByProject, keyed by projectId, plus "global").
+export function AdminTeamsManager({
+  teams,
+  cardsByProject,
+  projectMeta,
+}: {
+  teams: Team[];
+  cardsByProject: Record<string, Card[]>;
+  projectMeta: Record<string, { slug: string; name: string }>;
+}) {
   const router = useRouter();
-  const byId = useMemo(() => new Map(deck.map((c) => [c.id, c])), [deck]);
+  const byIdByKey = useMemo(() => {
+    const m: Record<string, Map<string, Card>> = {};
+    for (const [k, cards] of Object.entries(cardsByProject)) {
+      m[k] = new Map(cards.map((c) => [c.id, c]));
+    }
+    return m;
+  }, [cardsByProject]);
+  const cardsFor = (t: Team): Map<string, Card> =>
+    byIdByKey[t.projectId ?? "global"] ?? byIdByKey.global ?? new Map<string, Card>();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("all");
@@ -59,8 +76,9 @@ export function AdminTeamsManager({ teams, deck }: { teams: Team[]; deck: Card[]
 
   // A flattened export record — resolves the triad card ids to their titles.
   function record(t: Team) {
+    const map = cardsFor(t);
     const cards = teamTriadIds(t)
-      .map((id) => byId.get(id))
+      .map((id) => map.get(id))
       .filter((c): c is Card => Boolean(c))
       .map((c) => ({ title: c.title, role: c.role, dimension: c.dimension, condition: c.condition }));
     return {
@@ -198,11 +216,17 @@ export function AdminTeamsManager({ teams, deck }: { teams: Team[]; deck: Card[]
       ) : (
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((t) => {
+            const map = cardsFor(t);
             const triad = teamTriadIds(t)
-              .map((id) => byId.get(id))
+              .map((id) => map.get(id))
               .filter((c): c is Card => Boolean(c));
             const submitted = t.status === "Submitted";
             const isSelected = selected.has(t.id);
+            const meta = t.projectId ? projectMeta[t.projectId] : null;
+            const projectLabel = meta?.name ?? (t.projectId ? "Project" : "Global");
+            const viewHref = meta
+              ? `/project/${meta.slug}/scenario-molecules/${t.id}`
+              : `/scenario-molecules/${t.id}`;
             return (
               <div
                 key={t.id}
@@ -226,12 +250,23 @@ export function AdminTeamsManager({ teams, deck }: { teams: Team[]; deck: Card[]
                     />
                     <span className="text-[14px] font-extrabold">{t.name || "Entry"}</span>
                   </label>
-                  <Link
-                    href={`/admin/s/${t.code}`}
-                    className="text-[10px] font-bold uppercase tracking-[0.08em] text-blue underline"
-                  >
-                    {t.code}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={
+                        "rounded-[2px] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] " +
+                        (t.projectId ? "bg-blue text-white" : "bg-[var(--hairline)] text-muted")
+                      }
+                      title={t.projectId ? "Project game" : "Global game"}
+                    >
+                      {projectLabel}
+                    </span>
+                    <Link
+                      href={`/admin/s/${t.code}`}
+                      className="text-[10px] font-bold uppercase tracking-[0.08em] text-blue underline"
+                    >
+                      {t.code}
+                    </Link>
+                  </div>
                 </div>
 
                 {t.worldTitle ? (
@@ -265,7 +300,7 @@ export function AdminTeamsManager({ teams, deck }: { teams: Team[]; deck: Card[]
                   </span>
                   <div className="flex items-center gap-3">
                     <Link
-                      href={`/scenario-molecules/${t.id}`}
+                      href={viewHref}
                       className="text-[11px] font-bold uppercase tracking-[0.06em] text-blue hover:underline"
                     >
                       View →

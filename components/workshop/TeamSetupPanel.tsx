@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { postTeam, patchTeam } from "@/components/workshop/hooks";
-import { DOMAIN_ORDER, type Card, type Deck, type Team } from "@/lib/workshop-types";
+import { orderedDomains, type Card, type Deck, type Team } from "@/lib/workshop-types";
 
 /**
  * Facilitator-only setup, shown on the projector screen. Pre-creates breakout
@@ -221,7 +221,7 @@ function AssignPicker({
         : [],
     [deck, uncId]
   );
-  const domains = DOMAIN_ORDER.filter((d) => deck.uncertainties.some((u) => u.domain === d));
+  const domains = orderedDomains(deck.uncertainties);
 
   return (
     <div

@@ -12,10 +12,13 @@ export function CardsPresentView({
   code,
   deck,
   drivers = [],
+  basePath = "",
 }: {
   code: string;
   deck: Deck;
   drivers?: DriverLite[];
+  // "" global; "/project/<slug>" so the join URL/QR sends players to the gated route.
+  basePath?: string;
 }) {
   const { view, error, loading, refresh } = useCardsView(code, 4000);
   const byId = useMemo(() => new Map(deck.cards.map((c) => [c.id, c])), [deck]);
@@ -48,8 +51,8 @@ export function CardsPresentView({
   const submitted = teams.filter((t) => t.status === "Submitted").length;
   const joinUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/workshop/s/${code}`
-      : `/workshop/s/${code}`;
+      ? `${window.location.origin}${basePath}/workshop/s/${code}`
+      : `${basePath}/workshop/s/${code}`;
 
   async function setStatus(status: "Open" | "Closed") {
     setBusy(true);
