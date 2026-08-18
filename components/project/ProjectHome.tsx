@@ -44,6 +44,14 @@ const CARD_ITEMS: Record<CardKey, CardDef> = {
     image: playImg,
     href: (slug) => `/project/${slug}/play`,
   },
+  ripples: {
+    eyebrow: "Play solo",
+    title: "Implication mapping",
+    body: "Pick one of this project's scenarios and work out what follows — map its implications in three rounds, then reflect.",
+    image: driversImg,
+    accent: true,
+    href: (slug) => `/project/${slug}/play/ripples`,
+  },
   gallery: {
     eyebrow: "The gallery",
     title: "View entries",

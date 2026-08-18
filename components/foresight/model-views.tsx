@@ -16,6 +16,7 @@ import {
   ForesightUnavailable,
 } from "@/components/foresight/notice";
 import { SignedImage } from "@/components/foresight/SignedImage";
+import { DriverSignals } from "@/components/foresight/DriverSignals";
 
 // Per-project driver + uncertainty views, pulled live from the Carmelita model
 // endpoints for the project's `carmelita_project_ref`. Styled to match the global
@@ -80,7 +81,7 @@ async function DriversGrid({ projectRef }: { projectRef?: string }) {
   }
 
   return (
-    <div className="mt-8 grid gap-4 md:grid-cols-2">
+    <div className="mt-8 grid items-start gap-4 md:grid-cols-2">
       {drivers.map((d) => (
         <article
           key={d.id}
@@ -116,6 +117,7 @@ async function DriversGrid({ projectRef }: { projectRef?: string }) {
                 ))}
               </div>
             )}
+            <DriverSignals sources={d.sources} />
           </div>
         </article>
       ))}

@@ -46,6 +46,10 @@ interface SessionRow {
   facilitator: string;
   created_at: string;
   project_id: string | null;
+  // Ripples-only (migration 0007); other scopes carry the column defaults.
+  phase: string | null;
+  phase_ends_at: string | null;
+  config: Record<string, unknown> | null;
 }
 interface SubmissionRow {
   id: string;
@@ -83,6 +87,9 @@ function mapSession(r: SessionRow): WorkshopSession {
     facilitator: r.facilitator ?? "",
     createdTime: r.created_at,
     projectId: r.project_id ?? null,
+    phase: r.phase ?? "LOBBY",
+    phaseEndsAt: r.phase_ends_at ?? null,
+    config: r.config ?? null,
   };
 }
 
@@ -104,6 +111,8 @@ export interface SessionSummary {
   submittedTeamCount: number;
   submissionCount: number;
   responseCount: number;
+  // Ripples boards for this session (the Cards `teams` table is empty for Ripples).
+  rippleTeamCount: number;
 }
 
 // All sessions, newest first, each with rollup counts (for the admin index).
@@ -122,13 +131,14 @@ export async function listSessions(
         ? sesQuery.is("project_id", null)
         : sesQuery.eq("project_id", opts.projectId);
   }
-  const [sesRes, teamRes, subRes, respRes] = await Promise.all([
+  const [sesRes, teamRes, subRes, respRes, rippleTeamRes] = await Promise.all([
     sesQuery,
     db.from("teams").select("code, status"),
     db.from("submissions").select("code"),
     db.from("responses").select("code"),
+    db.from("ripple_teams").select("code"),
   ]);
-  for (const r of [sesRes, teamRes, subRes, respRes]) if (r.error) throw r.error;
+  for (const r of [sesRes, teamRes, subRes, respRes, rippleTeamRes]) if (r.error) throw r.error;
 
   const tally = (rows: { code: string }[]) => {
     const m = new Map<string, number>();
@@ -140,6 +150,7 @@ export async function listSessions(
   const submittedCounts = tally(teams.filter((t) => t.status === "Submitted"));
   const subCounts = tally((subRes.data ?? []) as { code: string }[]);
   const respCounts = tally((respRes.data ?? []) as { code: string }[]);
+  const rippleTeamCounts = tally((rippleTeamRes.data ?? []) as { code: string }[]);
 
   return (sesRes.data as SessionRow[]).map((r) => {
     const session = mapSession(r);
@@ -149,6 +160,7 @@ export async function listSessions(
       submittedTeamCount: submittedCounts.get(session.code) ?? 0,
       submissionCount: subCounts.get(session.code) ?? 0,
       responseCount: respCounts.get(session.code) ?? 0,
+      rippleTeamCount: rippleTeamCounts.get(session.code) ?? 0,
     };
   });
 }
@@ -182,6 +194,12 @@ export async function createSession(input: {
   facilitator?: string;
   // null (default) = the global game; set = a per-project game.
   projectId?: string | null;
+  // Ripples: the per-session config jsonb (timers, chips, toggles, snapshotted
+  // scenario premise + resolutions). Ignored by other scopes.
+  config?: Record<string, unknown> | null;
+  // Ripples: the starting phase (solo starts at 'PREMISE', skipping the lobby).
+  // Defaults to the column default ('LOBBY').
+  phase?: string;
 }): Promise<WorkshopSession> {
   const db = supabaseAdmin();
   // Insert with a fresh code; retry a few times on the rare unique collision.
@@ -201,6 +219,9 @@ export async function createSession(input: {
         status: "Open",
         facilitator: input.facilitator ?? "",
         project_id: input.projectId ?? null,
+        // phase_ends_at uses the column default (null); phase defaults to 'LOBBY'.
+        ...(input.phase ? { phase: input.phase } : {}),
+        config: input.config ?? {},
       })
       .select("*")
       .single();
@@ -219,6 +240,11 @@ export async function updateSession(
     status: SessionStatus;
     prompt: string;
     currentUncertaintyId: string;
+    // Ripples phase machine. phaseEndsAt may be set to null (untimed phase), so
+    // it is applied whenever the key is present, not just when truthy.
+    phase: string;
+    phaseEndsAt: string | null;
+    config: Record<string, unknown>;
   }>
 ): Promise<void> {
   const fields: Record<string, unknown> = {};
@@ -226,6 +252,9 @@ export async function updateSession(
   if (patch.status) fields.status = patch.status;
   if (patch.prompt !== undefined) fields.prompt = patch.prompt;
   if (patch.currentUncertaintyId) fields.uncertainty_id = patch.currentUncertaintyId;
+  if (patch.phase) fields.phase = patch.phase;
+  if (patch.phaseEndsAt !== undefined) fields.phase_ends_at = patch.phaseEndsAt;
+  if (patch.config !== undefined) fields.config = patch.config;
   if (Object.keys(fields).length === 0) return;
   const { error } = await supabaseAdmin().from("sessions").update(fields).eq("id", id);
   if (error) throw error;

@@ -11,6 +11,7 @@
 export type HomeItemKey =
   | "scenario-sets"
   | "play"
+  | "ripples"
   | "gallery"
   | "drivers"
   | "uncertainties"
@@ -30,6 +31,7 @@ export interface HomeConfig {
 export const PROJECT_HOME_ITEMS: { key: HomeItemKey; label: string }[] = [
   { key: "scenario-sets", label: "Scenario sets" },
   { key: "play", label: "Play the card game" },
+  { key: "ripples", label: "Implication mapping" },
   { key: "gallery", label: "Gallery" },
   { key: "drivers", label: "Drivers" },
   { key: "uncertainties", label: "Uncertainties" },
