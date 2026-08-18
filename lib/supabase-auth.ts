@@ -40,8 +40,14 @@ export async function getSessionUser(): Promise<User | null> {
       },
     },
   });
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user ?? null;
+  // getUser() throws an AuthApiError on a stale/invalid refresh token; treat that
+  // (like any auth failure) as "not signed in" rather than crashing the page.
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user ?? null;
+  } catch {
+    return null;
+  }
 }
