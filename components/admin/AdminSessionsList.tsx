@@ -34,12 +34,12 @@ export function AdminSessionsList({
   );
   const allSelected = selected.size > 0 && selected.size === codes.length;
 
-  // A session has real results worth protecting if any team submitted (Cards)
-  // or any text submission landed (Full/Single).
+  // A session has real results worth protecting if any team submitted (Cards),
+  // any team joined a Ripples board, or any text submission landed (Full/Single).
   function hasResults(summary: SessionSummary): boolean {
-    return summary.session.scope === "Cards"
-      ? summary.submittedTeamCount > 0
-      : summary.submissionCount > 0;
+    if (summary.session.scope === "Cards") return summary.submittedTeamCount > 0;
+    if (summary.session.scope === "Ripples") return summary.rippleTeamCount > 0;
+    return summary.submissionCount > 0;
   }
 
   function toggle(code: string) {
@@ -75,8 +75,17 @@ export function AdminSessionsList({
       const list = withResults
         .map((s) => {
           const n =
-            s.session.scope === "Cards" ? s.submittedTeamCount : s.submissionCount;
-          const kind = s.session.scope === "Cards" ? "submitted team(s)" : "submission(s)";
+            s.session.scope === "Cards"
+              ? s.submittedTeamCount
+              : s.session.scope === "Ripples"
+                ? s.rippleTeamCount
+                : s.submissionCount;
+          const kind =
+            s.session.scope === "Cards"
+              ? "submitted team(s)"
+              : s.session.scope === "Ripples"
+                ? "team(s)"
+                : "submission(s)";
           return `  • ${s.session.code}${s.session.title ? ` — ${s.session.title}` : ""}: ${n} ${kind}`;
         })
         .join("\n");
@@ -163,7 +172,7 @@ export function AdminSessionsList({
             </tr>
           </thead>
           <tbody>
-            {sessions.map(({ session: s, teamCount, submittedTeamCount, submissionCount }) => {
+            {sessions.map(({ session: s, teamCount, submittedTeamCount, submissionCount, rippleTeamCount }) => {
               const checked = selected.has(s.code);
               return (
                 <tr
@@ -237,6 +246,10 @@ export function AdminSessionsList({
                         // No submissions — safe to clean up.
                         <span className="text-muted">0/{teamCount}</span>
                       )
+                    ) : s.scope === "Ripples" ? (
+                      <span className={rippleTeamCount > 0 ? "font-bold" : "text-muted"}>
+                        {rippleTeamCount} team{rippleTeamCount === 1 ? "" : "s"}
+                      </span>
                     ) : (
                       <span className="text-muted">—</span>
                     )}

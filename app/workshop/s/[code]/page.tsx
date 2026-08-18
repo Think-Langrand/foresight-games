@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { ParticipantView } from "@/components/workshop/ParticipantView";
 import { CardsTeamView } from "@/components/workshop/CardsTeamView";
+import { RipplesTeamView } from "@/components/workshop/RipplesTeamView";
 import { getModel, getScenarioList } from "@/lib/model";
 import { getDeck } from "@/lib/cards";
 import { getDrivers } from "@/lib/drivers";
 import { getSessionByCode } from "@/lib/workshop";
+import { getRippleScenario } from "@/lib/ripples";
 import { getProjectById } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +27,13 @@ export default async function SessionPage({
   if (session?.projectId) {
     const project = await getProjectById(session.projectId);
     if (project) redirect(`/project/${project.slug}/workshop/s/${upper}`);
+  }
+
+  // Ripples: the implications-mapping surface (no deck; premise + config live on
+  // the session, delivered live via the ripples payload).
+  if (session?.scope === "Ripples") {
+    const scenario = await getRippleScenario(session);
+    return <RipplesTeamView code={upper} scenario={scenario} />;
   }
 
   // Cards + Solo sessions get the team/card surface; everything else the

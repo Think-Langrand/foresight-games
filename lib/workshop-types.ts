@@ -6,9 +6,11 @@ export type Lean = "Toward Pole A" | "Toward Pole B" | "Neither / both";
 export type ResponseKind = "Upvote submission" | "Outcome reaction" | "Poll answer";
 
 // A session either works one uncertainty (launched from Explore), the whole
-// set, the team card game (draw outcome cards, build scenario triads), or a
-// solo card game — one person building worlds on their own device, no lobby.
-export type SessionScope = "Single" | "Full" | "Cards" | "Solo";
+// set, the team card game (draw outcome cards, build scenario triads), a
+// solo card game — one person building worlds on their own device, no lobby —
+// or the Ripples implications-mapping game (chain causal implications inside a
+// scenario, then wager chips). Ripples uses the phase/phaseEndsAt/config fields.
+export type SessionScope = "Single" | "Full" | "Cards" | "Solo" | "Ripples";
 // For Full sessions: who drives the walk through the uncertainties.
 export type Pacing = "Facilitator-paced" | "Participant-paced";
 
@@ -29,6 +31,14 @@ export interface WorkshopSession {
   // null = the global game (shared Supabase deck); set = a per-project game whose
   // deck comes from that project's Carmelita model.
   projectId: string | null;
+  // Ripples-only. The facilitator-advanced phase (see RipplePhase), the current
+  // timed-phase deadline (null = untimed), and the per-session config jsonb (see
+  // RipplesConfig). Other scopes carry the column default ('LOBBY'/null/{}) and
+  // ignore these. Typed loosely here to keep this base module free of Ripples
+  // imports; the Ripples layer narrows `config` to RipplesConfig.
+  phase: string;
+  phaseEndsAt: string | null;
+  config: Record<string, unknown> | null;
 }
 
 export interface Submission {

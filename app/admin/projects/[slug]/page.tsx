@@ -114,6 +114,20 @@ export default async function ProjectAdminPage({
       </section>
 
       <section className="mt-12">
+        <span className="eyebrow ink">Run implication mapping</span>
+        <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-muted">
+          Pick one of this project&rsquo;s scenarios and have the room map its implications in three
+          rounds, then answer the reflection questions.
+        </p>
+        <Link
+          href={`/project/${slug}/workshop/ripples/new`}
+          className="mt-3 inline-block rounded-[2px] border border-ink bg-lime px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep"
+        >
+          Set up implication mapping →
+        </Link>
+      </section>
+
+      <section className="mt-12">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="eyebrow ink">Entries</span>
           <Link

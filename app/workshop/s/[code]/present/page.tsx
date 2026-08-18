@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { PresentView } from "@/components/workshop/PresentView";
 import { CardsPresentView } from "@/components/workshop/CardsPresentView";
+import { RipplesPresentView } from "@/components/workshop/RipplesPresentView";
 import { getModel, getScenarioList } from "@/lib/model";
 import { getDeck } from "@/lib/cards";
 import { getDrivers } from "@/lib/drivers";
 import { getSessionByCode } from "@/lib/workshop";
+import { getRippleArt } from "@/lib/ripples";
 import { getProjectById } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +25,11 @@ export default async function PresentPage({
   if (session?.projectId) {
     const project = await getProjectById(session.projectId);
     if (project) redirect(`/project/${project.slug}/workshop/s/${upper}/present`);
+  }
+
+  if (session?.scope === "Ripples") {
+    const art = await getRippleArt(session);
+    return <RipplesPresentView code={upper} art={art} />;
   }
 
   if (session?.scope === "Cards") {

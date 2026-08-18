@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { getProjectBySlug } from "@/lib/projects";
 import { getSessionByCode } from "@/lib/workshop";
+import { getRippleArt } from "@/lib/ripples";
 import { getDeckForProjectId, getDriversForProjectRef } from "@/lib/cards";
 import { CardsPresentView } from "@/components/workshop/CardsPresentView";
+import { RipplesPresentView } from "@/components/workshop/RipplesPresentView";
 import { ForesightUnavailable } from "@/components/foresight/notice";
 import { describeForesightFailure } from "@/lib/foresight/client";
 import type { Deck } from "@/lib/workshop-types";
@@ -22,7 +24,15 @@ export default async function ProjectPresentPage({
   if (!project) notFound();
 
   const session = await getSessionByCode(upper).catch(() => null);
-  if (!session || session.projectId !== project.id || session.scope !== "Cards") notFound();
+  if (!session || session.projectId !== project.id) notFound();
+
+  // Ripples projector — no deck needed.
+  if (session.scope === "Ripples") {
+    const art = await getRippleArt(session);
+    return <RipplesPresentView code={upper} art={art} basePath={`/project/${title}`} />;
+  }
+
+  if (session.scope !== "Cards") notFound();
 
   let deck: Deck | null = null;
   let drivers: DriverLite[] = [];
