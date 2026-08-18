@@ -30,16 +30,29 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // IMPORTANT: getUser() must be called to refresh the token cookies.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // IMPORTANT: getUser() must be called to refresh the token cookies. It THROWS an
+  // AuthApiError ("Invalid Refresh Token") when the request carries a stale/expired
+  // auth cookie (e.g. left over from another Supabase project or a prior deploy) —
+  // so it must be caught, or the admin area 500s instead of bouncing to /login.
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    user = null;
+  }
 
   if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    // Clear any stale Supabase auth cookies so a bad refresh token doesn't keep
+    // re-triggering the error on every subsequent request.
+    for (const c of request.cookies.getAll()) {
+      if (c.name.startsWith("sb-")) redirect.cookies.delete(c.name);
+    }
+    return redirect;
   }
 
   return response;
