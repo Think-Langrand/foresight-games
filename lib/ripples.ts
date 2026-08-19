@@ -10,6 +10,7 @@ import {
   type RippleArtImage,
   type RippleCard,
   type RippleChip,
+  type RipplePhase,
   type RipplePlayer,
   type RippleTeam,
   type RipplesView,
@@ -154,6 +155,63 @@ export async function getRipplesView(session: WorkshopSession): Promise<RipplesV
     chips: chips.map(mapChip),
     fetchedAt: Date.now(),
   };
+}
+
+// ---------- admin rollup: one summary per Ripples session ----------
+export interface RippleMapSummary {
+  code: string;
+  title: string; // scenario title (snapshotted in config)
+  phase: RipplePhase;
+  status: string;
+  createdTime: string;
+  players: number;
+  submitted: number; // players with submitted_at
+  implications: number; // ripple_cards on the board(s)
+}
+
+// Batch rollup for a set of Ripples sessions — two aggregate queries tallied by
+// code, no per-session round-trips. Used by the project admin's "Implication maps"
+// section. Scenario title comes from the snapshotted config (no Foresight call).
+export async function listRippleMaps(sessions: WorkshopSession[]): Promise<RippleMapSummary[]> {
+  if (sessions.length === 0 || !supabaseConfigured()) return [];
+  const codes = sessions.map((s) => up(s.code));
+  const { players, cards } = await withRetry(async () => {
+    const db = supabaseAdmin();
+    const [playerRes, cardRes] = await Promise.all([
+      db.from("ripple_players").select("code, submitted_at").in("code", codes),
+      db.from("ripple_cards").select("code").in("code", codes),
+    ]);
+    for (const r of [playerRes, cardRes]) if (r.error) throw r.error;
+    return {
+      players: (playerRes.data ?? []) as { code: string; submitted_at: string | null }[],
+      cards: (cardRes.data ?? []) as { code: string }[],
+    };
+  });
+
+  const playerTotals = new Map<string, number>();
+  const submittedTotals = new Map<string, number>();
+  for (const p of players) {
+    playerTotals.set(p.code, (playerTotals.get(p.code) ?? 0) + 1);
+    if (p.submitted_at) submittedTotals.set(p.code, (submittedTotals.get(p.code) ?? 0) + 1);
+  }
+  const cardTotals = new Map<string, number>();
+  for (const c of cards) cardTotals.set(c.code, (cardTotals.get(c.code) ?? 0) + 1);
+
+  return sessions
+    .map((s) => {
+      const code = up(s.code);
+      return {
+        code: s.code,
+        title: resolveConfig(s.config).scenarioTitle,
+        phase: s.phase as RipplePhase,
+        status: s.status,
+        createdTime: s.createdTime,
+        players: playerTotals.get(code) ?? 0,
+        submitted: submittedTotals.get(code) ?? 0,
+        implications: cardTotals.get(code) ?? 0,
+      };
+    })
+    .sort((a, b) => (a.createdTime < b.createdTime ? 1 : -1));
 }
 
 // Fresh scenario artwork for a Ripples session, resolved live from Foresight so

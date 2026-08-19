@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { listSessions, supabaseConfigured } from "@/lib/workshop";
 import { listAllTeams } from "@/lib/teams";
 import { getDeck } from "@/lib/cards";
+import { listRippleMaps } from "@/lib/ripples";
 import { getProjectBySlugAny } from "@/lib/projects";
 import type { Card } from "@/lib/workshop-types";
 import { AdminSessionsList } from "@/components/admin/AdminSessionsList";
+import { AdminRippleMaps } from "@/components/admin/AdminRippleMaps";
 import { AdminTeamsManager } from "@/components/admin/AdminTeamsManager";
 import { CardGameLauncher } from "@/components/CardGameLauncher";
 
@@ -39,6 +41,13 @@ export default async function ProjectAdminPage({
     listSessions({ projectId: project.id }),
     listAllTeams({ projectId: project.id }),
   ]);
+
+  // Implication maps = this project's Ripples sessions. Roll up player/implication/
+  // submitted counts, then keep the ones someone actually built on.
+  const rippleSessions = sessions.map((s) => s.session).filter((s) => s.scope === "Ripples");
+  const rippleMaps = rippleSessions.length
+    ? (await listRippleMaps(rippleSessions)).filter((m) => m.implications > 0)
+    : [];
 
   // This project's Carmelita deck (for the entries' triad cards). Tolerate the
   // platform being down — entries still list, just without their cards.
@@ -139,6 +148,13 @@ export default async function ProjectAdminPage({
         </div>
         <AdminTeamsManager teams={teams} cardsByProject={cardsByProject} projectMeta={projectMeta} />
       </section>
+
+      {rippleSessions.length > 0 && (
+        <section className="mt-12">
+          <span className="eyebrow ink">Implication maps</span>
+          <AdminRippleMaps maps={rippleMaps} />
+        </section>
+      )}
 
       <section className="mt-12">
         <span className="eyebrow ink">All sessions</span>

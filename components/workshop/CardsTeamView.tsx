@@ -710,11 +710,19 @@ function UncertaintyBoard({
   excludeUncIds: Set<string>;
   onPick: (id: string) => void;
 }) {
-  const domains = orderedDomains(uncertainties);
+  // Group by capability domain — but guard against a project whose platform leaves
+  // domains blank: orderedDomains drops falsy domains, which would render an EMPTY
+  // picker (you can seed slot 1 but never pick a 2nd/3rd). Bucket any ungrouped
+  // uncertainties under a fallback heading so they stay pickable.
+  const groups = orderedDomains(uncertainties).map((domain) => ({
+    domain,
+    items: uncertainties.filter((u) => u.domain === domain),
+  }));
+  const ungrouped = uncertainties.filter((u) => !u.domain);
+  if (ungrouped.length) groups.push({ domain: "Uncertainties", items: ungrouped });
   return (
     <div className="mt-3 flex flex-col gap-4">
-      {domains.map((domain) => {
-        const items = uncertainties.filter((u) => u.domain === domain);
+      {groups.map(({ domain, items }) => {
         return (
           <div key={domain}>
             <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-blue">
