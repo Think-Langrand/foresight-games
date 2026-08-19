@@ -313,6 +313,9 @@ function TeamPlay({
   const soloSeedLocked = solo && Boolean(slot1) && !seedUnlocked && !locked;
   const slot2 = team.keptIds[0] ? byId.get(team.keptIds[0]) : undefined;
   const slot3 = team.keptIds[1] ? byId.get(team.keptIds[1]) : undefined;
+  // Only offer the wildcard stress-test when the deck actually holds one (Carmelita
+  // projects are often all-Core), else the "Draw a wildcard" button is a dead end.
+  const hasWildcards = [...byId.values()].some((c) => c.role === "Wildcard");
 
   // Uncertainty ids already used across the filled slots. A locked seed is always
   // in play; a free slot 1 contributes its chosen card's uncertainty like any slot.
@@ -444,6 +447,7 @@ function TeamPlay({
             team={team}
             triad={triadCards}
             wildcard={team.wildcardId ? byId.get(team.wildcardId) ?? null : null}
+            hasWildcards={hasWildcards}
             locked={locked}
             driversBySlug={driversBySlug}
             onChange={onChange}
