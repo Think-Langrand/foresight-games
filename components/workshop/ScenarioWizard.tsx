@@ -43,6 +43,7 @@ export function ScenarioWizard({
   team,
   triad,
   wildcard,
+  hasWildcards,
   locked,
   driversBySlug,
   onChange,
@@ -51,6 +52,7 @@ export function ScenarioWizard({
   team: Team;
   triad: Card[];
   wildcard: Card | null;
+  hasWildcards: boolean;
   locked: boolean;
   driversBySlug: Map<string, DriverLite>;
   onChange: () => void;
@@ -158,6 +160,7 @@ export function ScenarioWizard({
           <TriadStep
             triad={triad}
             wildcard={wildcard}
+            hasWildcards={hasWildcards}
             driversBySlug={driversBySlug}
             onDrawWild={drawWild}
             drawing={busy === "wild"}
@@ -266,12 +269,14 @@ function Field({
 function TriadStep({
   triad,
   wildcard,
+  hasWildcards,
   driversBySlug,
   onDrawWild,
   drawing,
 }: {
   triad: Card[];
   wildcard: Card | null;
+  hasWildcards: boolean;
   driversBySlug: Map<string, DriverLite>;
   onDrawWild: () => void;
   drawing: boolean;
@@ -323,13 +328,16 @@ function TriadStep({
           </div>
         </div>
       ) : (
-        <button
-          onClick={onDrawWild}
-          disabled={drawing}
-          className="mt-4 rounded-[2px] border border-[var(--hairline)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted hover:border-ink disabled:opacity-50"
-        >
-          {drawing ? "…" : "Draw a wildcard"}
-        </button>
+        // Only offer the draw when the deck actually holds a wildcard.
+        hasWildcards && (
+          <button
+            onClick={onDrawWild}
+            disabled={drawing}
+            className="mt-4 rounded-[2px] border border-[var(--hairline)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted hover:border-ink disabled:opacity-50"
+          >
+            {drawing ? "…" : "Draw a wildcard"}
+          </button>
+        )
       )}
     </div>
   );
