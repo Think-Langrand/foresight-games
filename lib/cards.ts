@@ -51,7 +51,16 @@ function toRole(r: string): CardRole {
   return r === "Edge" || r === "Wildcard" ? r : "Core";
 }
 
-function buildDeck(uncertaintiesInput: UncertaintyRow[]): Deck {
+function buildDeck(input: UncertaintyRow[]): Deck {
+  // Guard: guarantee a non-empty, stable uncertainty id even when the platform
+  // leaves it blank (some Carmelita projects don't set one). Cards and the slot
+  // picker key off this id, so a blank/duplicate id would collapse the 2nd/3rd-slot
+  // picker (every uncertainty reads as the same one, already "in play"). Falls back
+  // to the uncertainty number.
+  const uncertaintiesInput = input.map((u) => ({
+    ...u,
+    id: u.id?.trim() || `u${u.number}`,
+  }));
   const cards: Card[] = [];
   for (const u of uncertaintiesInput) {
     for (const o of u.outcomes) {
