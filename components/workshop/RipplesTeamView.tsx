@@ -78,7 +78,7 @@ export function RipplesTeamView({
   scenario?: Scenario | null;
   drivers?: PublicDriverCard[];
 }) {
-  const { view, error, loading } = useRipplesView(code);
+  const { view, error, loading, refresh } = useRipplesView(code);
   const { pid, nick, saveNick } = useParticipant();
   const { playerId, join } = useJoinedPlayer(code);
   // Instant local mutations layered over the (laggy) realtime board.
@@ -108,11 +108,17 @@ export function RipplesTeamView({
     if (!view || !view.config.solo || playerId || autoJoined.current || !pid) return;
     autoJoined.current = true;
     postRipplePlayer(code, { participantId: pid, displayName: nick || "You", teamName: "My map" })
-      .then((res) => join(res.player.id))
+      .then((res) => {
+        join(res.player.id);
+        // Pull the freshly-created board/player straight away — don't wait on a
+        // realtime event (which can be missed at mount), or the solo screen hangs
+        // on "Setting up your map…" until a manual refresh.
+        refresh();
+      })
       .catch(() => {
         autoJoined.current = false;
       });
-  }, [view, playerId, pid, nick, code, join]);
+  }, [view, playerId, pid, nick, code, join, refresh]);
 
   if (loading && !view) return <Centered>Loading session…</Centered>;
   if (error && !view)
@@ -161,6 +167,7 @@ export function RipplesTeamView({
               saveNick(displayName);
               const res = await postRipplePlayer(code, { participantId: pid, displayName, teamId, teamName });
               join(res.player.id);
+              refresh(); // show the joined board at once instead of waiting on realtime
             })
           }
         />
