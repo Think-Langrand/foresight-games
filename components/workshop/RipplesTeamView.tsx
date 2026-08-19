@@ -885,30 +885,8 @@ function ScenarioContext({
           )}
         </div>
       )}
-      {config.resolutions.length > 0 && <ResolutionsDetails resolutions={config.resolutions} />}
+      {/* "How the uncertainties resolved" intentionally hidden for now. */}
     </div>
-  );
-}
-
-function ResolutionsDetails({
-  resolutions,
-}: {
-  resolutions: { uncertaintyId: string; title: string; resolution: string }[];
-}) {
-  return (
-    <details className="rounded-[3px] border border-[var(--hairline)] bg-card p-4">
-      <summary className="cursor-pointer text-[12px] font-bold uppercase tracking-[0.08em] text-muted">
-        How the uncertainties resolved ({resolutions.length})
-      </summary>
-      <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-        {resolutions.map((r) => (
-          <div key={r.uncertaintyId || r.title} className="border-l-2 border-[var(--lime-deep)] pl-3">
-            <dt className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">{r.title}</dt>
-            <dd className="text-[13px]">{r.resolution}</dd>
-          </div>
-        ))}
-      </dl>
-    </details>
   );
 }
 
