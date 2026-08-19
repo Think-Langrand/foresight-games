@@ -7,7 +7,7 @@ import type {
   PublicDriverCard,
   Scenario,
 } from "@/lib/foresight/types";
-import { ScenarioReader } from "@/components/foresight/ScenarioReader";
+import { ScenarioReaderPaged } from "@/components/foresight/ScenarioReaderPaged";
 import { SignedImage } from "@/components/foresight/SignedImage";
 import { DriverSignals } from "@/components/foresight/DriverSignals";
 
@@ -51,7 +51,7 @@ export function ScenarioTabs({
   const [tab, setTab] = useState<TabKey>("scenario");
 
   // Nothing extra to surface → just the reader.
-  if (!hasDrivers && !hasSignals) return <ScenarioReader scenario={scenario} />;
+  if (!hasDrivers && !hasSignals) return <ScenarioReaderPaged scenario={scenario} />;
 
   return (
     <div>
@@ -76,7 +76,7 @@ export function ScenarioTabs({
       ) : tab === "signals" && hasSignals ? (
         <SignalsPanel signals={signals} />
       ) : (
-        <ScenarioReader scenario={scenario} />
+        <ScenarioReaderPaged scenario={scenario} />
       )}
     </div>
   );
