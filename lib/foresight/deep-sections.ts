@@ -1,19 +1,21 @@
-// Pull the "second page" deep-read sections out of a scenario's `body` markdown.
-// The platform writes the deeper editorial layer as `##` sections inside `body`
-// (e.g. "## Why This Future Arrives"); page 2 of the scenario reader surfaces the
-// three named ones — in a fixed order — rendering whichever are present. Content
-// creators add the missing ones as `##` headings and they light up automatically.
+// Pull the "second page" deep-read sections out of a scenario. The platform exposes
+// them two ways depending on scenario vintage:
+//   1. Structured `sections` keys (newer): `upside`, `blind_spot`, `arrival` — each a
+//      markdown string.
+//   2. `##` headings inside `body` markdown (older, e.g. "## Why This Future Arrives").
+// Page 2 of the scenario reader surfaces the three named ones in a fixed order,
+// preferring the structured section, then the body heading. Whichever are present.
 
 export interface DeepSection {
   key: string;
-  label: string; // normalized display label (the body heading's exact case varies)
-  content: string; // markdown between this heading and the next
+  label: string;
+  content: string; // markdown
 }
 
-const TARGETS: { key: string; label: string; match: RegExp }[] = [
-  { key: "makes-possible", label: "What this world makes possible", match: /makes possible/i },
-  { key: "blind-spot", label: "Structural blind spot", match: /blind spot/i },
-  { key: "why-arrives", label: "Why this future arrives", match: /why this future arrives/i },
+const TARGETS: { key: string; label: string; sectionKey: string; match: RegExp }[] = [
+  { key: "makes-possible", label: "What this world makes possible", sectionKey: "upside", match: /makes possible/i },
+  { key: "blind-spot", label: "Structural blind spot", sectionKey: "blind_spot", match: /blind spot/i },
+  { key: "why-arrives", label: "Why this future arrives", sectionKey: "arrival", match: /why this future arrives/i },
 ];
 
 // Split body into { heading, content } blocks by `##`/`###` headings.
@@ -38,13 +40,23 @@ function blocksOf(body: string): { heading: string; content: string }[] {
   return out;
 }
 
-export function extractScenarioDeepSections(body: string | null | undefined): DeepSection[] {
-  if (!body || !body.trim()) return [];
-  const blocks = blocksOf(body);
+export function extractScenarioDeepSections(scenario: {
+  sections?: Record<string, unknown> | null;
+  body?: string | null;
+}): DeepSection[] {
+  const sections = (scenario.sections ?? {}) as Record<string, unknown>;
+  const blocks = scenario.body ? blocksOf(scenario.body) : [];
   const out: DeepSection[] = [];
   for (const t of TARGETS) {
-    const b = blocks.find((bl) => t.match.test(bl.heading));
-    if (b && b.content) out.push({ key: t.key, label: t.label, content: b.content });
+    // Prefer the structured section key…
+    const sv = sections[t.sectionKey];
+    let content = typeof sv === "string" && sv.trim() ? sv.trim() : "";
+    // …then fall back to a matching `##` body heading.
+    if (!content) {
+      const b = blocks.find((bl) => t.match.test(bl.heading));
+      if (b?.content) content = b.content;
+    }
+    if (content) out.push({ key: t.key, label: t.label, content });
   }
   return out;
 }

@@ -12,7 +12,7 @@ import { extractScenarioDeepSections } from "@/lib/foresight/deep-sections";
 // "Why this future arrives". The pager only appears when page 2 has content, so a
 // scenario without those sections still reads as a single page.
 export function ScenarioReaderPaged({ scenario }: { scenario: Scenario }) {
-  const deep = extractScenarioDeepSections(scenario.body);
+  const deep = extractScenarioDeepSections(scenario);
   const [page, setPage] = useState<1 | 2>(1);
 
   if (deep.length === 0) return <ScenarioReader scenario={scenario} />;
