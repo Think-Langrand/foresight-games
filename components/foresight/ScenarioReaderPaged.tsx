@@ -11,8 +11,17 @@ import { extractScenarioDeepSections } from "@/lib/foresight/deep-sections";
 // the body markdown — "What this world makes possible", "Structural blind spot",
 // "Why this future arrives". The pager only appears when page 2 has content, so a
 // scenario without those sections still reads as a single page.
-export function ScenarioReaderPaged({ scenario }: { scenario: Scenario }) {
-  const deep = extractScenarioDeepSections(scenario);
+export function ScenarioReaderPaged({
+  scenario,
+  hiddenSections = [],
+}: {
+  scenario: Scenario;
+  // Page-2 section keys the project has turned off (lib/project-home).
+  hiddenSections?: string[];
+}) {
+  const deep = extractScenarioDeepSections(scenario).filter(
+    (s) => !hiddenSections.includes(s.key)
+  );
   const [page, setPage] = useState<1 | 2>(1);
 
   if (deep.length === 0) return <ScenarioReader scenario={scenario} />;
