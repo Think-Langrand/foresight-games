@@ -239,7 +239,8 @@ export async function ScenarioDetailView({
   scenarioRef,
   projectRef,
   basePath,
-}: ViewCtx & { setId: string; scenarioRef: string }) {
+  hiddenSections,
+}: ViewCtx & { setId: string; scenarioRef: string; hiddenSections?: string[] }) {
   const shell = (children: React.ReactNode) => (
     <main className="mx-auto min-h-screen max-w-[1100px] px-6 py-12 md:py-16">
       <Link href={`${basePath}/${setId}`} className="eyebrow blue">
@@ -288,7 +289,7 @@ export async function ScenarioDetailView({
       </Link>
 
       <div className="mt-4">
-        <ScenarioTabs scenario={scenario} drivers={drivers} />
+        <ScenarioTabs scenario={scenario} drivers={drivers} hiddenSections={hiddenSections} />
       </div>
 
       {/* Prev/next within the set. */}

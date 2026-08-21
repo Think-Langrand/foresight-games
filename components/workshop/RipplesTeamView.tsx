@@ -80,11 +80,13 @@ export function RipplesTeamView({
   basePath = "",
   scenario = null,
   drivers = [],
+  hiddenSections,
 }: {
   code: string;
   basePath?: string;
   scenario?: Scenario | null;
   drivers?: PublicDriverCard[];
+  hiddenSections?: string[];
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
   const { pid, nick, saveNick } = useParticipant();
@@ -204,6 +206,7 @@ export function RipplesTeamView({
         <DoneSummary
           scenario={scenario}
           drivers={drivers}
+          hiddenSections={hiddenSections}
           config={config}
           cards={myCards}
           onExport={() => downloadRipplesExport(view)}
@@ -302,7 +305,7 @@ export function RipplesTeamView({
         <p className="mb-5 text-[13px] text-muted">Read the scenario. The facilitator will open the worksheet.</p>
       )}
 
-      <ScenarioContext scenario={scenario} drivers={drivers} config={config} />
+      <ScenarioContext scenario={scenario} drivers={drivers} hiddenSections={hiddenSections} config={config} />
 
       {/* One persistent green toggle: opens the worksheet (advancing solo into BUILD)
           and hides it again. Visible as soon as the scenario is up. */}
@@ -699,6 +702,7 @@ function BrainstormSection({
 function DoneSummary({
   scenario,
   drivers,
+  hiddenSections,
   config,
   cards,
   onExport,
@@ -707,6 +711,7 @@ function DoneSummary({
 }: {
   scenario: Scenario | null;
   drivers: PublicDriverCard[];
+  hiddenSections?: string[];
   config: RipplesConfig;
   cards: RippleCard[];
   onExport: () => void;
@@ -768,7 +773,7 @@ function DoneSummary({
             Revisit the scenario
           </summary>
           <div className="mt-4">
-            <ScenarioTabs scenario={scenario} drivers={drivers} />
+            <ScenarioTabs scenario={scenario} drivers={drivers} hiddenSections={hiddenSections} />
           </div>
         </details>
       )}
@@ -837,16 +842,18 @@ function Panel({ children }: { children: React.ReactNode }) {
 function ScenarioContext({
   scenario,
   drivers,
+  hiddenSections,
   config,
 }: {
   scenario: Scenario | null;
   drivers: PublicDriverCard[];
+  hiddenSections?: string[];
   config: RipplesConfig;
 }) {
   return (
     <div className="flex flex-col gap-4">
       {scenario ? (
-        <ScenarioTabs scenario={scenario} drivers={drivers} />
+        <ScenarioTabs scenario={scenario} drivers={drivers} hiddenSections={hiddenSections} />
       ) : (
         <div className="rounded-[3px] border border-[var(--hairline)] bg-card p-5">
           {config.premise ? (

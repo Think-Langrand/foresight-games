@@ -40,6 +40,7 @@ export default async function ProjectSessionPage({
         scenario={scenario}
         drivers={drivers}
         basePath={`/project/${title}`}
+        hiddenSections={project.homeConfig.hiddenScenarioSections}
       />
     );
   }
