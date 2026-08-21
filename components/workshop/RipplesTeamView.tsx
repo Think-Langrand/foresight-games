@@ -6,6 +6,7 @@ import { ScenarioBody } from "@/components/foresight/ScenarioBody";
 import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
 import { ImplicationTree } from "@/components/workshop/ImplicationTree";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
+import { ImplicationList } from "@/components/workshop/ImplicationList";
 import { RippleCountdown } from "@/components/workshop/RippleCountdown";
 import { RippleArtBand } from "@/components/workshop/RippleArt";
 import { downloadRipplesExport } from "@/components/workshop/ripplesExport";
@@ -35,6 +36,12 @@ import {
 
 const MIN_KEY_CHANGES = 3;
 const NO_CARDS: RippleCard[] = []; // stable ref so the optimistic overlay doesn't churn
+
+// The finished map reads three ways: a radial futures wheel, the build-time tree,
+// or a flat ordered table. Wheel is the default.
+type MapView = "wheel" | "tree" | "list";
+const MAP_VIEWS: readonly MapView[] = ["wheel", "tree", "list"];
+const VIEW_LABELS: Record<MapView, string> = { wheel: "Wheel", tree: "Tree", list: "List" };
 
 // The scenario's first signed image, for the header art band.
 function scenarioHero(scenario: Scenario | null): RippleArtImage | undefined {
@@ -706,7 +713,7 @@ function DoneSummary({
   againHref: string;
   closed: boolean;
 }) {
-  const [view, setView] = useState<"wheel" | "tree">("wheel");
+  const [view, setView] = useState<MapView>("wheel");
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -715,22 +722,18 @@ function DoneSummary({
           <p className="text-[13px] text-muted">{cards.length} nodes.</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Two ways to read the same map. */}
+          {/* Three ways to read the same map. */}
           <div className="mr-1 flex overflow-hidden rounded-[2px] border border-ink">
-            {(["wheel", "tree"] as const).map((v) => (
+            {MAP_VIEWS.map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                // Selected colors are inline: Preflight's `button { color: inherit }`
-                // outranks Tailwind's `text-*` utilities on <button>, so a class alone
-                // would leave the label invisible on the ink fill.
-                style={view === v ? { background: "var(--ink)", color: "var(--paper)" } : undefined}
                 className={
                   "px-3 py-2 text-[11px] font-bold uppercase tracking-[0.06em] " +
-                  (view === v ? "" : "bg-paper text-ink hover:bg-lime")
+                  (view === v ? "bg-ink text-paper" : "bg-paper text-ink hover:bg-lime")
                 }
               >
-                {v === "wheel" ? "Wheel" : "Tree"}
+                {VIEW_LABELS[v]}
               </button>
             ))}
           </div>
@@ -753,8 +756,10 @@ function DoneSummary({
 
       {view === "wheel" ? (
         <FuturesWheel cards={cards} centerLabel={config.scenarioTitle} />
-      ) : (
+      ) : view === "tree" ? (
         <ImplicationTree cards={cards} scenarioTitle={config.scenarioTitle} />
+      ) : (
+        <ImplicationList cards={cards} scenarioTitle={config.scenarioTitle} />
       )}
 
       {scenario && (
