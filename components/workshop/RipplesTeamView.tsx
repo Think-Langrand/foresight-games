@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ScenarioBody } from "@/components/foresight/ScenarioBody";
 import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
 import { ImplicationTree } from "@/components/workshop/ImplicationTree";
+import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { RippleCountdown } from "@/components/workshop/RippleCountdown";
 import { RippleArtBand } from "@/components/workshop/RippleArt";
 import { downloadRipplesExport } from "@/components/workshop/ripplesExport";
@@ -198,7 +199,6 @@ export function RipplesTeamView({
           drivers={drivers}
           config={config}
           cards={myCards}
-          answers={myPlayer.answers}
           onExport={() => downloadRipplesExport(view)}
           againHref={`${basePath}/play/ripples`}
           closed={phase === "CLOSED"}
@@ -354,19 +354,27 @@ export function RipplesTeamView({
               </div>
             </section>
 
-            <QuestionsSection
-              questions={config.questions}
-              initial={myPlayer.answers}
-              submitted={Boolean(myPlayer.submittedAt)}
-              canSubmit={keyChanges.length >= MIN_KEY_CHANGES}
-              busy={busy}
-              onSubmit={(answers) =>
-                run(async () => {
-                  await postRippleSubmit(code, { participantId: pid, answers });
-                  if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
-                })
-              }
-            />
+            {/* Reflection questions are moving to a separate workshop — hidden for now
+                (kept in git history). Submit lives here so the map can breathe. */}
+            <div className="mt-10 flex items-center gap-3 border-t border-[var(--rule)] pt-6">
+              <button
+                onClick={() =>
+                  run(async () => {
+                    await postRippleSubmit(code, { participantId: pid, answers: [] });
+                    if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
+                  })
+                }
+                disabled={busy || keyChanges.length < MIN_KEY_CHANGES}
+                className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
+              >
+                {myPlayer.submittedAt ? "Update map" : "Submit map"} →
+              </button>
+              {keyChanges.length < MIN_KEY_CHANGES && (
+                <span className="text-[12px] italic text-muted">
+                  Add at least {MIN_KEY_CHANGES} key changes first.
+                </span>
+              )}
+            </div>
           </WorksheetSheet>
         </>
       )}
@@ -676,57 +684,9 @@ function BrainstormSection({
   );
 }
 
-// ---------- Section 3: four reflection questions ----------
-function QuestionsSection({
-  questions,
-  initial,
-  submitted,
-  canSubmit,
-  busy,
-  onSubmit,
-}: {
-  questions: string[];
-  initial: Record<string, string>;
-  submitted: boolean;
-  canSubmit: boolean;
-  busy: boolean;
-  onSubmit: (answers: string[]) => void;
-}) {
-  const [answers, setAnswers] = useState<string[]>(() => questions.map((_, i) => initial[String(i)] ?? ""));
-  const set = (i: number, v: string) => setAnswers((prev) => prev.map((a, j) => (j === i ? v : a)));
-  return (
-    <section className="mt-8 border-t border-[var(--rule)] pt-6">
-      <SectionHead n={3} title="Reflect">
-        With your map in mind, answer the four questions.
-      </SectionHead>
-      <div className="mt-3 grid gap-4 md:grid-cols-2">
-        {questions.map((q, i) => (
-          <div key={i}>
-            <label className="block text-[13px] font-semibold leading-[1.35]">{q}</label>
-            <textarea
-              value={answers[i] ?? ""}
-              onChange={(e) => set(i, e.target.value)}
-              rows={3}
-              className="mt-1.5 w-full resize-none rounded-[2px] border border-[var(--hairline)] bg-paper p-2 text-[14px] outline-none focus:border-ink"
-            />
-          </div>
-        ))}
-      </div>
-      <div className="mt-4 flex items-center gap-3">
-        <button
-          onClick={() => onSubmit(answers)}
-          disabled={busy || !canSubmit}
-          className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
-        >
-          {submitted ? "Update" : "Submit"} →
-        </button>
-        {!canSubmit && (
-          <span className="text-[12px] italic text-muted">Add at least {MIN_KEY_CHANGES} key changes first.</span>
-        )}
-      </div>
-    </section>
-  );
-}
+// NOTE: the reflection "Reflect" step (QuestionsSection) was removed from the
+// worksheet for now — reflection is becoming its own workshop. It lives in git
+// history if we want it back.
 
 // ---------- done: the finished map ----------
 function DoneSummary({
@@ -734,7 +694,6 @@ function DoneSummary({
   drivers,
   config,
   cards,
-  answers,
   onExport,
   againHref,
   closed,
@@ -743,11 +702,11 @@ function DoneSummary({
   drivers: PublicDriverCard[];
   config: RipplesConfig;
   cards: RippleCard[];
-  answers: Record<string, string>;
   onExport: () => void;
   againHref: string;
   closed: boolean;
 }) {
+  const [view, setView] = useState<"wheel" | "tree">("wheel");
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -756,6 +715,25 @@ function DoneSummary({
           <p className="text-[13px] text-muted">{cards.length} nodes.</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Two ways to read the same map. */}
+          <div className="mr-1 flex overflow-hidden rounded-[2px] border border-ink">
+            {(["wheel", "tree"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                // Selected colors are inline: Preflight's `button { color: inherit }`
+                // outranks Tailwind's `text-*` utilities on <button>, so a class alone
+                // would leave the label invisible on the ink fill.
+                style={view === v ? { background: "var(--ink)", color: "var(--paper)" } : undefined}
+                className={
+                  "px-3 py-2 text-[11px] font-bold uppercase tracking-[0.06em] " +
+                  (view === v ? "" : "bg-paper text-ink hover:bg-lime")
+                }
+              >
+                {v === "wheel" ? "Wheel" : "Tree"}
+              </button>
+            ))}
+          </div>
           <button
             onClick={onExport}
             className="rounded-[2px] border border-ink bg-paper px-4 py-2 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime"
@@ -773,22 +751,10 @@ function DoneSummary({
         </div>
       </div>
 
-      <ImplicationTree cards={cards} scenarioTitle={config.scenarioTitle} />
-
-      {config.questions.length > 0 && (
-        <section>
-          <h3 className="eyebrow ink mb-2">Reflection</h3>
-          <dl className="flex flex-col gap-3">
-            {config.questions.map((q, i) => (
-              <div key={i} className="border-l-2 border-[var(--lime-deep)] pl-3">
-                <dt className="text-[13px] font-semibold">{q}</dt>
-                <dd className="mt-0.5 text-[13.5px] leading-[1.5]">
-                  {answers[String(i)] ? answers[String(i)] : <span className="italic text-muted">—</span>}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </section>
+      {view === "wheel" ? (
+        <FuturesWheel cards={cards} centerLabel={config.scenarioTitle} />
+      ) : (
+        <ImplicationTree cards={cards} scenarioTitle={config.scenarioTitle} />
       )}
 
       {scenario && (
