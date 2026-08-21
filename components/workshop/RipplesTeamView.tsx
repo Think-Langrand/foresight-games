@@ -342,7 +342,7 @@ export function RipplesTeamView({
 
             <section className="mt-8">
               <SectionHead n={2} title="Map the implications">
-                Start from the scenario: add key changes, then branch each forward — “Because of that…”, then “So by 2035…”.
+                Start from the scenario: add key changes, then branch each forward — “Because of that…”, then “And this causes…”.
               </SectionHead>
               <div className="mt-3">
                 <ImplicationTree
