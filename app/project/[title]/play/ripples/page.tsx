@@ -40,8 +40,8 @@ export default async function ProjectPlayRipplesPage({
         Implication mapping
       </h1>
       <p className="serif mt-4 max-w-[560px] text-[18px] leading-[1.35] text-ink">
-        Step into one of this project&rsquo;s futures and work out what follows. Map its implications
-        in three rounds, then answer four questions about what it means.
+        Step into one of this project&rsquo;s futures and work out what follows — map its
+        implications outward, one consequence leading to the next.
       </p>
       <div className="mt-6">
         <RipplesLauncher

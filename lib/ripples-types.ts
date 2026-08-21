@@ -2,7 +2,7 @@
 // No server imports — safe in client components, route handlers, and tests.
 //
 // The game: players build causal chains of implication cards inside a scenario
-// (FIRST "In this world…" → SECOND "Because of that…" → TERMINAL "So by 2030…"),
+// (FIRST "In this world…" → SECOND "Because of that…" → TERMINAL "And this causes…"),
 // then wager chips on which implications matter. A facilitator advances phases.
 
 import type { WorkshopSession } from "@/lib/workshop-types";
@@ -60,7 +60,7 @@ export type CardOrder = "FIRST" | "SECOND" | "TERMINAL" | "STICKY";
 export const PHASE_PREFIXES: Record<CardOrder, string> = {
   FIRST: "In this world…",
   SECOND: "Because of that…",
-  TERMINAL: "So by 2035…",
+  TERMINAL: "And this causes…",
   STICKY: "Note",
 };
 

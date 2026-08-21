@@ -68,8 +68,13 @@ body {
 }
 
 button {
+  /* NB: no `color: inherit` here. This rule is unlayered, so it would outrank
+     every Tailwind `text-*` utility (which live in @layer utilities) and make
+     text colours on <button> impossible — e.g. `bg-ink text-white` renders an
+     invisible ink-on-ink label. Tailwind's own Preflight already gives buttons a
+     *layered* `color: inherit`, which utilities can override. Keep only what
+     Preflight doesn't: the pointer cursor (dropped in Tailwind v4's reset). */
   font-family: inherit;
-  color: inherit;
   cursor: pointer;
 }
 button:focus-visible,
