@@ -33,8 +33,8 @@ export const PHASE_LABELS: Record<RipplePhase, string> = {
   CLOSED: "Closed",
 };
 
-// The phases that run against a countdown (sourced from config).
-export const TIMED_PHASES: RipplePhase[] = ["BUILD"];
+// Implication mapping runs untimed — no phase has a countdown.
+export const TIMED_PHASES: RipplePhase[] = [];
 
 export function isRipplePhase(v: string): v is RipplePhase {
   return (RIPPLE_PHASES as string[]).includes(v);
@@ -169,12 +169,6 @@ export function resolveConfig(raw: Record<string, unknown> | null | undefined): 
         ? (r.questions as unknown[]).filter((q): q is string => typeof q === "string" && q.trim().length > 0)
         : DEFAULT_QUESTIONS,
   };
-}
-
-// The countdown length for a phase, or null if untimed. BUILD is the single timed
-// phase; it reuses the (existing) ripple1Seconds config field as "build minutes".
-export function secondsForPhase(config: RipplesConfig, phase: RipplePhase): number | null {
-  return phase === "BUILD" ? config.ripple1Seconds : null;
 }
 
 // ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import {
   type SessionStatus,
 } from "@/lib/workshop";
 import { getSessionUser } from "@/lib/supabase-auth";
-import { isRipplePhase, resolveConfig, secondsForPhase } from "@/lib/ripples-types";
+import { isRipplePhase } from "@/lib/ripples-types";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +46,8 @@ export async function PATCH(
     status?: SessionStatus;
     prompt?: string;
     currentUncertaintyId?: string;
-    // Ripples phase machine. phaseEndsAt (ISO string or null) overrides the
-    // server-computed deadline (e.g. a "+30s" extend); omit it and the server
-    // derives the deadline from config for timed phases.
+    // Ripples phase machine. The exercise is untimed, so phaseEndsAt is normally
+    // null; the field is kept for the generic workshop session shape.
     phase?: string;
     phaseEndsAt?: string | null;
     config?: Record<string, unknown>;
@@ -73,17 +72,11 @@ export async function PATCH(
         return NextResponse.json({ error: "Invalid phase." }, { status: 400 });
       }
       patch.phase = body.phase;
-      if (body.phaseEndsAt !== undefined) {
-        patch.phaseEndsAt = body.phaseEndsAt;
-      } else {
-        // Server-authoritative timer: derive the deadline from config so it is
-        // the same timestamp on every client (no facilitator clock skew).
-        const cfg = resolveConfig(body.config ?? session.config);
-        const secs = secondsForPhase(cfg, body.phase);
-        patch.phaseEndsAt = secs ? new Date(Date.now() + secs * 1000).toISOString() : null;
-      }
+      // Implication mapping is untimed: changing phase clears any deadline unless
+      // the caller explicitly passes one.
+      patch.phaseEndsAt = body.phaseEndsAt !== undefined ? body.phaseEndsAt : null;
     } else if (body.phaseEndsAt !== undefined) {
-      patch.phaseEndsAt = body.phaseEndsAt; // extend/clear without changing phase
+      patch.phaseEndsAt = body.phaseEndsAt; // clear without changing phase
     }
 
     await updateSession(session.id, session.code, patch);
