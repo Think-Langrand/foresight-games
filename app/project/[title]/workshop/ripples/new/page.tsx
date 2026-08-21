@@ -39,7 +39,7 @@ export default async function ProjectNewRipplesPage({
         Implication mapping
       </h1>
       <p className="serif mt-1 text-[18px] italic text-muted">
-        Map a {project.name} scenario&rsquo;s implications in three rounds, then reflect.
+        Map a {project.name} scenario&rsquo;s implications outward, round by round.
       </p>
       <div className="mt-6">
         <RipplesLauncher
