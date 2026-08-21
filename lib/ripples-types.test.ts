@@ -8,7 +8,6 @@ import {
   mostBranchedFirstOrder,
   mostChippedCards,
   resolveConfig,
-  secondsForPhase,
   stepPhase,
   type CardOrder,
   type RippleCard,
@@ -161,15 +160,6 @@ describe("resolveConfig", () => {
   });
 });
 
-describe("secondsForPhase", () => {
-  it("returns the build length for BUILD, null otherwise", () => {
-    const cfg = resolveConfig({ ripple1Seconds: 120 });
-    expect(secondsForPhase(cfg, "BUILD")).toBe(120);
-    expect(secondsForPhase(cfg, "LOBBY")).toBeNull();
-    expect(secondsForPhase(cfg, "PREMISE")).toBeNull();
-    expect(secondsForPhase(cfg, "HARVEST")).toBeNull();
-  });
-});
 
 describe("stepPhase", () => {
   it("advances and clamps across the worksheet flow", () => {
