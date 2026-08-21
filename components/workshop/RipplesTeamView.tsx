@@ -7,7 +7,6 @@ import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
 import { ImplicationTree } from "@/components/workshop/ImplicationTree";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { ImplicationList } from "@/components/workshop/ImplicationList";
-import { RippleCountdown } from "@/components/workshop/RippleCountdown";
 import { RippleArtBand } from "@/components/workshop/RippleArt";
 import { downloadRipplesExport } from "@/components/workshop/ripplesExport";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
@@ -154,7 +153,7 @@ export function RipplesTeamView({
     if (solo) {
       return (
         <Shell>
-          <PhaseHeader phase={phase} endsAt={null} title={config.scenarioTitle} art={heroArt} solo />
+          <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo />
           <Panel>
             <p className="text-[14px] text-muted">Setting up your map…</p>
           </Panel>
@@ -164,7 +163,7 @@ export function RipplesTeamView({
     }
     return (
       <Shell>
-        <PhaseHeader phase={phase} endsAt={session.phaseEndsAt} title={config.scenarioTitle} art={heroArt} />
+        <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} />
         <JoinPanel
           key={nick}
           teams={teams}
@@ -200,7 +199,7 @@ export function RipplesTeamView({
   if (done) {
     return (
       <Shell wide>
-        <PhaseHeader phase={phase} endsAt={null} title={config.scenarioTitle} art={heroArt} solo={solo} team={solo ? undefined : myTeam.name} teamColor={myTeam.color} />
+        <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo={solo} team={solo ? undefined : myTeam.name} teamColor={myTeam.color} />
         <DoneSummary
           scenario={scenario}
           drivers={drivers}
@@ -219,7 +218,7 @@ export function RipplesTeamView({
   if (phase === "LOBBY") {
     return (
       <Shell>
-        <PhaseHeader phase={phase} endsAt={session.phaseEndsAt} title={config.scenarioTitle} art={heroArt} team={myTeam.name} teamColor={myTeam.color} />
+        <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} team={myTeam.name} teamColor={myTeam.color} />
         <Panel>
           <h2 className="text-[20px] font-extrabold">You&rsquo;re in.</h2>
           <p className="mt-1 text-[13px] text-muted">
@@ -290,7 +289,6 @@ export function RipplesTeamView({
     <Shell wide>
       <PhaseHeader
         phase={phase}
-        endsAt={solo ? null : session.phaseEndsAt}
         title={config.scenarioTitle}
         art={heroArt}
         solo={solo}
@@ -325,11 +323,7 @@ export function RipplesTeamView({
 
       {building && (
         <>
-          <WorksheetSheet
-            open={sheetOpen}
-            scenarioTitle={config.scenarioTitle}
-            endsAt={solo ? null : session.phaseEndsAt}
-          >
+          <WorksheetSheet open={sheetOpen} scenarioTitle={config.scenarioTitle}>
             <BrainstormSection
               stickies={stickies}
               canEdit={(c) => c.authorPlayerId === myPlayer.id}
@@ -395,12 +389,10 @@ export function RipplesTeamView({
 function WorksheetSheet({
   open,
   scenarioTitle,
-  endsAt,
   children,
 }: {
   open: boolean;
   scenarioTitle: string;
-  endsAt: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -419,11 +411,6 @@ function WorksheetSheet({
           <span className="eyebrow blue">Implications worksheet</span>
           <div className="truncate text-[15px] font-extrabold uppercase tracking-tight">{scenarioTitle}</div>
         </div>
-        {endsAt && (
-          <div className="flex flex-none items-center gap-2">
-            <RippleCountdown endsAt={endsAt} />
-          </div>
-        )}
       </div>
       {/* extra bottom padding so the floating toggle never covers the last controls */}
       <div className="flex-1 overflow-y-auto px-5 py-6 pb-24">
@@ -789,7 +776,6 @@ function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }
 
 function PhaseHeader({
   phase,
-  endsAt,
   title,
   team,
   teamColor,
@@ -797,7 +783,6 @@ function PhaseHeader({
   solo,
 }: {
   phase: RipplePhase;
-  endsAt: string | null;
   title: string;
   team?: string;
   teamColor?: string;
@@ -823,7 +808,6 @@ function PhaseHeader({
               {team}
             </span>
           )}
-          <RippleCountdown endsAt={endsAt} />
         </div>
       </div>
     </div>

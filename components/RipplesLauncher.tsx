@@ -29,7 +29,6 @@ export function RipplesLauncher({
 }) {
   const router = useRouter();
   const [scenarioRef, setScenarioRef] = useState(scenarios[0]?.id ?? "");
-  const [buildMin, setBuildMin] = useState(20);
   const [challengeEnabled, setChallengeEnabled] = useState(true);
   const [questions, setQuestions] = useState<string[]>(DEFAULT_QUESTIONS);
   const [busy, setBusy] = useState(false);
@@ -49,7 +48,6 @@ export function RipplesLauncher({
           projectSlug,
           solo,
           config: {
-            ripple1Seconds: Math.round(buildMin * 60),
             challengeEnabled,
             questions: questions.map((q) => q.trim()).filter(Boolean),
             lensDeckEnabled: false,
@@ -101,14 +99,10 @@ export function RipplesLauncher({
         </select>
       )}
 
-      {/* Facilitator setup: round timers, the challenge toggle, and the four
-          reflection questions. Solo participants just pick a scenario and go. */}
+      {/* Facilitator setup: the challenge toggle and the reflection questions.
+          Solo participants just pick a scenario and go. */}
       {!solo && (
         <>
-          <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <NumField label="Build (min)" value={buildMin} onChange={setBuildMin} min={1} />
-          </div>
-
           <label className="mt-5 flex cursor-pointer items-center gap-2 text-[13px] font-semibold">
             <span
               className={"sq-toggle" + (challengeEnabled ? " on" : "")}
@@ -155,29 +149,3 @@ export function RipplesLauncher({
   );
 }
 
-function NumField({
-  label,
-  value,
-  onChange,
-  min,
-}: {
-  label: string;
-  value: number;
-  onChange: (n: number) => void;
-  min: number;
-}) {
-  return (
-    <label className="block">
-      <span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
-        {label}
-      </span>
-      <input
-        type="number"
-        min={min}
-        value={value}
-        onChange={(e) => onChange(Math.max(min, Number(e.target.value) || min))}
-        className="mt-1 w-full rounded-[2px] border border-[var(--hairline)] bg-paper p-2 text-[14px] outline-none focus:border-ink"
-      />
-    </label>
-  );
-}

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ScenarioBody } from "@/components/foresight/ScenarioBody";
-import { RippleCountdown } from "@/components/workshop/RippleCountdown";
 import { ImplicationTree } from "@/components/workshop/ImplicationTree";
 import { RippleHero } from "@/components/workshop/RippleArt";
 import { downloadRipplesExport } from "@/components/workshop/ripplesExport";
@@ -51,10 +50,6 @@ export function RipplesPresentView({
   }
 
   const goPhase = (target: RipplePhase) => act(() => patchSession(code, { phase: target }));
-  const extend = () => {
-    const base = Math.max(Date.now(), session.phaseEndsAt ? new Date(session.phaseEndsAt).getTime() : 0);
-    return act(() => patchSession(code, { phaseEndsAt: new Date(base + 30_000).toISOString() }));
-  };
   const setStatus = (status: "Open" | "Closed") => act(() => patchSession(code, { status }));
 
   const phaseIdx = RIPPLE_PHASES.indexOf(phase);
@@ -104,18 +99,6 @@ export function RipplesPresentView({
         >
           Next ▶
         </button>
-        {session.phaseEndsAt && (
-          <>
-            <RippleCountdown endsAt={session.phaseEndsAt} />
-            <button
-              onClick={extend}
-              disabled={busy}
-              className="rounded-[2px] border border-ink bg-paper px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] hover:bg-lime disabled:opacity-40"
-            >
-              +30s
-            </button>
-          </>
-        )}
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => downloadRipplesExport(view)}
