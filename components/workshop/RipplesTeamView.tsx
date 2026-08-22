@@ -110,16 +110,24 @@ export function RipplesTeamView({
     }
   }, []);
 
-  // Solo: no lobby — silently create this device's board + player once.
+  // No lobby: silently join once. Solo creates this device's own board; a shared
+  // board (design groups) auto-joins the ONE pre-seeded team by id — no per-device
+  // board, no team picker — so everyone edits the same map.
   useEffect(() => {
-    if (!view || !view.config.solo || playerId || autoJoined.current || !pid) return;
+    if (!view || playerId || autoJoined.current || !pid) return;
+    const shared = view.config.sharedTeam;
+    if (!view.config.solo && !shared) return;
+    if (shared && view.teams.length === 0) return; // wait for the seeded board to load
     autoJoined.current = true;
-    postRipplePlayer(code, { participantId: pid, displayName: nick || "You", teamName: "My map" })
+    const body = shared
+      ? { participantId: pid, displayName: nick || "You", teamId: view.teams[0].id }
+      : { participantId: pid, displayName: nick || "You", teamName: "My map" };
+    postRipplePlayer(code, body)
       .then((res) => {
         join(res.player.id);
         // Pull the freshly-created board/player straight away — don't wait on a
-        // realtime event (which can be missed at mount), or the solo screen hangs
-        // on "Setting up your map…" until a manual refresh.
+        // realtime event (which can be missed at mount), or the screen hangs on
+        // "Setting up your map…" until a manual refresh.
         refresh();
       })
       .catch(() => {
@@ -144,18 +152,21 @@ export function RipplesTeamView({
 
   const { session, config, teams, players } = view;
   const solo = config.solo;
+  const sharedTeam = config.sharedTeam;
   const phase = session.phase as RipplePhase;
   const myPlayer = players.find((p) => p.id === playerId) ?? null;
   const myTeam = myPlayer ? teams.find((t) => t.id === myPlayer.teamId) ?? null : null;
 
   // ---- not joined yet ----
   if (!myPlayer || !myTeam) {
-    if (solo) {
+    if (solo || sharedTeam) {
       return (
         <Shell>
-          <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo />
+          <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo={solo} />
           <Panel>
-            <p className="text-[14px] text-muted">Setting up your map…</p>
+            <p className="text-[14px] text-muted">
+              {sharedTeam ? "Joining your group’s board…" : "Setting up your map…"}
+            </p>
           </Panel>
           {flash && <Flash msg={flash} />}
         </Shell>
@@ -356,26 +367,35 @@ export function RipplesTeamView({
             </section>
 
             {/* Reflection questions are moving to a separate workshop — hidden for now
-                (kept in git history). Submit lives here so the map can breathe. */}
-            <div className="mt-10 flex items-center gap-3 border-t border-[var(--rule)] pt-6">
-              <button
-                onClick={() =>
-                  run(async () => {
-                    await postRippleSubmit(code, { participantId: pid, answers: [] });
-                    if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
-                  })
-                }
-                disabled={busy || keyChanges.length < MIN_KEY_CHANGES}
-                className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
-              >
-                {myPlayer.submittedAt ? "Update map" : "Submit map"} →
-              </button>
-              {keyChanges.length < MIN_KEY_CHANGES && (
-                <span className="text-[12px] italic text-muted">
-                  Add at least {MIN_KEY_CHANGES} key changes first.
-                </span>
-              )}
-            </div>
+                (kept in git history). Submit lives here so the map can breathe.
+                Shared boards (design groups) are self-paced and async: nobody submits
+                individually — an admin finalizes the whole group's map. */}
+            {sharedTeam ? (
+              <div className="mt-10 border-t border-[var(--rule)] pt-6 text-[12px] italic text-muted">
+                This is your group&rsquo;s shared board — build it together, whenever. A
+                facilitator will finalize the map when the group is done.
+              </div>
+            ) : (
+              <div className="mt-10 flex items-center gap-3 border-t border-[var(--rule)] pt-6">
+                <button
+                  onClick={() =>
+                    run(async () => {
+                      await postRippleSubmit(code, { participantId: pid, answers: [] });
+                      if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
+                    })
+                  }
+                  disabled={busy || keyChanges.length < MIN_KEY_CHANGES}
+                  className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
+                >
+                  {myPlayer.submittedAt ? "Update map" : "Submit map"} →
+                </button>
+                {keyChanges.length < MIN_KEY_CHANGES && (
+                  <span className="text-[12px] italic text-muted">
+                    Add at least {MIN_KEY_CHANGES} key changes first.
+                  </span>
+                )}
+              </div>
+            )}
           </WorksheetSheet>
         </>
       )}

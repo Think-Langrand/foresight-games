@@ -52,6 +52,14 @@ const CARD_ITEMS: Record<CardKey, CardDef> = {
     accent: true,
     href: (slug) => `/project/${slug}/play/ripples`,
   },
+  "design-groups": {
+    eyebrow: "Work as a group",
+    title: "Design Groups",
+    body: "Join your design group and build a shared implication map together — everyone adds notes and consequences to the same board, live.",
+    image: playImg,
+    accent: true,
+    href: (slug) => `/project/${slug}/design-groups`,
+  },
   gallery: {
     eyebrow: "The gallery",
     title: "View entries",
