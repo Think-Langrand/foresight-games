@@ -5,9 +5,12 @@ import { listAllTeams } from "@/lib/teams";
 import { getDeck } from "@/lib/cards";
 import { listRippleMaps } from "@/lib/ripples";
 import { getProjectBySlugAny } from "@/lib/projects";
+import { listDesignGroups, implicationCountsByCode } from "@/lib/design-groups";
+import { getScenarios, foresightConfigured } from "@/lib/foresight/client";
 import type { Card } from "@/lib/workshop-types";
 import { AdminSessionsList } from "@/components/admin/AdminSessionsList";
 import { AdminRippleMaps } from "@/components/admin/AdminRippleMaps";
+import { AdminDesignGroups, type AdminScenarioOption } from "@/components/admin/AdminDesignGroups";
 import { AdminTeamsManager } from "@/components/admin/AdminTeamsManager";
 import { CardGameLauncher } from "@/components/CardGameLauncher";
 
@@ -37,10 +40,38 @@ export default async function ProjectAdminPage({
   const project = await getProjectBySlugAny(slug);
   if (!project) notFound();
 
-  const [sessions, teams] = await Promise.all([
+  const [sessions, teams, designGroups] = await Promise.all([
     listSessions({ projectId: project.id }),
     listAllTeams({ projectId: project.id }),
+    listDesignGroups(project.id),
   ]);
+
+  // Design groups: implication counts per backing board, plus the project's
+  // scenarios for the assignment picker (tolerate the platform being down).
+  const dgCounts = await implicationCountsByCode(
+    designGroups.map((g) => g.sessionCode ?? "").filter(Boolean)
+  );
+  const designGroupRows = designGroups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    sort: g.sort,
+    color: g.color,
+    scenarioRef: g.scenarioRef,
+    scenarioTitle: g.scenarioTitle,
+    sessionCode: g.sessionCode,
+    status: g.status,
+    implications: g.sessionCode ? dgCounts.get(g.sessionCode.toUpperCase()) ?? 0 : 0,
+  }));
+  const foresightUp = foresightConfigured();
+  let designScenarios: AdminScenarioOption[] = [];
+  if (foresightUp) {
+    try {
+      const cards = await getScenarios({ ref: project.carmelitaProjectRef });
+      designScenarios = cards.map((s) => ({ id: s.id, title: s.title, headline: s.headline }));
+    } catch (err) {
+      console.error("[project admin] failed to load scenarios for design groups", err);
+    }
+  }
 
   // Implication maps = this project's Ripples sessions. Roll up player/implication/
   // submitted counts, then keep the ones someone actually built on.
@@ -120,6 +151,23 @@ export default async function ProjectAdminPage({
         <div className="mt-3">
           <CardGameLauncher lockedProject={{ slug: project.slug, name: project.name }} />
         </div>
+      </section>
+
+      <section className="mt-12">
+        <span className="eyebrow ink">Design groups</span>
+        <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-muted">
+          Set up the groups for this project and assign each one a scenario. Members
+          self-select their group on the site&rsquo;s <span className="font-semibold text-ink">Design
+          Groups</span> tab and build a shared implication map together, live. Finalize a
+          group to lock its map into an output.
+        </p>
+        <AdminDesignGroups
+          projectId={project.id}
+          slug={slug}
+          initialGroups={designGroupRows}
+          scenarios={designScenarios}
+          configured={foresightUp}
+        />
       </section>
 
       <section className="mt-12">
