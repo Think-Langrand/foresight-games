@@ -3,21 +3,25 @@ import "server-only";
 import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import { getProjectById } from "@/lib/projects";
 import { getScenario } from "@/lib/foresight/client";
-import { createSession, getSessionByCode, updateSession } from "@/lib/workshop";
-import { createRippleTeam } from "@/lib/ripples";
-import { DEFAULT_RIPPLES_CONFIG } from "@/lib/ripples-types";
 import { TEAM_COLORS } from "@/lib/workshop-types";
+import { DEFAULT_PROGRAM, isBoardBacked } from "@/lib/exercise-types";
+import {
+  listExercises,
+  createExercise,
+  provisionExerciseBoard,
+  resnapshotBoardScenario,
+  type BoardScenarioCtx,
+} from "@/lib/design-group-exercises";
 
-// Server-only data layer for DESIGN GROUPS (migration 0011). Mirrors lib/projects.ts:
-// snake_case row + mapper, all reads/writes on supabaseAdmin() (service_role, bypasses
-// RLS) wrapped in withRetry. A design group owns one scenario and is backed by one
-// shared-board Ripples session (config.sharedTeam). Never import into a client component.
-
-export type DesignGroupStatus = "DRAFT" | "OPEN" | "FINALIZED";
+// Server-only data layer for DESIGN GROUPS. Mirrors lib/projects.ts: snake_case row
+// + mapper, all reads/writes on supabaseAdmin() (service_role, bypasses RLS) wrapped
+// in withRetry. A design group owns ONE scenario and contains a program of EXERCISES
+// (weeks) — the board + lock live on each exercise (lib/design-group-exercises.ts),
+// not the group. Never import into a client component.
 
 // Thrown by assignScenario when CHANGING a group's scenario would overwrite the
-// premise under implications the group has already built. The route turns this into
-// a 409 the admin can confirm past (assignScenario(..., { force: true })).
+// premise under cards the group has already built on any exercise board. The route
+// turns this into a 409 the admin can confirm past (assignScenario(..., { force })).
 export class ScenarioHasCardsError extends Error {
   constructor(readonly count: number) {
     super("SCENARIO_HAS_CARDS");
@@ -34,8 +38,6 @@ export interface DesignGroup {
   scenarioRef: string | null;
   scenarioSetId: string | null;
   scenarioTitle: string | null;
-  sessionCode: string | null;
-  status: DesignGroupStatus;
   createdTime: string;
 }
 
@@ -48,13 +50,11 @@ interface DesignGroupRow {
   scenario_ref: string | null;
   scenario_set_id: string | null;
   scenario_title: string | null;
-  session_code: string | null;
-  status: string;
   created_at: string;
 }
 
 const COLS =
-  "id, project_id, name, sort, color, scenario_ref, scenario_set_id, scenario_title, session_code, status, created_at";
+  "id, project_id, name, sort, color, scenario_ref, scenario_set_id, scenario_title, created_at";
 
 function fromRow(r: DesignGroupRow): DesignGroup {
   return {
@@ -66,8 +66,6 @@ function fromRow(r: DesignGroupRow): DesignGroup {
     scenarioRef: r.scenario_ref ?? null,
     scenarioSetId: r.scenario_set_id ?? null,
     scenarioTitle: r.scenario_title ?? null,
-    sessionCode: r.session_code ?? null,
-    status: (r.status ?? "DRAFT") as DesignGroupStatus,
     createdTime: r.created_at,
   };
 }
@@ -102,7 +100,7 @@ export async function getDesignGroup(id: string): Promise<DesignGroup | null> {
   return row ? fromRow(row) : null;
 }
 
-// Implication (ripple_cards) counts per session code — the "how much has this group
+// Sticky/implication (ripple_cards) counts per session code — the "how much has been
 // built" signal. One aggregate query, tallied in memory (mirrors listRippleMaps).
 export async function implicationCountsByCode(codes: string[]): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
@@ -148,8 +146,6 @@ export interface UpdateDesignGroupPatch {
   scenarioRef?: string | null;
   scenarioSetId?: string | null;
   scenarioTitle?: string | null;
-  sessionCode?: string | null;
-  status?: DesignGroupStatus;
 }
 
 export async function updateDesignGroup(id: string, patch: UpdateDesignGroupPatch): Promise<void> {
@@ -160,8 +156,6 @@ export async function updateDesignGroup(id: string, patch: UpdateDesignGroupPatc
   if (patch.scenarioRef !== undefined) fields.scenario_ref = patch.scenarioRef;
   if (patch.scenarioSetId !== undefined) fields.scenario_set_id = patch.scenarioSetId;
   if (patch.scenarioTitle !== undefined) fields.scenario_title = patch.scenarioTitle;
-  if (patch.sessionCode !== undefined) fields.session_code = patch.sessionCode;
-  if (patch.status !== undefined) fields.status = patch.status;
   await withRetry(async () => {
     const { error } = await supabaseAdmin().from("design_groups").update(fields).eq("id", id);
     if (error) throw error;
@@ -175,15 +169,17 @@ export async function deleteDesignGroup(id: string): Promise<void> {
   });
 }
 
-// Assign (or re-assign) a scenario to a group and PROVISION its shared board:
-// snapshot the scenario premise into a sharedTeam Ripples session (phase BUILD),
-// pre-seed the one board, and record the session code on the group. Reuses the
-// group's existing session on re-assign (updates its config in place).
+// Assign (or re-assign) a scenario to a group. On the FIRST assignment this snapshots
+// the scenario onto the group and seeds the default program (Week 1 scenario
+// assessment, Week 2 implications, Weeks 3-4 placeholders), provisioning a shared
+// board for each board-backed exercise. Re-assigning a DIFFERENT scenario re-points
+// the existing boards — but is refused (ScenarioHasCardsError) if any board already
+// has cards, unless `force`.
 export async function assignScenario(
   groupId: string,
   scenarioRef: string,
   opts: { force?: boolean } = {}
-): Promise<string> {
+): Promise<void> {
   const group = await getDesignGroup(groupId);
   if (!group) throw new Error("GROUP_NOT_FOUND");
   const project = await getProjectById(group.projectId);
@@ -192,89 +188,48 @@ export async function assignScenario(
   const scenario = await getScenario(scenarioRef, project.carmelitaProjectRef);
   if (!scenario) throw new Error("SCENARIO_NOT_FOUND");
 
-  // Guard: changing the scenario rewrites the premise. If the group has already
-  // built implications on its current scenario, refuse unless forced — so an admin
-  // never silently swaps the premise out from under real work. (Re-assigning the
-  // SAME scenario, or a group with an empty board, passes straight through.)
-  const changingScenario = group.scenarioRef && group.scenarioRef !== scenario.id;
-  if (group.sessionCode && changingScenario && !opts.force) {
-    const counts = await implicationCountsByCode([group.sessionCode]);
-    const built = counts.get(group.sessionCode.toUpperCase()) ?? 0;
+  const exercises = await listExercises(groupId);
+  const changingScenario = Boolean(group.scenarioRef && group.scenarioRef !== scenario.id);
+
+  // Guard: changing the scenario rewrites every board's premise. Refuse if any board
+  // already has cards, unless the admin has confirmed (force).
+  if (changingScenario && !opts.force) {
+    const codes = exercises.map((e) => e.sessionCode).filter((c): c is string => Boolean(c));
+    const counts = await implicationCountsByCode(codes);
+    let built = 0;
+    for (const n of counts.values()) built += n;
     if (built > 0) throw new ScenarioHasCardsError(built);
   }
 
-  const config = {
-    ...DEFAULT_RIPPLES_CONFIG,
-    // Shared, self-paced group board: no solo per-device board, no per-member
-    // challenge vote (a facilitated group mechanic), everyone on one team.
-    solo: false,
-    sharedTeam: true,
-    challengeEnabled: false,
-    scenarioRef: scenario.id,
-    projectRef: project.carmelitaProjectRef,
-    scenarioTitle: scenario.title,
-    premise: scenario.body || scenario.teaser || "",
-    resolutions: (scenario.linkedUncertainties ?? []).map((u) => ({
-      uncertaintyId: u.uncertaintyId,
-      title: u.title,
-      resolution: u.resolution,
-    })),
-  };
-
-  // Reuse the group's session if it still exists; otherwise mint a new one.
-  let session = group.sessionCode ? await getSessionByCode(group.sessionCode) : null;
-  if (session) {
-    await updateSession(session.id, session.code, {
-      config: config as unknown as Record<string, unknown>,
-      phase: "BUILD",
-      status: "Open",
-      prompt: scenario.title,
-    });
-  } else {
-    session = await createSession({
-      scope: "Ripples",
-      uncertaintyId: null,
-      mode: "Divergent",
-      prompt: scenario.title,
-      title: scenario.title || group.name,
-      projectId: group.projectId,
-      config: config as unknown as Record<string, unknown>,
-      phase: "BUILD",
-    });
-  }
-  // Ensure the one shared board exists (idempotent — skips if already seeded).
-  await createRippleTeam({
-    sessionId: session.id,
-    code: session.code,
-    name: group.name,
-    color: group.color ?? undefined,
-  });
-
+  // Persist the scenario on the group.
   await updateDesignGroup(groupId, {
     scenarioRef: scenario.id,
     scenarioSetId: scenario.setId,
     scenarioTitle: scenario.title,
-    sessionCode: session.code,
-    status: "OPEN",
   });
-  return session.code;
-}
 
-// Admin "submit": lock the group's map into its output. Moving the backing session
-// to HARVEST renders the finished map and stops new implications (adds require the
-// BUILD phase). Status stays Open so members can still open and view the result.
-export async function finalizeDesignGroup(groupId: string): Promise<void> {
-  const group = await getDesignGroup(groupId);
-  if (!group?.sessionCode) throw new Error("NO_SESSION");
-  const session = await getSessionByCode(group.sessionCode);
-  if (session) await updateSession(session.id, session.code, { phase: "HARVEST", phaseEndsAt: null });
-  await updateDesignGroup(groupId, { status: "FINALIZED" });
-}
+  const ctx: BoardScenarioCtx = {
+    projectId: group.projectId,
+    scenarioRef: scenario.id,
+    carmelitaProjectRef: project.carmelitaProjectRef,
+    color: group.color,
+  };
 
-export async function reopenDesignGroup(groupId: string): Promise<void> {
-  const group = await getDesignGroup(groupId);
-  if (!group?.sessionCode) throw new Error("NO_SESSION");
-  const session = await getSessionByCode(group.sessionCode);
-  if (session) await updateSession(session.id, session.code, { phase: "BUILD", phaseEndsAt: null });
-  await updateDesignGroup(groupId, { status: "OPEN" });
+  if (exercises.length === 0) {
+    // First assignment → seed the default program and provision its boards.
+    for (const wk of DEFAULT_PROGRAM) {
+      const ex = await createExercise({ groupId, sort: wk.sort, title: wk.title, type: wk.type });
+      if (isBoardBacked(wk.type)) await provisionExerciseBoard(ex, ctx);
+    }
+  } else {
+    // Program already exists: provision any missing boards, and (on a scenario
+    // change) re-point existing boards at the new premise.
+    for (const ex of exercises) {
+      if (!ex.sessionCode) {
+        if (isBoardBacked(ex.type)) await provisionExerciseBoard(ex, ctx);
+      } else if (changingScenario) {
+        await resnapshotBoardScenario(ex, ctx);
+      }
+    }
+  }
 }

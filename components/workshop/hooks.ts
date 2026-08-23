@@ -261,6 +261,7 @@ export async function postRippleCard(
     parentCardId?: string | null;
     text: string;
     sort?: number;
+    section?: string | null;
   }
 ) {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/cards`, {

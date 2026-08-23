@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { getProjectBySlug } from "@/lib/projects";
-import { listDesignGroups, implicationCountsByCode } from "@/lib/design-groups";
+import { listDesignGroups } from "@/lib/design-groups";
+import { listExercises } from "@/lib/design-group-exercises";
 import { DesignGroupsIndex, type DesignGroupCard } from "@/components/project/DesignGroupsIndex";
 
 export const dynamic = "force-dynamic";
 
-// Per-project "Design Groups" tab: members self-select their group and land on its
-// shared implication-mapping board. Config-driven home item (lib/project-home.ts).
+// Per-project "Design Groups" tab: members self-select their group, then open its
+// program of weekly exercises. Config-driven home item (lib/project-home.ts).
 export default async function ProjectDesignGroupsPage({
   params,
 }: {
@@ -17,17 +18,14 @@ export default async function ProjectDesignGroupsPage({
   if (!project) notFound();
 
   const groups = await listDesignGroups(project.id);
-  const counts = await implicationCountsByCode(
-    groups.map((g) => g.sessionCode ?? "").filter(Boolean)
-  );
-  const cards: DesignGroupCard[] = groups.map((g) => ({
+  const exercisesByGroup = await Promise.all(groups.map((g) => listExercises(g.id)));
+  const cards: DesignGroupCard[] = groups.map((g, i) => ({
     id: g.id,
     name: g.name,
     color: g.color,
     scenarioTitle: g.scenarioTitle,
-    sessionCode: g.sessionCode,
-    status: g.status,
-    implications: g.sessionCode ? counts.get(g.sessionCode.toUpperCase()) ?? 0 : 0,
+    weekCount: exercisesByGroup[i].length,
+    ready: Boolean(g.scenarioRef && exercisesByGroup[i].length > 0),
   }));
 
   return <DesignGroupsIndex slug={project.slug} groups={cards} />;
