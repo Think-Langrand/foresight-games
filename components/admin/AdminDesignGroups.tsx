@@ -303,7 +303,10 @@ export function AdminDesignGroups({
                               <div className="flex items-center justify-end gap-2">
                                 {ex.sessionCode && (
                                   <Link
-                                    href={`/project/${slug}/workshop/s/${ex.sessionCode}`}
+                                    // The exercise route dispatches by type (worksheet vs
+                                    // implications); /workshop/s/[code] would always render
+                                    // implications for any Ripples session.
+                                    href={`/project/${slug}/design-groups/${g.id}/${ex.id}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
