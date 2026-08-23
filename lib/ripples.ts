@@ -49,6 +49,7 @@ interface CardRow {
   flagged: boolean;
   greyed: boolean;
   sort: number | null;
+  section: string | null;
   created_at: string;
 }
 interface ChipRow {
@@ -93,6 +94,7 @@ function mapCard(r: CardRow): RippleCard {
     flagged: r.flagged ?? false,
     greyed: r.greyed ?? false,
     sort: r.sort ?? 0,
+    section: r.section ?? null,
     createdTime: r.created_at,
   };
 }
@@ -314,6 +316,32 @@ export async function countPlayerChips(code: string, playerId: string): Promise<
   return count ?? 0;
 }
 
+// Pre-seed one empty board (no player yet). Used to provision a design group's
+// shared board at scenario-assignment time, so members auto-join it by id with no
+// team-picker and no create-vs-join race. Idempotent-ish: skips if a team already
+// exists on the code (a group's session has exactly one board).
+export async function createRippleTeam(input: {
+  sessionId: string;
+  code: string;
+  name: string;
+  color?: string;
+}): Promise<RippleTeam> {
+  const code = up(input.code);
+  const existing = await getRippleTeams(code);
+  if (existing.length > 0) return existing[0];
+  const color = input.color || TEAM_COLORS[0].hex;
+  const row = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("ripple_teams")
+      .insert({ session_id: input.sessionId, code, name: input.name.trim() || "Board", color, join_order: 0 })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as TeamRow;
+  });
+  return mapTeam(row);
+}
+
 // ---------- join: create-or-get a player (idempotent on participant_id) ----------
 export async function joinRipples(input: {
   sessionId: string;
@@ -434,6 +462,7 @@ export async function addCard(input: {
   parentId: string | null;
   text: string;
   sort?: number;
+  section?: string | null; // worksheet area key (STICKY only)
 }): Promise<RippleCard> {
   const row = await withRetry(async () => {
     const { data, error } = await supabaseAdmin()
@@ -447,6 +476,7 @@ export async function addCard(input: {
         parent_card_id: input.parentId,
         text: input.text,
         sort: input.sort ?? 0,
+        section: input.section ?? null,
       })
       .select("*")
       .single();

@@ -33,6 +33,7 @@ function card(
     lensId: null,
     flagged: false,
     greyed: false,
+    section: null,
     createdTime: `2026-01-01T00:00:${String(seq).padStart(2, "0")}Z`,
   };
 }

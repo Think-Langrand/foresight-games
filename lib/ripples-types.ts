@@ -107,6 +107,10 @@ export interface RipplesConfig {
   // Solo: one person, no lobby/facilitator. The player self-advances phases at
   // their own pace (untimed), the challenge vote is off (it's a group mechanic).
   solo: boolean;
+  // Shared board (design groups): many people, no lobby, no per-device board and
+  // no team picker — every member auto-joins the ONE pre-seeded team and edits the
+  // same map live. Members never advance phases or submit; an admin finalizes.
+  sharedTeam: boolean;
   // The reflection questions asked after the three rounds (admin-editable).
   questions: string[];
 }
@@ -132,6 +136,7 @@ export const DEFAULT_RIPPLES_CONFIG: RipplesConfig = {
   challengeEnabled: true,
   lensDeckEnabled: false,
   solo: false,
+  sharedTeam: false,
   questions: DEFAULT_QUESTIONS,
 };
 
@@ -164,6 +169,7 @@ export function resolveConfig(raw: Record<string, unknown> | null | undefined): 
     challengeEnabled: bool(r.challengeEnabled, DEFAULT_RIPPLES_CONFIG.challengeEnabled),
     lensDeckEnabled: bool(r.lensDeckEnabled, DEFAULT_RIPPLES_CONFIG.lensDeckEnabled),
     solo: bool(r.solo, DEFAULT_RIPPLES_CONFIG.solo),
+    sharedTeam: bool(r.sharedTeam, DEFAULT_RIPPLES_CONFIG.sharedTeam),
     questions:
       Array.isArray(r.questions) && r.questions.length > 0
         ? (r.questions as unknown[]).filter((q): q is string => typeof q === "string" && q.trim().length > 0)
@@ -205,6 +211,7 @@ export interface RippleCard {
   flagged: boolean;
   greyed: boolean;
   sort: number; // orders STICKY brainstorm notes (drag-reorder); 0 for tree cards
+  section: string | null; // worksheet area key for STICKY cards; null = default board
   createdTime: string;
 }
 

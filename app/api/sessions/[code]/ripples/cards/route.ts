@@ -23,6 +23,7 @@ export async function POST(
     parentCardId?: string | null;
     text?: string;
     sort?: number;
+    section?: string | null; // worksheet area key (STICKY only); null = default board
   } = {};
   try {
     body = await req.json();
@@ -98,6 +99,8 @@ export async function POST(
       parentId,
       text,
       sort: typeof body.sort === "number" ? body.sort : 0,
+      // A worksheet buckets sticky cards into named areas; tree cards have no section.
+      section: order === "STICKY" && typeof body.section === "string" ? body.section : null,
     });
     return NextResponse.json({ card });
   } catch (err) {

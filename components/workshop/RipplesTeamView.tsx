@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ScenarioBody } from "@/components/foresight/ScenarioBody";
 import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
@@ -11,7 +11,6 @@ import { RippleArtBand } from "@/components/workshop/RippleArt";
 import { downloadRipplesExport } from "@/components/workshop/ripplesExport";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import {
-  useParticipant,
   useRipplesView,
   useOptimisticCards,
   patchSession,
@@ -23,8 +22,9 @@ import {
   editRippleCard,
   postRippleSubmit,
 } from "@/components/workshop/hooks";
+import { useSharedBoardMembership } from "@/components/workshop/membership";
+import { BrainstormSection } from "@/components/workshop/BrainstormSection";
 import {
-  CARD_TEXT_MAX,
   PHASE_LABELS,
   type CardOrder,
   type RippleArtImage,
@@ -49,31 +49,6 @@ function scenarioHero(scenario: Scenario | null): RippleArtImage | undefined {
   return img?.url ? { url: img.url, prompt: img.prompt ?? "" } : undefined;
 }
 
-// Which player (if any) this device is — persisted per session/device.
-function useJoinedPlayer(code: string) {
-  const key = `fpw:${code}:player`;
-  const [playerId, setPlayerId] = useState<string | null>(null);
-  useEffect(() => {
-    try {
-      setPlayerId(localStorage.getItem(key));
-    } catch {
-      setPlayerId(null);
-    }
-  }, [key]);
-  const join = useCallback(
-    (id: string) => {
-      setPlayerId(id);
-      try {
-        localStorage.setItem(key, id);
-      } catch {
-        /* ignore */
-      }
-    },
-    [key]
-  );
-  return { playerId, join };
-}
-
 export function RipplesTeamView({
   code,
   basePath = "",
@@ -86,8 +61,7 @@ export function RipplesTeamView({
   drivers?: PublicDriverCard[];
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
-  const { pid, nick, saveNick } = useParticipant();
-  const { playerId, join } = useJoinedPlayer(code);
+  const { pid, nick, saveNick, playerId, join } = useSharedBoardMembership(code, view, refresh);
   // Instant local mutations layered over the (laggy) realtime board.
   const { cards, addLocal, removeLocal, unremoveLocal, reorderLocal, editLocal } = useOptimisticCards(
     view?.cards ?? NO_CARDS
@@ -95,7 +69,6 @@ export function RipplesTeamView({
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(true);
-  const autoJoined = useRef(false);
   const heroArt = scenarioHero(scenario);
 
   const run = useCallback(async (fn: () => Promise<void>) => {
@@ -109,23 +82,6 @@ export function RipplesTeamView({
       setBusy(false);
     }
   }, []);
-
-  // Solo: no lobby — silently create this device's board + player once.
-  useEffect(() => {
-    if (!view || !view.config.solo || playerId || autoJoined.current || !pid) return;
-    autoJoined.current = true;
-    postRipplePlayer(code, { participantId: pid, displayName: nick || "You", teamName: "My map" })
-      .then((res) => {
-        join(res.player.id);
-        // Pull the freshly-created board/player straight away — don't wait on a
-        // realtime event (which can be missed at mount), or the solo screen hangs
-        // on "Setting up your map…" until a manual refresh.
-        refresh();
-      })
-      .catch(() => {
-        autoJoined.current = false;
-      });
-  }, [view, playerId, pid, nick, code, join, refresh]);
 
   if (loading && !view) return <Centered>Loading session…</Centered>;
   if (error && !view)
@@ -144,18 +100,21 @@ export function RipplesTeamView({
 
   const { session, config, teams, players } = view;
   const solo = config.solo;
+  const sharedTeam = config.sharedTeam;
   const phase = session.phase as RipplePhase;
   const myPlayer = players.find((p) => p.id === playerId) ?? null;
   const myTeam = myPlayer ? teams.find((t) => t.id === myPlayer.teamId) ?? null : null;
 
   // ---- not joined yet ----
   if (!myPlayer || !myTeam) {
-    if (solo) {
+    if (solo || sharedTeam) {
       return (
         <Shell>
-          <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo />
+          <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo={solo} />
           <Panel>
-            <p className="text-[14px] text-muted">Setting up your map…</p>
+            <p className="text-[14px] text-muted">
+              {sharedTeam ? "Joining your group’s board…" : "Setting up your map…"}
+            </p>
           </Panel>
           {flash && <Flash msg={flash} />}
         </Shell>
@@ -332,6 +291,13 @@ export function RipplesTeamView({
               onDelete={removeCard}
               onReorder={reorderSticky}
               onEdit={editCard}
+              header={
+                <SectionHead n={1} title="Brainstorm key changes">
+                  Peel a note off the pad for each thing that changes in this world.{" "}
+                  <span className="font-semibold text-ink">Click a note to edit it</span>, drag to
+                  reorder. These are just notes, separate from the tree below.
+                </SectionHead>
+              }
             />
 
             <section className="mt-8">
@@ -356,26 +322,35 @@ export function RipplesTeamView({
             </section>
 
             {/* Reflection questions are moving to a separate workshop — hidden for now
-                (kept in git history). Submit lives here so the map can breathe. */}
-            <div className="mt-10 flex items-center gap-3 border-t border-[var(--rule)] pt-6">
-              <button
-                onClick={() =>
-                  run(async () => {
-                    await postRippleSubmit(code, { participantId: pid, answers: [] });
-                    if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
-                  })
-                }
-                disabled={busy || keyChanges.length < MIN_KEY_CHANGES}
-                className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
-              >
-                {myPlayer.submittedAt ? "Update map" : "Submit map"} →
-              </button>
-              {keyChanges.length < MIN_KEY_CHANGES && (
-                <span className="text-[12px] italic text-muted">
-                  Add at least {MIN_KEY_CHANGES} key changes first.
-                </span>
-              )}
-            </div>
+                (kept in git history). Submit lives here so the map can breathe.
+                Shared boards (design groups) are self-paced and async: nobody submits
+                individually — an admin finalizes the whole group's map. */}
+            {sharedTeam ? (
+              <div className="mt-10 border-t border-[var(--rule)] pt-6 text-[12px] italic text-muted">
+                This is your group&rsquo;s shared board — build it together, whenever. A
+                facilitator will finalize the map when the group is done.
+              </div>
+            ) : (
+              <div className="mt-10 flex items-center gap-3 border-t border-[var(--rule)] pt-6">
+                <button
+                  onClick={() =>
+                    run(async () => {
+                      await postRippleSubmit(code, { participantId: pid, answers: [] });
+                      if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
+                    })
+                  }
+                  disabled={busy || keyChanges.length < MIN_KEY_CHANGES}
+                  className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
+                >
+                  {myPlayer.submittedAt ? "Update map" : "Submit map"} →
+                </button>
+                {keyChanges.length < MIN_KEY_CHANGES && (
+                  <span className="text-[12px] italic text-muted">
+                    Add at least {MIN_KEY_CHANGES} key changes first.
+                  </span>
+                )}
+              </div>
+            )}
           </WorksheetSheet>
         </>
       )}
@@ -431,250 +406,6 @@ function SectionHead({ n, title, children }: { n: number; title: string; childre
       </h2>
       {children && <p className="mt-1 text-[13px] leading-[1.5] text-muted">{children}</p>}
     </div>
-  );
-}
-
-// ---------- Section 1: brainstorm — a peel-off pad on the left, notes flow right ----------
-const STICKY_BG = "#fbeea6"; // off-yellow
-
-function BrainstormSection({
-  stickies,
-  canEdit,
-  busy,
-  onAdd,
-  onDelete,
-  onReorder,
-  onEdit,
-}: {
-  stickies: RippleCard[]; // pre-sorted by `sort`
-  canEdit: (card: RippleCard) => boolean; // your own notes: editable + deletable
-  busy: boolean;
-  onAdd: (text: string) => void;
-  onDelete: (card: RippleCard) => void;
-  onReorder: (cardId: string, sort: number) => void;
-  onEdit: (cardId: string, text: string) => void;
-}) {
-  const [text, setText] = useState("");
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
-  // Inline edit of one note at a time. `handled` guards against the commit firing
-  // twice (Cmd+Enter/blur, or an Escape-then-unmount blur) in a single edit.
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
-  const handled = useRef(false);
-  const over = text.length > CARD_TEXT_MAX;
-  const submit = () => {
-    const t = text.trim();
-    if (!t || over) return;
-    onAdd(t);
-    setText("");
-  };
-
-  const startEdit = (c: RippleCard) => {
-    handled.current = false;
-    setEditingId(c.id);
-    setEditText(c.text);
-  };
-  const commitEdit = () => {
-    if (handled.current) return;
-    handled.current = true;
-    const id = editingId;
-    const original = stickies.find((s) => s.id === id)?.text;
-    const t = editText.trim();
-    setEditingId(null);
-    setEditText("");
-    if (id && t && t.length <= CARD_TEXT_MAX && t !== original) onEdit(id, t);
-  };
-  const cancelEdit = () => {
-    handled.current = true;
-    setEditingId(null);
-    setEditText("");
-  };
-
-  // Drop the dragged sticky just before `targetId` (or at the end when targetId null).
-  const drop = (targetId: string | null) => {
-    const dropped = dragId;
-    setDragId(null);
-    setOverId(null);
-    if (!dropped || dropped === targetId) return;
-    if (targetId === null) {
-      const last = stickies[stickies.length - 1];
-      if (last && last.id !== dropped) onReorder(dropped, last.sort + 1);
-    } else {
-      const idx = stickies.findIndex((s) => s.id === targetId);
-      const target = stickies[idx];
-      const prev = stickies[idx - 1];
-      if (!target || prev?.id === dropped) return;
-      const newSort = prev ? (prev.sort + target.sort) / 2 : target.sort - 1;
-      onReorder(dropped, newSort);
-    }
-  };
-
-  return (
-    <section>
-      <SectionHead n={1} title="Brainstorm key changes">
-        Peel a note off the pad for each thing that changes in this world.{" "}
-        <span className="font-semibold text-ink">Click a note to edit it</span>, drag to reorder.
-        These are just notes, separate from the tree below.
-      </SectionHead>
-      <div className="mt-3 flex items-start gap-5">
-        {/* the pad — a stack of blank notes, pinned on the left */}
-        <div className="flex-none">
-          <div className="relative w-44">
-            <span
-              aria-hidden
-              className="absolute left-2 top-2 h-full w-full rounded-[2px] border border-black/10"
-              style={{ background: STICKY_BG }}
-            />
-            <span
-              aria-hidden
-              className="absolute left-1 top-1 h-full w-full rounded-[2px] border border-black/10"
-              style={{ background: STICKY_BG }}
-            />
-            <div
-              className="relative rounded-[2px] border border-dashed border-black/30 p-2 shadow-[2px_3px_0_rgba(36,36,34,0.12)]"
-              style={{ background: STICKY_BG }}
-            >
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
-                }}
-                rows={3}
-                placeholder="＋ a note…"
-                className="w-full resize-none rounded-[2px] border border-black/15 bg-white/60 p-1.5 text-[12.5px] outline-none focus:border-ink"
-              />
-              <div className="mt-1 flex items-center justify-between">
-                <span className={"text-[10px] " + (over ? "font-bold text-coral" : "text-black/40")}>
-                  {text.length}/{CARD_TEXT_MAX}
-                </span>
-                <button
-                  onClick={submit}
-                  disabled={busy || !text.trim() || over}
-                  className="rounded-[2px] border border-ink bg-lime px-3 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em] disabled:opacity-40"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-          </div>
-          <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-            New note
-          </p>
-        </div>
-
-        {/* the notes you've peeled off — flow left→right, wrap, drop-to-reorder */}
-        <div
-          className="flex min-h-[8.5rem] flex-1 flex-wrap content-start items-start gap-3 rounded-[3px] border border-dashed border-black/10 p-3"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={() => drop(null)}
-        >
-          {stickies.length === 0 && (
-            <p className="m-auto text-[12px] italic text-muted">
-              Notes you add appear here.
-            </p>
-          )}
-          {stickies.map((c) => {
-            const isDragging = dragId === c.id;
-            const showDropBar = dragId && overId === c.id && dragId !== c.id;
-            const mine = canEdit(c);
-            const editing = editingId === c.id;
-            return (
-              <div key={c.id} className="relative">
-                {showDropBar && (
-                  <span className="absolute -left-2 bottom-0 top-0 w-1 rounded bg-[var(--lime-deep)]" />
-                )}
-                <div
-                  draggable={!editing}
-                  onDragStart={() => setDragId(c.id)}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setOverId(null);
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    if (dragId && dragId !== c.id) setOverId(c.id);
-                  }}
-                  onDragLeave={() => setOverId((v) => (v === c.id ? null : v))}
-                  onDrop={(e) => {
-                    e.stopPropagation();
-                    drop(c.id);
-                  }}
-                  className={
-                    "group relative w-44 rounded-[2px] border border-black/10 shadow-[2px_3px_0_rgba(36,36,34,0.12)] transition-transform " +
-                    (editing
-                      ? ""
-                      : "cursor-grab hover:-translate-y-0.5 hover:shadow-[3px_5px_0_rgba(36,36,34,0.16)] active:cursor-grabbing ") +
-                    (isDragging ? "rotate-2 opacity-50" : "")
-                  }
-                  style={{ background: STICKY_BG }}
-                >
-                  <div className="flex items-center justify-between px-2 pt-1 text-black/30">
-                    <span aria-hidden className="text-[11px] leading-none tracking-[-2px]">
-                      ⠿⠿
-                    </span>
-                    {mine && (
-                      <button
-                        onClick={() => onDelete(c)}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        draggable={false}
-                        className="rounded-[2px] px-1 text-[11px] font-bold text-black/40 opacity-0 hover:text-ink group-hover:opacity-100"
-                        aria-label="Delete note"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                  {editing ? (
-                    <div className="px-2 pb-2">
-                      <textarea
-                        value={editText}
-                        autoFocus
-                        onChange={(e) => setEditText(e.target.value)}
-                        onBlur={commitEdit}
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") cancelEdit();
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            commitEdit();
-                          }
-                        }}
-                        rows={3}
-                        className="w-full resize-none rounded-[2px] border border-black/25 bg-white/70 p-1.5 text-[12.5px] leading-[1.35] outline-none focus:border-ink"
-                      />
-                    </div>
-                  ) : (
-                    <p
-                      onClick={() => mine && startEdit(c)}
-                      onKeyDown={
-                        mine
-                          ? (e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                startEdit(c);
-                              }
-                            }
-                          : undefined
-                      }
-                      role={mine ? "button" : undefined}
-                      tabIndex={mine ? 0 : undefined}
-                      title={mine ? "Click to edit" : undefined}
-                      className={
-                        "px-2.5 pb-2.5 text-[12.5px] leading-[1.35] " +
-                        (mine ? "cursor-text rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ink" : "")
-                      }
-                    >
-                      {c.text}
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
   );
 }
 
