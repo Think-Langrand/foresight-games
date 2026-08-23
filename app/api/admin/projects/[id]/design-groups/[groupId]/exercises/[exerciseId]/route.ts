@@ -62,6 +62,7 @@ export async function PATCH(
         projectId: r.group.projectId,
         scenarioRef: r.group.scenarioRef,
         carmelitaProjectRef: r.project.carmelitaProjectRef,
+        color: r.group.color,
       });
     }
     return NextResponse.json({ exercise: await getExercise(exerciseId) });

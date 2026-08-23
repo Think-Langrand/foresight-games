@@ -77,6 +77,7 @@ export async function POST(
         projectId: r.group.projectId,
         scenarioRef: r.group.scenarioRef,
         carmelitaProjectRef: r.project.carmelitaProjectRef,
+        color: r.group.color,
       });
     }
     // Re-read so the response includes any freshly-provisioned session_code.

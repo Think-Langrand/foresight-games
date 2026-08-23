@@ -212,6 +212,7 @@ export async function assignScenario(
     projectId: group.projectId,
     scenarioRef: scenario.id,
     carmelitaProjectRef: project.carmelitaProjectRef,
+    color: group.color,
   };
 
   if (exercises.length === 0) {

@@ -112,7 +112,8 @@ export function AdminDesignGroups({
 
   async function saveGroupName(g: AdminDesignGroup) {
     await run(g.id, async () => {
-      await api(`${base}/${g.id}`, "PATCH", { name: g.name });
+      const res = await api(`${base}/${g.id}`, "PATCH", { name: g.name });
+      if (!res._ok) throw new Error((res.error as string) || "Failed to rename group");
     });
   }
 
@@ -137,7 +138,8 @@ export function AdminDesignGroups({
   async function removeGroup(g: AdminDesignGroup) {
     if (!confirm(`Delete "${g.name}" and its exercises? Backing boards are left intact.`)) return;
     await run(g.id, async () => {
-      await api(`${base}/${g.id}`, "DELETE");
+      const res = await api(`${base}/${g.id}`, "DELETE");
+      if (!res._ok) throw new Error((res.error as string) || "Failed to delete group");
       setGroups((prev) => prev.filter((x) => x.id !== g.id));
     });
   }
@@ -172,7 +174,8 @@ export function AdminDesignGroups({
   async function removeExercise(g: AdminDesignGroup, ex: AdminExercise) {
     if (!confirm(`Delete "${ex.title}"?`)) return;
     await run(ex.id, async () => {
-      await api(`${base}/${g.id}/exercises/${ex.id}`, "DELETE");
+      const res = await api(`${base}/${g.id}/exercises/${ex.id}`, "DELETE");
+      if (!res._ok) throw new Error((res.error as string) || "Failed to delete exercise");
       await refreshExercises(g.id);
     });
   }

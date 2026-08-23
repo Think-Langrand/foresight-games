@@ -142,6 +142,7 @@ export interface BoardScenarioCtx {
   projectId: string;
   scenarioRef: string;
   carmelitaProjectRef: string;
+  color?: string | null; // the group's colour, threaded onto its board team
 }
 
 // The shared-board Ripples config for an exercise: sharedTeam, self-paced, with the
@@ -196,6 +197,7 @@ export async function provisionExerciseBoard(
     sessionId: session.id,
     code: session.code,
     name: exercise.title || scenario.title,
+    color: ctx.color ?? undefined,
   });
   await updateExercise(exercise.id, { sessionCode: session.code });
   return session.code;
