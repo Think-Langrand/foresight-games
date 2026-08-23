@@ -6,6 +6,7 @@ import { getDeck } from "@/lib/cards";
 import { listRippleMaps } from "@/lib/ripples";
 import { getProjectBySlugAny } from "@/lib/projects";
 import { listDesignGroups, implicationCountsByCode } from "@/lib/design-groups";
+import { listExercises } from "@/lib/design-group-exercises";
 import { getScenarios, foresightConfigured } from "@/lib/foresight/client";
 import type { Card } from "@/lib/workshop-types";
 import { AdminSessionsList } from "@/components/admin/AdminSessionsList";
@@ -46,21 +47,29 @@ export default async function ProjectAdminPage({
     listDesignGroups(project.id),
   ]);
 
-  // Design groups: implication counts per backing board, plus the project's
-  // scenarios for the assignment picker (tolerate the platform being down).
-  const dgCounts = await implicationCountsByCode(
-    designGroups.map((g) => g.sessionCode ?? "").filter(Boolean)
+  // Design groups: each group's exercises (weeks) + card counts per backing board,
+  // plus the project's scenarios for the assignment picker (tolerate platform down).
+  const groupExercises = await Promise.all(designGroups.map((g) => listExercises(g.id)));
+  const exCounts = await implicationCountsByCode(
+    groupExercises.flat().map((e) => e.sessionCode ?? "").filter(Boolean)
   );
-  const designGroupRows = designGroups.map((g) => ({
+  const designGroupRows = designGroups.map((g, i) => ({
     id: g.id,
     name: g.name,
     sort: g.sort,
     color: g.color,
     scenarioRef: g.scenarioRef,
     scenarioTitle: g.scenarioTitle,
-    sessionCode: g.sessionCode,
-    status: g.status,
-    implications: g.sessionCode ? dgCounts.get(g.sessionCode.toUpperCase()) ?? 0 : 0,
+    exercises: groupExercises[i].map((e) => ({
+      id: e.id,
+      sort: e.sort,
+      title: e.title,
+      type: e.type,
+      sessionCode: e.sessionCode,
+      locked: e.locked,
+      opensAt: e.opensAt,
+      cards: e.sessionCode ? exCounts.get(e.sessionCode.toUpperCase()) ?? 0 : 0,
+    })),
   }));
   const foresightUp = foresightConfigured();
   let designScenarios: AdminScenarioOption[] = [];

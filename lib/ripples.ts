@@ -49,6 +49,7 @@ interface CardRow {
   flagged: boolean;
   greyed: boolean;
   sort: number | null;
+  section: string | null;
   created_at: string;
 }
 interface ChipRow {
@@ -93,6 +94,7 @@ function mapCard(r: CardRow): RippleCard {
     flagged: r.flagged ?? false,
     greyed: r.greyed ?? false,
     sort: r.sort ?? 0,
+    section: r.section ?? null,
     createdTime: r.created_at,
   };
 }
@@ -460,6 +462,7 @@ export async function addCard(input: {
   parentId: string | null;
   text: string;
   sort?: number;
+  section?: string | null; // worksheet area key (STICKY only)
 }): Promise<RippleCard> {
   const row = await withRetry(async () => {
     const { data, error } = await supabaseAdmin()
@@ -473,6 +476,7 @@ export async function addCard(input: {
         parent_card_id: input.parentId,
         text: input.text,
         sort: input.sort ?? 0,
+        section: input.section ?? null,
       })
       .select("*")
       .single();

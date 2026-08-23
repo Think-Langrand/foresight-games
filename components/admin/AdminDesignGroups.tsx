@@ -3,7 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { DesignGroupStatus } from "@/lib/design-groups";
+import { EXERCISE_TYPES, exerciseStatus, type ExerciseStatus } from "@/lib/exercise-types";
+
+export interface AdminExercise {
+  id: string;
+  sort: number;
+  title: string;
+  type: string;
+  sessionCode: string | null;
+  locked: boolean;
+  opensAt: string | null;
+  cards: number;
+}
 
 export interface AdminDesignGroup {
   id: string;
@@ -12,9 +23,7 @@ export interface AdminDesignGroup {
   color: string | null;
   scenarioRef: string | null;
   scenarioTitle: string | null;
-  sessionCode: string | null;
-  status: DesignGroupStatus;
-  implications: number;
+  exercises: AdminExercise[];
 }
 
 export interface AdminScenarioOption {
@@ -24,15 +33,18 @@ export interface AdminScenarioOption {
 }
 
 const inputCls =
-  "w-full rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-1.5 text-[13px] focus:border-ink focus:outline-none";
+  "rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-1.5 text-[13px] focus:border-ink focus:outline-none";
 const btn =
   "rounded-[2px] border border-ink px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] disabled:opacity-40";
 
-const STATUS_STYLE: Record<DesignGroupStatus, string> = {
-  DRAFT: "bg-[var(--hairline)] text-muted",
-  OPEN: "bg-lime text-ink",
-  FINALIZED: "bg-blue text-white",
+const STATUS_STYLE: Record<ExerciseStatus, string> = {
+  placeholder: "bg-[var(--hairline)] text-muted",
+  scheduled: "bg-amber text-ink",
+  locked: "bg-blue text-white",
+  open: "bg-lime text-ink",
 };
+
+const TYPE_OPTIONS = Object.values(EXERCISE_TYPES).map((t) => ({ id: t.id, label: t.label }));
 
 async function api(url: string, method: string, body?: unknown): Promise<Record<string, unknown>> {
   const res = await fetch(url, {
@@ -41,9 +53,12 @@ async function api(url: string, method: string, body?: unknown): Promise<Record<
     body: body ? JSON.stringify(body) : undefined,
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((json as { error?: string }).error || "Request failed");
-  return json as Record<string, unknown>;
+  return { ...(json as object), _status: res.status, _ok: res.ok };
 }
+
+// ISO <-> <input type=date> (day granularity is enough for a biweekly schedule).
+const toDateInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
+const fromDateInput = (d: string) => (d ? `${d}T00:00:00.000Z` : null);
 
 export function AdminDesignGroups({
   projectId,
@@ -63,7 +78,6 @@ export function AdminDesignGroups({
   const [newName, setNewName] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // API is keyed by project id (route param); slug is only for the board links.
   const base = `/api/admin/projects/${projectId}/design-groups`;
 
   const run = async (id: string, fn: () => Promise<void>) => {
@@ -77,71 +91,94 @@ export function AdminDesignGroups({
       setBusyId(null);
     }
   };
+  const setGroup = (id: string, patch: Partial<AdminDesignGroup>) =>
+    setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)));
 
-  const patch = (id: string, g: Partial<AdminDesignGroup>) =>
-    setGroups((prev) => prev.map((x) => (x.id === id ? { ...x, ...g } : x)));
+  async function refreshExercises(groupId: string) {
+    const res = await api(`${base}/${groupId}/exercises`, "GET");
+    if (res._ok) setGroup(groupId, { exercises: (res.exercises as AdminExercise[]) ?? [] });
+  }
 
   async function addGroup() {
     const name = newName.trim();
     if (!name) return;
     await run("new", async () => {
-      const { group } = (await api(base, "POST", { name })) as { group: AdminDesignGroup };
-      setGroups((prev) => [...prev, { ...group, implications: 0 }]);
+      const res = await api(base, "POST", { name });
+      if (!res._ok) throw new Error((res.error as string) || "Failed");
+      setGroups((prev) => [...prev, { ...(res.group as AdminDesignGroup), exercises: [] }]);
       setNewName("");
     });
   }
 
-  async function saveName(g: AdminDesignGroup) {
+  async function saveGroupName(g: AdminDesignGroup) {
     await run(g.id, async () => {
       await api(`${base}/${g.id}`, "PATCH", { name: g.name });
     });
   }
 
-  async function assign(g: AdminDesignGroup, scenarioRef: string) {
+  async function assignScenario(g: AdminDesignGroup, scenarioRef: string) {
     if (!scenarioRef) return;
     await run(g.id, async () => {
-      const send = async (force: boolean) => {
-        const res = await fetch(`${base}/${g.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(force ? { scenarioRef, force: true } : { scenarioRef }),
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          group?: AdminDesignGroup;
-          error?: string;
-          needsConfirm?: boolean;
-        };
-        return { res, json };
-      };
-      let { res, json } = await send(false);
-      // 409 = would overwrite the premise under built implications; confirm & retry.
-      if (res.status === 409 && json.needsConfirm) {
-        if (!confirm(json.error || "Reassign will change the premise under existing work. Continue?"))
+      const send = (force: boolean) =>
+        api(`${base}/${g.id}`, "PATCH", force ? { scenarioRef, force: true } : { scenarioRef });
+      let res = await send(false);
+      if (res._status === 409 && res.needsConfirm) {
+        if (!confirm((res.error as string) || "Reassigning changes the premise under existing work. Continue?"))
           return;
-        ({ res, json } = await send(true));
+        res = await send(true);
       }
-      if (!res.ok) throw new Error(json.error || "Failed to assign scenario");
-      if (json.group) patch(g.id, json.group);
+      if (!res._ok) throw new Error((res.error as string) || "Failed to assign scenario");
+      setGroup(g.id, res.group as AdminDesignGroup);
+      await refreshExercises(g.id); // assigning seeds the program on first assign
       router.refresh();
     });
   }
 
-  async function finalize(g: AdminDesignGroup, action: "finalize" | "reopen") {
-    await run(g.id, async () => {
-      const { group } = (await api(`${base}/${g.id}/finalize`, "POST", { action })) as {
-        group: AdminDesignGroup;
-      };
-      patch(g.id, group);
-    });
-  }
-
-  async function remove(g: AdminDesignGroup) {
-    if (!confirm(`Delete "${g.name}"? The backing map is left intact.`)) return;
+  async function removeGroup(g: AdminDesignGroup) {
+    if (!confirm(`Delete "${g.name}" and its exercises? Backing boards are left intact.`)) return;
     await run(g.id, async () => {
       await api(`${base}/${g.id}`, "DELETE");
       setGroups((prev) => prev.filter((x) => x.id !== g.id));
     });
   }
+
+  // ----- exercise ops -----
+  async function addExercise(g: AdminDesignGroup) {
+    await run(g.id, async () => {
+      const res = await api(`${base}/${g.id}/exercises`, "POST", {
+        title: `Week ${g.exercises.length + 1}`,
+        type: "placeholder",
+      });
+      if (!res._ok) throw new Error((res.error as string) || "Failed");
+      await refreshExercises(g.id);
+    });
+  }
+  async function patchExercise(g: AdminDesignGroup, ex: AdminExercise, patch: Partial<AdminExercise>) {
+    await run(ex.id, async () => {
+      const res = await api(`${base}/${g.id}/exercises/${ex.id}`, "PATCH", patch);
+      if (!res._ok) throw new Error((res.error as string) || "Failed");
+      await refreshExercises(g.id);
+    });
+  }
+  async function toggleLock(g: AdminDesignGroup, ex: AdminExercise) {
+    await run(ex.id, async () => {
+      const res = await api(`${base}/${g.id}/exercises/${ex.id}/lock`, "POST", {
+        action: ex.locked ? "unlock" : "lock",
+      });
+      if (!res._ok) throw new Error((res.error as string) || "Failed");
+      await refreshExercises(g.id);
+    });
+  }
+  async function removeExercise(g: AdminDesignGroup, ex: AdminExercise) {
+    if (!confirm(`Delete "${ex.title}"?`)) return;
+    await run(ex.id, async () => {
+      await api(`${base}/${g.id}/exercises/${ex.id}`, "DELETE");
+      await refreshExercises(g.id);
+    });
+  }
+
+  // Captured once at mount — admin status pills don't need to tick live.
+  const [now] = useState(() => Date.now());
 
   return (
     <div className="mt-3">
@@ -152,14 +189,12 @@ export function AdminDesignGroups({
       )}
       {error && <p className="mb-3 text-[13px] font-semibold text-coral">{error}</p>}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {groups.map((g) => {
           const busy = busyId === g.id;
           return (
-            <article
-              key={g.id}
-              className="rounded-[3px] border border-[var(--hairline)] bg-card p-4"
-            >
+            <article key={g.id} className="rounded-[3px] border border-[var(--hairline)] bg-card p-4">
+              {/* group header */}
               <div className="flex flex-wrap items-center gap-3">
                 <span
                   className="inline-block h-4 w-4 shrink-0 rounded-[2px] border border-ink"
@@ -167,84 +202,143 @@ export function AdminDesignGroups({
                 />
                 <input
                   value={g.name}
-                  onChange={(e) => patch(g.id, { name: e.target.value })}
-                  onBlur={() => saveName(g)}
-                  className={inputCls + " max-w-[220px]"}
+                  onChange={(e) => setGroup(g.id, { name: e.target.value })}
+                  onBlur={() => saveGroupName(g)}
+                  className={inputCls + " max-w-[200px]"}
                 />
-                <span
-                  className={
-                    "rounded-[2px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] " +
-                    STATUS_STYLE[g.status]
-                  }
-                >
-                  {g.status}
-                </span>
-                <span className="text-[12px] text-muted">
-                  {g.implications} implication{g.implications === 1 ? "" : "s"}
-                </span>
-                <div className="ml-auto flex items-center gap-2">
-                  {g.sessionCode && (
-                    <Link
-                      href={`/project/${slug}/workshop/s/${g.sessionCode}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[12px] font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
-                    >
-                      Open board →
-                    </Link>
-                  )}
-                  <button
-                    onClick={() => remove(g)}
-                    disabled={busy}
-                    className={btn + " border-coral text-coral hover:bg-coral hover:text-white"}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-end gap-3">
-                <label className="flex-1 min-w-[240px]">
-                  <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-                    Scenario
-                  </span>
+                <label className="flex items-center gap-1 text-[12px] text-muted">
+                  Scenario
                   <select
                     value={g.scenarioRef ?? ""}
                     disabled={busy || !configured || scenarios.length === 0}
-                    onChange={(e) => assign(g, e.target.value)}
-                    className={inputCls + " mt-1"}
+                    onChange={(e) => assignScenario(g, e.target.value)}
+                    className={inputCls}
                   >
                     <option value="" disabled>
-                      {scenarios.length === 0 ? "No scenarios found" : "Choose a scenario…"}
+                      {scenarios.length === 0 ? "none found" : "Choose…"}
                     </option>
                     {scenarios.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.title}
-                        {s.headline ? ` — ${s.headline}` : ""}
                       </option>
                     ))}
                   </select>
                 </label>
-
-                {g.sessionCode &&
-                  (g.status === "FINALIZED" ? (
-                    <button
-                      onClick={() => finalize(g, "reopen")}
-                      disabled={busy}
-                      className={btn + " bg-paper hover:bg-card"}
-                    >
-                      Reopen for building
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => finalize(g, "finalize")}
-                      disabled={busy}
-                      className={btn + " bg-lime hover:bg-lime-deep"}
-                    >
-                      Finalize map
-                    </button>
-                  ))}
+                <button
+                  onClick={() => removeGroup(g)}
+                  disabled={busy}
+                  className={btn + " ml-auto border-coral text-coral hover:bg-coral hover:text-white"}
+                >
+                  Delete group
+                </button>
               </div>
+
+              {/* exercises */}
+              {!g.scenarioRef ? (
+                <p className="mt-3 text-[12px] italic text-muted">
+                  Assign a scenario to seed this group&rsquo;s program of exercises.
+                </p>
+              ) : (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full border-collapse text-[12px]">
+                    <thead>
+                      <tr className="text-left text-[10px] uppercase tracking-[0.08em] text-muted">
+                        <th className="py-1 pr-2">Week</th>
+                        <th className="py-1 pr-2">Type</th>
+                        <th className="py-1 pr-2">Opens</th>
+                        <th className="py-1 pr-2">Status</th>
+                        <th className="py-1 pr-2">Cards</th>
+                        <th className="py-1"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.exercises.map((ex) => {
+                        const st = exerciseStatus(ex, now);
+                        const exBusy = busyId === ex.id;
+                        return (
+                          <tr key={ex.id} className="border-t border-[var(--hairline)]">
+                            <td className="py-1.5 pr-2">
+                              <input
+                                defaultValue={ex.title}
+                                onBlur={(e) =>
+                                  e.target.value !== ex.title && patchExercise(g, ex, { title: e.target.value })
+                                }
+                                className={inputCls + " w-[200px]"}
+                              />
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <select
+                                value={ex.type}
+                                disabled={exBusy}
+                                onChange={(e) => patchExercise(g, ex, { type: e.target.value })}
+                                className={inputCls}
+                              >
+                                {TYPE_OPTIONS.map((t) => (
+                                  <option key={t.id} value={t.id}>
+                                    {t.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <input
+                                type="date"
+                                defaultValue={toDateInput(ex.opensAt)}
+                                onChange={(e) => patchExercise(g, ex, { opensAt: fromDateInput(e.target.value) })}
+                                className={inputCls}
+                              />
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <span
+                                className={
+                                  "rounded-[2px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] " +
+                                  STATUS_STYLE[st]
+                                }
+                              >
+                                {st}
+                              </span>
+                            </td>
+                            <td className="py-1.5 pr-2 text-muted">{ex.cards}</td>
+                            <td className="py-1.5">
+                              <div className="flex items-center justify-end gap-2">
+                                {ex.sessionCode && (
+                                  <Link
+                                    href={`/project/${slug}/workshop/s/${ex.sessionCode}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
+                                  >
+                                    Board →
+                                  </Link>
+                                )}
+                                {ex.sessionCode && (
+                                  <button
+                                    onClick={() => toggleLock(g, ex)}
+                                    disabled={exBusy}
+                                    className={btn + (ex.locked ? " bg-paper" : " bg-lime hover:bg-lime-deep")}
+                                  >
+                                    {ex.locked ? "Unlock" : "Lock"}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => removeExercise(g, ex)}
+                                  disabled={exBusy}
+                                  className={btn + " border-coral text-coral"}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <button onClick={() => addExercise(g)} disabled={busy} className={btn + " mt-2 bg-paper"}>
+                    + Add week
+                  </button>
+                </div>
+              )}
             </article>
           );
         })}
@@ -258,11 +352,7 @@ export function AdminDesignGroups({
           placeholder="New group name (e.g. Group A)"
           className={inputCls + " max-w-[280px]"}
         />
-        <button
-          onClick={addGroup}
-          disabled={busyId === "new" || !newName.trim()}
-          className={btn + " bg-lime hover:bg-lime-deep"}
-        >
+        <button onClick={addGroup} disabled={busyId === "new" || !newName.trim()} className={btn + " bg-lime hover:bg-lime-deep"}>
           Add group
         </button>
       </div>

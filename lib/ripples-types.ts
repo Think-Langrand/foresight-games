@@ -211,6 +211,7 @@ export interface RippleCard {
   flagged: boolean;
   greyed: boolean;
   sort: number; // orders STICKY brainstorm notes (drag-reorder); 0 for tree cards
+  section: string | null; // worksheet area key for STICKY cards; null = default board
   createdTime: string;
 }
 
