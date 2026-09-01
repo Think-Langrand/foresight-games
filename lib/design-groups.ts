@@ -4,7 +4,7 @@ import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import { getProjectById } from "@/lib/projects";
 import { getScenario } from "@/lib/foresight/client";
 import { TEAM_COLORS } from "@/lib/workshop-types";
-import { DEFAULT_PROGRAM, isBoardBacked } from "@/lib/exercise-types";
+import { DEFAULT_PROGRAM, getExerciseType, isBoardBacked } from "@/lib/exercise-types";
 import {
   listExercises,
   createExercise,
@@ -217,7 +217,15 @@ export async function assignScenario(
   if (exercises.length === 0) {
     // First assignment → seed the default program and provision its boards.
     for (const wk of DEFAULT_PROGRAM) {
-      const ex = await createExercise({ groupId, sort: wk.sort, title: wk.title, type: wk.type });
+      // Snapshot the type's template questions onto the exercise so later template edits
+      // don't retroactively change an in-flight program (admins edit the snapshot).
+      const ex = await createExercise({
+        groupId,
+        sort: wk.sort,
+        title: wk.title,
+        type: wk.type,
+        sections: getExerciseType(wk.type)?.sections ?? [],
+      });
       if (isBoardBacked(wk.type)) await provisionExerciseBoard(ex, ctx);
     }
   } else {

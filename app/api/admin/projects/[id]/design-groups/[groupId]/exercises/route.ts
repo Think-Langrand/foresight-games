@@ -8,7 +8,7 @@ import {
   createExercise,
   provisionExerciseBoard,
 } from "@/lib/design-group-exercises";
-import { isBoardBacked } from "@/lib/exercise-types";
+import { isBoardBacked, type WorksheetSection } from "@/lib/exercise-types";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +54,13 @@ export async function POST(
   const r = await resolve(id, groupId);
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.status });
 
-  let body: { title?: string; type?: string; opensAt?: string | null; sort?: number } = {};
+  let body: {
+    title?: string;
+    type?: string;
+    opensAt?: string | null;
+    sort?: number;
+    sections?: WorksheetSection[];
+  } = {};
   try {
     body = await req.json();
   } catch {
@@ -71,6 +77,7 @@ export async function POST(
       title,
       type: body.type ?? "placeholder",
       opensAt: body.opensAt ?? null,
+      sections: body.sections, // coerced in createExercise via resolveSections
     });
     if (isBoardBacked(exercise.type) && r.group.scenarioRef) {
       await provisionExerciseBoard(exercise, {
