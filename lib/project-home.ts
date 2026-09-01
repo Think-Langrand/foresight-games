@@ -45,7 +45,7 @@ export interface HomeConfig {
 // The canonical set of items, in their default display order. Adding a new home
 // item is just a new entry here (plus a card definition in ProjectHome).
 export const PROJECT_HOME_ITEMS: { key: HomeItemKey; label: string }[] = [
-  { key: "scenario-sets", label: "Scenario sets" },
+  { key: "scenario-sets", label: "Scenarios" },
   { key: "play", label: "Play the card game" },
   { key: "ripples", label: "Implication mapping" },
   { key: "design-groups", label: "Design Groups" },

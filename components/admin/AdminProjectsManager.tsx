@@ -95,6 +95,11 @@ function ProjectForm({
         const res = await fetch(`/api/admin/scenario-sets?ref=${encodeURIComponent(ref)}`);
         const data = (await res.json().catch(() => ({}))) as { sets?: ScenarioSetOption[]; error?: string };
         if (cancelled) return;
+        if (!res.ok) {
+          setSets([]);
+          setSetsError(data.error || "Could not load scenario sets.");
+          return;
+        }
         setSets(data.sets ?? []);
         setSetsError(data.error ?? null);
       } catch {
@@ -323,12 +328,15 @@ function ProjectForm({
 
       {/* The scenario set the home "Scenarios" card opens directly. */}
       <div className="mt-4">
-        <span className={labelCls}>Default scenario set</span>
+        <label htmlFor="default-scenario-set" className={labelCls}>
+          Default scenario set
+        </label>
         <p className="mt-1 text-[11px] leading-[1.4] text-muted">
           The home <span className="font-semibold">Scenarios</span> card opens this set directly.
           &ldquo;Auto&rdquo; uses the first set the platform returns.
         </p>
         <select
+          id="default-scenario-set"
           className={inputCls + " mt-2"}
           value={f.defaultScenarioSetId ?? ""}
           onChange={(e) => set("defaultScenarioSetId", e.target.value || null)}
