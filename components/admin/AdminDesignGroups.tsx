@@ -11,7 +11,7 @@ import {
   type WorksheetSection,
 } from "@/lib/exercise-types";
 import { ExerciseQuestionEditor } from "@/components/admin/ExerciseQuestionEditor";
-import { ConfirmModal } from "@/components/admin/ConfirmModal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 export interface AdminExercise {
   id: string;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ScenarioBody } from "@/components/foresight/ScenarioBody";
 import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
 import { BrainstormSection } from "@/components/workshop/BrainstormSection";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import {
   useRipplesView,
   useOptimisticCards,
@@ -16,7 +17,7 @@ import {
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import { CARD_TEXT_MAX, type RippleCard } from "@/lib/ripples-types";
-import type { WorksheetSection } from "@/lib/exercise-types";
+import { worksheetSteps, type WorksheetSection } from "@/lib/exercise-types";
 
 const NO_CARDS: RippleCard[] = [];
 
@@ -47,7 +48,12 @@ export function WorksheetView({
   );
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const [showScenario, setShowScenario] = useState(false);
+  // Week 1 lands on the scenario; the worksheet opens when they hit "Start worksheet".
+  const [showScenario, setShowScenario] = useState(true);
+  // Sections may be grouped into `step`s, rendered as jump-anywhere tabs. When no step
+  // is declared (other worksheet types), `steps` is empty and we fall back to one stack.
+  const steps = useMemo(() => worksheetSteps(sections), [sections]);
+  const [activeStepIdx, setActiveStepIdx] = useState(0);
 
   const run = useCallback(async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -78,6 +84,14 @@ export function WorksheetView({
   const editable = view.session.phase === "BUILD";
   const mine = (c: RippleCard) => c.authorPlayerId === myPlayer.id;
   const sectionCards = (key: string) => cards.filter((c) => c.order === "STICKY" && c.section === key);
+
+  // Which sections show right now: the active tab's, or all of them when un-stepped.
+  const tabbed = steps.length >= 2;
+  const activeStep = steps[Math.min(activeStepIdx, steps.length - 1)];
+  const visibleSections = tabbed ? sections.filter((s) => s.step === activeStep) : sections;
+  // A lone brainstorm section flagged `board` (the Parking lot) gets a taller, board-like canvas.
+  const tallCanvas =
+    tabbed && visibleSections.length === 1 && visibleSections[0].kind === "brainstorm" && Boolean(visibleSections[0].board);
 
   const addCard = (section: string, text: string) =>
     run(async () => {
@@ -146,9 +160,9 @@ export function WorksheetView({
           )}
           <button
             onClick={() => setShowScenario((v) => !v)}
-            className="rounded-[2px] border border-ink bg-paper px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime"
+            className="rounded-[2px] border border-[#1f33dd] bg-[#1f33dd] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white hover:opacity-90"
           >
-            {showScenario ? "Hide scenario" : "View scenario"}
+            {showScenario ? "Worksheet" : "View scenario"}
           </button>
         </div>
       </div>
@@ -163,10 +177,38 @@ export function WorksheetView({
         </div>
       )}
 
+      {!showScenario && (
+        <>
+          {tabbed && (
+        <div
+          role="tablist"
+          aria-label="Worksheet steps"
+          className="mb-6 flex flex-wrap gap-1 border-b border-[var(--rule)]"
+        >
+          {steps.map((step, i) => {
+            const active = i === Math.min(activeStepIdx, steps.length - 1);
+            return (
+              <button
+                key={step}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveStepIdx(i)}
+                className={
+                  "-mb-px border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
+                  (active ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")
+                }
+              >
+                {step}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex flex-col gap-8">
-        {sections.map((s, i) => {
+        {visibleSections.map((s, i) => {
           const areaCards = sectionCards(s.key);
-          const showGroupHead = s.group && s.group !== sections[i - 1]?.group;
+          const showGroupHead = s.group && s.group !== visibleSections[i - 1]?.group;
           return (
             <div key={s.key}>
               {showGroupHead && (
@@ -180,6 +222,7 @@ export function WorksheetView({
                   canEdit={mine}
                   busy={busy}
                   readOnly={!editable}
+                  tall={tallCanvas}
                   onAdd={(text) => addCard(s.key, text)}
                   onDelete={removeCard}
                   onReorder={reorder}
@@ -197,12 +240,15 @@ export function WorksheetView({
                   readOnly={!editable}
                   onAdd={(text) => addCard(s.key, text)}
                   onDelete={removeCard}
+                  onEdit={editCard}
                 />
               )}
             </div>
           );
         })}
       </div>
+        </>
+      )}
 
       {flash && <Flash msg={flash} />}
     </main>
@@ -231,6 +277,7 @@ function QuestionSection({
   readOnly,
   onAdd,
   onDelete,
+  onEdit,
 }: {
   label: string;
   help?: string;
@@ -241,14 +288,36 @@ function QuestionSection({
   readOnly: boolean;
   onAdd: (text: string) => void;
   onDelete: (card: RippleCard) => void;
+  onEdit: (cardId: string, text: string) => void;
 }) {
   const [text, setText] = useState("");
+  // Inline edit of one answer at a time (your own only, while the week is unlocked).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
   const over = text.length > CARD_TEXT_MAX;
+  const editOver = editText.length > CARD_TEXT_MAX;
   const submit = () => {
     const t = text.trim();
     if (!t || over) return;
     onAdd(t);
     setText("");
+  };
+  const startEdit = (c: RippleCard) => {
+    setEditingId(c.id);
+    setEditText(c.text);
+  };
+  const commitEdit = () => {
+    const id = editingId;
+    const original = answers.find((a) => a.id === id)?.text;
+    const t = editText.trim();
+    setEditingId(null);
+    setEditText("");
+    if (id && t && !editOver && t !== original) onEdit(id, t);
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditText("");
   };
   return (
     <section>
@@ -257,28 +326,79 @@ function QuestionSection({
         {answers.length === 0 && (
           <p className="text-[13px] italic text-muted">{readOnly ? "No answers." : "No answers yet — add one below."}</p>
         )}
-        {answers.map((c) => (
-          <div
-            key={c.id}
-            className="group flex items-start justify-between gap-3 rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-2"
-          >
-            <div className="min-w-0">
-              <p className="text-[13.5px] leading-[1.4]">{c.text}</p>
-              {authorName(c) && (
-                <p className="mt-0.5 text-[10px] uppercase tracking-[0.06em] text-muted">— {authorName(c)}</p>
+        {answers.map((c) => {
+          const mine = !readOnly && canEdit(c);
+          const editing = editingId === c.id;
+          return (
+            <div
+              key={c.id}
+              className="group flex items-start justify-between gap-3 rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-2"
+            >
+              {editing ? (
+                <div className="min-w-0 flex-1">
+                  <textarea
+                    value={editText}
+                    autoFocus
+                    onChange={(e) => setEditText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") cancelEdit();
+                      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") commitEdit();
+                    }}
+                    rows={2}
+                    className="w-full resize-none rounded-[2px] border border-black/25 bg-white/70 p-1.5 text-[13.5px] leading-[1.4] outline-none focus:border-ink"
+                  />
+                  <div className="mt-1 flex items-center justify-end gap-2">
+                    <span className={"mr-auto text-[10px] " + (editOver ? "font-bold text-coral" : "text-muted")}>
+                      {editText.length}/{CARD_TEXT_MAX}
+                    </span>
+                    <button
+                      onClick={cancelEdit}
+                      className="rounded-[2px] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={commitEdit}
+                      disabled={busy || !editText.trim() || editOver}
+                      className="rounded-[2px] border border-ink bg-lime px-3 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em] disabled:opacity-40"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="min-w-0">
+                    <p className="text-[13.5px] leading-[1.4]">{c.text}</p>
+                    {authorName(c) && (
+                      <p className="mt-0.5 text-[10px] uppercase tracking-[0.06em] text-muted">— {authorName(c)}</p>
+                    )}
+                  </div>
+                  {mine && (
+                    <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
+                      <button
+                        onClick={() => startEdit(c)}
+                        className="rounded-[2px] px-1 text-[12px] font-bold text-muted hover:text-ink"
+                        aria-label="Edit answer"
+                        title="Edit"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => setPendingDelete(c)}
+                        className="rounded-[2px] px-1 text-[12px] font-bold text-muted hover:text-coral"
+                        aria-label="Delete answer"
+                        title="Delete"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
-            {!readOnly && canEdit(c) && (
-              <button
-                onClick={() => onDelete(c)}
-                className="shrink-0 rounded-[2px] px-1 text-[12px] font-bold text-muted opacity-0 hover:text-coral group-hover:opacity-100"
-                aria-label="Delete answer"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
       {!readOnly && (
         <div className="mt-2 flex items-start gap-2">
@@ -301,6 +421,23 @@ function QuestionSection({
           </button>
         </div>
       )}
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title="Delete answer"
+        confirmLabel="Delete"
+        busy={busy}
+        message={
+          <>
+            Delete your answer{pendingDelete?.text ? <> “{pendingDelete.text}”</> : ""}? This can’t be undone.
+          </>
+        }
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) onDelete(pendingDelete);
+          setPendingDelete(null);
+        }}
+      />
     </section>
   );
 }

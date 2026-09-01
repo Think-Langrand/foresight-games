@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { newSectionKey, type WorksheetSection } from "@/lib/exercise-types";
-import { ConfirmModal } from "@/components/admin/ConfirmModal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 // Per-exercise question editor. Edits a worksheet's sections (its questions + brainstorm
 // areas) as an ordered list. Section `key`s are permanent ids (written onto answer cards)
