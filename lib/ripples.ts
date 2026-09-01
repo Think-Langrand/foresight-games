@@ -516,6 +516,13 @@ export async function deleteCard(code: string, cardId: string): Promise<void> {
   if (error) throw error;
 }
 
+// Delete EVERY card on a board (admin reset). Wipes worksheet answers or the whole
+// implication map + brainstorm — the exercise/session itself stays, so the group can rebuild.
+export async function deleteAllCards(code: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("ripple_cards").delete().eq("code", up(code));
+  if (error) throw error;
+}
+
 export async function flagCard(code: string, cardId: string): Promise<void> {
   const { error } = await supabaseAdmin()
     .from("ripple_cards")

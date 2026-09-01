@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   PROJECT_HOME_ITEMS,
@@ -39,6 +39,7 @@ type FormState = {
   enabled: boolean;
   items: HomeItem[];
   hiddenScenarioSections: ScenarioSectionKey[];
+  defaultScenarioSetId: string | null;
 };
 
 function toForm(p?: AdminProject): FormState {
@@ -52,7 +53,14 @@ function toForm(p?: AdminProject): FormState {
     enabled: p?.enabled ?? true,
     items: cfg.items,
     hiddenScenarioSections: cfg.hiddenScenarioSections,
+    defaultScenarioSetId: cfg.defaultScenarioSetId,
   };
+}
+
+interface ScenarioSetOption {
+  id: string;
+  domain: string;
+  scenarioCount: number;
 }
 
 function ProjectForm({
@@ -69,6 +77,43 @@ function ProjectForm({
   const [f, setF] = useState<FormState>(toForm(initial));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Scenario sets for the "default set" picker — fetched (debounced) for the current
+  // Carmelita ref. Lazy + tolerant so a flaky platform can't block editing.
+  const [sets, setSets] = useState<ScenarioSetOption[]>([]);
+  const [setsError, setSetsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ref = f.carmelitaProjectRef.trim();
+    if (!ref) {
+      setSets([]);
+      setSetsError(null);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/scenario-sets?ref=${encodeURIComponent(ref)}`);
+        const data = (await res.json().catch(() => ({}))) as { sets?: ScenarioSetOption[]; error?: string };
+        if (cancelled) return;
+        if (!res.ok) {
+          setSets([]);
+          setSetsError(data.error || "Could not load scenario sets.");
+          return;
+        }
+        setSets(data.sets ?? []);
+        setSetsError(data.error ?? null);
+      } catch {
+        if (!cancelled) {
+          setSets([]);
+          setSetsError("Could not load scenario sets.");
+        }
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [f.carmelitaProjectRef]);
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) {
     setF((prev) => ({ ...prev, [k]: v }));
@@ -118,7 +163,11 @@ function ProjectForm({
           passphrase: f.password,
           clearPassphrase: f.clearPassphrase,
           enabled: f.enabled,
-          homeConfig: { items: f.items, hiddenScenarioSections: f.hiddenScenarioSections },
+          homeConfig: {
+            items: f.items,
+            hiddenScenarioSections: f.hiddenScenarioSections,
+            defaultScenarioSetId: f.defaultScenarioSetId,
+          },
         }),
       });
       if (!res.ok) {
@@ -275,6 +324,35 @@ function ProjectForm({
             );
           })}
         </ul>
+      </div>
+
+      {/* The scenario set the home "Scenarios" card opens directly. */}
+      <div className="mt-4">
+        <label htmlFor="default-scenario-set" className={labelCls}>
+          Default scenario set
+        </label>
+        <p className="mt-1 text-[11px] leading-[1.4] text-muted">
+          The home <span className="font-semibold">Scenarios</span> card opens this set directly.
+          &ldquo;Auto&rdquo; uses the first set the platform returns.
+        </p>
+        <select
+          id="default-scenario-set"
+          className={inputCls + " mt-2"}
+          value={f.defaultScenarioSetId ?? ""}
+          onChange={(e) => set("defaultScenarioSetId", e.target.value || null)}
+        >
+          <option value="">Auto — first set</option>
+          {sets.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.domain} ({s.scenarioCount})
+            </option>
+          ))}
+          {/* Keep a saved id selectable even if the list didn't load (platform down). */}
+          {f.defaultScenarioSetId && !sets.some((s) => s.id === f.defaultScenarioSetId) && (
+            <option value={f.defaultScenarioSetId}>Saved set ({f.defaultScenarioSetId.slice(0, 8)}…)</option>
+          )}
+        </select>
+        {setsError && <p className="mt-1 text-[11px] text-coral">{setsError}</p>}
       </div>
 
       {error && <p className="mt-3 text-[12px] font-semibold text-coral">{error}</p>}
