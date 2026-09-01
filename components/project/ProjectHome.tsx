@@ -111,7 +111,32 @@ export function ProjectHome({
   slug: string;
   items: HomeItem[];
 }) {
-  const segments = toSegments(items);
+  // The top two cards render full-width (stacked "hero" rows); everything after keeps the
+  // 2-up grid. Heroes are the leading run of card items (stop at a join strip or after 2).
+  const visible = items.filter((i) => i.visible);
+  const heroKeys: CardKey[] = [];
+  let cut = 0;
+  while (cut < visible.length && heroKeys.length < 2 && visible[cut].key !== "join") {
+    heroKeys.push(visible[cut].key as CardKey);
+    cut++;
+  }
+  const restSegments = toSegments(visible.slice(cut));
+
+  const card = (key: CardKey, wide = false) => {
+    const def = CARD_ITEMS[key];
+    return (
+      <EntryCard
+        key={key}
+        href={def.href(slug)}
+        eyebrow={def.eyebrow}
+        title={def.title}
+        body={def.body}
+        image={def.image}
+        accent={def.accent}
+        wide={wide}
+      />
+    );
+  };
 
   return (
     <main className="mx-auto max-w-[980px] px-6 py-16 md:py-24">
@@ -129,25 +154,13 @@ export function ProjectHome({
       </p>
 
       <div className="mt-12 flex flex-col gap-5">
-        {segments.map((seg, i) =>
+        {heroKeys.map((key) => card(key, true))}
+        {restSegments.map((seg, i) =>
           seg.type === "join" ? (
             <JoinSession key={`join-${i}`} basePath={`/project/${slug}`} />
           ) : (
             <div key={`cards-${i}`} className="grid gap-5 md:grid-cols-2">
-              {seg.keys.map((key) => {
-                const def = CARD_ITEMS[key];
-                return (
-                  <EntryCard
-                    key={key}
-                    href={def.href(slug)}
-                    eyebrow={def.eyebrow}
-                    title={def.title}
-                    body={def.body}
-                    image={def.image}
-                    accent={def.accent}
-                  />
-                );
-              })}
+              {seg.keys.map((key) => card(key))}
             </div>
           )
         )}
@@ -167,6 +180,7 @@ function EntryCard({
   body,
   image,
   accent,
+  wide = false,
 }: {
   href: string;
   eyebrow: string;
@@ -174,6 +188,7 @@ function EntryCard({
   body: string;
   image: StaticImageData;
   accent?: boolean;
+  wide?: boolean; // full-width hero row (vs a 2-up grid cell) — affects responsive image sizing
 }) {
   return (
     <Link
@@ -185,7 +200,7 @@ function EntryCard({
         src={image}
         alt=""
         placeholder="blur"
-        sizes="(max-width: 768px) 100vw, 480px"
+        sizes={wide ? "(max-width: 1024px) 100vw, 980px" : "(max-width: 768px) 100vw, 480px"}
         className="absolute inset-0 -z-10 h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.05]"
       />
       <div
