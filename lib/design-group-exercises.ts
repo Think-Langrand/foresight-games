@@ -5,7 +5,7 @@ import { getScenario } from "@/lib/foresight/client";
 import { createSession, getSessionByCode, updateSession } from "@/lib/workshop";
 import { createRippleTeam } from "@/lib/ripples";
 import { DEFAULT_RIPPLES_CONFIG } from "@/lib/ripples-types";
-import { isBoardBacked } from "@/lib/exercise-types";
+import { isBoardBacked, resolveSections, type WorksheetSection } from "@/lib/exercise-types";
 
 // Server-only data layer for design-group EXERCISES (weeks). Mirrors lib/design-
 // groups.ts: snake_case row + mapper, all reads/writes on supabaseAdmin() wrapped
@@ -21,6 +21,7 @@ export interface DesignGroupExercise {
   sessionCode: string | null;
   locked: boolean;
   opensAt: string | null;
+  sections: WorksheetSection[]; // per-exercise question snapshot; [] = fall back to code template
   createdTime: string;
 }
 
@@ -33,10 +34,11 @@ interface ExerciseRow {
   session_code: string | null;
   locked: boolean;
   opens_at: string | null;
+  sections: unknown; // jsonb
   created_at: string;
 }
 
-const COLS = "id, group_id, sort, title, type, session_code, locked, opens_at, created_at";
+const COLS = "id, group_id, sort, title, type, session_code, locked, opens_at, sections, created_at";
 
 function fromRow(r: ExerciseRow): DesignGroupExercise {
   return {
@@ -48,6 +50,7 @@ function fromRow(r: ExerciseRow): DesignGroupExercise {
     sessionCode: r.session_code ?? null,
     locked: r.locked ?? false,
     opensAt: r.opens_at ?? null,
+    sections: resolveSections(r.sections),
     createdTime: r.created_at,
   };
 }
@@ -89,6 +92,7 @@ export async function createExercise(input: {
   title: string;
   type?: string;
   opensAt?: string | null;
+  sections?: WorksheetSection[]; // template snapshot; coerced before write
 }): Promise<DesignGroupExercise> {
   const row = await withRetry(async () => {
     const { data, error } = await supabaseAdmin()
@@ -99,6 +103,7 @@ export async function createExercise(input: {
         title: input.title.trim() || "Exercise",
         type: input.type ?? "placeholder",
         opens_at: input.opensAt ?? null,
+        sections: resolveSections(input.sections),
       })
       .select(COLS)
       .single();
@@ -115,6 +120,7 @@ export interface UpdateExercisePatch {
   opensAt?: string | null;
   locked?: boolean;
   sessionCode?: string | null;
+  sections?: WorksheetSection[];
 }
 
 export async function updateExercise(id: string, patch: UpdateExercisePatch): Promise<void> {
@@ -125,6 +131,7 @@ export async function updateExercise(id: string, patch: UpdateExercisePatch): Pr
   if (patch.opensAt !== undefined) fields.opens_at = patch.opensAt;
   if (patch.locked !== undefined) fields.locked = patch.locked;
   if (patch.sessionCode !== undefined) fields.session_code = patch.sessionCode;
+  if (patch.sections !== undefined) fields.sections = resolveSections(patch.sections);
   await withRetry(async () => {
     const { error } = await supabaseAdmin().from("design_group_exercises").update(fields).eq("id", id);
     if (error) throw error;

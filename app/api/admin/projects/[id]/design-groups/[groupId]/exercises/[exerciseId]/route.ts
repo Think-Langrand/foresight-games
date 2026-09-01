@@ -9,7 +9,7 @@ import {
   deleteExercise,
   provisionExerciseBoard,
 } from "@/lib/design-group-exercises";
-import { isBoardBacked } from "@/lib/exercise-types";
+import { isBoardBacked, type WorksheetSection } from "@/lib/exercise-types";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,13 @@ export async function PATCH(
   const r = await resolve(id, groupId, exerciseId);
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.status });
 
-  let body: { title?: string; sort?: number; type?: string; opensAt?: string | null } = {};
+  let body: {
+    title?: string;
+    sort?: number;
+    type?: string;
+    opensAt?: string | null;
+    sections?: WorksheetSection[];
+  } = {};
   try {
     body = await req.json();
   } catch {
@@ -53,6 +59,7 @@ export async function PATCH(
       sort: body.sort,
       type: body.type,
       opensAt: body.opensAt,
+      sections: body.sections, // coerced in updateExercise via resolveSections
     });
     // A newly board-backed exercise with no board gets one provisioned (if the group
     // has a scenario). opens_at/lock still gate member access separately.

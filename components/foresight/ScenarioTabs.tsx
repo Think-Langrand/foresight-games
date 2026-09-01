@@ -36,9 +36,11 @@ type TabKey = "scenario" | "drivers" | "signals";
 export function ScenarioTabs({
   scenario,
   drivers = [],
+  hiddenSections,
 }: {
   scenario: Scenario;
   drivers?: PublicDriverCard[];
+  hiddenSections?: string[];
 }) {
   const byId = new Map(drivers.map((d) => [d.id, d] as const));
   const linked: DriverEntry[] = (scenario.linkedDrivers ?? []).map(
@@ -51,7 +53,7 @@ export function ScenarioTabs({
   const [tab, setTab] = useState<TabKey>("scenario");
 
   // Nothing extra to surface → just the reader.
-  if (!hasDrivers && !hasSignals) return <ScenarioReaderPaged scenario={scenario} />;
+  if (!hasDrivers && !hasSignals) return <ScenarioReaderPaged scenario={scenario} hiddenSections={hiddenSections} />;
 
   return (
     <div>
@@ -76,7 +78,7 @@ export function ScenarioTabs({
       ) : tab === "signals" && hasSignals ? (
         <SignalsPanel signals={signals} />
       ) : (
-        <ScenarioReaderPaged scenario={scenario} />
+        <ScenarioReaderPaged scenario={scenario} hiddenSections={hiddenSections} />
       )}
     </div>
   );

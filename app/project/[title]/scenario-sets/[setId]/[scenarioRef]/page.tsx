@@ -19,6 +19,7 @@ export default async function ProjectScenarioDetailPage({
       scenarioRef={scenarioRef}
       projectRef={project.carmelitaProjectRef}
       basePath={`/project/${title}/scenario-sets`}
+      hiddenSections={project.homeConfig.hiddenScenarioSections}
     />
   );
 }

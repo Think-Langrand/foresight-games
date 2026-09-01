@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { EXERCISE_TYPES, exerciseStatus, type ExerciseStatus } from "@/lib/exercise-types";
+import {
+  EXERCISE_TYPES,
+  exerciseStatus,
+  getExerciseType,
+  type ExerciseStatus,
+  type WorksheetSection,
+} from "@/lib/exercise-types";
+import { ExerciseQuestionEditor } from "@/components/admin/ExerciseQuestionEditor";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 export interface AdminExercise {
   id: string;
@@ -13,6 +21,7 @@ export interface AdminExercise {
   sessionCode: string | null;
   locked: boolean;
   opensAt: string | null;
+  sections: WorksheetSection[];
   cards: number;
 }
 
@@ -46,6 +55,14 @@ const STATUS_STYLE: Record<ExerciseStatus, string> = {
 
 const TYPE_OPTIONS = Object.values(EXERCISE_TYPES).map((t) => ({ id: t.id, label: t.label }));
 
+// The questions an exercise actually shows: its own snapshot, or the code template when
+// it was never customized. Used both to seed the editor and to "copy" a week's questions.
+function effectiveSections(ex: AdminExercise): WorksheetSection[] {
+  return ex.sections.length > 0 ? ex.sections : getExerciseType(ex.type)?.sections ?? [];
+}
+
+const isWorksheet = (type: string) => getExerciseType(type)?.render === "worksheet";
+
 async function api(url: string, method: string, body?: unknown): Promise<Record<string, unknown>> {
   const res = await fetch(url, {
     method,
@@ -78,6 +95,11 @@ export function AdminDesignGroups({
   const [newName, setNewName] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null); // exercise whose questions are open
+  const [addingFor, setAddingFor] = useState<string | null>(null); // group showing the "add week" template menu
+  const [pendingDelete, setPendingDelete] = useState<
+    { kind: "group" | "exercise"; g: AdminDesignGroup; ex?: AdminExercise } | null
+  >(null);
   const base = `/api/admin/projects/${projectId}/design-groups`;
 
   const run = async (id: string, fn: () => Promise<void>) => {
@@ -136,7 +158,6 @@ export function AdminDesignGroups({
   }
 
   async function removeGroup(g: AdminDesignGroup) {
-    if (!confirm(`Delete "${g.name}" and its exercises? Backing boards are left intact.`)) return;
     await run(g.id, async () => {
       const res = await api(`${base}/${g.id}`, "DELETE");
       if (!res._ok) throw new Error((res.error as string) || "Failed to delete group");
@@ -145,14 +166,24 @@ export function AdminDesignGroups({
   }
 
   // ----- exercise ops -----
-  async function addExercise(g: AdminDesignGroup) {
+  async function addExercise(g: AdminDesignGroup, tpl: { type: string; sections: WorksheetSection[] }) {
+    setAddingFor(null);
     await run(g.id, async () => {
       const res = await api(`${base}/${g.id}/exercises`, "POST", {
         title: `Week ${g.exercises.length + 1}`,
-        type: "placeholder",
+        type: tpl.type,
+        sections: tpl.sections,
       });
       if (!res._ok) throw new Error((res.error as string) || "Failed");
       await refreshExercises(g.id);
+    });
+  }
+  async function saveSections(g: AdminDesignGroup, ex: AdminExercise, sections: WorksheetSection[]) {
+    await run(ex.id, async () => {
+      const res = await api(`${base}/${g.id}/exercises/${ex.id}`, "PATCH", { sections });
+      if (!res._ok) throw new Error((res.error as string) || "Failed");
+      await refreshExercises(g.id);
+      setEditingId(null);
     });
   }
   async function patchExercise(g: AdminDesignGroup, ex: AdminExercise, patch: Partial<AdminExercise>) {
@@ -172,7 +203,6 @@ export function AdminDesignGroups({
     });
   }
   async function removeExercise(g: AdminDesignGroup, ex: AdminExercise) {
-    if (!confirm(`Delete "${ex.title}"?`)) return;
     await run(ex.id, async () => {
       const res = await api(`${base}/${g.id}/exercises/${ex.id}`, "DELETE");
       if (!res._ok) throw new Error((res.error as string) || "Failed to delete exercise");
@@ -227,12 +257,22 @@ export function AdminDesignGroups({
                     ))}
                   </select>
                 </label>
+                {g.scenarioRef && (
+                  <Link
+                    href={`/admin/projects/${slug}/design-groups/${g.id}/answers`}
+                    className={btn + " ml-auto bg-paper hover:bg-lime"}
+                  >
+                    View answers →
+                  </Link>
+                )}
                 <button
-                  onClick={() => removeGroup(g)}
+                  onClick={() => setPendingDelete({ kind: "group", g })}
                   disabled={busy}
-                  className={btn + " ml-auto border-coral text-coral hover:bg-coral hover:text-white"}
+                  aria-label="Delete group"
+                  title="Delete group"
+                  className={btn + (g.scenarioRef ? "" : " ml-auto") + " border-coral text-coral hover:bg-coral hover:text-white"}
                 >
-                  Delete group
+                  🗑
                 </button>
               </div>
 
@@ -259,7 +299,8 @@ export function AdminDesignGroups({
                         const st = exerciseStatus(ex, now);
                         const exBusy = busyId === ex.id;
                         return (
-                          <tr key={ex.id} className="border-t border-[var(--hairline)]">
+                          <Fragment key={ex.id}>
+                          <tr className="border-t border-[var(--hairline)]">
                             <td className="py-1.5 pr-2">
                               <input
                                 defaultValue={ex.title}
@@ -317,6 +358,15 @@ export function AdminDesignGroups({
                                     Board →
                                   </Link>
                                 )}
+                                {isWorksheet(ex.type) && (
+                                  <button
+                                    onClick={() => setEditingId((v) => (v === ex.id ? null : ex.id))}
+                                    disabled={exBusy}
+                                    className={btn + (editingId === ex.id ? " bg-lime" : " bg-paper")}
+                                  >
+                                    {editingId === ex.id ? "Close" : "Edit Qs"}
+                                  </button>
+                                )}
                                 {ex.sessionCode && (
                                   <button
                                     onClick={() => toggleLock(g, ex)}
@@ -327,22 +377,88 @@ export function AdminDesignGroups({
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => removeExercise(g, ex)}
+                                  onClick={() => setPendingDelete({ kind: "exercise", g, ex })}
                                   disabled={exBusy}
+                                  aria-label="Delete week"
+                                  title="Delete week"
                                   className={btn + " border-coral text-coral"}
                                 >
-                                  ✕
+                                  🗑
                                 </button>
                               </div>
                             </td>
                           </tr>
+                          {editingId === ex.id && (
+                            <tr className="border-t border-[var(--hairline)]">
+                              <td colSpan={6} className="py-2">
+                                <ExerciseQuestionEditor
+                                  initial={effectiveSections(ex)}
+                                  busy={exBusy}
+                                  onSave={(sections) => saveSections(g, ex, sections)}
+                                  onCancel={() => setEditingId(null)}
+                                />
+                              </td>
+                            </tr>
+                          )}
+                          </Fragment>
                         );
                       })}
                     </tbody>
                   </table>
-                  <button onClick={() => addExercise(g)} disabled={busy} className={btn + " mt-2 bg-paper"}>
-                    + Add week
-                  </button>
+                  {addingFor === g.id ? (
+                    <div className="mt-2 rounded-[2px] border border-[var(--hairline)] bg-paper p-2">
+                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
+                        Start new week from…
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          className={btn + " bg-paper"}
+                          disabled={busy}
+                          onClick={() => addExercise(g, { type: "worksheet", sections: [] })}
+                        >
+                          Blank worksheet
+                        </button>
+                        {Object.values(EXERCISE_TYPES)
+                          .filter((t) => t.render === "worksheet" && (t.sections?.length ?? 0) > 0)
+                          .map((t) => (
+                            <button
+                              key={t.id}
+                              className={btn + " bg-paper"}
+                              disabled={busy}
+                              onClick={() => addExercise(g, { type: "worksheet", sections: t.sections ?? [] })}
+                            >
+                              Copy: {t.label}
+                            </button>
+                          ))}
+                        {g.exercises
+                          .filter((ex) => isWorksheet(ex.type) && effectiveSections(ex).length > 0)
+                          .map((ex) => (
+                            <button
+                              key={ex.id}
+                              className={btn + " bg-paper"}
+                              disabled={busy}
+                              onClick={() => addExercise(g, { type: "worksheet", sections: effectiveSections(ex) })}
+                            >
+                              Copy: {ex.title}
+                            </button>
+                          ))}
+                        <button
+                          className={btn + " bg-paper"}
+                          disabled={busy}
+                          onClick={() => addExercise(g, { type: "placeholder", sections: [] })}
+                        >
+                          Placeholder
+                        </button>
+                        <button className={btn + " ml-auto border-coral text-coral"} onClick={() => setAddingFor(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => setAddingFor(g.id)} disabled={busy} className={btn + " mt-2 bg-paper"}>
+                      + Add week
+                    </button>
+                  )}
                 </div>
               )}
             </article>
@@ -362,6 +478,36 @@ export function AdminDesignGroups({
           Add group
         </button>
       </div>
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        busy={pendingDelete ? busyId === (pendingDelete.ex?.id ?? pendingDelete.g.id) : false}
+        title={pendingDelete?.kind === "group" ? "Delete group" : "Delete week"}
+        message={
+          pendingDelete?.kind === "group" ? (
+            <>
+              Delete <strong>{pendingDelete.g.name}</strong> and its exercises? Backing boards are left intact.
+            </>
+          ) : pendingDelete?.ex ? (
+            <>
+              Delete <strong>{pendingDelete.ex.title}</strong>?
+              {pendingDelete.ex.cards > 0
+                ? ` Its ${pendingDelete.ex.cards} answer${pendingDelete.ex.cards === 1 ? "" : "s"} will be kept in the database.`
+                : ""}
+            </>
+          ) : (
+            ""
+          )
+        }
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={async () => {
+          const p = pendingDelete;
+          if (!p) return;
+          if (p.kind === "group") await removeGroup(p.g);
+          else if (p.ex) await removeExercise(p.g, p.ex);
+          setPendingDelete(null);
+        }}
+      />
     </div>
   );
 }

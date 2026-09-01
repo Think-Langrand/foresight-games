@@ -68,6 +68,7 @@ export default async function ProjectAdminPage({
       sessionCode: e.sessionCode,
       locked: e.locked,
       opensAt: e.opensAt,
+      sections: e.sections,
       cards: e.sessionCode ? exCounts.get(e.sessionCode.toUpperCase()) ?? 0 : 0,
     })),
   }));

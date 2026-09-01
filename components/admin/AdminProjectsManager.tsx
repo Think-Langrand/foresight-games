@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   PROJECT_HOME_ITEMS,
+  SCENARIO_PAGE2_SECTIONS,
   defaultHomeConfig,
   type HomeConfig,
   type HomeItem,
   type HomeItemKey,
+  type ScenarioSectionKey,
 } from "@/lib/project-home";
 
 export interface AdminProject {
@@ -36,9 +38,11 @@ type FormState = {
   clearPassphrase: boolean;
   enabled: boolean;
   items: HomeItem[];
+  hiddenScenarioSections: ScenarioSectionKey[];
 };
 
 function toForm(p?: AdminProject): FormState {
+  const cfg = p?.homeConfig ?? defaultHomeConfig();
   return {
     slug: p?.slug ?? "",
     name: p?.name ?? "",
@@ -46,7 +50,8 @@ function toForm(p?: AdminProject): FormState {
     password: "",
     clearPassphrase: false,
     enabled: p?.enabled ?? true,
-    items: (p?.homeConfig ?? defaultHomeConfig()).items,
+    items: cfg.items,
+    hiddenScenarioSections: cfg.hiddenScenarioSections,
   };
 }
 
@@ -78,6 +83,16 @@ function ProjectForm({
     }));
   }
 
+  // A scenario page-2 section is "on" when NOT in the hidden list.
+  function toggleSection(key: ScenarioSectionKey) {
+    setF((prev) => ({
+      ...prev,
+      hiddenScenarioSections: prev.hiddenScenarioSections.includes(key)
+        ? prev.hiddenScenarioSections.filter((k) => k !== key)
+        : [...prev.hiddenScenarioSections, key],
+    }));
+  }
+
   function move(index: number, dir: -1 | 1) {
     setF((prev) => {
       const items = [...prev.items];
@@ -103,7 +118,7 @@ function ProjectForm({
           passphrase: f.password,
           clearPassphrase: f.clearPassphrase,
           enabled: f.enabled,
-          homeConfig: { items: f.items },
+          homeConfig: { items: f.items, hiddenScenarioSections: f.hiddenScenarioSections },
         }),
       });
       if (!res.ok) {
@@ -229,6 +244,36 @@ function ProjectForm({
               </div>
             </li>
           ))}
+        </ul>
+      </div>
+
+      {/* Scenario "page 2" (what-it-means) sections — per-project on/off. */}
+      <div className="mt-4">
+        <span className={labelCls}>Scenario page 2 — sections to show</span>
+        <p className="mt-1 text-[11px] leading-[1.4] text-muted">
+          Uncheck to hide a section from the scenario reader&rsquo;s second page. Hiding all three
+          removes the second page.
+        </p>
+        <ul className="mt-2 space-y-1.5">
+          {SCENARIO_PAGE2_SECTIONS.map((s) => {
+            const on = !f.hiddenScenarioSections.includes(s.key);
+            return (
+              <li
+                key={s.key}
+                className="flex items-center rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-1.5"
+              >
+                <label className="flex grow items-center gap-2 text-[13px] font-semibold text-ink">
+                  <input type="checkbox" checked={on} onChange={() => toggleSection(s.key)} />
+                  {s.label}
+                  {!on && (
+                    <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
+                      hidden
+                    </span>
+                  )}
+                </label>
+              </li>
+            );
+          })}
         </ul>
       </div>
 

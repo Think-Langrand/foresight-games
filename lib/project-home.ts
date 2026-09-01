@@ -23,8 +23,20 @@ export interface HomeItem {
   visible: boolean;
 }
 
+// The scenario reader's "page 2" (what-it-means) sections a project can turn off.
+// Keys match the deep-section keys in lib/foresight/deep-sections.ts.
+export type ScenarioSectionKey = "makes-possible" | "blind-spot" | "why-arrives";
+
+export const SCENARIO_PAGE2_SECTIONS: { key: ScenarioSectionKey; label: string }[] = [
+  { key: "makes-possible", label: "What this world makes possible" },
+  { key: "blind-spot", label: "Structural blind spot" },
+  { key: "why-arrives", label: "Why this future arrives" },
+];
+
 export interface HomeConfig {
   items: HomeItem[];
+  // Page-2 scenario sections this project hides (default: none hidden).
+  hiddenScenarioSections: ScenarioSectionKey[];
 }
 
 // The canonical set of items, in their default display order. Adding a new home
@@ -41,10 +53,16 @@ export const PROJECT_HOME_ITEMS: { key: HomeItemKey; label: string }[] = [
 ];
 
 const KNOWN_KEYS = new Set<HomeItemKey>(PROJECT_HOME_ITEMS.map((i) => i.key));
+const KNOWN_SECTION_KEYS = new Set<ScenarioSectionKey>(
+  SCENARIO_PAGE2_SECTIONS.map((s) => s.key)
+);
 
 // A brand-new project shows everything, in the default order.
 export function defaultHomeConfig(): HomeConfig {
-  return { items: PROJECT_HOME_ITEMS.map((i) => ({ key: i.key, visible: true })) };
+  return {
+    items: PROJECT_HOME_ITEMS.map((i) => ({ key: i.key, visible: true })),
+    hiddenScenarioSections: [],
+  };
 }
 
 // Coerce whatever is stored in the `home_config` jsonb into a well-formed config:
@@ -71,5 +89,18 @@ export function normalizeHomeConfig(raw: unknown): HomeConfig {
   for (const { key } of PROJECT_HOME_ITEMS) {
     if (!seen.has(key)) items.push({ key, visible: true });
   }
-  return { items };
+
+  const rawHidden = (raw as { hiddenScenarioSections?: unknown } | null)?.hiddenScenarioSections;
+  const hiddenScenarioSections = Array.isArray(rawHidden)
+    ? [
+        ...new Set(
+          rawHidden.filter(
+            (k): k is ScenarioSectionKey =>
+              typeof k === "string" && KNOWN_SECTION_KEYS.has(k as ScenarioSectionKey)
+          )
+        ),
+      ]
+    : [];
+
+  return { items, hiddenScenarioSections };
 }
