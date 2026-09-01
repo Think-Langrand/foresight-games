@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { roleHex } from "@/components/workshop/CardArt";
+import { csvCell, download } from "@/components/admin/exportUtils";
 import { teamTriadIds, type Card, type Team } from "@/lib/workshop-types";
 
 type StatusFilter = "all" | "submitted" | "drafting";
@@ -346,24 +347,7 @@ function FilterPill({
 }
 
 // ---------- export helpers ----------
-function csvCell(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
 function fileName(ext: string): string {
   const d = new Date().toISOString().slice(0, 10);
   return `foresight-entries-${d}.${ext}`;
-}
-
-function download(content: string, filename: string, type: string): void {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }

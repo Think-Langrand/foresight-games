@@ -20,6 +20,7 @@ export function BrainstormSection({
   header,
   readOnly = false,
   placeholder = "＋ a note…",
+  tall = false,
 }: {
   stickies: RippleCard[]; // pre-sorted by `sort`
   canEdit: (card: RippleCard) => boolean; // your own notes: editable + deletable
@@ -31,6 +32,7 @@ export function BrainstormSection({
   header?: React.ReactNode;
   readOnly?: boolean;
   placeholder?: string;
+  tall?: boolean; // a taller, board-like drop area (e.g. the standalone Parking lot tab)
 }) {
   const [text, setText] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -140,7 +142,10 @@ export function BrainstormSection({
 
         {/* the notes you've peeled off — flow left→right, wrap, drop-to-reorder */}
         <div
-          className="flex min-h-[8.5rem] flex-1 flex-wrap content-start items-start gap-3 rounded-[3px] border border-dashed border-black/10 p-3"
+          className={
+            "flex flex-1 flex-wrap content-start items-start gap-3 rounded-[3px] border border-dashed border-black/10 p-3 " +
+            (tall ? "min-h-[26rem]" : "min-h-[8.5rem]")
+          }
           onDragOver={(e) => !readOnly && e.preventDefault()}
           onDrop={() => !readOnly && drop(null)}
         >

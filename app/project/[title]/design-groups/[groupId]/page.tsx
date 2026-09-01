@@ -91,7 +91,11 @@ export default async function DesignGroupHubPage({
                       "rounded-[2px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] " + PILL[st]
                     }
                   >
-                    {st === "scheduled" && ex.opensAt ? `Opens ${fmtDate(ex.opensAt)}` : st}
+                    {st === "scheduled" && ex.opensAt
+                      ? `Opens ${fmtDate(ex.opensAt)}`
+                      : st === "placeholder"
+                        ? "Locked"
+                        : st}
                   </span>
                 </div>
                 <div className="mt-1 text-[12px] text-muted">
@@ -123,8 +127,17 @@ export default async function DesignGroupHubPage({
               {body}
             </Link>
           ) : (
-            <div key={ex.id} className={cls + " opacity-70"}>
-              {body}
+            // Not openable yet → sealed: dim the row and lay a lock overlay over it.
+            <div key={ex.id} className="relative">
+              <div className={cls + " select-none opacity-40"} aria-hidden>
+                {body}
+              </div>
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[3px] bg-card/40">
+                <span className="flex items-center gap-1.5 rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-1 text-[12px] font-bold uppercase tracking-[0.08em] text-muted shadow-[2px_3px_0_rgba(36,36,34,0.12)]">
+                  <span aria-hidden>🔒</span>
+                  {st === "scheduled" && ex.opensAt ? `Opens ${fmtDate(ex.opensAt)}` : "Locked"}
+                </span>
+              </div>
             </div>
           );
         })}

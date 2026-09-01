@@ -20,8 +20,10 @@ export interface WorksheetSection {
   key: string; // unique within the type; written onto ripple_cards.section
   kind: SectionKind;
   label: string; // the area's heading / question prompt
+  step?: string; // optional wizard/tab bucket — consecutive sections sharing a step render on one tab
   group?: string; // optional cluster heading (sections sharing a group render together)
   help?: string; // guidance text under the heading
+  board?: boolean; // brainstorm only: render as a large, board-like canvas (e.g. the Parking lot)
 }
 
 export interface ExerciseType {
@@ -36,53 +38,68 @@ export interface ExerciseType {
 // From "NPH01, Design Groups, Meeting 1, Worksheet, v1". The paper's Scenario/Date/
 // Lead header is intentionally omitted (the admin already has it). Every exercise
 // opens with a brainstorm area ("First reactions").
+//
+// Sections are grouped into four `step`s, rendered as jump-anywhere tabs:
+//   1. First reactions   2. Assess the scenario   3. Stepping into the future
+//   4. Parking lot (its own board-like sticky wall).
 const SCENARIO_ASSESSMENT_SECTIONS: WorksheetSection[] = [
-  { key: "reactions", kind: "brainstorm", label: "First reactions", help: "Initial thoughts as you read the scenario together." },
+  {
+    key: "reactions",
+    kind: "brainstorm",
+    step: "First reactions",
+    label: "First reactions",
+    help: "Initial thoughts as you read the scenario together.",
+  },
   {
     key: "assess-important",
     kind: "question",
-    group: "Assess the scenario",
+    step: "Assess the scenario",
     label: "What feels most important or distinctive?",
   },
   {
     key: "assess-unclear",
     kind: "question",
-    group: "Assess the scenario",
+    step: "Assess the scenario",
     label: "What feels unclear, incomplete, or difficult to understand?",
   },
   {
     key: "assess-assumptions",
     kind: "question",
-    group: "Assess the scenario",
+    step: "Assess the scenario",
     label: "What assumptions does the scenario appear to make?",
   },
   {
     key: "assess-missing",
     kind: "question",
-    group: "Assess the scenario",
+    step: "Assess the scenario",
     label: "Is anything important missing that would need to be true for this future to make sense?",
   },
   {
     key: "stepping-in",
     kind: "brainstorm",
+    step: "Stepping into the future",
     label: "Stepping into the future — what's different",
     help: "It is now several years into this future. What has become normal that would feel unusual today? What no longer works? What's become easier / harder? Who gained or lost influence? What do people now expect from institutions?",
   },
   {
     key: "key-changes",
     kind: "brainstorm",
+    step: "Stepping into the future",
     label: "Key changes — brainstorm",
     help: "A key change is a meaningful difference between today and this future that changes the environment public health operates in. Generate as many as you can before narrowing down.",
   },
   {
     key: "six-changes",
     kind: "question",
+    step: "Stepping into the future",
     label: "Our 6 key changes",
     help: "Choose the 6 changes that most define this future — consequential, distinct from today, important to public health, and different enough from each other to capture the scenario's breadth.",
   },
   {
     key: "parking-lot",
     kind: "brainstorm",
+    step: "Parking lot",
+    board: true, // its own tab, a large sticky board
     label: "Parking lot — good ideas for later",
     help: "Implications, risks, opportunities, or actions you notice but should not solve today. Later sessions explore them.",
   },
@@ -95,6 +112,15 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
     render: "worksheet",
     boardBacked: true,
     sections: SCENARIO_ASSESSMENT_SECTIONS,
+  },
+  // A blank worksheet — the target type for admin-built weeks. Its questions live per
+  // exercise (design_group_exercises.sections jsonb), authored in the admin editor.
+  worksheet: {
+    id: "worksheet",
+    label: "Worksheet (custom)",
+    render: "worksheet",
+    boardBacked: true,
+    sections: [],
   },
   implications: {
     id: "implications",
@@ -111,6 +137,58 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
 };
 
 export const EXERCISE_TYPE_IDS = Object.keys(EXERCISE_TYPES);
+
+// The ordered, de-duplicated list of `step` labels a worksheet declares, in first-
+// appearance order — one entry per tab. Empty when no section declares a step, which
+// the view reads as "render the flat stack" (backward compatible with un-stepped types).
+export function worksheetSteps(sections: WorksheetSection[]): string[] {
+  const seen = new Set<string>();
+  const steps: string[] = [];
+  for (const s of sections) {
+    if (s.step && !seen.has(s.step)) {
+      seen.add(s.step);
+      steps.push(s.step);
+    }
+  }
+  return steps;
+}
+
+// Coerce a raw jsonb blob (design_group_exercises.sections) into a clean, well-typed
+// WorksheetSection[]. Tolerant of missing/extra keys, bad `kind`, non-object rows, and
+// duplicate keys so template drift or hand-edited data never crashes the worksheet.
+// Returns [] for anything non-array/empty — the caller then falls back to the code
+// template (getExerciseType(type).sections). Mirrors resolveConfig in lib/ripples-types.
+export function resolveSections(raw: unknown): WorksheetSection[] {
+  if (!Array.isArray(raw)) return [];
+  const out: WorksheetSection[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null) continue;
+    const r = item as Record<string, unknown>;
+    const key = typeof r.key === "string" ? r.key.trim() : "";
+    if (!key || seen.has(key)) continue; // key is the answer-card link — required + unique
+    seen.add(key);
+    const section: WorksheetSection = {
+      key,
+      kind: r.kind === "brainstorm" ? "brainstorm" : "question",
+      label: typeof r.label === "string" ? r.label : "",
+    };
+    if (typeof r.step === "string" && r.step) section.step = r.step;
+    if (typeof r.group === "string" && r.group) section.group = r.group;
+    if (typeof r.help === "string" && r.help) section.help = r.help;
+    if (r.board === true) section.board = true;
+    out.push(section);
+  }
+  return out;
+}
+
+// Mint a fresh, collision-resistant section key. Keys are permanent IDs written onto every
+// answer card's `section`, so the editor only ever mints them — it never renames one.
+export function newSectionKey(): string {
+  let s = "";
+  while (s.length < 8) s += Math.random().toString(36).slice(2);
+  return "sec_" + s.slice(0, 8);
+}
 
 // --- Schedule / lock status (pure; used by the hub and the route gate) --------
 export type ExerciseStatus = "placeholder" | "scheduled" | "locked" | "open";

@@ -86,7 +86,10 @@ export default async function DesignGroupExercisePage({
     );
   }
   if (render === "worksheet") {
-    const sections = getExerciseType(exercise.type)?.sections ?? [];
+    // Prefer the exercise's own (admin-edited) question snapshot; fall back to the code
+    // template for pre-migration weeks that were never customized.
+    const sections =
+      exercise.sections.length > 0 ? exercise.sections : getExerciseType(exercise.type)?.sections ?? [];
     return (
       <WorksheetView
         code={session.code}
