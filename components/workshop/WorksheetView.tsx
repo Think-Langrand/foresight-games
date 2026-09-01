@@ -2,9 +2,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { ScenarioBody } from "@/components/foresight/ScenarioBody";
-import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
 import { BrainstormSection } from "@/components/workshop/BrainstormSection";
+import { ScenarioPanel } from "@/components/workshop/ScenarioPanel";
+import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import {
   useRipplesView,
@@ -160,22 +160,22 @@ export function WorksheetView({
               Locked
             </span>
           )}
-          <button
-            onClick={() => setShowScenario((v) => !v)}
-            className="rounded-[2px] border border-[#1f33dd] bg-[#1f33dd] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white hover:opacity-90"
-          >
-            {showScenario ? "Worksheet" : "View scenario"}
-          </button>
+          <ScenarioToggle
+            showingScenario={showScenario}
+            exerciseLabel="Worksheet"
+            onToggle={() => setShowScenario((v) => !v)}
+          />
         </div>
       </div>
 
       {showScenario && (
-        <div className="mb-6 rounded-[3px] border border-[var(--hairline)] bg-card p-4">
-          {scenario ? (
-            <ScenarioTabs scenario={scenario} drivers={drivers} hiddenSections={hiddenSections} />
-          ) : (
-            <ScenarioBody body={view.config.premise || "No scenario text."} />
-          )}
+        <div className="mb-6">
+          <ScenarioPanel
+            scenario={scenario}
+            drivers={drivers}
+            hiddenSections={hiddenSections}
+            premise={view.config.premise}
+          />
         </div>
       )}
 
