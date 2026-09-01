@@ -31,8 +31,8 @@ interface CardDef {
 const CARD_ITEMS: Record<CardKey, CardDef> = {
   "scenario-sets": {
     eyebrow: "From the foresight platform",
-    title: "Scenario sets",
-    body: "Published foresight scenarios for this project — divergent future-worlds grouped into sets, each exploring a shared set of uncertainties.",
+    title: "Scenarios",
+    body: "Explore this project's divergent future-worlds — open one and read how it could unfold.",
     image: scenarioSetsImg,
     accent: true,
     href: (slug) => `/project/${slug}/scenario-sets`,
@@ -106,10 +106,12 @@ export function ProjectHome({
   projectName,
   slug,
   items,
+  scenariosHref,
 }: {
   projectName: string;
   slug: string;
   items: HomeItem[];
+  scenariosHref?: string; // where the "Scenarios" card points (resolved server-side)
 }) {
   // The top two cards render full-width (stacked "hero" rows); everything after keeps the
   // 2-up grid. Heroes are the leading run of card items (stop at a join strip or after 2).
@@ -124,10 +126,12 @@ export function ProjectHome({
 
   const card = (key: CardKey, wide = false) => {
     const def = CARD_ITEMS[key];
+    // The Scenarios card jumps straight into a set's scenarios (resolved server-side).
+    const href = key === "scenario-sets" && scenariosHref ? scenariosHref : def.href(slug);
     return (
       <EntryCard
         key={key}
-        href={def.href(slug)}
+        href={href}
         eyebrow={def.eyebrow}
         title={def.title}
         body={def.body}
