@@ -94,25 +94,32 @@ export function AdminGroupAnswers({
   const [mapView, setMapView] = useState<MapView>("wheel");
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const active = exercises.find((e) => e.exerciseId === activeId) ?? initial;
   const cardsBase = `/api/admin/projects/${projectId}/design-groups/${groupId}/cards`;
 
+  // Never throws — on failure it keeps the modal open and surfaces a message rather than
+  // leaving an unhandled rejection.
   async function runDelete(p: Pending) {
     setBusy(true);
+    setError(null);
     try {
-      const qs =
-        p.kind === "answer"
-          ? `?exerciseId=${p.exerciseId}&cardId=${p.cardId}`
-          : p.kind === "clear"
-            ? `?exerciseId=${p.exerciseId}`
-            : "";
-      const res = await fetch(cardsBase + qs, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      const params = new URLSearchParams();
+      if (p.kind !== "reset") params.set("exerciseId", p.exerciseId);
+      if (p.kind === "answer") params.set("cardId", p.cardId);
+      const qs = params.toString();
+      const res = await fetch(qs ? `${cardsBase}?${qs}` : cardsBase, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Delete failed.");
+      }
       router.refresh(); // re-shape from the server
+      setPending(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed — please try again.");
     } finally {
       setBusy(false);
-      setPending(null);
     }
   }
 
@@ -230,25 +237,31 @@ export function AdminGroupAnswers({
         title={
           pending?.kind === "reset" ? "Reset group answers" : pending?.kind === "clear" ? "Clear this week" : "Delete answer"
         }
-        confirmLabel={pending?.kind === "answer" ? "Delete" : "Clear"}
+        confirmLabel={pending?.kind === "reset" ? "Reset" : pending?.kind === "clear" ? "Clear" : "Delete"}
         message={
-          pending?.kind === "reset" ? (
-            <>
-              Delete <strong>every answer</strong> on all of {pending.label}&rsquo;s boards? This can&rsquo;t be undone.
-            </>
-          ) : pending?.kind === "clear" ? (
-            <>
-              Clear all answers on <strong>{pending.label}</strong>&rsquo;s board? This can&rsquo;t be undone.
-            </>
-          ) : pending?.kind === "answer" ? (
-            <>
-              Delete this answer{pending.label ? <> — “{pending.label}”</> : ""}? This can&rsquo;t be undone.
-            </>
-          ) : (
-            ""
-          )
+          <>
+            {pending?.kind === "reset" ? (
+              <>
+                Delete <strong>every answer</strong> on all of {pending.label}&rsquo;s boards? This can&rsquo;t be undone.
+              </>
+            ) : pending?.kind === "clear" ? (
+              <>
+                Clear all answers on <strong>{pending.label}</strong>&rsquo;s board? This can&rsquo;t be undone.
+              </>
+            ) : pending?.kind === "answer" ? (
+              <>
+                Delete this answer{pending.label ? <> — “{pending.label}”</> : ""}? This can&rsquo;t be undone.
+              </>
+            ) : (
+              ""
+            )}
+            {error && <span className="mt-2 block font-semibold text-coral">{error}</span>}
+          </>
         }
-        onCancel={() => setPending(null)}
+        onCancel={() => {
+          setPending(null);
+          setError(null);
+        }}
         onConfirm={() => pending && runDelete(pending)}
       />
     </main>

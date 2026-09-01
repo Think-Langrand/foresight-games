@@ -358,15 +358,14 @@ export function AdminDesignGroups({
                                     Board →
                                   </Link>
                                 )}
-                                {ex.sessionCode && (
-                                  <Link
-                                    // Deep-link straight to this exercise's tab on the group answers page.
-                                    href={`/admin/projects/${slug}/design-groups/${g.id}/answers?exercise=${ex.id}`}
-                                    className="font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
-                                  >
-                                    Answers →
-                                  </Link>
-                                )}
+                                <Link
+                                  // Deep-link straight to this exercise's tab on the group answers page
+                                  // (every week has a tab, including not-yet-built placeholders).
+                                  href={`/admin/projects/${slug}/design-groups/${g.id}/answers?exercise=${ex.id}`}
+                                  className="font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
+                                >
+                                  Answers →
+                                </Link>
                                 {isWorksheet(ex.type) && (
                                   <button
                                     onClick={() => setEditingId((v) => (v === ex.id ? null : ex.id))}
