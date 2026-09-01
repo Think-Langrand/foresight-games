@@ -37,12 +37,15 @@ export interface HomeConfig {
   items: HomeItem[];
   // Page-2 scenario sections this project hides (default: none hidden).
   hiddenScenarioSections: ScenarioSectionKey[];
+  // The scenario set the home "Scenarios" card opens directly. null = auto (use the
+  // first set the platform returns).
+  defaultScenarioSetId: string | null;
 }
 
 // The canonical set of items, in their default display order. Adding a new home
 // item is just a new entry here (plus a card definition in ProjectHome).
 export const PROJECT_HOME_ITEMS: { key: HomeItemKey; label: string }[] = [
-  { key: "scenario-sets", label: "Scenario sets" },
+  { key: "scenario-sets", label: "Scenarios" },
   { key: "play", label: "Play the card game" },
   { key: "ripples", label: "Implication mapping" },
   { key: "design-groups", label: "Design Groups" },
@@ -62,6 +65,7 @@ export function defaultHomeConfig(): HomeConfig {
   return {
     items: PROJECT_HOME_ITEMS.map((i) => ({ key: i.key, visible: true })),
     hiddenScenarioSections: [],
+    defaultScenarioSetId: null,
   };
 }
 
@@ -102,5 +106,9 @@ export function normalizeHomeConfig(raw: unknown): HomeConfig {
       ]
     : [];
 
-  return { items, hiddenScenarioSections };
+  const rawDefaultSet = (raw as { defaultScenarioSetId?: unknown } | null)?.defaultScenarioSetId;
+  const defaultScenarioSetId =
+    typeof rawDefaultSet === "string" && rawDefaultSet.trim() ? rawDefaultSet.trim() : null;
+
+  return { items, hiddenScenarioSections, defaultScenarioSetId };
 }
