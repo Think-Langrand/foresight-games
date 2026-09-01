@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 
 // A small design-system confirm dialog — the second confirmation step for destructive
 // actions (replaces window.confirm). Closes on backdrop click or Escape.
@@ -21,6 +21,8 @@ export function ConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const titleId = useId();
+  const descId = useId();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -35,7 +37,8 @@ export function ConfirmModal({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-labelledby={titleId}
+      aria-describedby={descId}
       onClick={onCancel}
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
     >
@@ -43,8 +46,12 @@ export function ConfirmModal({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-[420px] rounded-[4px] border border-ink bg-card p-5 shadow-[4px_6px_0_rgba(36,36,34,0.18)]"
       >
-        <h2 className="text-[16px] font-extrabold uppercase tracking-tight">{title}</h2>
-        <div className="mt-2 text-[13.5px] leading-[1.5] text-muted">{message}</div>
+        <h2 id={titleId} className="text-[16px] font-extrabold uppercase tracking-tight">
+          {title}
+        </h2>
+        <div id={descId} className="mt-2 text-[13.5px] leading-[1.5] text-muted">
+          {message}
+        </div>
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onCancel}

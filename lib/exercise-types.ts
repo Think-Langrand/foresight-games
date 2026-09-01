@@ -145,9 +145,10 @@ export function worksheetSteps(sections: WorksheetSection[]): string[] {
   const seen = new Set<string>();
   const steps: string[] = [];
   for (const s of sections) {
-    if (s.step && !seen.has(s.step)) {
-      seen.add(s.step);
-      steps.push(s.step);
+    const step = s.step?.trim(); // tolerate stray whitespace in admin-authored data
+    if (step && !seen.has(step)) {
+      seen.add(step);
+      steps.push(step);
     }
   }
   return steps;
@@ -173,8 +174,11 @@ export function resolveSections(raw: unknown): WorksheetSection[] {
       kind: r.kind === "brainstorm" ? "brainstorm" : "question",
       label: typeof r.label === "string" ? r.label : "",
     };
-    if (typeof r.step === "string" && r.step) section.step = r.step;
-    if (typeof r.group === "string" && r.group) section.group = r.group;
+    // Trim step/group so whitespace variants don't split tabs or cluster headings.
+    const step = typeof r.step === "string" ? r.step.trim() : "";
+    if (step) section.step = step;
+    const group = typeof r.group === "string" ? r.group.trim() : "";
+    if (group) section.group = group;
     if (typeof r.help === "string" && r.help) section.help = r.help;
     if (r.board === true) section.board = true;
     out.push(section);
@@ -184,10 +188,13 @@ export function resolveSections(raw: unknown): WorksheetSection[] {
 
 // Mint a fresh, collision-resistant section key. Keys are permanent IDs written onto every
 // answer card's `section`, so the editor only ever mints them — it never renames one.
+// Prefers crypto.randomUUID (better entropy); falls back to Math.random where unavailable.
 export function newSectionKey(): string {
-  let s = "";
-  while (s.length < 8) s += Math.random().toString(36).slice(2);
-  return "sec_" + s.slice(0, 8);
+  const rand =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID().replace(/-/g, "")
+      : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  return "sec_" + rand.slice(0, 8);
 }
 
 // --- Schedule / lock status (pure; used by the hub and the route gate) --------

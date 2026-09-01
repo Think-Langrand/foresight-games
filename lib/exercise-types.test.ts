@@ -83,6 +83,15 @@ describe("exercise-types registry", () => {
     it("returns no steps when sections don't declare any (flat fallback)", () => {
       expect(worksheetSteps([{ key: "a", kind: "brainstorm", label: "A" }])).toEqual([]);
     });
+
+    it("trims steps and dedupes whitespace variants into one tab", () => {
+      const steps = worksheetSteps([
+        { key: "a", kind: "question", label: "A", step: "Assess" },
+        { key: "b", kind: "question", label: "B", step: " Assess " }, // same tab, stray spaces
+        { key: "c", kind: "question", label: "C", step: "   " }, // whitespace-only → no tab
+      ]);
+      expect(steps).toEqual(["Assess"]);
+    });
   });
 
   describe("resolveSections (jsonb coercion)", () => {
@@ -129,6 +138,15 @@ describe("exercise-types registry", () => {
       expect(s).toEqual({ key: "k", kind: "question", label: "L" });
       expect("step" in s).toBe(false);
       expect("board" in s).toBe(false);
+    });
+
+    it("trims step/group and drops whitespace-only ones", () => {
+      const [s] = resolveSections([
+        { key: "k", kind: "question", label: "L", step: "  Assess  ", group: "  ", help: "h" },
+      ]);
+      expect(s.step).toBe("Assess");
+      expect("group" in s).toBe(false); // whitespace-only group dropped
+      expect(s.help).toBe("h");
     });
   });
 

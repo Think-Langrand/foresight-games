@@ -33,6 +33,7 @@ export function WorksheetView({
   backHref,
   scenario = null,
   drivers = [],
+  hiddenSections,
 }: {
   code: string;
   sections: WorksheetSection[];
@@ -40,6 +41,7 @@ export function WorksheetView({
   backHref: string;
   scenario?: Scenario | null;
   drivers?: PublicDriverCard[];
+  hiddenSections?: string[]; // project-hidden scenario page-2 sections (passed to ScenarioTabs)
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
   const { pid, playerId } = useSharedBoardMembership(code, view, refresh);
@@ -88,7 +90,7 @@ export function WorksheetView({
   // Which sections show right now: the active tab's, or all of them when un-stepped.
   const tabbed = steps.length >= 2;
   const activeStep = steps[Math.min(activeStepIdx, steps.length - 1)];
-  const visibleSections = tabbed ? sections.filter((s) => s.step === activeStep) : sections;
+  const visibleSections = tabbed ? sections.filter((s) => s.step?.trim() === activeStep) : sections;
   // A lone brainstorm section flagged `board` (the Parking lot) gets a taller, board-like canvas.
   const tallCanvas =
     tabbed && visibleSections.length === 1 && visibleSections[0].kind === "brainstorm" && Boolean(visibleSections[0].board);
@@ -170,7 +172,7 @@ export function WorksheetView({
       {showScenario && (
         <div className="mb-6 rounded-[3px] border border-[var(--hairline)] bg-card p-4">
           {scenario ? (
-            <ScenarioTabs scenario={scenario} drivers={drivers} />
+            <ScenarioTabs scenario={scenario} drivers={drivers} hiddenSections={hiddenSections} />
           ) : (
             <ScenarioBody body={view.config.premise || "No scenario text."} />
           )}
