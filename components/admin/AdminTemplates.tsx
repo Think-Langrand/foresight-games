@@ -120,8 +120,14 @@ export function AdminTemplates({ initialTemplates }: { initialTemplates: AdminTe
                   value={t.type}
                   disabled={busy}
                   onChange={(e) => {
-                    setT(t.id, { type: e.target.value });
-                    void api(`${base}/${t.id}`, "PATCH", { type: e.target.value });
+                    const type = e.target.value;
+                    setT(t.id, { type });
+                    // Route through run() like every other field: sets the busy lock and
+                    // surfaces a failed save in the error banner (not fire-and-forget).
+                    void run(t.id, async () => {
+                      const res = await api(`${base}/${t.id}`, "PATCH", { type });
+                      if (!res._ok) throw new Error((res.error as string) || "Failed to save template");
+                    });
                   }}
                   className={inputCls}
                 >
