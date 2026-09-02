@@ -91,6 +91,12 @@ export default async function AdminPage() {
           >
             Manage projects →
           </Link>
+          <Link
+            href="/admin/templates"
+            className="rounded-[3px] border border-[var(--rule)] bg-paper px-4 py-3 text-[13px] font-bold hover:border-ink hover:bg-card"
+          >
+            Exercise templates →
+          </Link>
         </div>
       </section>
 
