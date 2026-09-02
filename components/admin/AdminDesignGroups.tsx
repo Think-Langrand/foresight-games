@@ -12,6 +12,7 @@ import {
 } from "@/lib/exercise-types";
 import { ExerciseQuestionEditor } from "@/components/admin/ExerciseQuestionEditor";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import type { AdminTemplate } from "@/components/admin/AdminTemplates";
 
 export interface AdminExercise {
   id: string;
@@ -100,11 +101,14 @@ export function AdminDesignGroups({
   const [pendingDelete, setPendingDelete] = useState<
     { kind: "group" | "exercise"; g: AdminDesignGroup; ex?: AdminExercise } | null
   >(null);
+  const [templates, setTemplates] = useState<AdminTemplate[] | null>(null); // lazy: null = not yet loaded
+  const [notice, setNotice] = useState<string | null>(null);
   const base = `/api/admin/projects/${projectId}/design-groups`;
 
   const run = async (id: string, fn: () => Promise<void>) => {
     setBusyId(id);
     setError(null);
+    setNotice(null);
     try {
       await fn();
     } catch (e) {
@@ -166,16 +170,42 @@ export function AdminDesignGroups({
   }
 
   // ----- exercise ops -----
-  async function addExercise(g: AdminDesignGroup, tpl: { type: string; sections: WorksheetSection[] }) {
+  // Open the "add week" menu, fetching the template library once (on first open).
+  async function openAddMenu(groupId: string) {
+    setAddingFor(groupId);
+    if (templates === null) {
+      const res = await api(`/api/admin/templates`, "GET");
+      setTemplates(res._ok ? ((res.templates as AdminTemplate[]) ?? []) : []);
+    }
+  }
+  async function addExercise(
+    g: AdminDesignGroup,
+    tpl: { type: string; sections: WorksheetSection[]; title?: string }
+  ) {
     setAddingFor(null);
     await run(g.id, async () => {
       const res = await api(`${base}/${g.id}/exercises`, "POST", {
-        title: `Week ${g.exercises.length + 1}`,
+        title: tpl.title || `Week ${g.exercises.length + 1}`,
         type: tpl.type,
         sections: tpl.sections,
       });
       if (!res._ok) throw new Error((res.error as string) || "Failed");
       await refreshExercises(g.id);
+    });
+  }
+  // Capture a week's current blocks into the global template library.
+  async function saveAsTemplate(ex: AdminExercise) {
+    const name = window.prompt("Save this week to the template library as…", ex.title)?.trim();
+    if (!name) return;
+    await run(ex.id, async () => {
+      const res = await api(`/api/admin/templates`, "POST", {
+        name,
+        type: ex.type,
+        sections: effectiveSections(ex),
+      });
+      if (!res._ok) throw new Error((res.error as string) || "Failed to save template");
+      setTemplates((prev) => (prev ? [...prev, res.template as AdminTemplate] : prev));
+      setNotice(`Saved "${name}" to the template library.`);
     });
   }
   async function saveSections(g: AdminDesignGroup, ex: AdminExercise, sections: WorksheetSection[]) {
@@ -221,6 +251,7 @@ export function AdminDesignGroups({
         </p>
       )}
       {error && <p className="mb-3 text-[13px] font-semibold text-coral">{error}</p>}
+      {notice && <p className="mb-3 text-[13px] font-semibold text-lime-deep">{notice}</p>}
 
       <div className="flex flex-col gap-4">
         {groups.map((g) => {
@@ -375,6 +406,16 @@ export function AdminDesignGroups({
                                     {editingId === ex.id ? "Close" : "Edit Qs"}
                                   </button>
                                 )}
+                                {isWorksheet(ex.type) && (
+                                  <button
+                                    onClick={() => saveAsTemplate(ex)}
+                                    disabled={exBusy}
+                                    title="Save this week's blocks to the template library"
+                                    className={btn + " bg-paper"}
+                                  >
+                                    Save as tmpl
+                                  </button>
+                                )}
                                 {ex.sessionCode && (
                                   <button
                                     onClick={() => toggleLock(g, ex)}
@@ -426,30 +467,23 @@ export function AdminDesignGroups({
                         >
                           Blank worksheet
                         </button>
-                        {Object.values(EXERCISE_TYPES)
-                          .filter((t) => t.render === "worksheet" && (t.sections?.length ?? 0) > 0)
-                          .map((t) => (
+                        {templates === null ? (
+                          <span className="text-[11px] italic text-muted">Loading templates…</span>
+                        ) : (
+                          templates.map((t) => (
                             <button
                               key={t.id}
                               className={btn + " bg-paper"}
                               disabled={busy}
-                              onClick={() => addExercise(g, { type: "worksheet", sections: t.sections ?? [] })}
+                              title={t.description || undefined}
+                              onClick={() =>
+                                addExercise(g, { type: t.type, sections: t.sections, title: t.name })
+                              }
                             >
-                              Copy: {t.label}
+                              {t.name}
                             </button>
-                          ))}
-                        {g.exercises
-                          .filter((ex) => isWorksheet(ex.type) && effectiveSections(ex).length > 0)
-                          .map((ex) => (
-                            <button
-                              key={ex.id}
-                              className={btn + " bg-paper"}
-                              disabled={busy}
-                              onClick={() => addExercise(g, { type: "worksheet", sections: effectiveSections(ex) })}
-                            >
-                              Copy: {ex.title}
-                            </button>
-                          ))}
+                          ))
+                        )}
                         <button
                           className={btn + " bg-paper"}
                           disabled={busy}
@@ -463,7 +497,7 @@ export function AdminDesignGroups({
                       </div>
                     </div>
                   ) : (
-                    <button onClick={() => setAddingFor(g.id)} disabled={busy} className={btn + " mt-2 bg-paper"}>
+                    <button onClick={() => openAddMenu(g.id)} disabled={busy} className={btn + " mt-2 bg-paper"}>
                       + Add week
                     </button>
                   )}
