@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type {
   DriverSource,
-  EarlySignal,
+  // EarlySignal, // used only by the (disabled) Signals tab — see SignalsPanel below
   PublicDriverCard,
   Scenario,
 } from "@/lib/foresight/types";
@@ -46,14 +46,14 @@ export function ScenarioTabs({
   const linked: DriverEntry[] = (scenario.linkedDrivers ?? []).map(
     (ld) => byId.get(ld.driverId) ?? { id: ld.driverId, name: ld.name }
   );
-  const signals = scenario.earlySignals ?? [];
+  // const signals = scenario.earlySignals ?? []; // Signals tab disabled — kept for easy restore
   const hasDrivers = linked.length > 0;
-  const hasSignals = signals.length > 0;
+  // const hasSignals = signals.length > 0;
 
   const [tab, setTab] = useState<TabKey>("scenario");
 
-  // Nothing extra to surface → just the reader.
-  if (!hasDrivers && !hasSignals) return <ScenarioReaderPaged scenario={scenario} hiddenSections={hiddenSections} />;
+  // Nothing extra to surface → just the reader. (Signals no longer opens a tab.)
+  if (!hasDrivers) return <ScenarioReaderPaged scenario={scenario} hiddenSections={hiddenSections} />;
 
   return (
     <div>
@@ -66,18 +66,18 @@ export function ScenarioTabs({
             Drivers
           </TabButton>
         )}
+        {/* Signals tab disabled — to restore, uncomment this, the signals/hasSignals vars,
+            the SignalsPanel branch below, the SignalsPanel component, and the EarlySignal import:
         {hasSignals && (
           <TabButton active={tab === "signals"} onClick={() => setTab("signals")}>
             Signals
           </TabButton>
-        )}
+        )} */}
       </div>
 
       {tab === "drivers" && hasDrivers ? (
         <DriversPanel drivers={linked} />
-      ) : tab === "signals" && hasSignals ? (
-        <SignalsPanel signals={signals} />
-      ) : (
+      ) : /* Signals disabled: `tab === "signals" && hasSignals ? <SignalsPanel signals={signals} /> :` */ (
         <ScenarioReaderPaged scenario={scenario} hiddenSections={hiddenSections} />
       )}
     </div>
@@ -151,6 +151,7 @@ function DriversPanel({ drivers }: { drivers: DriverEntry[] }) {
   );
 }
 
+/* Signals tab disabled — kept for easy restore (see the commented tab button/branch above).
 function SignalsPanel({ signals }: { signals: EarlySignal[] }) {
   return (
     <div>
@@ -182,3 +183,4 @@ function SignalsPanel({ signals }: { signals: EarlySignal[] }) {
     </div>
   );
 }
+*/
