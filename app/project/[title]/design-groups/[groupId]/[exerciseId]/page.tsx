@@ -83,6 +83,7 @@ export default async function DesignGroupExercisePage({
         drivers={drivers}
         basePath={`/project/${title}`}
         hiddenSections={project.homeConfig.hiddenScenarioSections}
+        sections={exercise.sections}
       />
     );
   }
