@@ -236,6 +236,14 @@ export function isBoardBacked(id: string): boolean {
   return EXERCISE_TYPES[id]?.boardBacked ?? false;
 }
 
+// Does this type render editable worksheet-style question/brainstorm blocks (the section
+// substrate)? Worksheets do; the implications board also renders blocks below its tree, so
+// both expose the admin block editor and carry per-exercise `sections`.
+export function supportsSections(id: string): boolean {
+  const r = EXERCISE_TYPES[id]?.render;
+  return r === "worksheet" || r === "implications";
+}
+
 // The default program seeded when a group's scenario is assigned. Session 1 = scenario
 // assessment, Session 2 = implication mapping, Sessions 3-4 = TBD placeholders.
 export interface ProgramWeek {

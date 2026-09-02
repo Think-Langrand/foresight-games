@@ -25,6 +25,7 @@ import {
 } from "@/components/workshop/hooks";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import { BrainstormSection } from "@/components/workshop/BrainstormSection";
+import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import {
   PHASE_LABELS,
   type CardOrder,
@@ -33,6 +34,7 @@ import {
   type RipplesConfig,
   type RipplePhase,
 } from "@/lib/ripples-types";
+import { type WorksheetSection } from "@/lib/exercise-types";
 
 const MIN_KEY_CHANGES = 3;
 const NO_CARDS: RippleCard[] = []; // stable ref so the optimistic overlay doesn't churn
@@ -56,12 +58,14 @@ export function RipplesTeamView({
   scenario = null,
   drivers = [],
   hiddenSections,
+  sections = [],
 }: {
   code: string;
   basePath?: string;
   scenario?: Scenario | null;
   drivers?: PublicDriverCard[];
   hiddenSections?: string[];
+  sections?: WorksheetSection[]; // worksheet-style question/brainstorm blocks (implications exercises)
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
   const { pid, nick, saveNick, playerId, join } = useSharedBoardMembership(code, view, refresh);
@@ -250,6 +254,35 @@ export function RipplesTeamView({
     });
   };
 
+  // Worksheet-style question/brainstorm blocks an implications exercise can carry, rendered
+  // below the tree via the shared <WorksheetSections> — same STICKY-card substrate. On a
+  // shared-team board the whole group co-owns them; solo stays author-only.
+  const canEditCard = sharedTeam ? () => true : (c: RippleCard) => c.authorPlayerId === myPlayer.id;
+  const playerNames = new Map<string, string>(players.map((p) => [p.id, p.displayName] as const));
+  const addSectionCard = (section: string, text: string) =>
+    run(async () => {
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "STICKY",
+        text,
+        section,
+        sort: Date.now(),
+      });
+      if (res?.card) addLocal(res.card as RippleCard);
+    });
+  const reorderSectionCard = (cardId: string, sort: number) => {
+    const prev = cards.find((c) => c.id === cardId)?.sort;
+    reorderLocal(cardId, sort);
+    run(async () => {
+      try {
+        await reorderRippleCard(code, cardId, { participantId: pid, sort });
+      } catch (e) {
+        if (prev !== undefined) reorderLocal(cardId, prev);
+        throw e;
+      }
+    });
+  };
+
   // Members in a facilitated PREMISE just read + wait; solo self-advances into BUILD.
   const canBuild = solo || building;
   const toggleScenario = () => {
@@ -333,6 +366,28 @@ export function RipplesTeamView({
               />
             </div>
           </section>
+
+          {sections.length > 0 && (
+            <section>
+              <SectionHead n={3} title="Questions">
+                Answer these together — responses save to the shared board.
+              </SectionHead>
+              <div className="mt-3">
+                <WorksheetSections
+                  sections={sections}
+                  cards={cards}
+                  editable={building}
+                  canEdit={canEditCard}
+                  busy={busy}
+                  playerNames={playerNames}
+                  onAdd={addSectionCard}
+                  onDelete={removeCard}
+                  onEdit={editCard}
+                  onReorder={reorderSectionCard}
+                />
+              </div>
+            </section>
+          )}
 
           {/* Reflection questions moved to a separate workshop (kept in git history). Shared
               boards (design groups) are self-paced and async — an admin finalizes the map. */}

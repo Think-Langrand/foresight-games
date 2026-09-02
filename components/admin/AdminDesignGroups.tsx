@@ -7,6 +7,7 @@ import {
   EXERCISE_TYPES,
   exerciseStatus,
   getExerciseType,
+  supportsSections,
   type ExerciseStatus,
   type WorksheetSection,
 } from "@/lib/exercise-types";
@@ -62,7 +63,6 @@ function effectiveSections(ex: AdminExercise): WorksheetSection[] {
   return ex.sections.length > 0 ? ex.sections : getExerciseType(ex.type)?.sections ?? [];
 }
 
-const isWorksheet = (type: string) => getExerciseType(type)?.render === "worksheet";
 
 async function api(url: string, method: string, body?: unknown): Promise<Record<string, unknown>> {
   const res = await fetch(url, {
@@ -403,7 +403,7 @@ export function AdminDesignGroups({
                                 >
                                   Answers →
                                 </Link>
-                                {isWorksheet(ex.type) && (
+                                {supportsSections(ex.type) && (
                                   <button
                                     onClick={() => setEditingId((v) => (v === ex.id ? null : ex.id))}
                                     disabled={exBusy}
@@ -412,7 +412,7 @@ export function AdminDesignGroups({
                                     {editingId === ex.id ? "Close" : "Edit Qs"}
                                   </button>
                                 )}
-                                {isWorksheet(ex.type) && (
+                                {supportsSections(ex.type) && (
                                   <button
                                     onClick={() => saveAsTemplate(ex)}
                                     disabled={exBusy}
