@@ -155,6 +155,7 @@ export function RipplesTeamView({
   const myTeammates = players.filter((p) => p.teamId === myTeam.id);
   const keyChanges = myCards.filter((c) => c.order === "FIRST");
   const stickies = myCards.filter((c) => c.order === "STICKY").sort((a, b) => a.sort - b.sort);
+  const playerNames = new Map<string, string>(players.map((p) => [p.id, p.displayName] as const));
 
   const goPhase = (target: RipplePhase) =>
     run(async () => {
@@ -174,6 +175,8 @@ export function RipplesTeamView({
           hiddenSections={hiddenSections}
           config={config}
           cards={myCards}
+          sections={sections}
+          playerNames={playerNames}
           onExport={() => downloadRipplesExport(view)}
           againHref={`${basePath}/play/ripples`}
           closed={phase === "CLOSED"}
@@ -258,7 +261,6 @@ export function RipplesTeamView({
   // below the tree via the shared <WorksheetSections> — same STICKY-card substrate. On a
   // shared-team board the whole group co-owns them; solo stays author-only.
   const canEditCard = sharedTeam ? () => true : (c: RippleCard) => c.authorPlayerId === myPlayer.id;
-  const playerNames = new Map<string, string>(players.map((p) => [p.id, p.displayName] as const));
   const addSectionCard = (section: string, text: string) =>
     run(async () => {
       const res = await postRippleCard(code, {
@@ -454,6 +456,8 @@ function DoneSummary({
   hiddenSections,
   config,
   cards,
+  sections,
+  playerNames,
   onExport,
   againHref,
   closed,
@@ -463,6 +467,8 @@ function DoneSummary({
   hiddenSections?: string[];
   config: RipplesConfig;
   cards: RippleCard[];
+  sections: WorksheetSection[];
+  playerNames: Map<string, string>;
   onExport: () => void;
   againHref: string;
   closed: boolean;
@@ -514,6 +520,25 @@ function DoneSummary({
         <ImplicationTree cards={cards} scenarioTitle={config.scenarioTitle} />
       ) : (
         <ImplicationList cards={cards} scenarioTitle={config.scenarioTitle} />
+      )}
+
+      {/* The group's answers to any question/brainstorm blocks, read-only, beside the map. */}
+      {sections.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-[18px] font-extrabold uppercase tracking-tight">Questions</h2>
+          <WorksheetSections
+            sections={sections}
+            cards={cards}
+            editable={false}
+            canEdit={() => false}
+            busy={false}
+            playerNames={playerNames}
+            onAdd={() => {}}
+            onDelete={() => {}}
+            onEdit={() => {}}
+            onReorder={() => {}}
+          />
+        </div>
       )}
 
       {scenario && (
