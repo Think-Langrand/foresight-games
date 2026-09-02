@@ -23,7 +23,7 @@ export interface WorksheetSection {
   step?: string; // optional wizard/tab bucket — consecutive sections sharing a step render on one tab
   group?: string; // optional cluster heading (sections sharing a group render together)
   help?: string; // guidance text under the heading
-  board?: boolean; // brainstorm only: render as a large, board-like canvas (e.g. the Parking lot)
+  board?: boolean; // brainstorm only: render as a large, board-like canvas (e.g. the Sandbox)
 }
 
 export interface ExerciseType {
@@ -41,7 +41,7 @@ export interface ExerciseType {
 //
 // Sections are grouped into four `step`s, rendered as jump-anywhere tabs:
 //   1. First reactions   2. Assess the scenario   3. Stepping into the future
-//   4. Parking lot (its own board-like sticky wall).
+//   4. Sandbox (its own board-like sticky wall).
 const SCENARIO_ASSESSMENT_SECTIONS: WorksheetSection[] = [
   {
     key: "reactions",
@@ -96,12 +96,12 @@ const SCENARIO_ASSESSMENT_SECTIONS: WorksheetSection[] = [
     help: "Choose the 6 changes that most define this future — consequential, distinct from today, important to public health, and different enough from each other to capture the scenario's breadth.",
   },
   {
-    key: "parking-lot",
+    key: "parking-lot", // permanent card-link id — display name is "Sandbox"
     kind: "brainstorm",
-    step: "Parking lot",
+    step: "Sandbox",
     board: true, // its own tab, a large sticky board
-    label: "Parking lot — good ideas for later",
-    help: "Implications, risks, opportunities, or actions you notice but should not solve today. Later sessions explore them.",
+    label: "Sandbox — good ideas for later",
+    help: "A free space for brainstorming — capture any ideas, questions, or possibilities that come up, including ones you can't act on yet.",
   },
 ];
 
@@ -236,16 +236,16 @@ export function isBoardBacked(id: string): boolean {
   return EXERCISE_TYPES[id]?.boardBacked ?? false;
 }
 
-// The default program seeded when a group's scenario is assigned. Week 1 = scenario
-// assessment, Week 2 = implication mapping, Weeks 3-4 = TBD placeholders.
+// The default program seeded when a group's scenario is assigned. Session 1 = scenario
+// assessment, Session 2 = implication mapping, Sessions 3-4 = TBD placeholders.
 export interface ProgramWeek {
   sort: number;
   type: string;
   title: string;
 }
 export const DEFAULT_PROGRAM: ProgramWeek[] = [
-  { sort: 0, type: "scenario-assessment", title: "Week 1 · Scenario Assessment" },
-  { sort: 1, type: "implications", title: "Week 2 · Implication Mapping" },
-  { sort: 2, type: "placeholder", title: "Week 3 · TBD" },
-  { sort: 3, type: "placeholder", title: "Week 4 · Synthesis (TBD)" },
+  { sort: 0, type: "scenario-assessment", title: "Session 1 · Scenario Assessment" },
+  { sort: 1, type: "implications", title: "Session 2 · Implication Mapping" },
+  { sort: 2, type: "placeholder", title: "Session 3 · TBD" },
+  { sort: 3, type: "placeholder", title: "Session 4 · Synthesis (TBD)" },
 ];

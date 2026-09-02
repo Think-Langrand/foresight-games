@@ -28,9 +28,9 @@ export function DesignGroupsIndex({
         Design Groups
       </h1>
       <p className="serif mt-3 max-w-[640px] text-[19px] leading-[1.4] text-muted">
-        Find your group and open its program. Each week you&rsquo;ll work a new
+        Find your group and open its program. Each session you&rsquo;ll work a new
         worksheet together — everything is shared and live, and you can revisit earlier
-        weeks any time.
+        sessions any time.
       </p>
 
       {groups.length === 0 ? (
@@ -44,30 +44,20 @@ export function DesignGroupsIndex({
               <>
                 <div className="flex items-center gap-3">
                   <span
-                    className="inline-block h-5 w-5 shrink-0 rounded-[3px] border border-ink"
+                    className="inline-block h-5 w-5 shrink-0 rounded-[3px] border border-white/50"
                     style={{ background: g.color ?? "#ccc" }}
                   />
-                  <span className="font-sans text-[22px] font-extrabold uppercase tracking-tight">
+                  <span className="font-sans text-[22px] font-extrabold uppercase tracking-tight text-white">
                     {g.name}
                   </span>
                 </div>
-                <p className="mt-3 text-[14px] leading-[1.5] text-ink">
-                  {g.scenarioTitle ? (
-                    <>
-                      <span className="text-muted">Scenario:</span>{" "}
-                      <span className="font-semibold">{g.scenarioTitle}</span>
-                    </>
-                  ) : (
-                    <span className="italic text-muted">Scenario not assigned yet.</span>
-                  )}
-                </p>
-                <div className="mt-4 flex items-center justify-between border-t border-[var(--hairline)] pt-3 text-[12px]">
-                  <span className="text-muted">
-                    {g.weekCount} {g.weekCount === 1 ? "week" : "weeks"}
+                <div className="mt-6 flex items-center justify-between border-t border-white/20 pt-3 text-[12px]">
+                  <span className="text-white/70">
+                    {g.weekCount} {g.weekCount === 1 ? "session" : "sessions"}
                   </span>
                   <span
                     className={
-                      "font-bold uppercase tracking-[0.06em] " + (g.ready ? "text-blue" : "text-muted")
+                      "font-bold uppercase tracking-[0.06em] " + (g.ready ? "text-white" : "text-white/60")
                     }
                   >
                     {g.ready ? "Open program →" : "Not ready yet"}
@@ -75,12 +65,12 @@ export function DesignGroupsIndex({
                 </div>
               </>
             );
-            const cls = "flex flex-col rounded-[3px] border border-[var(--hairline)] bg-card p-5 transition-colors";
+            const cls = "flex flex-col rounded-[3px] bg-blue p-5 text-white transition";
             return g.ready ? (
               <Link
                 key={g.id}
                 href={`/project/${slug}/design-groups/${g.id}`}
-                className={cls + " hover:border-ink"}
+                className={cls + " hover:brightness-110"}
                 style={{ borderTop: "3px solid var(--lime-deep)" }}
               >
                 {inner}

@@ -2,8 +2,9 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { ScenarioBody } from "@/components/foresight/ScenarioBody";
 import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
+import { ScenarioPanel } from "@/components/workshop/ScenarioPanel";
+import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
 import { ImplicationTree } from "@/components/workshop/ImplicationTree";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { ImplicationList } from "@/components/workshop/ImplicationList";
@@ -70,7 +71,9 @@ export function RipplesTeamView({
   );
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(true);
+  // Scenario ↔ exercise swap (shared with WorksheetView): read the scenario first, toggle
+  // to the map. Replaces the old always-visible scenario + slide-up worksheet overlay.
+  const [showScenario, setShowScenario] = useState(true);
   const heroArt = scenarioHero(scenario);
 
   const run = useCallback(async (fn: () => Promise<void>) => {
@@ -247,6 +250,17 @@ export function RipplesTeamView({
     });
   };
 
+  // Members in a facilitated PREMISE just read + wait; solo self-advances into BUILD.
+  const canBuild = solo || building;
+  const toggleScenario = () => {
+    if (!showScenario) {
+      setShowScenario(true);
+      return;
+    }
+    if (!building) goPhase("BUILD"); // solo: advance into the build phase on first go
+    setShowScenario(false);
+  };
+
   return (
     <Shell wide>
       <PhaseHeader
@@ -256,145 +270,107 @@ export function RipplesTeamView({
         solo={solo}
         team={solo ? undefined : myTeam.name}
         teamColor={myTeam.color}
+        right={
+          canBuild ? (
+            <ScenarioToggle
+              showingScenario={showScenario}
+              exerciseLabel="Build the map"
+              onToggle={toggleScenario}
+              disabled={busy}
+            />
+          ) : undefined
+        }
       />
 
-      {phase === "PREMISE" && !solo && (
-        <p className="mb-5 text-[13px] text-muted">Read the scenario. The facilitator will open the worksheet.</p>
-      )}
-
-      <ScenarioContext scenario={scenario} drivers={drivers} hiddenSections={hiddenSections} config={config} />
-
-      {/* One persistent green toggle: opens the worksheet (advancing solo into BUILD)
-          and hides it again. Visible as soon as the scenario is up. */}
-      {(solo || building) && (
-        <button
-          onClick={() => {
-            if (!building) {
-              setSheetOpen(true);
-              goPhase("BUILD");
-            } else {
-              setSheetOpen((v) => !v);
-            }
-          }}
-          disabled={busy}
-          className="fixed bottom-5 right-5 z-50 rounded-[3px] border border-ink bg-lime px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.08em] shadow-[0_4px_0_var(--ink)] hover:bg-lime-deep disabled:opacity-50"
-        >
-          {building && sheetOpen ? "▾ Hide worksheet" : "▲ Open worksheet"}
-        </button>
-      )}
-
-      {building && (
+      {showScenario || !canBuild ? (
         <>
-          <WorksheetSheet open={sheetOpen} scenarioTitle={config.scenarioTitle}>
-            <BrainstormSection
-              stickies={stickies}
-              canEdit={(c) => c.authorPlayerId === myPlayer.id}
-              busy={busy}
-              onAdd={(text) => addCard("STICKY", text, undefined, Date.now())}
-              onDelete={removeCard}
-              onReorder={reorderSticky}
-              onEdit={editCard}
-              header={
-                <SectionHead n={1} title="Brainstorm key changes">
-                  Peel a note off the pad for each thing that changes in this world.{" "}
-                  <span className="font-semibold text-ink">Click a note to edit it</span>, drag to
-                  reorder. These are just notes, separate from the tree below.
-                </SectionHead>
-              }
-            />
-
-            <section className="mt-8">
-              <SectionHead n={2} title="Map the implications">
-                Start from the scenario: add key changes, then branch each forward — “Because of that…”, then “And this causes…”.
-              </SectionHead>
-              <div className="mt-3">
-                <ImplicationTree
-                  cards={myCards}
-                  scenarioTitle={config.scenarioTitle}
-                  interactive
-                  busy={busy}
-                  challengeEnabled={config.challengeEnabled}
-                  canDelete={(c) => c.authorPlayerId === myPlayer.id}
-                  onAddRoot={(text) => addCard("FIRST", text)}
-                  onAddChild={(parent, order, text) => addCard(order, text, parent.id)}
-                  onDelete={removeCard}
-                  onFlag={(card) => run(async () => { await patchRippleCard(code, card.id, { action: "flag", participantId: pid }); })}
-                  onVote={(card) => run(async () => { await patchRippleCard(code, card.id, { action: "vote", participantId: pid }); })}
-                />
-              </div>
-            </section>
-
-            {/* Reflection questions are moving to a separate workshop — hidden for now
-                (kept in git history). Submit lives here so the map can breathe.
-                Shared boards (design groups) are self-paced and async: nobody submits
-                individually — an admin finalizes the whole group's map. */}
-            {sharedTeam ? (
-              <div className="mt-10 border-t border-[var(--rule)] pt-6 text-[12px] italic text-muted">
-                This is your group&rsquo;s shared board — build it together, whenever. A
-                facilitator will finalize the map when the group is done.
-              </div>
-            ) : (
-              <div className="mt-10 flex items-center gap-3 border-t border-[var(--rule)] pt-6">
-                <button
-                  onClick={() =>
-                    run(async () => {
-                      await postRippleSubmit(code, { participantId: pid, answers: [] });
-                      if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
-                    })
-                  }
-                  disabled={busy || keyChanges.length < MIN_KEY_CHANGES}
-                  className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
-                >
-                  {myPlayer.submittedAt ? "Update map" : "Submit map"} →
-                </button>
-                {keyChanges.length < MIN_KEY_CHANGES && (
-                  <span className="text-[12px] italic text-muted">
-                    Add at least {MIN_KEY_CHANGES} key changes first.
-                  </span>
-                )}
-              </div>
-            )}
-          </WorksheetSheet>
+          {phase === "PREMISE" && !solo && (
+            <p className="mb-5 text-[13px] text-muted">Read the scenario. The facilitator will open the map.</p>
+          )}
+          <ScenarioPanel
+            scenario={scenario}
+            drivers={drivers}
+            hiddenSections={hiddenSections}
+            premise={config.premise}
+          />
         </>
+      ) : building ? (
+        <div className="flex flex-col gap-8">
+          <BrainstormSection
+            stickies={stickies}
+            canEdit={(c) => c.authorPlayerId === myPlayer.id}
+            busy={busy}
+            onAdd={(text) => addCard("STICKY", text, undefined, Date.now())}
+            onDelete={removeCard}
+            onReorder={reorderSticky}
+            onEdit={editCard}
+            header={
+              <SectionHead n={1} title="Brainstorm key changes">
+                Peel a note off the pad for each thing that changes in this world.{" "}
+                <span className="font-semibold text-ink">Click a note to edit it</span>, drag to
+                reorder. These are just notes, separate from the tree below.
+              </SectionHead>
+            }
+          />
+
+          <section>
+            <SectionHead n={2} title="Map the implications">
+              Start from the scenario: add key changes, then branch each forward — “Because of that…”, then “And this causes…”.
+            </SectionHead>
+            <div className="mt-3">
+              <ImplicationTree
+                cards={myCards}
+                scenarioTitle={config.scenarioTitle}
+                interactive
+                busy={busy}
+                challengeEnabled={config.challengeEnabled}
+                canDelete={(c) => c.authorPlayerId === myPlayer.id}
+                onAddRoot={(text) => addCard("FIRST", text)}
+                onAddChild={(parent, order, text) => addCard(order, text, parent.id)}
+                onDelete={removeCard}
+                onFlag={(card) => run(async () => { await patchRippleCard(code, card.id, { action: "flag", participantId: pid }); })}
+                onVote={(card) => run(async () => { await patchRippleCard(code, card.id, { action: "vote", participantId: pid }); })}
+              />
+            </div>
+          </section>
+
+          {/* Reflection questions moved to a separate workshop (kept in git history). Shared
+              boards (design groups) are self-paced and async — an admin finalizes the map. */}
+          {sharedTeam ? (
+            <div className="border-t border-[var(--rule)] pt-6 text-[12px] italic text-muted">
+              This is your group&rsquo;s shared board — build it together, whenever. A
+              facilitator will finalize the map when the group is done.
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 border-t border-[var(--rule)] pt-6">
+              <button
+                onClick={() =>
+                  run(async () => {
+                    await postRippleSubmit(code, { participantId: pid, answers: [] });
+                    if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
+                  })
+                }
+                disabled={busy || keyChanges.length < MIN_KEY_CHANGES}
+                className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
+              >
+                {myPlayer.submittedAt ? "Update map" : "Submit map"} →
+              </button>
+              {keyChanges.length < MIN_KEY_CHANGES && (
+                <span className="text-[12px] italic text-muted">
+                  Add at least {MIN_KEY_CHANGES} key changes first.
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <Panel>
+          <p className="text-[14px] text-muted">Opening the map…</p>
+        </Panel>
       )}
 
       {flash && <Flash msg={flash} />}
     </Shell>
-  );
-}
-
-// ---------- the slide-up worksheet ----------
-function WorksheetSheet({
-  open,
-  scenarioTitle,
-  children,
-}: {
-  open: boolean;
-  scenarioTitle: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <aside
-      className={
-        "fixed inset-x-0 bottom-0 top-14 z-40 flex flex-col border-t border-ink bg-paper shadow-[0_-8px_30px_rgba(36,36,34,0.18)] transition-transform duration-300 " +
-        (open ? "translate-y-0" : "translate-y-full")
-      }
-      aria-hidden={!open}
-      // When slid off-screen, `inert` removes the still-mounted controls from tab
-      // order and the a11y tree so keyboard/SR users can't reach hidden inputs.
-      inert={!open || undefined}
-    >
-      <div className="flex flex-none items-center justify-between gap-3 border-b border-[var(--rule)] px-5 py-3">
-        <div className="min-w-0">
-          <span className="eyebrow blue">Implications worksheet</span>
-          <div className="truncate text-[15px] font-extrabold uppercase tracking-tight">{scenarioTitle}</div>
-        </div>
-      </div>
-      {/* extra bottom padding so the floating toggle never covers the last controls */}
-      <div className="flex-1 overflow-y-auto px-5 py-6 pb-24">
-        <div className="mx-auto max-w-[1180px]">{children}</div>
-      </div>
-    </aside>
   );
 }
 
@@ -517,6 +493,7 @@ function PhaseHeader({
   teamColor,
   art,
   solo,
+  right,
 }: {
   phase: RipplePhase;
   title: string;
@@ -524,6 +501,7 @@ function PhaseHeader({
   teamColor?: string;
   art?: RippleArtImage;
   solo?: boolean;
+  right?: React.ReactNode;
 }) {
   return (
     <div className="relative mb-5 overflow-hidden border-b border-[var(--rule)]">
@@ -544,6 +522,7 @@ function PhaseHeader({
               {team}
             </span>
           )}
+          {right}
         </div>
       </div>
     </div>
@@ -552,35 +531,6 @@ function PhaseHeader({
 
 function Panel({ children }: { children: React.ReactNode }) {
   return <div className="rounded-[3px] border border-[var(--hairline)] bg-card p-5">{children}</div>;
-}
-
-function ScenarioContext({
-  scenario,
-  drivers,
-  hiddenSections,
-  config,
-}: {
-  scenario: Scenario | null;
-  drivers: PublicDriverCard[];
-  hiddenSections?: string[];
-  config: RipplesConfig;
-}) {
-  return (
-    <div className="flex flex-col gap-4">
-      {scenario ? (
-        <ScenarioTabs scenario={scenario} drivers={drivers} hiddenSections={hiddenSections} />
-      ) : (
-        <div className="rounded-[3px] border border-[var(--hairline)] bg-card p-5">
-          {config.premise ? (
-            <ScenarioBody body={config.premise} />
-          ) : (
-            <p className="text-[14px] italic text-muted">No premise text for this scenario.</p>
-          )}
-        </div>
-      )}
-      {/* "How the uncertainties resolved" intentionally hidden for now. */}
-    </div>
-  );
 }
 
 function JoinPanel({

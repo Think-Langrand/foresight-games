@@ -148,11 +148,12 @@ export async function ScenarioSetDetail({
   setId,
   projectRef,
   basePath,
+  homeHref = "/",
 }: ViewCtx & { setId: string }) {
   const shell = (children: React.ReactNode) => (
     <main className="mx-auto min-h-screen max-w-[1100px] px-6 py-12 md:py-16">
-      <Link href={basePath} className="eyebrow blue">
-        ← Scenario sets
+      <Link href={homeHref} className="eyebrow blue">
+        ← Home
       </Link>
       {children}
     </main>
@@ -172,8 +173,8 @@ export async function ScenarioSetDetail({
 
   return (
     <main className="mx-auto min-h-screen max-w-[1100px] px-6 py-12 md:py-16">
-      <Link href={basePath} className="eyebrow blue">
-        ← Scenario sets
+      <Link href={homeHref} className="eyebrow blue">
+        ← Home
       </Link>
       <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-b border-[var(--rule)] pb-5">
         <div>

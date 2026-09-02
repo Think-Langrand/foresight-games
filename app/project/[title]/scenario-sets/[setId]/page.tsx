@@ -18,6 +18,7 @@ export default async function ProjectScenarioSetPage({
       setId={setId}
       projectRef={project.carmelitaProjectRef}
       basePath={`/project/${title}/scenario-sets`}
+      homeHref={`/project/${title}`}
     />
   );
 }
