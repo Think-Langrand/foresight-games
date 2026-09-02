@@ -2,9 +2,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { ScenarioBody } from "@/components/foresight/ScenarioBody";
-import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
 import { BrainstormSection } from "@/components/workshop/BrainstormSection";
+import { ScenarioPanel } from "@/components/workshop/ScenarioPanel";
+import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import {
   useRipplesView,
@@ -33,6 +33,7 @@ export function WorksheetView({
   backHref,
   scenario = null,
   drivers = [],
+  hiddenSections,
 }: {
   code: string;
   sections: WorksheetSection[];
@@ -40,6 +41,7 @@ export function WorksheetView({
   backHref: string;
   scenario?: Scenario | null;
   drivers?: PublicDriverCard[];
+  hiddenSections?: string[]; // project-hidden scenario page-2 sections (passed to ScenarioTabs)
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
   const { pid, playerId } = useSharedBoardMembership(code, view, refresh);
@@ -83,13 +85,16 @@ export function WorksheetView({
   // BUILD = editable; a locked exercise sits in HARVEST (read-only output).
   const editable = view.session.phase === "BUILD";
   const mine = (c: RippleCard) => c.authorPlayerId === myPlayer.id;
+  // On a shared-team board (design groups) the whole group co-owns the worksheet, so any
+  // member may edit/delete any card; on a solo board it stays author-only.
+  const canEditCard = view.config.sharedTeam ? () => true : mine;
   const sectionCards = (key: string) => cards.filter((c) => c.order === "STICKY" && c.section === key);
 
   // Which sections show right now: the active tab's, or all of them when un-stepped.
   const tabbed = steps.length >= 2;
   const activeStep = steps[Math.min(activeStepIdx, steps.length - 1)];
-  const visibleSections = tabbed ? sections.filter((s) => s.step === activeStep) : sections;
-  // A lone brainstorm section flagged `board` (the Parking lot) gets a taller, board-like canvas.
+  const visibleSections = tabbed ? sections.filter((s) => s.step?.trim() === activeStep) : sections;
+  // A lone brainstorm section flagged `board` (the Sandbox) gets a taller, board-like canvas.
   const tallCanvas =
     tabbed && visibleSections.length === 1 && visibleSections[0].kind === "brainstorm" && Boolean(visibleSections[0].board);
 
@@ -158,22 +163,22 @@ export function WorksheetView({
               Locked
             </span>
           )}
-          <button
-            onClick={() => setShowScenario((v) => !v)}
-            className="rounded-[2px] border border-[#1f33dd] bg-[#1f33dd] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white hover:opacity-90"
-          >
-            {showScenario ? "Worksheet" : "View scenario"}
-          </button>
+          <ScenarioToggle
+            showingScenario={showScenario}
+            exerciseLabel="Worksheet"
+            onToggle={() => setShowScenario((v) => !v)}
+          />
         </div>
       </div>
 
       {showScenario && (
-        <div className="mb-6 rounded-[3px] border border-[var(--hairline)] bg-card p-4">
-          {scenario ? (
-            <ScenarioTabs scenario={scenario} drivers={drivers} />
-          ) : (
-            <ScenarioBody body={view.config.premise || "No scenario text."} />
-          )}
+        <div className="mb-6">
+          <ScenarioPanel
+            scenario={scenario}
+            drivers={drivers}
+            hiddenSections={hiddenSections}
+            premise={view.config.premise}
+          />
         </div>
       )}
 
@@ -219,7 +224,7 @@ export function WorksheetView({
               {s.kind === "brainstorm" ? (
                 <BrainstormSection
                   stickies={[...areaCards].sort((a, b) => a.sort - b.sort)}
-                  canEdit={mine}
+                  canEdit={canEditCard}
                   busy={busy}
                   readOnly={!editable}
                   tall={tallCanvas}
@@ -235,7 +240,7 @@ export function WorksheetView({
                   help={s.help}
                   answers={[...areaCards].sort((a, b) => a.createdTime.localeCompare(b.createdTime))}
                   authorName={(c) => playerNames.get(c.authorPlayerId ?? "") ?? ""}
-                  canEdit={mine}
+                  canEdit={canEditCard}
                   busy={busy}
                   readOnly={!editable}
                   onAdd={(text) => addCard(s.key, text)}

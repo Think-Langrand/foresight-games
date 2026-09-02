@@ -7,7 +7,8 @@ export function csvCell(v: unknown): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-// Trigger a file download of `content`. Prepend "﻿" for CSV so Excel reads UTF-8.
+// Trigger a browser download of `content` as `filename`. Writes exactly what it's given —
+// callers prepend a UTF-8 BOM ("﻿") to CSV content themselves when needed for Excel.
 export function download(content: string, filename: string, type: string): void {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);

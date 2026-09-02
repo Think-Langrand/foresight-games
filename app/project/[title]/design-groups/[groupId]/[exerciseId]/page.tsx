@@ -55,7 +55,7 @@ export default async function DesignGroupExercisePage({
     const opens = exercise.opensAt ? new Date(exercise.opensAt).toLocaleDateString() : "soon";
     return (
       <Gate backHref={backHref} title={exercise.title}>
-        This week opens on {opens}. Check back then.
+        This session opens on {opens}. Check back then.
       </Gate>
     );
   }
@@ -82,6 +82,7 @@ export default async function DesignGroupExercisePage({
         scenario={scenario}
         drivers={drivers}
         basePath={`/project/${title}`}
+        hiddenSections={project.homeConfig.hiddenScenarioSections}
       />
     );
   }
@@ -98,6 +99,7 @@ export default async function DesignGroupExercisePage({
         backHref={backHref}
         scenario={scenario}
         drivers={drivers}
+        hiddenSections={project.homeConfig.hiddenScenarioSections}
       />
     );
   }

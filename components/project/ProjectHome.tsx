@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import type { StaticImageData } from "next/image";
 import { MarkText } from "@/components/Mark";
 import { JoinSession } from "@/components/JoinSession";
@@ -182,38 +181,24 @@ function EntryCard({
   eyebrow,
   title,
   body,
-  image,
   accent,
-  wide = false,
 }: {
   href: string;
   eyebrow: string;
   title: string;
   body: string;
-  image: StaticImageData;
+  image: StaticImageData; // still part of the card data; not shown in the solid-blue treatment
   accent?: boolean;
-  wide?: boolean; // full-width hero row (vs a 2-up grid cell) — affects responsive image sizing
+  wide?: boolean; // hero vs 2-up cell — a layout hint from the caller; unused in this treatment
 }) {
+  // Solid Langrand blue (var(--blue)) with white text — replaces the backdrop-image
+  // + navy gradient overlay. Accent cards keep the lime top border.
   return (
     <Link
       href={href}
-      className="group relative flex min-h-[260px] flex-col justify-end overflow-hidden rounded-[3px] border border-[var(--hairline)] p-6 transition-colors hover:border-ink"
+      className="group relative flex min-h-[260px] flex-col justify-end overflow-hidden rounded-[3px] bg-blue p-6 transition hover:brightness-110"
       style={accent ? { borderTop: "3px solid var(--lime-deep)" } : undefined}
     >
-      <Image
-        src={image}
-        alt=""
-        placeholder="blur"
-        sizes={wide ? "(max-width: 1024px) 100vw, 980px" : "(max-width: 768px) 100vw, 480px"}
-        className="absolute inset-0 -z-10 h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.05]"
-      />
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(to top, rgba(13,28,61,0.90) 8%, rgba(13,28,61,0.50) 45%, rgba(13,28,61,0.20) 100%)",
-        }}
-      />
       <span className="eyebrow" style={{ color: "rgba(255,255,255,0.75)" }}>
         {eyebrow}
       </span>
