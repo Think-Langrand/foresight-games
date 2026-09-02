@@ -174,8 +174,14 @@ export function AdminDesignGroups({
   async function openAddMenu(groupId: string) {
     setAddingFor(groupId);
     if (templates === null) {
-      const res = await api(`/api/admin/templates`, "GET");
-      setTemplates(res._ok ? ((res.templates as AdminTemplate[]) ?? []) : []);
+      try {
+        const res = await api(`/api/admin/templates`, "GET");
+        setTemplates(res._ok ? ((res.templates as AdminTemplate[]) ?? []) : []);
+      } catch {
+        // Hard fetch failure: fall back to an empty list (Blank/Placeholder still work)
+        // rather than leaving the menu stuck on "Loading templates…".
+        setTemplates([]);
+      }
     }
   }
   async function addExercise(

@@ -22,7 +22,12 @@ const inputCls =
 const btn =
   "rounded-[2px] border border-ink px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] disabled:opacity-40";
 
-const TYPE_OPTIONS = Object.values(EXERCISE_TYPES).map((t) => ({ id: t.id, label: t.label }));
+// Exclude the code-fixed `scenario-assessment` type: it carries hardcoded sections, so a
+// template of that type would show "0 blocks" in the library yet render 9 when applied. The
+// seeded "Scenario Assessment" is an editable `worksheet` instead (see defaultTemplateSeeds).
+const TYPE_OPTIONS = Object.values(EXERCISE_TYPES)
+  .filter((t) => t.id !== "scenario-assessment")
+  .map((t) => ({ id: t.id, label: t.label }));
 const isWorksheet = (type: string) => getExerciseType(type)?.render === "worksheet";
 
 async function api(url: string, method: string, body?: unknown): Promise<Record<string, unknown>> {
