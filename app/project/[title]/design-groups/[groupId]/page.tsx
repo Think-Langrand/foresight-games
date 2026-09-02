@@ -2,18 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProjectBySlug } from "@/lib/projects";
 import { getSessionUser } from "@/lib/supabase-auth";
-import { getDesignGroup, implicationCountsByCode } from "@/lib/design-groups";
+import { getDesignGroup } from "@/lib/design-groups";
 import { listExercises } from "@/lib/design-group-exercises";
-import { exerciseStatus, exerciseTypeLabel, type ExerciseStatus } from "@/lib/exercise-types";
+import { exerciseStatus } from "@/lib/exercise-types";
 
 export const dynamic = "force-dynamic";
-
-const PILL: Record<ExerciseStatus, string> = {
-  open: "bg-lime text-ink",
-  scheduled: "bg-amber text-ink",
-  locked: "bg-blue text-white",
-  placeholder: "bg-[var(--hairline)] text-muted",
-};
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -37,9 +30,6 @@ export default async function DesignGroupHubPage({
     listExercises(groupId),
     getSessionUser().then((u) => Boolean(u)),
   ]);
-  const counts = await implicationCountsByCode(
-    exercises.map((e) => e.sessionCode ?? "").filter(Boolean)
-  );
   const now = Date.now();
 
   return (
@@ -80,64 +70,42 @@ export default async function DesignGroupHubPage({
           const enterable = Boolean(
             ex.sessionCode && (st === "open" || st === "locked" || (st === "scheduled" && isAdmin))
           );
-          const cards = ex.sessionCode ? counts.get(ex.sessionCode.toUpperCase()) ?? 0 : 0;
+          const action =
+            st === "placeholder"
+              ? "Locked"
+              : st === "scheduled" && !isAdmin
+                ? ex.opensAt
+                  ? `Opens ${fmtDate(ex.opensAt)}`
+                  : "Not open yet"
+                : enterable
+                  ? st === "locked"
+                    ? "View →"
+                    : "Open →"
+                  : "—";
           const body = (
             <>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[17px] font-extrabold uppercase tracking-tight">{ex.title}</span>
-                  <span
-                    className={
-                      "rounded-[2px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] " + PILL[st]
-                    }
-                  >
-                    {st === "scheduled" && ex.opensAt
-                      ? `Opens ${fmtDate(ex.opensAt)}`
-                      : st === "placeholder"
-                        ? "Locked"
-                        : st}
-                  </span>
-                </div>
-                <div className="mt-1 text-[12px] text-muted">
-                  {exerciseTypeLabel(ex.type)}
-                  {ex.sessionCode ? ` · ${cards} card${cards === 1 ? "" : "s"}` : ""}
-                </div>
-              </div>
-              <span className="shrink-0 text-[13px] font-bold uppercase tracking-[0.06em]">
-                {st === "placeholder"
-                  ? "Coming soon"
-                  : st === "scheduled" && !isAdmin
-                    ? "Not open yet"
-                    : enterable
-                      ? st === "locked"
-                        ? "View →"
-                        : "Open →"
-                      : "—"}
+              <span className="min-w-0 truncate text-[17px] font-extrabold uppercase tracking-tight text-white">
+                {ex.title}
+              </span>
+              <span className="shrink-0 text-[13px] font-bold uppercase tracking-[0.06em] text-white">
+                {action}
               </span>
             </>
           );
           const cls =
-            "flex items-center justify-between gap-4 rounded-[3px] border border-[var(--hairline)] bg-card px-5 py-4 transition-colors";
+            "flex items-center justify-between gap-4 rounded-[3px] bg-blue px-5 py-4 text-white transition";
           return enterable ? (
             <Link
               key={ex.id}
               href={`/project/${title}/design-groups/${groupId}/${ex.id}`}
-              className={cls + " hover:border-ink"}
+              className={cls + " hover:brightness-110"}
             >
               {body}
             </Link>
           ) : (
-            // Not openable yet → sealed: dim the row and lay a lock overlay over it.
-            <div key={ex.id} className="relative">
-              <div className={cls + " select-none opacity-40"} aria-hidden>
-                {body}
-              </div>
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[3px] bg-card/40">
-                <span className="flex items-center gap-1.5 rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-1 text-[12px] font-bold uppercase tracking-[0.08em] text-muted shadow-[2px_3px_0_rgba(36,36,34,0.12)]">
-                  <span aria-hidden>🔒</span>
-                  {st === "scheduled" && ex.opensAt ? `Opens ${fmtDate(ex.opensAt)}` : "Locked"}
-                </span>
-              </div>
+            // Not enterable yet → a faded-blue, non-interactive row (no lock overlay).
+            <div key={ex.id} className={cls + " opacity-60"}>
+              {body}
             </div>
           );
         })}

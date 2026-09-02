@@ -55,7 +55,7 @@ export default async function DesignGroupExercisePage({
     const opens = exercise.opensAt ? new Date(exercise.opensAt).toLocaleDateString() : "soon";
     return (
       <Gate backHref={backHref} title={exercise.title}>
-        This week opens on {opens}. Check back then.
+        This session opens on {opens}. Check back then.
       </Gate>
     );
   }

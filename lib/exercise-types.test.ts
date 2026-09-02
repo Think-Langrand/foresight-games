@@ -51,7 +51,7 @@ describe("exercise-types registry", () => {
         "First reactions",
         "Assess the scenario",
         "Stepping into the future",
-        "Parking lot",
+        "Sandbox",
       ]);
     });
 
@@ -71,10 +71,10 @@ describe("exercise-types registry", () => {
         "assess-missing",
       ]);
       expect(keysFor("Stepping into the future")).toEqual(["stepping-in", "key-changes", "six-changes"]);
-      expect(keysFor("Parking lot")).toEqual(["parking-lot"]);
+      expect(keysFor("Sandbox")).toEqual(["parking-lot"]);
     });
 
-    it("flags only the Parking lot as a board-like canvas", () => {
+    it("flags only the Sandbox as a board-like canvas", () => {
       const sections = EXERCISE_TYPES["scenario-assessment"].sections!;
       const boards = sections.filter((s) => s.board).map((s) => s.key);
       expect(boards).toEqual(["parking-lot"]);

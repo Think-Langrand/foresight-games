@@ -32,7 +32,7 @@ export function BrainstormSection({
   header?: React.ReactNode;
   readOnly?: boolean;
   placeholder?: string;
-  tall?: boolean; // a taller, board-like drop area (e.g. the standalone Parking lot tab)
+  tall?: boolean; // a taller, board-like drop area (e.g. the standalone Sandbox tab)
 }) {
   const [text, setText] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
