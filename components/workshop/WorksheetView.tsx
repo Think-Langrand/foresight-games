@@ -85,6 +85,9 @@ export function WorksheetView({
   // BUILD = editable; a locked exercise sits in HARVEST (read-only output).
   const editable = view.session.phase === "BUILD";
   const mine = (c: RippleCard) => c.authorPlayerId === myPlayer.id;
+  // On a shared-team board (design groups) the whole group co-owns the worksheet, so any
+  // member may edit/delete any card; on a solo board it stays author-only.
+  const canEditCard = view.config.sharedTeam ? () => true : mine;
   const sectionCards = (key: string) => cards.filter((c) => c.order === "STICKY" && c.section === key);
 
   // Which sections show right now: the active tab's, or all of them when un-stepped.
@@ -221,7 +224,7 @@ export function WorksheetView({
               {s.kind === "brainstorm" ? (
                 <BrainstormSection
                   stickies={[...areaCards].sort((a, b) => a.sort - b.sort)}
-                  canEdit={mine}
+                  canEdit={canEditCard}
                   busy={busy}
                   readOnly={!editable}
                   tall={tallCanvas}
@@ -237,7 +240,7 @@ export function WorksheetView({
                   help={s.help}
                   answers={[...areaCards].sort((a, b) => a.createdTime.localeCompare(b.createdTime))}
                   authorName={(c) => playerNames.get(c.authorPlayerId ?? "") ?? ""}
-                  canEdit={mine}
+                  canEdit={canEditCard}
                   busy={busy}
                   readOnly={!editable}
                   onAdd={(text) => addCard(s.key, text)}

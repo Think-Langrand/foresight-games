@@ -53,6 +53,7 @@ export async function PATCH(
     if (card.teamId !== player.teamId) {
       return NextResponse.json({ error: "That card is on another board." }, { status: 403 });
     }
+    const config = resolveConfig(session.config);
 
     // Reorder a brainstorm sticky — team-scoped, no challenge needed.
     if (body.action === "reorder") {
@@ -60,9 +61,10 @@ export async function PATCH(
       return NextResponse.json({ ok: true });
     }
 
-    // Edit a card's text in place — author-owned (like delete).
+    // Edit a card's text in place — author-owned, EXCEPT on a shared-team board (design
+    // groups) where the whole group co-owns the worksheet and any member may edit any card.
     if (body.action === "text") {
-      if (card.authorPlayerId !== player.id) {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
         return NextResponse.json({ error: "You can only edit your own card." }, { status: 403 });
       }
       const text = (body.text ?? "").trim();
@@ -76,7 +78,6 @@ export async function PATCH(
       return NextResponse.json({ ok: true });
     }
 
-    const config = resolveConfig(session.config);
     if (!config.challengeEnabled) {
       return NextResponse.json({ error: "Challenge is disabled." }, { status: 403 });
     }
@@ -134,7 +135,12 @@ export async function DELETE(
 
     const card = await getRippleCard(session.code, cardId);
     if (!card) return NextResponse.json({ ok: true }); // already gone
-    if (card.authorPlayerId !== player.id) {
+    if (card.teamId !== player.teamId) {
+      return NextResponse.json({ error: "That card is on another board." }, { status: 403 });
+    }
+    // Author-owned, EXCEPT on a shared-team board where the group co-owns the board.
+    const config = resolveConfig(session.config);
+    if (!config.sharedTeam && card.authorPlayerId !== player.id) {
       return NextResponse.json({ error: "You can only delete your own card." }, { status: 403 });
     }
 
