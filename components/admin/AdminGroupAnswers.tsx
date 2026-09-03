@@ -42,6 +42,7 @@ export interface ImplicationsExercise {
   scenarioTitle: string;
   cards: RippleCard[]; // all of the shared team's cards (drives the wheel/tree/list)
   brainstorm: AnswerRow[]; // the section=null STICKY notes
+  questions: QuestionBlock[]; // section-tagged question/brainstorm blocks, if the week carries any
 }
 export interface PlaceholderExercise {
   kind: "placeholder";
@@ -139,6 +140,9 @@ export function AdminGroupAnswers({
           lines.push([ex.title, "Implication chain", "implications", c.chain.join(" → "), "", ""].map(csvCell).join(","));
         for (const n of ex.brainstorm)
           lines.push([ex.title, "Brainstorm", "brainstorm", n.text, n.author, n.createdAt].map(csvCell).join(","));
+        for (const q of ex.questions)
+          for (const a of q.answers)
+            lines.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt].map(csvCell).join(","));
       }
     }
     download("﻿" + lines.join("\r\n"), `${base}.csv`, "text/csv;charset=utf-8;");
@@ -147,7 +151,8 @@ export function AdminGroupAnswers({
   const hasContent = exercises.some(
     (ex) =>
       (ex.kind === "worksheet" && ex.questions.some((q) => q.answers.length > 0)) ||
-      (ex.kind === "implications" && (ex.cards.length > 0 || ex.brainstorm.length > 0))
+      (ex.kind === "implications" &&
+        (ex.cards.length > 0 || ex.brainstorm.length > 0 || ex.questions.some((q) => q.answers.length > 0)))
   );
   const activeBoardBacked = active && active.kind !== "placeholder";
   const onDeleteAnswer =
@@ -297,12 +302,17 @@ function AnswerList({ answers, onDelete }: { answers: AnswerRow[]; onDelete?: (r
 }
 
 function WorksheetPanel({ ex, onDelete }: { ex: WorksheetExercise; onDelete?: (row: AnswerRow) => void }) {
+  if (ex.questions.length === 0)
+    return <p className="text-[13px] italic text-muted">No questions defined for this week.</p>;
+  return <QuestionBlocks questions={ex.questions} onDelete={onDelete} />;
+}
+
+// One or more section-tagged Q&A blocks (question prompts + brainstorm areas), read-only.
+// Shared by the worksheet tab and the implications tab (implications weeks can carry blocks).
+function QuestionBlocks({ questions, onDelete }: { questions: QuestionBlock[]; onDelete?: (row: AnswerRow) => void }) {
   return (
     <div className="flex flex-col gap-5">
-      {ex.questions.length === 0 && (
-        <p className="text-[13px] italic text-muted">No questions defined for this week.</p>
-      )}
-      {ex.questions.map((q) => (
+      {questions.map((q) => (
         <div key={q.key}>
           <div className="flex items-center gap-2">
             <h3 className="text-[14px] font-bold">{q.label || q.key}</h3>
@@ -365,6 +375,13 @@ function ImplicationsPanel({
           </div>
         )}
       </div>
+
+      {ex.questions.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-[13px] font-bold uppercase tracking-[0.08em] text-muted">Questions</h3>
+          <QuestionBlocks questions={ex.questions} onDelete={onDelete} />
+        </div>
+      )}
 
       <div>
         <h3 className="mb-2 text-[13px] font-bold uppercase tracking-[0.08em] text-muted">Brainstorm notes</h3>
