@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { EXERCISE_TYPES, getExerciseType, type WorksheetSection } from "@/lib/exercise-types";
+import { EXERCISE_TYPES, supportsSections, type WorksheetSection } from "@/lib/exercise-types";
 import { ExerciseQuestionEditor } from "@/components/admin/ExerciseQuestionEditor";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
@@ -28,7 +28,6 @@ const btn =
 const TYPE_OPTIONS = Object.values(EXERCISE_TYPES)
   .filter((t) => t.id !== "scenario-assessment")
   .map((t) => ({ id: t.id, label: t.label }));
-const isWorksheet = (type: string) => getExerciseType(type)?.render === "worksheet";
 
 async function api(url: string, method: string, body?: unknown): Promise<Record<string, unknown>> {
   const res = await fetch(url, {
@@ -143,11 +142,11 @@ export function AdminTemplates({ initialTemplates }: { initialTemplates: AdminTe
                   ))}
                 </select>
                 <span className="text-[12px] text-muted">
-                  {isWorksheet(t.type)
+                  {supportsSections(t.type)
                     ? `${t.sections.length} block${t.sections.length === 1 ? "" : "s"}`
                     : "no blocks"}
                 </span>
-                {isWorksheet(t.type) && (
+                {supportsSections(t.type) && (
                   <button
                     onClick={() => setEditingId((v) => (v === t.id ? null : t.id))}
                     disabled={busy}
@@ -174,7 +173,7 @@ export function AdminTemplates({ initialTemplates }: { initialTemplates: AdminTe
                 rows={2}
                 className={inputCls + " mt-2 w-full resize-none"}
               />
-              {editingId === t.id && isWorksheet(t.type) && (
+              {editingId === t.id && supportsSections(t.type) && (
                 <div className="mt-3">
                   <ExerciseQuestionEditor
                     initial={t.sections}

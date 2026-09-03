@@ -54,9 +54,8 @@ export default async function GroupAnswersPage({
         createdAt: c.createdTime,
       });
 
-      if (render === "worksheet") {
-        const spec: WorksheetSection[] =
-          ex.sections.length > 0 ? ex.sections : getExerciseType(ex.type)?.sections ?? [];
+      // Section-tagged Q&A blocks — worksheet weeks, and implications weeks that carry blocks.
+      const buildQuestions = (spec: WorksheetSection[]): QuestionBlock[] => {
         const bySection = new Map<string, RippleCard[]>();
         for (const c of view?.cards ?? []) {
           if (c.order !== "STICKY" || !c.section) continue;
@@ -78,7 +77,13 @@ export default async function GroupAnswersPage({
           if (known.has(key)) continue;
           questions.push({ key, label: key, kind: "question", removed: true, answers: toAnswers(cards) });
         }
-        return { kind: "worksheet", exerciseId: ex.id, title: ex.title, questions };
+        return questions;
+      };
+
+      if (render === "worksheet") {
+        const spec: WorksheetSection[] =
+          ex.sections.length > 0 ? ex.sections : getExerciseType(ex.type)?.sections ?? [];
+        return { kind: "worksheet", exerciseId: ex.id, title: ex.title, questions: buildQuestions(spec) };
       }
 
       if (render === "implications" && view) {
@@ -94,6 +99,7 @@ export default async function GroupAnswersPage({
           scenarioTitle: view.config.scenarioTitle || group.scenarioTitle || "",
           cards,
           brainstorm,
+          questions: buildQuestions(ex.sections),
         };
       }
 
