@@ -42,7 +42,20 @@ export function WorksheetSections({
   const steps = useMemo(() => worksheetSteps(sections), [sections]);
   const [activeStepIdx, setActiveStepIdx] = useState(0);
 
-  const sectionCards = (key: string) => cards.filter((c) => c.order === "STICKY" && c.section === key);
+  // Pre-index the STICKY answer cards by section once (not per section), so rendering is
+  // O(cards) rather than O(sections × cards) — matters on the implications board, where
+  // `cards` also holds the whole map/tree.
+  const bySection = useMemo(() => {
+    const m = new Map<string, RippleCard[]>();
+    for (const c of cards) {
+      if (c.order !== "STICKY" || !c.section) continue;
+      const arr = m.get(c.section);
+      if (arr) arr.push(c);
+      else m.set(c.section, [c]);
+    }
+    return m;
+  }, [cards]);
+  const sectionCards = (key: string) => bySection.get(key) ?? [];
 
   const tabbed = steps.length >= 2;
   const activeStep = steps[Math.min(activeStepIdx, steps.length - 1)];
