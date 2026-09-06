@@ -529,9 +529,13 @@ export function AdminDesignGroups({
                             )}
                             <button
                               onClick={() => setPendingDelete({ kind: "week", week: w })}
-                              disabled={busy}
+                              disabled={busy || weeks.length === 1}
                               aria-label="Delete week"
-                              title="Delete week"
+                              title={
+                                weeks.length === 1
+                                  ? "A program needs at least one week — delete the group instead"
+                                  : "Delete week"
+                              }
                               className={btn + " border-coral text-coral"}
                             >
                               🗑

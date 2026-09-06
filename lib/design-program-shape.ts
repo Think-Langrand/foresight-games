@@ -5,7 +5,7 @@
 
 import type { DesignGroup } from "@/lib/design-groups";
 import type { DesignGroupExercise } from "@/lib/design-group-exercises";
-import { resolveSections, type CanonicalWeek } from "@/lib/exercise-types";
+import { resolveEffectiveSections, type CanonicalWeek } from "@/lib/exercise-types";
 
 // One program week, resolved for the editor. `slots` maps each group to the row that
 // backs this week in that group (row identity — the key to a board-safe reorder).
@@ -49,8 +49,11 @@ export function weekEditIsDestructive(
   next: { type: string; sections: unknown }
 ): boolean {
   if (current.type !== next.type) return true;
-  const nextKeys = new Set(resolveSections(next.sections).map((s) => s.key));
-  return resolveSections(current.sections).some((s) => !nextKeys.has(s.key));
+  // Compare EFFECTIVE sections: a started week with sections=[] falls back to its type
+  // template, whose keys the answers are tagged with — so [] must resolve to those keys,
+  // not the empty set, or a template-backed week would look keyless and skip the guard.
+  const nextKeys = new Set(resolveEffectiveSections(next.type, next.sections).map((s) => s.key));
+  return resolveEffectiveSections(current.type, current.sections).some((s) => !nextKeys.has(s.key));
 }
 
 function sortGroups(groups: DesignGroup[]): DesignGroup[] {
@@ -115,7 +118,10 @@ export function toProgramDTO(
       type: content.type,
       opensAt: content.opensAt,
       locked: content.locked,
-      sections: content.sections, // raw: [] means "fall back to the type's template"
+      // Materialize the EFFECTIVE sections (snapshot, else the type template) so the editor
+      // and every save carry stable section keys — the program no longer depends on the code
+      // template implicitly, and the started-week guard always sees the real key set.
+      sections: resolveEffectiveSections(content.type, content.sections),
       slots,
       cardsByGroup,
       sessionByGroup,

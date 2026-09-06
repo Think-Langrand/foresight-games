@@ -226,6 +226,15 @@ export function getExerciseType(id: string): ExerciseType | undefined {
   return EXERCISE_TYPES[id];
 }
 
+// The sections a week EFFECTIVELY uses: its own snapshot, or the type's code template when
+// the snapshot is empty ([] means "fall back to the template"). Answer cards are keyed to
+// these section keys, so guards and the canonical program must compare/persist the effective
+// set — never the raw (possibly []) column, or a template-backed started week looks keyless.
+export function resolveEffectiveSections(type: string, sections: unknown): WorksheetSection[] {
+  const snapshot = resolveSections(sections);
+  return snapshot.length > 0 ? snapshot : getExerciseType(type)?.sections ?? [];
+}
+
 export function exerciseTypeLabel(id: string): string {
   return EXERCISE_TYPES[id]?.label ?? id;
 }

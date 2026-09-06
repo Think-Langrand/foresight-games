@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { toProgramDTO, weekEditIsDestructive } from "./design-program-shape";
+import { getExerciseType } from "./exercise-types";
 import type { DesignGroup } from "./design-groups";
 import type { DesignGroupExercise } from "./design-group-exercises";
 
@@ -155,5 +156,17 @@ describe("weekEditIsDestructive (started-week guard)", () => {
   it("tolerates junk/undefined sections without false positives", () => {
     expect(weekEditIsDestructive({ type: "worksheet", sections: undefined }, { type: "worksheet", sections: [] })).toBe(false);
     expect(weekEditIsDestructive({ type: "worksheet", sections: null }, { type: "worksheet", sections: "garbage" })).toBe(false);
+  });
+
+  it("resolves template-fallback sections so a []-snapshot started week is still guarded", () => {
+    const tmpl = getExerciseType("scenario-assessment")!.sections!;
+    expect(tmpl.length).toBeGreaterThan(0);
+    // sections=[] means "fall back to the type template" — its keys are what answers are tagged with.
+    const current = { type: "scenario-assessment", sections: [] };
+    // dropping a template question orphans its answers → destructive
+    expect(weekEditIsDestructive(current, { type: "scenario-assessment", sections: tmpl.slice(1) })).toBe(true);
+    // relabelling every template question keeps all keys → safe
+    const relabelled = tmpl.map((s) => ({ ...s, label: `${s.label} (edited)` }));
+    expect(weekEditIsDestructive(current, { type: "scenario-assessment", sections: relabelled })).toBe(false);
   });
 });
