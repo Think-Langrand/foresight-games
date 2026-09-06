@@ -235,7 +235,9 @@ export async function assignScenario(
       });
       if (isBoardBacked(wk.type)) await provisionExerciseBoard(ex, ctx);
       // Keep the shared schedule in lockstep: a canonically-locked week starts locked.
-      if (wk.locked && isBoardBacked(wk.type)) await lockExercise(ex.id);
+      // lockExercise persists `locked` even for non-board weeks (it only touches the
+      // session when one exists), so don't gate this on isBoardBacked — matches the reconcile.
+      if (wk.locked) await lockExercise(ex.id);
     }
   } else {
     // Program already exists: provision any missing boards, and (on a scenario

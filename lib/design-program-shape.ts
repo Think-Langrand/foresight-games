@@ -39,15 +39,18 @@ export interface ProgramWeekInput extends CanonicalWeek {
   force?: boolean;
 }
 
-// Would applying `next` over `current` change the week's QUESTIONS or TYPE? Those are the
-// edits that orphan answers (cards are keyed to a question's section), so a started week is
-// protected against them. Reorder/rename/reschedule/lock are NOT destructive and don't count.
+// Would applying `next` over `current` orphan any already-collected answers? Answer cards
+// are keyed to an immutable `section.key`, so only a TYPE change or the REMOVAL of an
+// existing key (a delete, or a rename that mints a new key) loses answers. Benign edits —
+// relabelling a question, editing help text, reordering, or ADDING new questions — keep
+// every existing key and are NOT destructive, so a started week isn't blocked from them.
 export function weekEditIsDestructive(
   current: { type: string; sections: unknown },
   next: { type: string; sections: unknown }
 ): boolean {
   if (current.type !== next.type) return true;
-  return JSON.stringify(resolveSections(current.sections)) !== JSON.stringify(resolveSections(next.sections));
+  const nextKeys = new Set(resolveSections(next.sections).map((s) => s.key));
+  return resolveSections(current.sections).some((s) => !nextKeys.has(s.key));
 }
 
 function sortGroups(groups: DesignGroup[]): DesignGroup[] {

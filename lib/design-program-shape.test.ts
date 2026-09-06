@@ -131,20 +131,25 @@ describe("toProgramDTO", () => {
 describe("weekEditIsDestructive (started-week guard)", () => {
   const q = (key: string, label: string) => ({ key, kind: "question" as const, label });
 
-  it("is NOT destructive for a pure reorder/rename (same type + questions)", () => {
-    const row = { type: "worksheet", sections: [q("a", "Q1"), q("b", "Q2")] };
-    expect(weekEditIsDestructive(row, { type: "worksheet", sections: [q("a", "Q1"), q("b", "Q2")] })).toBe(false);
-  });
-
   it("is destructive when the type changes", () => {
     const row = { type: "scenario-assessment", sections: [] };
     expect(weekEditIsDestructive(row, { type: "implications", sections: [] })).toBe(true);
   });
 
-  it("is destructive when a question is removed or renamed", () => {
+  it("is destructive when an existing question key is removed or changed", () => {
     const row = { type: "worksheet", sections: [q("a", "Q1"), q("b", "Q2")] };
-    expect(weekEditIsDestructive(row, { type: "worksheet", sections: [q("a", "Q1")] })).toBe(true);
-    expect(weekEditIsDestructive(row, { type: "worksheet", sections: [q("a", "Q1 changed"), q("b", "Q2")] })).toBe(true);
+    expect(weekEditIsDestructive(row, { type: "worksheet", sections: [q("a", "Q1")] })).toBe(true); // b removed
+    expect(weekEditIsDestructive(row, { type: "worksheet", sections: [q("a", "Q1"), q("c", "Q2")] })).toBe(true); // b's key changed
+  });
+
+  it("is NOT destructive for benign edits that keep every existing key", () => {
+    const row = { type: "worksheet", sections: [q("a", "Q1"), q("b", "Q2")] };
+    // relabel (key kept)
+    expect(weekEditIsDestructive(row, { type: "worksheet", sections: [q("a", "Q1 reworded"), q("b", "Q2")] })).toBe(false);
+    // add a question
+    expect(weekEditIsDestructive(row, { type: "worksheet", sections: [q("a", "Q1"), q("b", "Q2"), q("c", "Q3")] })).toBe(false);
+    // reorder
+    expect(weekEditIsDestructive(row, { type: "worksheet", sections: [q("b", "Q2"), q("a", "Q1")] })).toBe(false);
   });
 
   it("tolerates junk/undefined sections without false positives", () => {

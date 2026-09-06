@@ -308,8 +308,14 @@ export function AdminDesignGroups({
     [next[i], next[j]] = [next[j], next[i]];
     setGroups(next.map((g, idx) => ({ ...g, sort: idx })));
     await runGroup("reorder", async () => {
-      await api(`${base}/${next[i].id}`, "PATCH", { sort: i });
-      await api(`${base}/${next[j].id}`, "PATCH", { sort: j });
+      const r1 = await api(`${base}/${next[i].id}`, "PATCH", { sort: i });
+      const r2 = await api(`${base}/${next[j].id}`, "PATCH", { sort: j });
+      if (!r1._ok || !r2._ok) {
+        // api() never throws, so check explicitly — otherwise a failed PATCH would look
+        // successful and the optimistic local order would drift from the server.
+        await refreshProgram();
+        throw new Error((r1.error as string) || (r2.error as string) || "Failed to reorder groups");
+      }
     });
   }
 
@@ -327,22 +333,13 @@ export function AdminDesignGroups({
     await runGroup("new", async () => {
       const res = await api(base, "POST", { name });
       if (!res._ok) throw new Error((res.error as string) || "Failed to create group");
-      // Bring the new (scenario-less) group into lockstep with the current program.
-      if (weeks.length > 0) {
-        const put = await api(`/api/admin/projects/${projectId}/program`, "PUT", {
-          weeks: weeks.map((w) => ({
-            title: w.title,
-            type: w.type,
-            opensAt: w.opensAt,
-            locked: w.locked,
-            sections: w.sections,
-            slots: w.slots,
-          })),
-        });
-        if (!put._ok) throw new Error((put.error as string) || "Group added, but seeding its program failed");
-      }
-      await refreshProgram();
       setNewName("");
+      // Bring the new (scenario-less) group into lockstep with the current program. Reuse
+      // saveProgram so the started-week 409/confirm + refresh flow is applied consistently
+      // (a divergent, already-started project can otherwise 409 here). No program yet →
+      // just refresh so the new empty group shows.
+      if (weeks.length > 0) await saveProgram();
+      else await refreshProgram();
     });
   }
 
