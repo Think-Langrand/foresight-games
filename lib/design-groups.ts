@@ -4,12 +4,13 @@ import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import { getProjectById } from "@/lib/projects";
 import { getScenario } from "@/lib/foresight/client";
 import { TEAM_COLORS } from "@/lib/workshop-types";
-import { DEFAULT_PROGRAM, getExerciseType, isBoardBacked } from "@/lib/exercise-types";
+import { defaultProgramWeeks, isBoardBacked, type CanonicalWeek } from "@/lib/exercise-types";
 import {
   listExercises,
   createExercise,
   provisionExerciseBoard,
   resnapshotBoardScenario,
+  lockExercise,
   type BoardScenarioCtx,
 } from "@/lib/design-group-exercises";
 
@@ -178,7 +179,7 @@ export async function deleteDesignGroup(id: string): Promise<void> {
 export async function assignScenario(
   groupId: string,
   scenarioRef: string,
-  opts: { force?: boolean } = {}
+  opts: { force?: boolean; program?: CanonicalWeek[] } = {}
 ): Promise<void> {
   const group = await getDesignGroup(groupId);
   if (!group) throw new Error("GROUP_NOT_FOUND");
@@ -216,18 +217,25 @@ export async function assignScenario(
   };
 
   if (exercises.length === 0) {
-    // First assignment → seed the default program and provision its boards.
-    for (const wk of DEFAULT_PROGRAM) {
-      // Snapshot the type's template questions onto the exercise so later template edits
-      // don't retroactively change an in-flight program (admins edit the snapshot).
+    // First assignment → seed this group's program and provision its boards. Seed from the
+    // project's CANONICAL program (passed in by the route) so a group added later lands
+    // identical to its peers; fall back to the default program for the very first group.
+    // Sections are a per-exercise snapshot so later template edits don't retroactively
+    // change an in-flight program (admins edit the snapshot).
+    const program = opts.program && opts.program.length > 0 ? opts.program : defaultProgramWeeks();
+    for (let i = 0; i < program.length; i++) {
+      const wk = program[i];
       const ex = await createExercise({
         groupId,
-        sort: wk.sort,
+        sort: i,
         title: wk.title,
         type: wk.type,
-        sections: getExerciseType(wk.type)?.sections ?? [],
+        opensAt: wk.opensAt,
+        sections: wk.sections,
       });
       if (isBoardBacked(wk.type)) await provisionExerciseBoard(ex, ctx);
+      // Keep the shared schedule in lockstep: a canonically-locked week starts locked.
+      if (wk.locked && isBoardBacked(wk.type)) await lockExercise(ex.id);
     }
   } else {
     // Program already exists: provision any missing boards, and (on a scenario

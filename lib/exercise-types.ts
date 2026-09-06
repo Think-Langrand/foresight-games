@@ -257,3 +257,27 @@ export const DEFAULT_PROGRAM: ProgramWeek[] = [
   { sort: 2, type: "placeholder", title: "Session 3 · TBD" },
   { sort: 3, type: "placeholder", title: "Session 4 · Synthesis (TBD)" },
 ];
+
+// A CanonicalWeek is the group-AGNOSTIC content of one program week — the single thing
+// the admin edits once and fans out to every group (lib/design-program.ts). Groups only
+// differ by scenario, so title/type/schedule/questions are shared; the per-group rows
+// (design_group_exercises) are just copies kept in lockstep.
+export interface CanonicalWeek {
+  title: string;
+  type: string;
+  opensAt: string | null;
+  locked: boolean;
+  sections: WorksheetSection[];
+}
+
+// The default program as CanonicalWeek[] — used to seed the very first group in a project,
+// when there are no existing exercises to derive a shared program from.
+export function defaultProgramWeeks(): CanonicalWeek[] {
+  return DEFAULT_PROGRAM.map((w) => ({
+    title: w.title,
+    type: w.type,
+    opensAt: null,
+    locked: false,
+    sections: getExerciseType(w.type)?.sections ?? [],
+  }));
+}

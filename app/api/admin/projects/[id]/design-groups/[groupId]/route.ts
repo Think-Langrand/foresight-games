@@ -9,6 +9,7 @@ import {
   ScenarioHasCardsError,
   updateDesignGroup,
 } from "@/lib/design-groups";
+import { getCanonicalProgramWeeks } from "@/lib/design-program";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,13 @@ export async function PATCH(
     if (Object.keys(meta).length > 0) await updateDesignGroup(groupId, meta);
 
     if (typeof body.scenarioRef === "string" && body.scenarioRef.trim()) {
-      await assignScenario(groupId, body.scenarioRef.trim(), { force: body.force === true });
+      // Seed a first-time assignment from the project's canonical program so this group
+      // lands in lockstep with its peers (falls back to the default program if none exists).
+      const program = await getCanonicalProgramWeeks(id);
+      await assignScenario(groupId, body.scenarioRef.trim(), {
+        force: body.force === true,
+        program,
+      });
     }
     const group = await getDesignGroup(groupId);
     return NextResponse.json({ group });
