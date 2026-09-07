@@ -9,7 +9,7 @@ import {
   ProgramConflictError,
   type ProgramWeekInput,
 } from "@/lib/design-program";
-import { resolveSections } from "@/lib/exercise-types";
+import { resolveEffectiveSections } from "@/lib/exercise-types";
 
 export const dynamic = "force-dynamic";
 
@@ -63,16 +63,23 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const weeks: ProgramWeekInput[] = body.weeks.map((raw) => {
     const w = (raw ?? {}) as Record<string, unknown>;
-    const slots =
-      w.slots && typeof w.slots === "object" && !Array.isArray(w.slots)
-        ? (w.slots as Record<string, string>)
-        : {};
+    // Keep only string slot values — a non-string id would make the reconcile treat an
+    // existing row as missing and create/delete weeks unexpectedly.
+    const slots: Record<string, string> = {};
+    if (w.slots && typeof w.slots === "object" && !Array.isArray(w.slots)) {
+      for (const [gid, id] of Object.entries(w.slots as Record<string, unknown>)) {
+        if (typeof id === "string") slots[gid] = id;
+      }
+    }
+    const type = typeof w.type === "string" ? w.type : "placeholder";
     return {
       title: typeof w.title === "string" ? w.title : "",
-      type: typeof w.type === "string" ? w.type : "placeholder",
+      type,
       opensAt: typeof w.opensAt === "string" && w.opensAt ? w.opensAt : null,
       locked: w.locked === true,
-      sections: resolveSections(w.sections),
+      // Persist the EFFECTIVE keyset so a client sending sections=[] doesn't leave the week
+      // depending on the implicit template fallback.
+      sections: resolveEffectiveSections(type, w.sections),
       slots,
       force: w.force === true,
     };

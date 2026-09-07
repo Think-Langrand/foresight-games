@@ -101,6 +101,8 @@ export function programVersion(
   groups: DesignGroup[],
   exercisesByGroup: Record<string, DesignGroupExercise[]>
 ): string {
+  // Fields are joined with U+0001 and rows with U+0002 — explicit separators so adjacent
+  // values can't concatenate into a colliding fingerprint (type "ab" + title "" vs "a" + "b").
   const parts: string[] = [];
   for (const g of sortGroups(groups)) {
     for (const e of exercisesByGroup[g.id] ?? []) {
@@ -115,11 +117,11 @@ export function programVersion(
           e.locked ? 1 : 0,
           e.sessionCode ?? "",
           JSON.stringify(resolveEffectiveSections(e.type, e.sections)),
-        ].join("")
+        ].join("\u0001")
       );
     }
   }
-  return hashStr(parts.join(""));
+  return hashStr(parts.join("\u0002"));
 }
 
 // Pure: zip already-loaded per-group exercises into the canonical program the editor

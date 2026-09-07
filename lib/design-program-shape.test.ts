@@ -172,6 +172,14 @@ describe("programVersion (optimistic concurrency token)", () => {
     const byGroup = { a: [ex("a", 0, "worksheet", "W1", "a1")], b: [ex("b", 0, "worksheet", "W1", "b1")] };
     expect(programVersion([a, b], byGroup)).toBe(programVersion([b, a], byGroup));
   });
+
+  it("uses field delimiters so adjacent values can't collide", () => {
+    const g = group({ id: "g", sort: 0 });
+    const base = ex("g", 0, "x", "y", null); // shared id so only the field boundary differs
+    const rowA = { ...base, type: "ab", title: "" };
+    const rowB = { ...base, type: "a", title: "b" };
+    expect(programVersion([g], { g: [rowA] })).not.toBe(programVersion([g], { g: [rowB] }));
+  });
 });
 
 describe("weekEditIsDestructive (started-week guard)", () => {

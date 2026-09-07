@@ -77,7 +77,15 @@ export async function getCanonicalProgram(projectId: string): Promise<ProgramDTO
 // group so it lands identical to its peers. Falls back to DEFAULT_PROGRAM when the
 // project has no exercises anywhere yet (the very first group).
 export async function getCanonicalProgramWeeks(projectId: string): Promise<CanonicalWeek[]> {
-  const dto = await getCanonicalProgram(projectId);
+  // Seeding only needs week CONTENT, not card counts — build the DTO with an empty tally so
+  // we skip the ripple_cards aggregate query.
+  const groups = await listDesignGroups(projectId);
+  const lists = await Promise.all(groups.map((g) => listExercises(g.id)));
+  const exercisesByGroup: Record<string, DesignGroupExercise[]> = {};
+  groups.forEach((g, i) => {
+    exercisesByGroup[g.id] = lists[i];
+  });
+  const dto = toProgramDTO(groups, exercisesByGroup, new Map());
   if (dto.weeks.length === 0) return defaultProgramWeeks();
   return dto.weeks.map((w) => ({
     title: w.title,
@@ -120,6 +128,18 @@ export async function reconcileGroupsToProgram(
   // corruption (e.g. resurrecting a week the other admin just deleted).
   if (opts.expectedVersion && opts.expectedVersion !== programVersion(groups, existingByGroup)) {
     throw new ProgramConflictError();
+  }
+
+  // Every provided slot must reference a real row IN THAT GROUP. A provided-but-missing slot
+  // (stale client, bug, or tampering) would otherwise be treated as "create new" here AND
+  // delete the original row below — silently orphaning its board + cards. Abort before any
+  // write; the client reloads the latest. (An absent slot is fine — that's a genuinely new week.)
+  for (const g of groups) {
+    const ids = new Set(existingByGroup[g.id].map((e) => e.id));
+    for (const w of weeks) {
+      const rowId = w.slots?.[g.id];
+      if (rowId && !ids.has(rowId)) throw new ProgramConflictError();
+    }
   }
 
   const cardCounts = await implicationCountsByCode(allCodes);
