@@ -8,6 +8,7 @@ import {
   exerciseStatus,
   getExerciseType,
   newSectionKey,
+  resolveEffectiveSections,
   supportsSections,
   type ExerciseStatus,
   type WorksheetSection,
@@ -463,7 +464,13 @@ export function AdminDesignGroups({
                             value={w.type}
                             disabled={busy || qLocked}
                             title={qLocked ? "Has answers — use “Edit anyway” to change the type" : undefined}
-                            onChange={(e) => patchWeek(w.key, { type: e.target.value })}
+                            onChange={(e) => {
+                              // Adopt the new type's default questions so the snapshot matches the
+                              // type instead of carrying the old type's keys. Started weeks are gated
+                              // behind "Edit anyway", so this only resets not-yet-answered weeks.
+                              const type = e.target.value;
+                              patchWeek(w.key, { type, sections: resolveEffectiveSections(type, []) });
+                            }}
                             className={inputCls}
                           >
                             {TYPE_OPTIONS.map((t) => (
