@@ -6,7 +6,8 @@ import { getDeck } from "@/lib/cards";
 import { listRippleMaps } from "@/lib/ripples";
 import { getProjectBySlugAny } from "@/lib/projects";
 import { listDesignGroups, implicationCountsByCode } from "@/lib/design-groups";
-import { listExercises } from "@/lib/design-group-exercises";
+import { listExercises, type DesignGroupExercise } from "@/lib/design-group-exercises";
+import { toProgramDTO } from "@/lib/design-program";
 import { getScenarios, foresightConfigured } from "@/lib/foresight/client";
 import type { Card } from "@/lib/workshop-types";
 import { AdminSessionsList } from "@/components/admin/AdminSessionsList";
@@ -47,31 +48,18 @@ export default async function ProjectAdminPage({
     listDesignGroups(project.id),
   ]);
 
-  // Design groups: each group's exercises (weeks) + card counts per backing board,
+  // Design groups: each group's exercises (weeks) + card counts per backing board, folded
+  // into ONE canonical program (all groups run the same program; only the scenario differs),
   // plus the project's scenarios for the assignment picker (tolerate platform down).
   const groupExercises = await Promise.all(designGroups.map((g) => listExercises(g.id)));
   const exCounts = await implicationCountsByCode(
     groupExercises.flat().map((e) => e.sessionCode ?? "").filter(Boolean)
   );
-  const designGroupRows = designGroups.map((g, i) => ({
-    id: g.id,
-    name: g.name,
-    sort: g.sort,
-    color: g.color,
-    scenarioRef: g.scenarioRef,
-    scenarioTitle: g.scenarioTitle,
-    exercises: groupExercises[i].map((e) => ({
-      id: e.id,
-      sort: e.sort,
-      title: e.title,
-      type: e.type,
-      sessionCode: e.sessionCode,
-      locked: e.locked,
-      opensAt: e.opensAt,
-      sections: e.sections,
-      cards: e.sessionCode ? exCounts.get(e.sessionCode.toUpperCase()) ?? 0 : 0,
-    })),
-  }));
+  const exercisesByGroup: Record<string, DesignGroupExercise[]> = {};
+  designGroups.forEach((g, i) => {
+    exercisesByGroup[g.id] = groupExercises[i];
+  });
+  const initialProgram = toProgramDTO(designGroups, exercisesByGroup, exCounts);
   const foresightUp = foresightConfigured();
   let designScenarios: AdminScenarioOption[] = [];
   if (foresightUp) {
@@ -174,7 +162,7 @@ export default async function ProjectAdminPage({
         <AdminDesignGroups
           projectId={project.id}
           slug={slug}
-          initialGroups={designGroupRows}
+          initialProgram={initialProgram}
           scenarios={designScenarios}
           configured={foresightUp}
         />
