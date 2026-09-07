@@ -146,6 +146,18 @@ describe("toProgramDTO", () => {
       new Map()
     );
     expect(dto2.divergent).toBe(false);
+
+    // same question key but different label/text → a save would overwrite → divergent
+    const q = (key: string, label: string) => ({ key, kind: "question" as const, label });
+    const dto3 = toProgramDTO(
+      [a, b],
+      {
+        a: [{ ...base(), groupId: "a", sections: [q("k", "Foo")] }],
+        b: [{ ...base(), groupId: "b", sections: [q("k", "Bar")] }],
+      },
+      new Map()
+    );
+    expect(dto3.divergent).toBe(true);
   });
 });
 

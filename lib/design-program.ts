@@ -114,14 +114,15 @@ export async function reconcileGroupsToProgram(
   const groups = await listDesignGroups(projectId);
   const perGroup: Record<string, { created: number; updated: number; deleted: number }> = {};
 
-  // Load every group's rows once, then tally answer cards per backing board.
+  // Load every group's rows once (in parallel — the reads are independent), then tally answer
+  // cards per backing board.
+  const lists = await Promise.all(groups.map((g) => listExercises(g.id)));
   const existingByGroup: Record<string, DesignGroupExercise[]> = {};
   const allCodes: string[] = [];
-  for (const g of groups) {
-    const ex = await listExercises(g.id);
-    existingByGroup[g.id] = ex;
-    for (const e of ex) if (e.sessionCode) allCodes.push(e.sessionCode);
-  }
+  groups.forEach((g, idx) => {
+    existingByGroup[g.id] = lists[idx];
+    for (const e of lists[idx]) if (e.sessionCode) allCodes.push(e.sessionCode);
+  });
 
   // Optimistic concurrency: bail before any write if the program changed since the client
   // loaded it (another admin saved in between). Prevents lost updates and stale-slot

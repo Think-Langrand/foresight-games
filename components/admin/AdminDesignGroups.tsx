@@ -323,15 +323,20 @@ export function AdminDesignGroups({
     if (j < 0 || j >= groups.length) return;
     const next = [...groups];
     [next[i], next[j]] = [next[j], next[i]];
-    setGroups(next.map((g, idx) => ({ ...g, sort: idx })));
+    const renumbered = next.map((g, idx) => ({ ...g, sort: idx }));
+    setGroups(renumbered);
     await runGroup("reorder", async () => {
-      const r1 = await api(`${base}/${next[i].id}`, "PATCH", { sort: i });
-      const r2 = await api(`${base}/${next[j].id}`, "PATCH", { sort: j });
-      if (!r1._ok || !r2._ok) {
-        // api() never throws, so check explicitly — otherwise a failed PATCH would look
-        // successful and the optimistic local order would drift from the server.
+      // Persist EVERY group's new dense sort, not just the two swapped. If the stored sorts
+      // had gaps (e.g. after a delete), patching only the pair would place them wrong relative
+      // to the un-patched groups on reload. api() never throws, so check each result and
+      // resync from the server on any failure rather than let local order drift.
+      const results = await Promise.all(
+        renumbered.map((g) => api(`${base}/${g.id}`, "PATCH", { sort: g.sort }))
+      );
+      const failed = results.find((r) => !r._ok);
+      if (failed) {
         await refreshProgram();
-        throw new Error((r1.error as string) || (r2.error as string) || "Failed to reorder groups");
+        throw new Error((failed.error as string) || "Failed to reorder groups");
       }
     });
   }

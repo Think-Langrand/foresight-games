@@ -64,23 +64,20 @@ function sortGroups(groups: DesignGroup[]): DesignGroup[] {
   );
 }
 
-const effectiveKeyList = (type: string, sections: unknown): string[] =>
-  resolveEffectiveSections(type, sections)
-    .map((s) => s.key)
-    .sort();
-
-// Do two rows carry the same content the fan-out keeps in lockstep? Beyond type/title, the
-// contract also covers schedule (opensAt), lock state, and the effective question keyset —
-// so groups differing in any of those are NOT "in sync" (a save would overwrite them).
+// Do two rows carry the same content the fan-out keeps in lockstep? A save overwrites the
+// FULL effective sections (labels/help/kind/order), plus type/title/schedule/lock — so any
+// difference in any of those means the groups aren't "in sync" (a save would overwrite one).
+// Compares full sections, not just the key set, or divergent under-reports question-text drift.
 function rowsInLockstep(
   a: { type: string; title: string; opensAt: string | null; locked: boolean; sections: unknown },
   b: { type: string; title: string; opensAt: string | null; locked: boolean; sections: unknown }
 ): boolean {
   if (a.type !== b.type || a.title !== b.title) return false;
   if ((a.opensAt ?? null) !== (b.opensAt ?? null) || Boolean(a.locked) !== Boolean(b.locked)) return false;
-  const ak = effectiveKeyList(a.type, a.sections);
-  const bk = effectiveKeyList(b.type, b.sections);
-  return ak.length === bk.length && ak.every((k, i) => k === bk[i]);
+  return (
+    JSON.stringify(resolveEffectiveSections(a.type, a.sections)) ===
+    JSON.stringify(resolveEffectiveSections(b.type, b.sections))
+  );
 }
 
 // djb2 string hash → short token. Deterministic (no Date/Math.random), so it's stable and
