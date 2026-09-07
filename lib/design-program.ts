@@ -18,6 +18,7 @@ import { defaultProgramWeeks, isBoardBacked, type CanonicalWeek } from "@/lib/ex
 import {
   toProgramDTO,
   weekEditIsDestructive,
+  programVersion,
   type ProgramDTO,
   type ProgramWeekInput,
 } from "@/lib/design-program-shape";
@@ -30,6 +31,16 @@ export class StartedWeekEditError extends Error {
   constructor(readonly weeks: string[]) {
     super("STARTED_WEEK_EDIT");
     this.name = "StartedWeekEditError";
+  }
+}
+
+// Thrown when the program changed in the DB since the client loaded it (another admin saved,
+// or a scenario assignment reshaped a group). Optimistic concurrency: the route turns this
+// into a 409 so the client reloads the latest instead of silently clobbering the other edit.
+export class ProgramConflictError extends Error {
+  constructor() {
+    super("PROGRAM_CONFLICT");
+    this.name = "ProgramConflictError";
   }
 }
 
@@ -87,7 +98,8 @@ export async function getCanonicalProgramWeeks(projectId: string): Promise<Canon
 // re-submit after a partial failure converges.
 export async function reconcileGroupsToProgram(
   projectId: string,
-  weeks: ProgramWeekInput[]
+  weeks: ProgramWeekInput[],
+  opts: { expectedVersion?: string } = {}
 ): Promise<{ perGroup: Record<string, { created: number; updated: number; deleted: number }> }> {
   const project = await getProjectById(projectId);
   if (!project) throw new Error("PROJECT_NOT_FOUND");
@@ -102,6 +114,14 @@ export async function reconcileGroupsToProgram(
     existingByGroup[g.id] = ex;
     for (const e of ex) if (e.sessionCode) allCodes.push(e.sessionCode);
   }
+
+  // Optimistic concurrency: bail before any write if the program changed since the client
+  // loaded it (another admin saved in between). Prevents lost updates and stale-slot
+  // corruption (e.g. resurrecting a week the other admin just deleted).
+  if (opts.expectedVersion && opts.expectedVersion !== programVersion(groups, existingByGroup)) {
+    throw new ProgramConflictError();
+  }
+
   const cardCounts = await implicationCountsByCode(allCodes);
   const cardsFor = (row: DesignGroupExercise) =>
     row.sessionCode ? cardCounts.get(row.sessionCode.toUpperCase()) ?? 0 : 0;

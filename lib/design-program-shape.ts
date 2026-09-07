@@ -28,6 +28,8 @@ export interface ProgramDTO {
   weeks: ProgramWeekDTO[];
   groups: ProgramGroupDTO[];
   divergent: boolean; // groups weren't already in lockstep at load (saving will align them)
+  version: string; // fingerprint of the loaded rows — the client echoes it on save so a
+  // concurrent edit by another admin is detected (optimistic concurrency, see programVersion)
 }
 
 // A week submitted by the editor. `slots` carries the existing row id per group so the
@@ -60,6 +62,64 @@ function sortGroups(groups: DesignGroup[]): DesignGroup[] {
   return [...groups].sort(
     (a, b) => a.sort - b.sort || a.createdTime.localeCompare(b.createdTime)
   );
+}
+
+const effectiveKeyList = (type: string, sections: unknown): string[] =>
+  resolveEffectiveSections(type, sections)
+    .map((s) => s.key)
+    .sort();
+
+// Do two rows carry the same content the fan-out keeps in lockstep? Beyond type/title, the
+// contract also covers schedule (opensAt), lock state, and the effective question keyset —
+// so groups differing in any of those are NOT "in sync" (a save would overwrite them).
+function rowsInLockstep(
+  a: { type: string; title: string; opensAt: string | null; locked: boolean; sections: unknown },
+  b: { type: string; title: string; opensAt: string | null; locked: boolean; sections: unknown }
+): boolean {
+  if (a.type !== b.type || a.title !== b.title) return false;
+  if ((a.opensAt ?? null) !== (b.opensAt ?? null) || Boolean(a.locked) !== Boolean(b.locked)) return false;
+  const ak = effectiveKeyList(a.type, a.sections);
+  const bk = effectiveKeyList(b.type, b.sections);
+  return ak.length === bk.length && ak.every((k, i) => k === bk[i]);
+}
+
+// djb2 string hash → short token. Deterministic (no Date/Math.random), so it's stable and
+// safe to run server- and client-side.
+function hashStr(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (((h << 5) + h) ^ s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+// A fingerprint of every exercise row that a save would touch (id, order, schedule, lock,
+// board, effective questions). The editor loads it and echoes it on save; if the DB has
+// changed since (another admin edited), the reconcile rejects the save — optimistic
+// concurrency so concurrent editors can't silently clobber each other or resurrect a row
+// the other just deleted. Card activity lives in ripple_cards (not here), so participants
+// building boards never trips this.
+export function programVersion(
+  groups: DesignGroup[],
+  exercisesByGroup: Record<string, DesignGroupExercise[]>
+): string {
+  const parts: string[] = [];
+  for (const g of sortGroups(groups)) {
+    for (const e of exercisesByGroup[g.id] ?? []) {
+      parts.push(
+        [
+          g.id,
+          e.id,
+          e.sort,
+          e.type,
+          e.title,
+          e.opensAt ?? "",
+          e.locked ? 1 : 0,
+          e.sessionCode ?? "",
+          JSON.stringify(resolveEffectiveSections(e.type, e.sections)),
+        ].join("")
+      );
+    }
+  }
+  return hashStr(parts.join(""));
 }
 
 // Pure: zip already-loaded per-group exercises into the canonical program the editor
@@ -110,7 +170,9 @@ export function toProgramDTO(
       cardsByGroup[g.id] = row.sessionCode
         ? cardCounts.get(row.sessionCode.toUpperCase()) ?? 0
         : 0;
-      if (row.type !== content!.type || row.title !== content!.title) divergent = true;
+      // Lockstep covers type/title AND schedule/lock/question-keys — a save fans all of
+      // those out, so any difference means the groups aren't actually in sync.
+      if (!rowsInLockstep(row, content!)) divergent = true;
     });
 
     weeks.push({
@@ -139,5 +201,6 @@ export function toProgramDTO(
       scenarioTitle: g.scenarioTitle,
     })),
     divergent,
+    version: programVersion(groups, exercisesByGroup),
   };
 }

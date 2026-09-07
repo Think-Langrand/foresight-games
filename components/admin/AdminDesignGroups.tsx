@@ -59,9 +59,13 @@ function weekCardTotal(w: { cardsByGroup: Record<string, number> }): number {
   return Object.values(w.cardsByGroup).reduce((n, c) => n + (c ?? 0), 0);
 }
 
-// Give each week a stable client key: an existing row id when we have one, else a fresh id.
+// Give each week a stable client key. Derive it from the slot ids deterministically (the
+// lexicographically smallest), so it's invariant under group reorder/refresh — using
+// Object.values()[0] would depend on insertion order and remount rows (losing open editors,
+// forcedKeys, etc.) whenever group order changed. New weeks (no slots) get a fresh id.
 function withKey(w: ProgramWeekDTO): WeekDraft {
-  return { ...w, key: Object.values(w.slots)[0] ?? newSectionKey() };
+  const ids = Object.values(w.slots);
+  return { ...w, key: ids.length ? [...ids].sort()[0] : newSectionKey() };
 }
 
 async function api(url: string, method: string, body?: unknown): Promise<Record<string, unknown>> {
@@ -95,6 +99,7 @@ export function AdminDesignGroups({
   const [weeks, setWeeks] = useState<WeekDraft[]>(() => initialProgram.weeks.map(withKey));
   const [groups, setGroups] = useState<ProgramGroupDTO[]>(initialProgram.groups);
   const [divergent, setDivergent] = useState(initialProgram.divergent);
+  const [version, setVersion] = useState(initialProgram.version); // optimistic-concurrency token
   const [dirty, setDirty] = useState(false);
 
   const [newName, setNewName] = useState("");
@@ -120,6 +125,8 @@ export function AdminDesignGroups({
       setWeeks(((res.weeks as ProgramWeekDTO[]) ?? []).map(withKey));
       setGroups((res.groups as ProgramGroupDTO[]) ?? []);
       setDivergent(res.divergent === true);
+      setVersion((res.version as string) ?? "");
+      setForcedKeys(new Set());
       setDirty(false);
     }
   }
@@ -192,6 +199,7 @@ export function AdminDesignGroups({
     setNotice(null);
     try {
       const payload = {
+        version,
         weeks: weeks.map((w) => ({
           title: w.title,
           type: w.type,
@@ -203,6 +211,13 @@ export function AdminDesignGroups({
         })),
       };
       const res = await api(`/api/admin/projects/${projectId}/program`, "PUT", payload);
+      // Another admin changed the program since we loaded it: reload the latest so we don't
+      // clobber their edit. (Local changes are discarded — reapply on the fresh program.)
+      if (res._status === 409 && res.conflict) {
+        await refreshProgram();
+        setError((res.error as string) || "This program was changed by someone else — reloaded the latest.");
+        return;
+      }
       // A started week would be edited destructively without a per-week unlock (e.g. aligning
       // a divergent started group). Confirm once, then re-save discarding the affected answers.
       if (res._status === 409 && res.needsConfirm) {
@@ -216,6 +231,7 @@ export function AdminDesignGroups({
       setWeeks(program.weeks.map(withKey));
       setGroups(program.groups);
       setDivergent(program.divergent);
+      setVersion(program.version);
       setDirty(false);
       setEditingKey(null);
       setForcedKeys(new Set());

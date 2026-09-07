@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toProgramDTO, weekEditIsDestructive } from "./design-program-shape";
+import { toProgramDTO, weekEditIsDestructive, programVersion } from "./design-program-shape";
 import { getExerciseType } from "./exercise-types";
 import type { DesignGroup } from "./design-groups";
 import type { DesignGroupExercise } from "./design-group-exercises";
@@ -126,6 +126,51 @@ describe("toProgramDTO", () => {
     // The short group only appears in week 0's slots; week 1 has just the long group.
     expect(Object.keys(dto.weeks[0].slots).sort()).toEqual(["a", "b"]);
     expect(Object.keys(dto.weeks[1].slots)).toEqual(["a"]);
+  });
+
+  it("flags divergence on schedule/lock/keys, not just type/title", () => {
+    const a = group({ id: "a", sort: 0 });
+    const b = group({ id: "b", sort: 1 });
+    const base = () => ex("x", 0, "worksheet", "W1", null);
+    // identical except opensAt → not in lockstep → divergent
+    const dto = toProgramDTO(
+      [a, b],
+      { a: [{ ...base(), groupId: "a", opensAt: "2026-01-01T00:00:00Z" }], b: [{ ...base(), groupId: "b", opensAt: null }] },
+      new Map()
+    );
+    expect(dto.divergent).toBe(true);
+    // fully identical schedule → in sync
+    const dto2 = toProgramDTO(
+      [a, b],
+      { a: [{ ...base(), groupId: "a" }], b: [{ ...base(), groupId: "b" }] },
+      new Map()
+    );
+    expect(dto2.divergent).toBe(false);
+  });
+});
+
+describe("programVersion (optimistic concurrency token)", () => {
+  it("is stable for identical rows and changes when a fanned-out field changes", () => {
+    const a = group({ id: "a", sort: 0 });
+    const rows = [ex("a", 0, "worksheet", "W1", "a1"), ex("a", 1, "implications", "W2", "a2")];
+    const v1 = programVersion([a], { a: rows });
+    expect(programVersion([a], { a: rows })).toBe(v1); // deterministic
+
+    const retitled = rows.map((r, i) => (i === 0 ? { ...r, title: "W1 changed" } : r));
+    expect(programVersion([a], { a: retitled })).not.toBe(v1);
+
+    const resorted = rows.map((r, i) => ({ ...r, sort: rows.length - 1 - i }));
+    expect(programVersion([a], { a: resorted })).not.toBe(v1);
+
+    const relocked = rows.map((r, i) => (i === 0 ? { ...r, locked: true } : r));
+    expect(programVersion([a], { a: relocked })).not.toBe(v1);
+  });
+
+  it("ignores the order groups are passed in (sorts internally)", () => {
+    const a = group({ id: "a", sort: 0 });
+    const b = group({ id: "b", sort: 1 });
+    const byGroup = { a: [ex("a", 0, "worksheet", "W1", "a1")], b: [ex("b", 0, "worksheet", "W1", "b1")] };
+    expect(programVersion([a, b], byGroup)).toBe(programVersion([b, a], byGroup));
   });
 });
 

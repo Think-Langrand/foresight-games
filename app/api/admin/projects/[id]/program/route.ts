@@ -6,6 +6,7 @@ import {
   getCanonicalProgram,
   saveProgram,
   StartedWeekEditError,
+  ProgramConflictError,
   type ProgramWeekInput,
 } from "@/lib/design-program";
 import { resolveSections } from "@/lib/exercise-types";
@@ -45,12 +46,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const g = await guard(id);
   if ("res" in g) return g.res;
 
-  let body: { weeks?: unknown } = {};
+  let body: { weeks?: unknown; version?: unknown } = {};
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
+  const expectedVersion = typeof body.version === "string" ? body.version : undefined;
   if (!Array.isArray(body.weeks))
     return NextResponse.json({ error: "weeks[] is required." }, { status: 400 });
   if (body.weeks.length === 0)
@@ -77,10 +79,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   });
 
   try {
-    await saveProgram(g.project.id, weeks);
+    await saveProgram(g.project.id, weeks, { expectedVersion });
     const program = await getCanonicalProgram(g.project.id);
     return NextResponse.json({ program });
   } catch (err) {
+    // Someone else changed the program since this client loaded it: 409 + conflict so the
+    // client reloads the latest instead of clobbering the other admin's edit.
+    if (err instanceof ProgramConflictError)
+      return NextResponse.json(
+        {
+          error: "This program was changed by someone else. Reload the latest and reapply your change.",
+          conflict: true,
+        },
+        { status: 409 }
+      );
     // Editing a started week's questions/type would orphan answers: 409 + needsConfirm so
     // the client can re-send those weeks with { force: true }.
     if (err instanceof StartedWeekEditError)
