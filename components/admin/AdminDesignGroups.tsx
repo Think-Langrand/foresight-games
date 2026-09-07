@@ -7,40 +7,31 @@ import {
   EXERCISE_TYPES,
   exerciseStatus,
   getExerciseType,
+  newSectionKey,
+  resolveEffectiveSections,
   supportsSections,
   type ExerciseStatus,
   type WorksheetSection,
 } from "@/lib/exercise-types";
+import type {
+  ProgramDTO,
+  ProgramWeekDTO,
+  ProgramGroupDTO,
+} from "@/lib/design-program-shape";
 import { ExerciseQuestionEditor } from "@/components/admin/ExerciseQuestionEditor";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import type { AdminTemplate } from "@/components/admin/AdminTemplates";
-
-export interface AdminExercise {
-  id: string;
-  sort: number;
-  title: string;
-  type: string;
-  sessionCode: string | null;
-  locked: boolean;
-  opensAt: string | null;
-  sections: WorksheetSection[];
-  cards: number;
-}
-
-export interface AdminDesignGroup {
-  id: string;
-  name: string;
-  sort: number;
-  color: string | null;
-  scenarioRef: string | null;
-  scenarioTitle: string | null;
-  exercises: AdminExercise[];
-}
 
 export interface AdminScenarioOption {
   id: string;
   title: string;
   headline: string;
+}
+
+// A program week held in local editor state — the DTO plus a stable client key so React
+// keys survive a reorder. `slots` carries each group's row id (the board-safe identity).
+interface WeekDraft extends ProgramWeekDTO {
+  key: string;
 }
 
 const inputCls =
@@ -57,12 +48,26 @@ const STATUS_STYLE: Record<ExerciseStatus, string> = {
 
 const TYPE_OPTIONS = Object.values(EXERCISE_TYPES).map((t) => ({ id: t.id, label: t.label }));
 
-// The questions an exercise actually shows: its own snapshot, or the code template when
-// it was never customized. Used both to seed the editor and to "copy" a week's questions.
-function effectiveSections(ex: AdminExercise): WorksheetSection[] {
-  return ex.sections.length > 0 ? ex.sections : getExerciseType(ex.type)?.sections ?? [];
+// The questions a week actually shows: its own snapshot, or the type's code template when
+// it was never customized. Seeds the editor and the "save as template" capture.
+function effectiveSections(w: { sections: WorksheetSection[]; type: string }): WorksheetSection[] {
+  return w.sections.length > 0 ? w.sections : getExerciseType(w.type)?.sections ?? [];
 }
 
+// Total answers a week has collected across all groups. A "started" week (> 0) locks its
+// questions + type behind an explicit "Edit anyway" so answers aren't orphaned by accident.
+function weekCardTotal(w: { cardsByGroup: Record<string, number> }): number {
+  return Object.values(w.cardsByGroup).reduce((n, c) => n + (c ?? 0), 0);
+}
+
+// Give each week a stable client key. Derive it from the slot ids deterministically (the
+// lexicographically smallest), so it's invariant under group reorder/refresh — using
+// Object.values()[0] would depend on insertion order and remount rows (losing open editors,
+// forcedKeys, etc.) whenever group order changed. New weeks (no slots) get a fresh id.
+function withKey(w: ProgramWeekDTO): WeekDraft {
+  const ids = Object.values(w.slots);
+  return { ...w, key: ids.length ? [...ids].sort()[0] : newSectionKey() };
+}
 
 async function api(url: string, method: string, body?: unknown): Promise<Record<string, unknown>> {
   const res = await fetch(url, {
@@ -81,32 +86,200 @@ const fromDateInput = (d: string) => (d ? `${d}T00:00:00.000Z` : null);
 export function AdminDesignGroups({
   projectId,
   slug,
-  initialGroups,
+  initialProgram,
   scenarios,
   configured,
 }: {
   projectId: string;
   slug: string;
-  initialGroups: AdminDesignGroup[];
+  initialProgram: ProgramDTO;
   scenarios: AdminScenarioOption[];
   configured: boolean;
 }) {
   const router = useRouter();
-  const [groups, setGroups] = useState<AdminDesignGroup[]>(initialGroups);
-  const [newName, setNewName] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null); // exercise whose questions are open
-  const [addingFor, setAddingFor] = useState<string | null>(null); // group showing the "add week" template menu
-  const [pendingDelete, setPendingDelete] = useState<
-    { kind: "group" | "exercise"; g: AdminDesignGroup; ex?: AdminExercise } | null
-  >(null);
-  const [templates, setTemplates] = useState<AdminTemplate[] | null>(null); // lazy: null = not yet loaded
-  const [notice, setNotice] = useState<string | null>(null);
-  const base = `/api/admin/projects/${projectId}/design-groups`;
+  const [weeks, setWeeks] = useState<WeekDraft[]>(() => initialProgram.weeks.map(withKey));
+  const [groups, setGroups] = useState<ProgramGroupDTO[]>(initialProgram.groups);
+  const [divergent, setDivergent] = useState(initialProgram.divergent);
+  const [version, setVersion] = useState(initialProgram.version); // optimistic-concurrency token
+  const [dirty, setDirty] = useState(false);
 
-  const run = async (id: string, fn: () => Promise<void>) => {
-    setBusyId(id);
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false); // program save in flight
+  const [groupBusyId, setGroupBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null); // week whose questions are open
+  const [forcedKeys, setForcedKeys] = useState<Set<string>>(new Set()); // started weeks the admin unlocked for editing
+  const [addingWeek, setAddingWeek] = useState(false);
+  const [templates, setTemplates] = useState<AdminTemplate[] | null>(null); // lazy
+  const [pendingDelete, setPendingDelete] = useState<
+    { kind: "group"; group: ProgramGroupDTO } | { kind: "week"; week: WeekDraft } | null
+  >(null);
+
+  const base = `/api/admin/projects/${projectId}/design-groups`;
+  const [now] = useState(() => Date.now());
+
+  // ----- program refresh (after a group op that reshapes the fan-out) -----
+  async function refreshProgram() {
+    const res = await api(`/api/admin/projects/${projectId}/program`, "GET");
+    if (res._ok) {
+      setWeeks(((res.weeks as ProgramWeekDTO[]) ?? []).map(withKey));
+      setGroups((res.groups as ProgramGroupDTO[]) ?? []);
+      setDivergent(res.divergent === true);
+      setVersion((res.version as string) ?? "");
+      setForcedKeys(new Set());
+      setDirty(false);
+    }
+  }
+
+  // ----- local program edits (persist together via "Save program") -----
+  const patchWeek = (key: string, patch: Partial<WeekDraft>) => {
+    setWeeks((prev) => prev.map((w) => (w.key === key ? { ...w, ...patch } : w)));
+    setDirty(true);
+  };
+  const moveWeek = (i: number, dir: -1 | 1) => {
+    setWeeks((prev) => {
+      const j = i + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+    setDirty(true);
+  };
+  const addWeek = (tpl: { type: string; sections: WorksheetSection[]; title?: string }) => {
+    setAddingWeek(false);
+    setWeeks((prev) => [
+      ...prev,
+      {
+        key: newSectionKey(),
+        title: tpl.title || `Session ${prev.length + 1}`,
+        type: tpl.type,
+        opensAt: null,
+        locked: false,
+        sections: tpl.sections,
+        slots: {},
+        cardsByGroup: {},
+        sessionByGroup: {},
+      },
+    ]);
+    setDirty(true);
+  };
+  const removeWeek = (key: string) => {
+    setWeeks((prev) => prev.filter((w) => w.key !== key));
+    if (editingKey === key) setEditingKey(null);
+    setDirty(true);
+  };
+
+  // Unlock a started week for destructive editing (questions/type), discarding answers tied
+  // to removed/renamed questions. Explicit and per-week — the default is to protect answers.
+  function unlockWeek(w: WeekDraft) {
+    const total = weekCardTotal(w);
+    if (
+      confirm(
+        `"${w.title}" already has ${total} answer${total === 1 ? "" : "s"} across started groups.\n\n` +
+          `Editing its questions or type can permanently discard answers tied to a removed or renamed question. Edit anyway?`
+      )
+    ) {
+      setForcedKeys((prev) => new Set(prev).add(w.key));
+      if (supportsSections(w.type)) setEditingKey(w.key);
+    }
+  }
+  function relockWeek(key: string) {
+    setForcedKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    if (editingKey === key) setEditingKey(null);
+  }
+
+  async function saveProgram(forceAll = false) {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const payload = {
+        version,
+        weeks: weeks.map((w) => ({
+          title: w.title,
+          type: w.type,
+          opensAt: w.opensAt,
+          locked: w.locked,
+          sections: w.sections,
+          slots: w.slots,
+          force: forceAll || forcedKeys.has(w.key),
+        })),
+      };
+      const res = await api(`/api/admin/projects/${projectId}/program`, "PUT", payload);
+      // Another admin changed the program since we loaded it: reload the latest so we don't
+      // clobber their edit. (Local changes are discarded — reapply on the fresh program.)
+      if (res._status === 409 && res.conflict) {
+        await refreshProgram();
+        setError((res.error as string) || "This program was changed by someone else — reloaded the latest.");
+        return;
+      }
+      // A started week would be edited destructively without a per-week unlock (e.g. aligning
+      // a divergent started group). Confirm once, then re-save discarding the affected answers.
+      if (res._status === 409 && res.needsConfirm) {
+        if (confirm((res.error as string) || "Some weeks have answers. Save anyway?")) {
+          return await saveProgram(true);
+        }
+        return;
+      }
+      if (!res._ok) throw new Error((res.error as string) || "Failed to save program");
+      const program = res.program as ProgramDTO;
+      setWeeks(program.weeks.map(withKey));
+      setGroups(program.groups);
+      setDivergent(program.divergent);
+      setVersion(program.version);
+      setDirty(false);
+      setEditingKey(null);
+      setForcedKeys(new Set());
+      setNotice(`Program saved to all ${program.groups.length} group${program.groups.length === 1 ? "" : "s"}.`);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save program");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Capture a week's current blocks into the global template library.
+  async function saveAsTemplate(w: WeekDraft) {
+    const name = window.prompt("Save this week to the template library as…", w.title)?.trim();
+    if (!name) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await api(`/api/admin/templates`, "POST", {
+        name,
+        type: w.type,
+        sections: effectiveSections(w),
+      });
+      if (!res._ok) throw new Error((res.error as string) || "Failed to save template");
+      setTemplates((prev) => (prev ? [...prev, res.template as AdminTemplate] : prev));
+      setNotice(`Saved "${name}" to the template library.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save template");
+    }
+  }
+
+  async function openAddMenu() {
+    setAddingWeek(true);
+    if (templates === null) {
+      try {
+        const res = await api(`/api/admin/templates`, "GET");
+        setTemplates(res._ok ? ((res.templates as AdminTemplate[]) ?? []) : []);
+      } catch {
+        setTemplates([]);
+      }
+    }
+  }
+
+  // ----- group ops (persist immediately via the existing endpoints) -----
+  const runGroup = async (id: string, fn: () => Promise<void>) => {
+    setGroupBusyId(id);
     setError(null);
     setNotice(null);
     try {
@@ -114,38 +287,22 @@ export function AdminDesignGroups({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
-      setBusyId(null);
+      setGroupBusyId(null);
     }
   };
-  const setGroup = (id: string, patch: Partial<AdminDesignGroup>) =>
+  const setGroup = (id: string, patch: Partial<ProgramGroupDTO>) =>
     setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)));
 
-  async function refreshExercises(groupId: string) {
-    const res = await api(`${base}/${groupId}/exercises`, "GET");
-    if (res._ok) setGroup(groupId, { exercises: (res.exercises as AdminExercise[]) ?? [] });
-  }
-
-  async function addGroup() {
-    const name = newName.trim();
-    if (!name) return;
-    await run("new", async () => {
-      const res = await api(base, "POST", { name });
-      if (!res._ok) throw new Error((res.error as string) || "Failed");
-      setGroups((prev) => [...prev, { ...(res.group as AdminDesignGroup), exercises: [] }]);
-      setNewName("");
-    });
-  }
-
-  async function saveGroupName(g: AdminDesignGroup) {
-    await run(g.id, async () => {
+  async function saveGroupName(g: ProgramGroupDTO) {
+    await runGroup(g.id, async () => {
       const res = await api(`${base}/${g.id}`, "PATCH", { name: g.name });
       if (!res._ok) throw new Error((res.error as string) || "Failed to rename group");
     });
   }
 
-  async function assignScenario(g: AdminDesignGroup, scenarioRef: string) {
+  async function assignScenario(g: ProgramGroupDTO, scenarioRef: string) {
     if (!scenarioRef) return;
-    await run(g.id, async () => {
+    await runGroup(g.id, async () => {
       const send = (force: boolean) =>
         api(`${base}/${g.id}`, "PATCH", force ? { scenarioRef, force: true } : { scenarioRef });
       let res = await send(false);
@@ -155,99 +312,60 @@ export function AdminDesignGroups({
         res = await send(true);
       }
       if (!res._ok) throw new Error((res.error as string) || "Failed to assign scenario");
-      setGroup(g.id, res.group as AdminDesignGroup);
-      await refreshExercises(g.id); // assigning seeds the program on first assign
+      // Assigning may seed this group's program and provision boards → slots change.
+      await refreshProgram();
       router.refresh();
     });
   }
 
-  async function removeGroup(g: AdminDesignGroup) {
-    await run(g.id, async () => {
+  async function moveGroup(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= groups.length) return;
+    const next = [...groups];
+    [next[i], next[j]] = [next[j], next[i]];
+    const renumbered = next.map((g, idx) => ({ ...g, sort: idx }));
+    setGroups(renumbered);
+    await runGroup("reorder", async () => {
+      // Persist EVERY group's new dense sort, not just the two swapped. If the stored sorts
+      // had gaps (e.g. after a delete), patching only the pair would place them wrong relative
+      // to the un-patched groups on reload. api() never throws, so check each result and
+      // resync from the server on any failure rather than let local order drift.
+      const results = await Promise.all(
+        renumbered.map((g) => api(`${base}/${g.id}`, "PATCH", { sort: g.sort }))
+      );
+      const failed = results.find((r) => !r._ok);
+      if (failed) {
+        await refreshProgram();
+        throw new Error((failed.error as string) || "Failed to reorder groups");
+      }
+    });
+  }
+
+  async function removeGroup(g: ProgramGroupDTO) {
+    await runGroup(g.id, async () => {
       const res = await api(`${base}/${g.id}`, "DELETE");
       if (!res._ok) throw new Error((res.error as string) || "Failed to delete group");
-      setGroups((prev) => prev.filter((x) => x.id !== g.id));
+      await refreshProgram();
     });
   }
 
-  // ----- exercise ops -----
-  // Open the "add week" menu, fetching the template library once (on first open).
-  async function openAddMenu(groupId: string) {
-    setAddingFor(groupId);
-    if (templates === null) {
-      try {
-        const res = await api(`/api/admin/templates`, "GET");
-        setTemplates(res._ok ? ((res.templates as AdminTemplate[]) ?? []) : []);
-      } catch {
-        // Hard fetch failure: fall back to an empty list (Blank/Placeholder still work)
-        // rather than leaving the menu stuck on "Loading templates…".
-        setTemplates([]);
-      }
-    }
-  }
-  async function addExercise(
-    g: AdminDesignGroup,
-    tpl: { type: string; sections: WorksheetSection[]; title?: string }
-  ) {
-    setAddingFor(null);
-    await run(g.id, async () => {
-      const res = await api(`${base}/${g.id}/exercises`, "POST", {
-        title: tpl.title || `Week ${g.exercises.length + 1}`,
-        type: tpl.type,
-        sections: tpl.sections,
-      });
-      if (!res._ok) throw new Error((res.error as string) || "Failed");
-      await refreshExercises(g.id);
-    });
-  }
-  // Capture a week's current blocks into the global template library.
-  async function saveAsTemplate(ex: AdminExercise) {
-    const name = window.prompt("Save this week to the template library as…", ex.title)?.trim();
+  async function addGroup() {
+    const name = newName.trim();
     if (!name) return;
-    await run(ex.id, async () => {
-      const res = await api(`/api/admin/templates`, "POST", {
-        name,
-        type: ex.type,
-        sections: effectiveSections(ex),
-      });
-      if (!res._ok) throw new Error((res.error as string) || "Failed to save template");
-      setTemplates((prev) => (prev ? [...prev, res.template as AdminTemplate] : prev));
-      setNotice(`Saved "${name}" to the template library.`);
-    });
-  }
-  async function saveSections(g: AdminDesignGroup, ex: AdminExercise, sections: WorksheetSection[]) {
-    await run(ex.id, async () => {
-      const res = await api(`${base}/${g.id}/exercises/${ex.id}`, "PATCH", { sections });
-      if (!res._ok) throw new Error((res.error as string) || "Failed");
-      await refreshExercises(g.id);
-      setEditingId(null);
-    });
-  }
-  async function patchExercise(g: AdminDesignGroup, ex: AdminExercise, patch: Partial<AdminExercise>) {
-    await run(ex.id, async () => {
-      const res = await api(`${base}/${g.id}/exercises/${ex.id}`, "PATCH", patch);
-      if (!res._ok) throw new Error((res.error as string) || "Failed");
-      await refreshExercises(g.id);
-    });
-  }
-  async function toggleLock(g: AdminDesignGroup, ex: AdminExercise) {
-    await run(ex.id, async () => {
-      const res = await api(`${base}/${g.id}/exercises/${ex.id}/lock`, "POST", {
-        action: ex.locked ? "unlock" : "lock",
-      });
-      if (!res._ok) throw new Error((res.error as string) || "Failed");
-      await refreshExercises(g.id);
-    });
-  }
-  async function removeExercise(g: AdminDesignGroup, ex: AdminExercise) {
-    await run(ex.id, async () => {
-      const res = await api(`${base}/${g.id}/exercises/${ex.id}`, "DELETE");
-      if (!res._ok) throw new Error((res.error as string) || "Failed to delete exercise");
-      await refreshExercises(g.id);
+    await runGroup("new", async () => {
+      const res = await api(base, "POST", { name });
+      if (!res._ok) throw new Error((res.error as string) || "Failed to create group");
+      setNewName("");
+      // Bring the new (scenario-less) group into lockstep with the current program. Reuse
+      // saveProgram so the started-week 409/confirm + refresh flow is applied consistently
+      // (a divergent, already-started project can otherwise 409 here). No program yet →
+      // just refresh so the new empty group shows.
+      if (weeks.length > 0) await saveProgram();
+      else await refreshProgram();
     });
   }
 
-  // Captured once at mount — admin status pills don't need to tick live.
-  const [now] = useState(() => Date.now());
+  const anyScenario = groups.some((g) => g.scenarioRef);
 
   return (
     <div className="mt-3">
@@ -259,13 +377,353 @@ export function AdminDesignGroups({
       {error && <p className="mb-3 text-[13px] font-semibold text-coral">{error}</p>}
       {notice && <p className="mb-3 text-[13px] font-semibold text-lime-deep">{notice}</p>}
 
-      <div className="flex flex-col gap-4">
-        {groups.map((g) => {
-          const busy = busyId === g.id;
-          return (
-            <article key={g.id} className="rounded-[3px] border border-[var(--hairline)] bg-card p-4">
-              {/* group header */}
-              <div className="flex flex-wrap items-center gap-3">
+      {/* ============================ PROGRAM ============================ */}
+      <div className="rounded-[3px] border border-[var(--hairline)] bg-card p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="eyebrow ink">Program · shared by every group</span>
+          <span className="text-[11px] text-muted">
+            Edited once; applies to all {groups.length} group{groups.length === 1 ? "" : "s"}. Only the scenario differs.
+          </span>
+        </div>
+
+        {divergent && (
+          <p className="mt-3 rounded-[2px] border border-amber bg-paper px-3 py-2 text-[12px] text-ink">
+            These groups aren&rsquo;t in sync yet. Saving the program will align every group to the list below.
+          </p>
+        )}
+
+        {weeks.length === 0 ? (
+          <p className="mt-3 text-[12px] italic text-muted">
+            No program yet. Assign a scenario to a group below to seed the default program, or add a week here.
+          </p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full border-collapse text-[12px]">
+              <thead>
+                <tr className="text-left text-[10px] uppercase tracking-[0.08em] text-muted">
+                  <th className="py-1 pr-2"></th>
+                  <th className="py-1 pr-2">Session</th>
+                  <th className="py-1 pr-2">Type</th>
+                  <th className="py-1 pr-2">Opens</th>
+                  <th className="py-1 pr-2">Lock</th>
+                  <th className="py-1 pr-2">Status</th>
+                  <th className="py-1"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {weeks.map((w, i) => {
+                  const anySession = Object.values(w.sessionByGroup).some(Boolean);
+                  const st = exerciseStatus(
+                    { type: w.type, sessionCode: anySession ? "x" : null, locked: w.locked, opensAt: w.opensAt },
+                    now
+                  );
+                  const cardTotal = weekCardTotal(w);
+                  const started = cardTotal > 0;
+                  const forced = forcedKeys.has(w.key);
+                  const qLocked = started && !forced; // questions + type protected until unlocked
+                  return (
+                    <Fragment key={w.key}>
+                      <tr className="border-t border-[var(--hairline)] align-top">
+                        <td className="py-1.5 pr-2">
+                          <div className="flex flex-col">
+                            <button
+                              className={btn + " !px-2 !py-0.5"}
+                              disabled={i === 0 || busy}
+                              onClick={() => moveWeek(i, -1)}
+                              aria-label="Move up"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              className={btn + " mt-0.5 !px-2 !py-0.5"}
+                              disabled={i === weeks.length - 1 || busy}
+                              onClick={() => moveWeek(i, 1)}
+                              aria-label="Move down"
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              value={w.title}
+                              onChange={(e) => patchWeek(w.key, { title: e.target.value })}
+                              className={inputCls + " w-[200px]"}
+                            />
+                            {started && (
+                              <span
+                                title={`${cardTotal} answer${cardTotal === 1 ? "" : "s"} already collected`}
+                                className={
+                                  "whitespace-nowrap rounded-[2px] px-1.5 py-0.5 text-[10px] font-bold " +
+                                  (forced ? "bg-coral text-white" : "bg-[var(--hairline)] text-muted")
+                                }
+                              >
+                                {forced ? `⚠ ${cardTotal}` : `🔒 ${cardTotal}`}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <select
+                            value={w.type}
+                            disabled={busy || qLocked}
+                            title={qLocked ? "Has answers — use “Edit anyway” to change the type" : undefined}
+                            onChange={(e) => {
+                              // Adopt the new type's default questions so the snapshot matches the
+                              // type instead of carrying the old type's keys. Started weeks are gated
+                              // behind "Edit anyway", so this only resets not-yet-answered weeks.
+                              const type = e.target.value;
+                              patchWeek(w.key, { type, sections: resolveEffectiveSections(type, []) });
+                            }}
+                            className={inputCls}
+                          >
+                            {TYPE_OPTIONS.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <input
+                            type="date"
+                            value={toDateInput(w.opensAt)}
+                            onChange={(e) => patchWeek(w.key, { opensAt: fromDateInput(e.target.value) })}
+                            className={inputCls}
+                          />
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <button
+                            onClick={() => patchWeek(w.key, { locked: !w.locked })}
+                            className={"sq-toggle" + (w.locked ? " on" : "")}
+                            role="switch"
+                            aria-checked={w.locked}
+                            aria-label={w.locked ? "Locked" : "Unlocked"}
+                          >
+                            <span className="knob" />
+                          </button>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <span
+                            className={
+                              "rounded-[2px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] " +
+                              STATUS_STYLE[st]
+                            }
+                          >
+                            {st}
+                          </span>
+                        </td>
+                        <td className="py-1.5">
+                          <div className="flex items-center justify-end gap-2">
+                            {supportsSections(w.type) &&
+                              (qLocked ? (
+                                <button
+                                  onClick={() => unlockWeek(w)}
+                                  disabled={busy}
+                                  title="This week has answers — editing its questions may discard some"
+                                  className={btn + " border-amber text-amber"}
+                                >
+                                  Edit anyway
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setEditingKey((v) => (v === w.key ? null : w.key))}
+                                  disabled={busy}
+                                  className={btn + (editingKey === w.key ? " bg-lime" : " bg-paper")}
+                                >
+                                  {editingKey === w.key ? "Close" : "Edit Qs"}
+                                </button>
+                              ))}
+                            {started && forced && (
+                              <button
+                                onClick={() => relockWeek(w.key)}
+                                disabled={busy}
+                                title="Re-protect this week's answers"
+                                className={btn + " bg-paper"}
+                              >
+                                Re-lock
+                              </button>
+                            )}
+                            {supportsSections(w.type) && (
+                              <button
+                                onClick={() => saveAsTemplate(w)}
+                                disabled={busy}
+                                title="Save this week's blocks to the template library"
+                                className={btn + " bg-paper"}
+                              >
+                                Save as tmpl
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setPendingDelete({ kind: "week", week: w })}
+                              disabled={busy || weeks.length === 1}
+                              aria-label="Delete week"
+                              title={
+                                weeks.length === 1
+                                  ? "A program needs at least one week — delete the group instead"
+                                  : "Delete week"
+                              }
+                              className={btn + " border-coral text-coral"}
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Per-group boards/answers for this week — read straight off slots. */}
+                      <tr className="border-t border-dashed border-[var(--hairline)]">
+                        <td></td>
+                        <td colSpan={6} className="py-1 pb-2">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
+                            {groups.length === 0 && <span className="italic">No groups yet.</span>}
+                            {groups.map((g) => {
+                              const exId = w.slots[g.id];
+                              const code = w.sessionByGroup[g.id];
+                              const cards = w.cardsByGroup[g.id] ?? 0;
+                              return (
+                                <span key={g.id} className="inline-flex items-center gap-1.5">
+                                  <span
+                                    className="inline-block h-2.5 w-2.5 rounded-[2px] border border-ink"
+                                    style={{ background: g.color ?? "#ccc" }}
+                                  />
+                                  <span className="font-semibold text-ink">{g.name}</span>
+                                  {exId && code ? (
+                                    <Link
+                                      href={`/project/${slug}/design-groups/${g.id}/${exId}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-blue underline hover:text-ink"
+                                    >
+                                      board
+                                    </Link>
+                                  ) : (
+                                    <span className="italic">no board</span>
+                                  )}
+                                  {exId && (
+                                    <Link
+                                      href={`/admin/projects/${slug}/design-groups/${g.id}/answers?exercise=${exId}`}
+                                      className="text-blue underline hover:text-ink"
+                                    >
+                                      answers
+                                    </Link>
+                                  )}
+                                  <span className="tabular-nums">· {cards}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {editingKey === w.key && (
+                        <tr className="border-t border-[var(--hairline)]">
+                          <td colSpan={7} className="py-2">
+                            <ExerciseQuestionEditor
+                              initial={effectiveSections(w)}
+                              busy={busy}
+                              onSave={(sections) => {
+                                patchWeek(w.key, { sections });
+                                setEditingKey(null);
+                              }}
+                              onCancel={() => setEditingKey(null)}
+                            />
+                            <p className="mt-1 text-[11px] italic text-muted">
+                              Questions apply when you click <span className="font-semibold">Save program</span>.
+                            </p>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {addingWeek ? (
+            <div className="w-full rounded-[2px] border border-[var(--hairline)] bg-paper p-2">
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
+                Start new week from…
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button className={btn + " bg-paper"} disabled={busy} onClick={() => addWeek({ type: "worksheet", sections: [] })}>
+                  Blank worksheet
+                </button>
+                {templates === null ? (
+                  <span className="text-[11px] italic text-muted">Loading templates…</span>
+                ) : (
+                  templates.map((t) => (
+                    <button
+                      key={t.id}
+                      className={btn + " bg-paper"}
+                      disabled={busy}
+                      title={t.description || undefined}
+                      onClick={() => addWeek({ type: t.type, sections: t.sections, title: t.name })}
+                    >
+                      {t.name}
+                    </button>
+                  ))
+                )}
+                <button className={btn + " bg-paper"} disabled={busy} onClick={() => addWeek({ type: "placeholder", sections: [] })}>
+                  Placeholder
+                </button>
+                <button className={btn + " ml-auto border-coral text-coral"} onClick={() => setAddingWeek(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={openAddMenu} disabled={busy} className={btn + " bg-paper"}>
+              + Add week
+            </button>
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center gap-3 border-t border-[var(--hairline)] pt-3">
+          <button
+            onClick={() => saveProgram()}
+            disabled={busy || !dirty}
+            className={btn + " bg-lime hover:bg-lime-deep"}
+          >
+            {busy ? "Saving…" : "Save program"}
+          </button>
+          {dirty && <span className="text-[11px] text-muted">Unsaved changes</span>}
+        </div>
+      </div>
+
+      {/* ============================ GROUPS ============================ */}
+      <div className="mt-6 rounded-[3px] border border-[var(--hairline)] bg-card p-4">
+        <span className="eyebrow ink">Groups · scenario per group</span>
+        <div className="mt-3 flex flex-col gap-2">
+          {groups.map((g, i) => {
+            const gBusy = groupBusyId === g.id || groupBusyId === "reorder";
+            return (
+              <div
+                key={g.id}
+                className="flex flex-wrap items-center gap-3 rounded-[2px] border border-[var(--hairline)] bg-paper p-2.5"
+              >
+                <div className="flex flex-col">
+                  <button
+                    className={btn + " !px-2 !py-0.5"}
+                    disabled={i === 0 || gBusy}
+                    onClick={() => moveGroup(i, -1)}
+                    aria-label="Move group up"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className={btn + " mt-0.5 !px-2 !py-0.5"}
+                    disabled={i === groups.length - 1 || gBusy}
+                    onClick={() => moveGroup(i, 1)}
+                    aria-label="Move group down"
+                  >
+                    ↓
+                  </button>
+                </div>
                 <span
                   className="inline-block h-4 w-4 shrink-0 rounded-[2px] border border-ink"
                   style={{ background: g.color ?? "#ccc" }}
@@ -280,7 +738,7 @@ export function AdminDesignGroups({
                   Scenario
                   <select
                     value={g.scenarioRef ?? ""}
-                    disabled={busy || !configured || scenarios.length === 0}
+                    disabled={gBusy || !configured || scenarios.length === 0}
                     onChange={(e) => assignScenario(g, e.target.value)}
                     className={inputCls}
                   >
@@ -303,8 +761,8 @@ export function AdminDesignGroups({
                   </Link>
                 )}
                 <button
-                  onClick={() => setPendingDelete({ kind: "group", g })}
-                  disabled={busy}
+                  onClick={() => setPendingDelete({ kind: "group", group: g })}
+                  disabled={gBusy}
                   aria-label="Delete group"
                   title="Delete group"
                   className={btn + (g.scenarioRef ? "" : " ml-auto") + " border-coral text-coral hover:bg-coral hover:text-white"}
@@ -312,236 +770,46 @@ export function AdminDesignGroups({
                   🗑
                 </button>
               </div>
+            );
+          })}
+        </div>
 
-              {/* exercises */}
-              {!g.scenarioRef ? (
-                <p className="mt-3 text-[12px] italic text-muted">
-                  Assign a scenario to seed this group&rsquo;s program of exercises.
-                </p>
-              ) : (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="w-full border-collapse text-[12px]">
-                    <thead>
-                      <tr className="text-left text-[10px] uppercase tracking-[0.08em] text-muted">
-                        <th className="py-1 pr-2">Week</th>
-                        <th className="py-1 pr-2">Type</th>
-                        <th className="py-1 pr-2">Opens</th>
-                        <th className="py-1 pr-2">Status</th>
-                        <th className="py-1 pr-2">Cards</th>
-                        <th className="py-1"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.exercises.map((ex) => {
-                        const st = exerciseStatus(ex, now);
-                        const exBusy = busyId === ex.id;
-                        return (
-                          <Fragment key={ex.id}>
-                          <tr className="border-t border-[var(--hairline)]">
-                            <td className="py-1.5 pr-2">
-                              <input
-                                defaultValue={ex.title}
-                                onBlur={(e) =>
-                                  e.target.value !== ex.title && patchExercise(g, ex, { title: e.target.value })
-                                }
-                                className={inputCls + " w-[200px]"}
-                              />
-                            </td>
-                            <td className="py-1.5 pr-2">
-                              <select
-                                value={ex.type}
-                                disabled={exBusy}
-                                onChange={(e) => patchExercise(g, ex, { type: e.target.value })}
-                                className={inputCls}
-                              >
-                                {TYPE_OPTIONS.map((t) => (
-                                  <option key={t.id} value={t.id}>
-                                    {t.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="py-1.5 pr-2">
-                              <input
-                                type="date"
-                                defaultValue={toDateInput(ex.opensAt)}
-                                onChange={(e) => patchExercise(g, ex, { opensAt: fromDateInput(e.target.value) })}
-                                className={inputCls}
-                              />
-                            </td>
-                            <td className="py-1.5 pr-2">
-                              <span
-                                className={
-                                  "rounded-[2px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] " +
-                                  STATUS_STYLE[st]
-                                }
-                              >
-                                {st}
-                              </span>
-                            </td>
-                            <td className="py-1.5 pr-2 text-muted">{ex.cards}</td>
-                            <td className="py-1.5">
-                              <div className="flex items-center justify-end gap-2">
-                                {ex.sessionCode && (
-                                  <Link
-                                    // The exercise route dispatches by type (worksheet vs
-                                    // implications); /workshop/s/[code] would always render
-                                    // implications for any Ripples session.
-                                    href={`/project/${slug}/design-groups/${g.id}/${ex.id}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
-                                  >
-                                    Board →
-                                  </Link>
-                                )}
-                                <Link
-                                  // Deep-link straight to this exercise's tab on the group answers page
-                                  // (every week has a tab, including not-yet-built placeholders).
-                                  href={`/admin/projects/${slug}/design-groups/${g.id}/answers?exercise=${ex.id}`}
-                                  className="font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
-                                >
-                                  Answers →
-                                </Link>
-                                {supportsSections(ex.type) && (
-                                  <button
-                                    onClick={() => setEditingId((v) => (v === ex.id ? null : ex.id))}
-                                    disabled={exBusy}
-                                    className={btn + (editingId === ex.id ? " bg-lime" : " bg-paper")}
-                                  >
-                                    {editingId === ex.id ? "Close" : "Edit Qs"}
-                                  </button>
-                                )}
-                                {supportsSections(ex.type) && (
-                                  <button
-                                    onClick={() => saveAsTemplate(ex)}
-                                    disabled={exBusy}
-                                    title="Save this week's blocks to the template library"
-                                    className={btn + " bg-paper"}
-                                  >
-                                    Save as tmpl
-                                  </button>
-                                )}
-                                {ex.sessionCode && (
-                                  <button
-                                    onClick={() => toggleLock(g, ex)}
-                                    disabled={exBusy}
-                                    className={btn + (ex.locked ? " bg-paper" : " bg-lime hover:bg-lime-deep")}
-                                  >
-                                    {ex.locked ? "Unlock" : "Lock"}
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => setPendingDelete({ kind: "exercise", g, ex })}
-                                  disabled={exBusy}
-                                  aria-label="Delete week"
-                                  title="Delete week"
-                                  className={btn + " border-coral text-coral"}
-                                >
-                                  🗑
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                          {editingId === ex.id && (
-                            <tr className="border-t border-[var(--hairline)]">
-                              <td colSpan={6} className="py-2">
-                                <ExerciseQuestionEditor
-                                  initial={effectiveSections(ex)}
-                                  busy={exBusy}
-                                  onSave={(sections) => saveSections(g, ex, sections)}
-                                  onCancel={() => setEditingId(null)}
-                                />
-                              </td>
-                            </tr>
-                          )}
-                          </Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {addingFor === g.id ? (
-                    <div className="mt-2 rounded-[2px] border border-[var(--hairline)] bg-paper p-2">
-                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-                        Start new week from…
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          className={btn + " bg-paper"}
-                          disabled={busy}
-                          onClick={() => addExercise(g, { type: "worksheet", sections: [] })}
-                        >
-                          Blank worksheet
-                        </button>
-                        {templates === null ? (
-                          <span className="text-[11px] italic text-muted">Loading templates…</span>
-                        ) : (
-                          templates.map((t) => (
-                            <button
-                              key={t.id}
-                              className={btn + " bg-paper"}
-                              disabled={busy}
-                              title={t.description || undefined}
-                              onClick={() =>
-                                addExercise(g, { type: t.type, sections: t.sections, title: t.name })
-                              }
-                            >
-                              {t.name}
-                            </button>
-                          ))
-                        )}
-                        <button
-                          className={btn + " bg-paper"}
-                          disabled={busy}
-                          onClick={() => addExercise(g, { type: "placeholder", sections: [] })}
-                        >
-                          Placeholder
-                        </button>
-                        <button className={btn + " ml-auto border-coral text-coral"} onClick={() => setAddingFor(null)}>
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button onClick={() => openAddMenu(g.id)} disabled={busy} className={btn + " mt-2 bg-paper"}>
-                      + Add week
-                    </button>
-                  )}
-                </div>
-              )}
-            </article>
-          );
-        })}
-      </div>
-
-      <div className="mt-4 flex items-center gap-2">
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addGroup()}
-          placeholder="New group name (e.g. Group A)"
-          className={inputCls + " max-w-[280px]"}
-        />
-        <button onClick={addGroup} disabled={busyId === "new" || !newName.trim()} className={btn + " bg-lime hover:bg-lime-deep"}>
-          Add group
-        </button>
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addGroup()}
+            placeholder="New group name (e.g. Group A)"
+            className={inputCls + " max-w-[280px]"}
+          />
+          <button
+            onClick={addGroup}
+            disabled={groupBusyId === "new" || !newName.trim()}
+            className={btn + " bg-lime hover:bg-lime-deep"}
+          >
+            Add group
+          </button>
+        </div>
+        {!anyScenario && groups.length > 0 && (
+          <p className="mt-2 text-[11px] italic text-muted">
+            Assign a scenario to a group to provision its boards. Program structure is shared regardless.
+          </p>
+        )}
       </div>
 
       <ConfirmModal
         open={pendingDelete !== null}
-        busy={pendingDelete ? busyId === (pendingDelete.ex?.id ?? pendingDelete.g.id) : false}
+        busy={busy || groupBusyId !== null}
         title={pendingDelete?.kind === "group" ? "Delete group" : "Delete week"}
         message={
           pendingDelete?.kind === "group" ? (
             <>
-              Delete <strong>{pendingDelete.g.name}</strong> and its exercises? Backing boards are left intact.
+              Delete <strong>{pendingDelete.group.name}</strong> and its exercises? Backing boards are left intact.
             </>
-          ) : pendingDelete?.ex ? (
+          ) : pendingDelete?.kind === "week" ? (
             <>
-              Delete <strong>{pendingDelete.ex.title}</strong>?
-              {pendingDelete.ex.cards > 0
-                ? ` Its ${pendingDelete.ex.cards} answer${pendingDelete.ex.cards === 1 ? "" : "s"} will be kept in the database.`
-                : ""}
+              Remove <strong>{pendingDelete.week.title}</strong> from the program for every group? Saving will delete
+              the week; any answers already built are kept in the database.
             </>
           ) : (
             ""
@@ -550,10 +818,10 @@ export function AdminDesignGroups({
         onCancel={() => setPendingDelete(null)}
         onConfirm={async () => {
           const p = pendingDelete;
-          if (!p) return;
-          if (p.kind === "group") await removeGroup(p.g);
-          else if (p.ex) await removeExercise(p.g, p.ex);
           setPendingDelete(null);
+          if (!p) return;
+          if (p.kind === "group") await removeGroup(p.group);
+          else removeWeek(p.week.key);
         }}
       />
     </div>
