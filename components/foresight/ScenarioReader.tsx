@@ -69,11 +69,16 @@ export function ScenarioReader({ scenario }: { scenario: Scenario }) {
       )}
 
       {/* Headline — shown large and italic (in the old open-question slot),
-          with the third image alongside. */}
+          with the third image alongside. Spans full width when there's no
+          third image, so it doesn't sit at half width beside an empty column. */}
       {(scenario.headline || questionImage) && (
         <section className="mt-12 grid items-center gap-8 border-t border-[var(--rule)] pt-8 lg:grid-cols-2 lg:gap-12">
           {scenario.headline ? (
-            <p className="serif border-l-2 border-ink pl-5 text-[20px] italic leading-[1.35] text-ink md:text-[24px]">
+            <p
+              className={`serif border-l-2 border-ink pl-5 text-[20px] italic leading-[1.35] text-ink md:text-[24px]${
+                questionImage ? "" : " lg:col-span-2"
+              }`}
+            >
               {scenario.headline}
             </p>
           ) : (
