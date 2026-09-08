@@ -258,7 +258,7 @@ function QuestionSection({
                             type="button"
                             onClick={() => startEdit(c)}
                             title="Click to edit"
-                            className="min-w-0 flex-1 cursor-text text-left text-[13.5px] leading-[1.4]"
+                            className="min-w-0 flex-1 cursor-text rounded-[2px] text-left text-[13.5px] leading-[1.4] outline-none focus-visible:ring-2 focus-visible:ring-ink"
                           >
                             {c.text}
                           </button>
@@ -266,7 +266,7 @@ function QuestionSection({
                           <p className="min-w-0 flex-1 text-[13.5px] leading-[1.4]">{c.text}</p>
                         )}
                         {mine && (
-                          <div className="flex shrink-0 items-center gap-1.5 opacity-0 group-hover:opacity-100">
+                          <div className="flex shrink-0 items-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
                             <button
                               onClick={() => startEdit(c)}
                               className="rounded-[2px] px-1 text-[15px] leading-none text-muted hover:text-ink"

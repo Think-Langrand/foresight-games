@@ -295,7 +295,7 @@ function AnswerList({ answers, onDelete }: { answers: AnswerRow[]; onDelete?: (r
                 onClick={() => onDelete(a)}
                 aria-label="Delete answer"
                 title="Delete answer"
-                className="shrink-0 rounded-[2px] px-1 text-[12px] font-bold text-muted opacity-0 hover:text-coral group-hover:opacity-100"
+                className="shrink-0 rounded-[2px] px-1 text-[12px] font-bold text-muted opacity-0 outline-none hover:text-coral focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ink group-hover:opacity-100 group-focus-within:opacity-100"
               >
                 ✕
               </button>
