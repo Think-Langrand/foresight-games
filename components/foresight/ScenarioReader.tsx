@@ -1,6 +1,6 @@
 // Shared, self-contained render of a single scenario's editorial content —
-// header (theme/mood/horizon + title + headline), overview (hero + teaser),
-// rules, open question, and lived moment. Extracted from ScenarioDetailView so
+// header (theme/mood + title), overview (hero + teaser),
+// rules, headline, and lived moment. Extracted from ScenarioDetailView so
 // the exact same viewer is reused by the scenario-sets pages AND the Ripples game
 // (where the scenario is the backdrop and the implications work slides out over it).
 //
@@ -10,7 +10,7 @@
 // react-markdown component, FigureImage is a client component, sections is pure).
 
 import type { Scenario } from "@/lib/foresight/types";
-import { MoodBadge, ThemeBadge, TimeHorizonBadge } from "@/components/foresight/badges";
+import { MoodBadge, ThemeBadge } from "@/components/foresight/badges";
 import { ScenarioBody } from "@/components/foresight/ScenarioBody";
 import { FigureImage } from "@/components/foresight/FigureImage";
 import { normalizeSections } from "@/lib/foresight/sections";
@@ -46,15 +46,9 @@ export function ScenarioReader({ scenario }: { scenario: Scenario }) {
         <h1 className="mt-2 max-w-[900px] text-[30px] font-extrabold uppercase leading-[1.02] tracking-tight md:text-[44px]">
           {scenario.title}
         </h1>
-        {scenario.headline && (
-          <p className="serif mt-3 max-w-[760px] text-[20px] italic leading-[1.3] text-ink md:text-[24px]">
-            {scenario.headline}
-          </p>
-        )}
         <div className="mt-5 flex flex-wrap gap-2">
           <ThemeBadge theme={scenario.theme} />
           <MoodBadge mood={scenario.mood} />
-          <TimeHorizonBadge timeHorizon={scenario.timeHorizon} />
         </div>
       </header>
 
@@ -71,6 +65,30 @@ export function ScenarioReader({ scenario }: { scenario: Scenario }) {
               </p>
             </div>
           )}
+        </section>
+      )}
+
+      {/* Headline — shown large and italic (in the old open-question slot),
+          with the third image alongside. Spans full width when there's no
+          third image, so it doesn't sit at half width beside an empty column. */}
+      {(scenario.headline || questionImage) && (
+        <section className="mt-12 grid items-center gap-8 border-t border-[var(--rule)] pt-8 lg:grid-cols-2 lg:gap-12">
+          {scenario.headline ? (
+            <p
+              className={`serif border-l-2 border-ink pl-5 text-[20px] italic leading-[1.35] text-ink md:text-[24px]${
+                questionImage ? "" : " lg:col-span-2"
+              }`}
+            >
+              {scenario.headline}
+            </p>
+          ) : (
+            <div />
+          )}
+          <FigureImage
+            image={questionImage}
+            alt={`${scenario.title} — image 3`}
+            ratio="aspect-[4/3]"
+          />
         </section>
       )}
 
@@ -92,27 +110,6 @@ export function ScenarioReader({ scenario }: { scenario: Scenario }) {
               </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {/* Open question — question left, third image right. */}
-      {(scenario.openQuestion || questionImage) && (
-        <section className="mt-12 grid items-center gap-8 border-t border-[var(--rule)] pt-8 lg:grid-cols-2 lg:gap-12">
-          {scenario.openQuestion ? (
-            <div>
-              <span className="eyebrow ink">Open question</span>
-              <blockquote className="serif mt-3 border-l-2 border-ink pl-5 text-[20px] italic leading-[1.35] text-ink md:text-[24px]">
-                {scenario.openQuestion}
-              </blockquote>
-            </div>
-          ) : (
-            <div />
-          )}
-          <FigureImage
-            image={questionImage}
-            alt={`${scenario.title} — image 3`}
-            ratio="aspect-[4/3]"
-          />
         </section>
       )}
 
