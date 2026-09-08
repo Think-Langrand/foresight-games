@@ -274,27 +274,33 @@ export function AdminGroupAnswers({
 }
 
 function AnswerList({ answers, onDelete }: { answers: AnswerRow[]; onDelete?: (row: AnswerRow) => void }) {
+  // Bullets when there are several answers; a lone answer reads as a plain paragraph.
+  const single = answers.length === 1;
   return (
     <ul className="mt-2 flex flex-col gap-1.5">
       {answers.map((a) => (
-        <li
-          key={a.id}
-          className="group flex items-start justify-between gap-3 rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-2"
-        >
-          <div className="min-w-0 text-[13.5px] leading-[1.4]">
-            {a.text}
-            {a.author && <span className="ml-2 text-[10px] uppercase tracking-[0.06em] text-muted">— {a.author}</span>}
-          </div>
-          {onDelete && (
-            <button
-              onClick={() => onDelete(a)}
-              aria-label="Delete answer"
-              title="Delete answer"
-              className="shrink-0 rounded-[2px] px-1 text-[12px] font-bold text-muted opacity-0 hover:text-coral group-hover:opacity-100"
-            >
-              ✕
-            </button>
+        <li key={a.id} className="group flex items-start gap-2">
+          {!single && (
+            <span aria-hidden className="mt-[2px] shrink-0 select-none text-[13.5px] leading-[1.4] text-muted">
+              •
+            </span>
           )}
+          <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+            <div className="min-w-0 text-[13.5px] leading-[1.4]">
+              {a.text}
+              {a.author && <span className="ml-2 text-[10px] uppercase tracking-[0.06em] text-muted">— {a.author}</span>}
+            </div>
+            {onDelete && (
+              <button
+                onClick={() => onDelete(a)}
+                aria-label="Delete answer"
+                title="Delete answer"
+                className="shrink-0 rounded-[2px] px-1 text-[12px] font-bold text-muted opacity-0 hover:text-coral group-hover:opacity-100"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </li>
       ))}
     </ul>

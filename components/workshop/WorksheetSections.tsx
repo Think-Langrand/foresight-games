@@ -150,7 +150,6 @@ function QuestionSection({
   label,
   help,
   answers,
-  authorName,
   canEdit,
   busy,
   readOnly,
@@ -161,6 +160,7 @@ function QuestionSection({
   label: string;
   help?: string;
   answers: RippleCard[];
+  // Author attribution is available but the per-answer byline is intentionally not shown.
   authorName: (c: RippleCard) => string;
   canEdit: (c: RippleCard) => boolean;
   busy: boolean;
@@ -176,6 +176,8 @@ function QuestionSection({
   const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
   const over = text.length > CARD_TEXT_MAX;
   const editOver = editText.length > CARD_TEXT_MAX;
+  // Bullets when there are several answers; a lone answer reads as a plain paragraph.
+  const single = answers.length === 1;
   const submit = () => {
     const t = text.trim();
     if (!t || over) return;
@@ -201,83 +203,96 @@ function QuestionSection({
   return (
     <section>
       <AreaHead label={label} help={help} />
-      <div className="mt-3 flex flex-col gap-2">
-        {answers.length === 0 && (
+      <div className="mt-3">
+        {answers.length === 0 ? (
           <p className="text-[13px] italic text-muted">{readOnly ? "No answers." : "No answers yet — add one below."}</p>
-        )}
-        {answers.map((c) => {
-          const mine = !readOnly && canEdit(c);
-          const editing = editingId === c.id;
-          return (
-            <div
-              key={c.id}
-              className="group flex items-start justify-between gap-3 rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-2"
-            >
-              {editing ? (
-                <div className="min-w-0 flex-1">
-                  <textarea
-                    value={editText}
-                    autoFocus
-                    onChange={(e) => setEditText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") cancelEdit();
-                      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") commitEdit();
-                    }}
-                    rows={2}
-                    className="w-full resize-none rounded-[2px] border border-black/25 bg-white/70 p-1.5 text-[13.5px] leading-[1.4] outline-none focus:border-ink"
-                  />
-                  <div className="mt-1 flex items-center justify-end gap-2">
-                    <span className={"mr-auto text-[10px] " + (editOver ? "font-bold text-coral" : "text-muted")}>
-                      {editText.length}/{CARD_TEXT_MAX}
-                    </span>
-                    <button
-                      onClick={cancelEdit}
-                      className="rounded-[2px] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={commitEdit}
-                      disabled={busy || !editText.trim() || editOver}
-                      className="rounded-[2px] border border-ink bg-lime px-3 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em] disabled:opacity-40"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="min-w-0">
-                    <p className="text-[13.5px] leading-[1.4]">{c.text}</p>
-                    {authorName(c) && (
-                      <p className="mt-0.5 text-[10px] uppercase tracking-[0.06em] text-muted">— {authorName(c)}</p>
-                    )}
-                  </div>
-                  {mine && (
-                    <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
-                      <button
-                        onClick={() => startEdit(c)}
-                        className="rounded-[2px] px-1 text-[12px] font-bold text-muted hover:text-ink"
-                        aria-label="Edit answer"
-                        title="Edit"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        onClick={() => setPendingDelete(c)}
-                        className="rounded-[2px] px-1 text-[12px] font-bold text-muted hover:text-coral"
-                        aria-label="Delete answer"
-                        title="Delete"
-                      >
-                        ✕
-                      </button>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {answers.map((c) => {
+              const mine = !readOnly && canEdit(c);
+              const editing = editingId === c.id;
+              return (
+                <li key={c.id} className="group flex items-start gap-2">
+                  {editing ? (
+                    <div className="min-w-0 flex-1">
+                      <textarea
+                        value={editText}
+                        autoFocus
+                        onChange={(e) => setEditText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") cancelEdit();
+                          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") commitEdit();
+                        }}
+                        rows={2}
+                        className="w-full resize-none rounded-[2px] border border-black/25 bg-white/70 p-1.5 text-[13.5px] leading-[1.4] outline-none focus:border-ink"
+                      />
+                      <div className="mt-1 flex items-center justify-end gap-2">
+                        <span className={"mr-auto text-[10px] " + (editOver ? "font-bold text-coral" : "text-muted")}>
+                          {editText.length}/{CARD_TEXT_MAX}
+                        </span>
+                        <button
+                          onClick={cancelEdit}
+                          className="rounded-[2px] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={commitEdit}
+                          disabled={busy || !editText.trim() || editOver}
+                          className="rounded-[2px] border border-ink bg-lime px-3 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em] disabled:opacity-40"
+                        >
+                          Save
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      {!single && (
+                        <span aria-hidden className="mt-[2px] shrink-0 select-none text-[13.5px] leading-[1.4] text-muted">
+                          •
+                        </span>
+                      )}
+                      <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+                        {mine ? (
+                          <button
+                            type="button"
+                            onClick={() => startEdit(c)}
+                            title="Click to edit"
+                            className="min-w-0 flex-1 cursor-text text-left text-[13.5px] leading-[1.4]"
+                          >
+                            {c.text}
+                          </button>
+                        ) : (
+                          <p className="min-w-0 flex-1 text-[13.5px] leading-[1.4]">{c.text}</p>
+                        )}
+                        {mine && (
+                          <div className="flex shrink-0 items-center gap-1.5 opacity-0 group-hover:opacity-100">
+                            <button
+                              onClick={() => startEdit(c)}
+                              className="rounded-[2px] px-1 text-[15px] leading-none text-muted hover:text-ink"
+                              aria-label="Edit answer"
+                              title="Edit"
+                            >
+                              ✎
+                            </button>
+                            <button
+                              onClick={() => setPendingDelete(c)}
+                              className="rounded-[2px] px-1 text-[15px] leading-none text-muted hover:text-coral"
+                              aria-label="Delete answer"
+                              title="Delete"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
-                </>
-              )}
-            </div>
-          );
-        })}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
       {!readOnly && (
         <div className="mt-2 flex items-start gap-2">
