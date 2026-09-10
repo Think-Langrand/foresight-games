@@ -28,9 +28,7 @@ export function DesignGroupsIndex({
         Design Groups
       </h1>
       <p className="serif mt-3 max-w-[640px] text-[19px] leading-[1.4] text-muted">
-        Find your group and open its program. Each session you&rsquo;ll work a new
-        worksheet together — everything is shared and live, and you can revisit earlier
-        sessions any time.
+        Open your group to view your scenario and each week&rsquo;s session work.
       </p>
 
       {groups.length === 0 ? (

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { BrainstormSection } from "@/components/workshop/BrainstormSection";
+import { CopyButton } from "@/components/workshop/CopyButton";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { CARD_TEXT_MAX, type RippleCard } from "@/lib/ripples-types";
 import { worksheetSteps, type WorksheetSection } from "@/lib/exercise-types";
@@ -265,26 +266,33 @@ function QuestionSection({
                         ) : (
                           <p className="min-w-0 flex-1 text-[13.5px] leading-[1.4]">{c.text}</p>
                         )}
-                        {mine && (
-                          <div className="flex shrink-0 items-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
-                            <button
-                              onClick={() => startEdit(c)}
-                              className="rounded-[2px] px-1 text-[15px] leading-none text-muted hover:text-ink"
-                              aria-label="Edit answer"
-                              title="Edit"
-                            >
-                              ✎
-                            </button>
-                            <button
-                              onClick={() => setPendingDelete(c)}
-                              className="rounded-[2px] px-1 text-[15px] leading-none text-muted hover:text-coral"
-                              aria-label="Delete answer"
-                              title="Delete"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex shrink-0 items-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                          <CopyButton
+                            text={c.text}
+                            label="Copy answer"
+                            className="rounded-[2px] px-1 text-[15px] leading-none text-muted hover:text-ink"
+                          />
+                          {mine && (
+                            <>
+                              <button
+                                onClick={() => startEdit(c)}
+                                className="rounded-[2px] px-1 text-[15px] leading-none text-muted hover:text-ink"
+                                aria-label="Edit answer"
+                                title="Edit"
+                              >
+                                ✎
+                              </button>
+                              <button
+                                onClick={() => setPendingDelete(c)}
+                                className="rounded-[2px] px-1 text-[15px] leading-none text-muted hover:text-coral"
+                                aria-label="Delete answer"
+                                title="Delete"
+                              >
+                                ✕
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </>
                   )}
