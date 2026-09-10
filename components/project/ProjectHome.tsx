@@ -151,8 +151,8 @@ export function ProjectHome({
         <MarkText>{projectName}</MarkText>
       </h1>
       <p className="serif mt-6 max-w-[720px] text-[22px] leading-[1.35] text-ink md:text-[26px]">
-        A live space to explore scenarios, design groups and project drivers and
-        uncertainties.
+        A live space to explore scenarios, design groups, and the project&rsquo;s
+        drivers and uncertainties.
       </p>
 
       <div className="mt-12 flex flex-col gap-5">
