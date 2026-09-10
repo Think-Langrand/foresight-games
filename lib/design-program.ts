@@ -92,6 +92,7 @@ export async function getCanonicalProgramWeeks(projectId: string): Promise<Canon
     type: w.type,
     opensAt: w.opensAt,
     locked: w.locked,
+    closed: w.closed,
     sections: w.sections,
   }));
 }
@@ -189,6 +190,7 @@ export async function reconcileGroupsToProgram(
           title: w.title,
           type: w.type,
           opensAt: w.opensAt,
+          closed: w.closed,
           sections: w.sections,
         });
         kept.add(row.id);
@@ -207,6 +209,7 @@ export async function reconcileGroupsToProgram(
           title: w.title,
           type: w.type,
           opensAt: w.opensAt,
+          closed: w.closed,
           sections: w.sections,
         });
         kept.add(created.id);

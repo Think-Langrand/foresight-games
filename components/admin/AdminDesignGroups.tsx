@@ -41,6 +41,7 @@ const btn =
 
 const STATUS_STYLE: Record<ExerciseStatus, string> = {
   placeholder: "bg-[var(--hairline)] text-muted",
+  closed: "bg-coral text-white",
   scheduled: "bg-amber text-ink",
   locked: "bg-blue text-white",
   open: "bg-lime text-ink",
@@ -157,6 +158,7 @@ export function AdminDesignGroups({
         type: tpl.type,
         opensAt: null,
         locked: false,
+        closed: false,
         sections: tpl.sections,
         slots: {},
         cardsByGroup: {},
@@ -206,6 +208,7 @@ export function AdminDesignGroups({
           type: w.type,
           opensAt: w.opensAt,
           locked: w.locked,
+          closed: w.closed,
           sections: w.sections,
           slots: w.slots,
           force: forceAll || forcedKeys.has(w.key),
@@ -406,6 +409,7 @@ export function AdminDesignGroups({
                   <th className="py-1 pr-2">Type</th>
                   <th className="py-1 pr-2">Opens</th>
                   <th className="py-1 pr-2">Lock</th>
+                  <th className="py-1 pr-2">Closed</th>
                   <th className="py-1 pr-2">Status</th>
                   <th className="py-1"></th>
                 </tr>
@@ -414,7 +418,7 @@ export function AdminDesignGroups({
                 {weeks.map((w, i) => {
                   const anySession = Object.values(w.sessionByGroup).some(Boolean);
                   const st = exerciseStatus(
-                    { type: w.type, sessionCode: anySession ? "x" : null, locked: w.locked, opensAt: w.opensAt },
+                    { type: w.type, sessionCode: anySession ? "x" : null, locked: w.locked, closed: w.closed, opensAt: w.opensAt },
                     now
                   );
                   const cardTotal = weekCardTotal(w);
@@ -500,6 +504,18 @@ export function AdminDesignGroups({
                             role="switch"
                             aria-checked={w.locked}
                             aria-label={w.locked ? "Locked" : "Unlocked"}
+                          >
+                            <span className="knob" />
+                          </button>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <button
+                            onClick={() => patchWeek(w.key, { closed: !w.closed })}
+                            className={"sq-toggle" + (w.closed ? " on" : "")}
+                            role="switch"
+                            aria-checked={w.closed}
+                            aria-label={w.closed ? "Closed to members" : "Open to members"}
+                            title={w.closed ? "Closed — members can't open it" : "Open — members can open it"}
                           >
                             <span className="knob" />
                           </button>
