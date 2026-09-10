@@ -77,6 +77,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       type,
       opensAt: typeof w.opensAt === "string" && w.opensAt ? w.opensAt : null,
       locked: w.locked === true,
+      closed: w.closed === true,
       // Persist the EFFECTIVE keyset so a client sending sections=[] doesn't leave the week
       // depending on the implicit template fallback.
       sections: resolveEffectiveSections(type, w.sections),

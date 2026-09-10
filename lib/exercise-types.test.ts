@@ -161,7 +161,7 @@ describe("exercise-types registry", () => {
 
   describe("exerciseStatus / exerciseEditable", () => {
     const NOW = Date.parse("2026-08-22T00:00:00Z");
-    const base = { type: "implications", sessionCode: "PS2A", locked: false, opensAt: null };
+    const base = { type: "implications", sessionCode: "PS2A", locked: false, closed: false, opensAt: null };
 
     it("placeholder when the type has no board or no session", () => {
       expect(exerciseStatus({ ...base, type: "placeholder", sessionCode: null }, NOW)).toBe("placeholder");
@@ -181,9 +181,19 @@ describe("exercise-types registry", () => {
       expect(exerciseStatus({ ...base, locked: true, opensAt: "2026-09-05T00:00:00Z" }, NOW)).toBe("scheduled");
     });
 
+    it("closed beats schedule and lock, but placeholder beats closed", () => {
+      expect(exerciseStatus({ ...base, closed: true }, NOW)).toBe("closed");
+      // closed is a hard manual gate — wins over a future schedule and over the lock
+      expect(exerciseStatus({ ...base, closed: true, opensAt: "2026-09-05T00:00:00Z" }, NOW)).toBe("closed");
+      expect(exerciseStatus({ ...base, closed: true, locked: true }, NOW)).toBe("closed");
+      // but with no board/session it's still just a placeholder
+      expect(exerciseStatus({ ...base, closed: true, sessionCode: null }, NOW)).toBe("placeholder");
+    });
+
     it("editable only when fully open", () => {
       expect(exerciseEditable(base, NOW)).toBe(true);
       expect(exerciseEditable({ ...base, locked: true }, NOW)).toBe(false);
+      expect(exerciseEditable({ ...base, closed: true }, NOW)).toBe(false);
       expect(exerciseEditable({ ...base, opensAt: "2026-09-05T00:00:00Z" }, NOW)).toBe(false);
       expect(exerciseEditable({ ...base, type: "placeholder", sessionCode: null }, NOW)).toBe(false);
     });

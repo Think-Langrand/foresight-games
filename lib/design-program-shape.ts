@@ -69,11 +69,12 @@ function sortGroups(groups: DesignGroup[]): DesignGroup[] {
 // difference in any of those means the groups aren't "in sync" (a save would overwrite one).
 // Compares full sections, not just the key set, or divergent under-reports question-text drift.
 function rowsInLockstep(
-  a: { type: string; title: string; opensAt: string | null; locked: boolean; sections: unknown },
-  b: { type: string; title: string; opensAt: string | null; locked: boolean; sections: unknown }
+  a: { type: string; title: string; opensAt: string | null; locked: boolean; closed: boolean; sections: unknown },
+  b: { type: string; title: string; opensAt: string | null; locked: boolean; closed: boolean; sections: unknown }
 ): boolean {
   if (a.type !== b.type || a.title !== b.title) return false;
   if ((a.opensAt ?? null) !== (b.opensAt ?? null) || Boolean(a.locked) !== Boolean(b.locked)) return false;
+  if (Boolean(a.closed) !== Boolean(b.closed)) return false;
   return (
     JSON.stringify(resolveEffectiveSections(a.type, a.sections)) ===
     JSON.stringify(resolveEffectiveSections(b.type, b.sections))
@@ -112,6 +113,7 @@ export function programVersion(
           e.title,
           e.opensAt ?? "",
           e.locked ? 1 : 0,
+          e.closed ? 1 : 0,
           e.sessionCode ?? "",
           JSON.stringify(resolveEffectiveSections(e.type, e.sections)),
         ].join("\u0001")
@@ -179,6 +181,7 @@ export function toProgramDTO(
       type: content.type,
       opensAt: content.opensAt,
       locked: content.locked,
+      closed: content.closed,
       // Materialize the EFFECTIVE sections (snapshot, else the type template) so the editor
       // and every save carry stable section keys — the program no longer depends on the code
       // template implicitly, and the started-week guard always sees the real key set.

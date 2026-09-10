@@ -198,20 +198,24 @@ export function newSectionKey(): string {
 }
 
 // --- Schedule / lock status (pure; used by the hub and the route gate) --------
-export type ExerciseStatus = "placeholder" | "scheduled" | "locked" | "open";
+export type ExerciseStatus = "placeholder" | "closed" | "scheduled" | "locked" | "open";
 
 export interface ExerciseGate {
   type: string;
   sessionCode: string | null;
   locked: boolean;
+  closed: boolean; // admin manually closed it — members can't open (independent of lock/schedule)
   opensAt: string | null; // ISO; null = open now
 }
 
-// A week is: `placeholder` (no board / unimplemented type), `scheduled` (opens_at in
-// the future), `locked` (admin lock), or `open` (members can edit). Schedule is
-// checked before the lock so a not-yet-open week reads as "Opens {date}".
+// A week is: `placeholder` (no board / unimplemented type), `closed` (admin manually
+// closed it to members), `scheduled` (opens_at in the future), `locked` (admin lock,
+// read-only-but-viewable), or `open` (members can edit). `closed` is checked before the
+// schedule and lock — it's a hard, manual "not available" that members can't open at all
+// (admins bypass at the route/hub layer), whereas `locked` is only read-only.
 export function exerciseStatus(ex: ExerciseGate, nowMs: number): ExerciseStatus {
   if (!isBoardBacked(ex.type) || !ex.sessionCode) return "placeholder";
+  if (ex.closed) return "closed";
   if (ex.opensAt && Date.parse(ex.opensAt) > nowMs) return "scheduled";
   if (ex.locked) return "locked";
   return "open";
@@ -276,6 +280,7 @@ export interface CanonicalWeek {
   type: string;
   opensAt: string | null;
   locked: boolean;
+  closed: boolean;
   sections: WorksheetSection[];
 }
 
@@ -287,6 +292,7 @@ export function defaultProgramWeeks(): CanonicalWeek[] {
     type: w.type,
     opensAt: null,
     locked: false,
+    closed: false,
     sections: getExerciseType(w.type)?.sections ?? [],
   }));
 }

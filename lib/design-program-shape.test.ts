@@ -34,6 +34,7 @@ function ex(
     type,
     sessionCode,
     locked: false,
+    closed: false,
     opensAt: null,
     sections: [],
     createdTime: `2026-01-01T00:00:0${seq}Z`,
