@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { CopyButton } from "@/components/workshop/CopyButton";
 import { CARD_TEXT_MAX, type RippleCard } from "@/lib/ripples-types";
 
 // A peel-off sticky pad: add notes, drag to reorder, click to edit your own. Shared by
@@ -195,17 +196,25 @@ export function BrainstormSection({
                     <span aria-hidden className="text-[11px] leading-none tracking-[-2px]">
                       {readOnly ? "" : "⠿⠿"}
                     </span>
-                    {mine && (
-                      <button
-                        onClick={() => onDelete(c)}
+                    <div className="flex items-center gap-0.5">
+                      <CopyButton
+                        text={c.text}
+                        label="Copy note"
                         onMouseDown={(e) => e.stopPropagation()}
-                        draggable={false}
-                        className="rounded-[2px] px-1 text-[11px] font-bold text-black/40 opacity-0 hover:text-ink group-hover:opacity-100"
-                        aria-label="Delete note"
-                      >
-                        ✕
-                      </button>
-                    )}
+                        className="rounded-[2px] px-1 text-[11px] text-black/40 opacity-0 hover:text-ink group-hover:opacity-100 group-focus-within:opacity-100"
+                      />
+                      {mine && (
+                        <button
+                          onClick={() => onDelete(c)}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          draggable={false}
+                          className="rounded-[2px] px-1 text-[11px] font-bold text-black/40 opacity-0 hover:text-ink group-hover:opacity-100"
+                          aria-label="Delete note"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {editing ? (
                     <div className="px-2 pb-2">
