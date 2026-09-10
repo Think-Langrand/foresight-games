@@ -208,7 +208,7 @@ export function BrainstormSection({
                           onClick={() => onDelete(c)}
                           onMouseDown={(e) => e.stopPropagation()}
                           draggable={false}
-                          className="rounded-[2px] px-1 text-[11px] font-bold text-black/40 opacity-0 hover:text-ink group-hover:opacity-100"
+                          className="rounded-[2px] px-1 text-[11px] font-bold text-black/40 opacity-0 hover:text-ink group-hover:opacity-100 group-focus-within:opacity-100"
                           aria-label="Delete note"
                         >
                           ✕

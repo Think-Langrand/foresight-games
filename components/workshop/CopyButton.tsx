@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // A small hover-reveal icon button that copies `text` to the clipboard and briefly
 // confirms with a ✓. Copying is a read-only action, so — unlike the edit/delete
@@ -17,10 +17,15 @@ export function CopyButton({
   text: string;
   label?: string;
   className?: string;
-  onMouseDown?: (e: React.MouseEvent) => void;
+  onMouseDown?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
+
+  // Clear any pending confirmation timer if we unmount first (e.g. route change).
+  useEffect(() => () => {
+    if (timer.current) window.clearTimeout(timer.current);
+  }, []);
 
   const copy = async () => {
     try {
@@ -39,8 +44,8 @@ export function CopyButton({
       onClick={copy}
       onMouseDown={onMouseDown}
       draggable={false}
-      aria-label={copied ? "Copied" : label}
-      title={copied ? "Copied" : label}
+      aria-label={copied ? label + " — copied" : label}
+      title={copied ? label + " — copied" : label}
       className={"inline-flex items-center justify-center " + className}
     >
       {copied ? (
