@@ -13,8 +13,8 @@ function fmtDate(iso: string): string {
 }
 
 // A group's PROGRAM hub: the four weeks. Members open an unlocked, in-schedule week
-// full-screen; a locked week is viewable read-only; a scheduled/placeholder week is
-// not yet enterable (admins may preview scheduled weeks).
+// full-screen; a locked week is viewable read-only; a closed/scheduled/placeholder week
+// is not yet enterable by members (admins may preview closed & scheduled weeks).
 export default async function DesignGroupHubPage({
   params,
 }: {
@@ -67,21 +67,27 @@ export default async function DesignGroupHubPage({
         )}
         {exercises.map((ex) => {
           const st = exerciseStatus(ex, now);
+          // Members can enter open/locked weeks; admins may also preview closed/scheduled ones.
           const enterable = Boolean(
-            ex.sessionCode && (st === "open" || st === "locked" || (st === "scheduled" && isAdmin))
+            ex.sessionCode &&
+              (st === "open" || st === "locked" || ((st === "closed" || st === "scheduled") && isAdmin))
           );
           const action =
             st === "placeholder"
-              ? "Locked"
-              : st === "scheduled" && !isAdmin
-                ? ex.opensAt
-                  ? `Opens ${fmtDate(ex.opensAt)}`
-                  : "Not open yet"
-                : enterable
-                  ? st === "locked"
-                    ? "View →"
-                    : "Open →"
-                  : "—";
+              ? "In design"
+              : st === "closed"
+                ? isAdmin
+                  ? "Preview →"
+                  : "Closed"
+                : st === "scheduled" && !isAdmin
+                  ? ex.opensAt
+                    ? `Opens ${fmtDate(ex.opensAt)}`
+                    : "Not open yet"
+                  : enterable
+                    ? st === "locked"
+                      ? "View →"
+                      : "Open →"
+                    : "—";
           const body = (
             <>
               <span className="min-w-0 truncate text-[17px] font-extrabold uppercase tracking-tight text-white">

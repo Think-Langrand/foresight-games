@@ -24,8 +24,9 @@ function Gate({ backHref, title, children }: { backHref: string; title: string; 
   );
 }
 
-// One exercise (week), full-screen. Gated on schedule + lock (admins bypass the
-// schedule). The exercise type decides the renderer: the implications tree, the
+// One exercise (week), full-screen. Gated on close + schedule (admins bypass both). A
+// `closed` or not-yet-`scheduled` week is blocked for members; `locked` still renders
+// read-only. The exercise type decides the renderer: the implications tree, the
 // spec-driven worksheet, or a "being designed" placeholder.
 export default async function DesignGroupExercisePage({
   params,
@@ -48,6 +49,13 @@ export default async function DesignGroupExercisePage({
     return (
       <Gate backHref={backHref} title={exercise.title}>
         This exercise is being designed — it&rsquo;ll open here soon.
+      </Gate>
+    );
+  }
+  if (status === "closed" && !isAdmin) {
+    return (
+      <Gate backHref={backHref} title={exercise.title}>
+        This exercise isn&rsquo;t open yet. Check back soon.
       </Gate>
     );
   }

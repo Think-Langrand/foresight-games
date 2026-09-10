@@ -20,6 +20,7 @@ export interface DesignGroupExercise {
   type: string;
   sessionCode: string | null;
   locked: boolean;
+  closed: boolean; // admin close — members can't open it (independent of lock + schedule)
   opensAt: string | null;
   sections: WorksheetSection[]; // per-exercise question snapshot; [] = fall back to code template
   createdTime: string;
@@ -33,12 +34,13 @@ interface ExerciseRow {
   type: string;
   session_code: string | null;
   locked: boolean;
+  closed: boolean;
   opens_at: string | null;
   sections: unknown; // jsonb
   created_at: string;
 }
 
-const COLS = "id, group_id, sort, title, type, session_code, locked, opens_at, sections, created_at";
+const COLS = "id, group_id, sort, title, type, session_code, locked, closed, opens_at, sections, created_at";
 
 function fromRow(r: ExerciseRow): DesignGroupExercise {
   return {
@@ -49,6 +51,7 @@ function fromRow(r: ExerciseRow): DesignGroupExercise {
     type: r.type ?? "placeholder",
     sessionCode: r.session_code ?? null,
     locked: r.locked ?? false,
+    closed: r.closed ?? false,
     opensAt: r.opens_at ?? null,
     sections: resolveSections(r.sections),
     createdTime: r.created_at,
@@ -92,6 +95,7 @@ export async function createExercise(input: {
   title: string;
   type?: string;
   opensAt?: string | null;
+  closed?: boolean;
   sections?: WorksheetSection[]; // template snapshot; coerced before write
 }): Promise<DesignGroupExercise> {
   const row = await withRetry(async () => {
@@ -103,6 +107,7 @@ export async function createExercise(input: {
         title: input.title.trim() || "Exercise",
         type: input.type ?? "placeholder",
         opens_at: input.opensAt ?? null,
+        closed: input.closed ?? false,
         sections: resolveSections(input.sections),
       })
       .select(COLS)
@@ -119,6 +124,7 @@ export interface UpdateExercisePatch {
   type?: string;
   opensAt?: string | null;
   locked?: boolean;
+  closed?: boolean;
   sessionCode?: string | null;
   sections?: WorksheetSection[];
 }
@@ -130,6 +136,7 @@ export async function updateExercise(id: string, patch: UpdateExercisePatch): Pr
   if (patch.type !== undefined) fields.type = patch.type;
   if (patch.opensAt !== undefined) fields.opens_at = patch.opensAt;
   if (patch.locked !== undefined) fields.locked = patch.locked;
+  if (patch.closed !== undefined) fields.closed = patch.closed;
   if (patch.sessionCode !== undefined) fields.session_code = patch.sessionCode;
   if (patch.sections !== undefined) fields.sections = resolveSections(patch.sections);
   await withRetry(async () => {
