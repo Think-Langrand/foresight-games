@@ -60,9 +60,14 @@ export function ScenarioReader({ scenario }: { scenario: Scenario }) {
           {scenario.teaser && (
             <div className={heroImage ? undefined : "lg:col-span-2"}>
               <span className="eyebrow ink">Overview</span>
-              <p className="mt-3 max-w-[560px] text-[17px] leading-[1.65] text-ink">
-                {scenario.teaser}
-              </p>
+              <div className="mt-3 max-w-[560px] space-y-6 text-[17px] leading-[1.65] text-ink">
+                {scenario.teaser
+                  .split(/\n\s*\n/)
+                  .filter((para) => para.trim())
+                  .map((para, i) => (
+                    <p key={i}>{para}</p>
+                  ))}
+              </div>
             </div>
           )}
         </section>
@@ -126,7 +131,7 @@ export function ScenarioReader({ scenario }: { scenario: Scenario }) {
           {livedMoment ? (
             <div>
               <span className="eyebrow ink">Lived moment</span>
-              <div className="mt-3">
+              <div className="mt-3 [&_p]:mb-6">
                 <ScenarioBody body={livedMoment} />
               </div>
             </div>
