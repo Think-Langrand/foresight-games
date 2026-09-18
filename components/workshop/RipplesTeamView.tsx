@@ -359,7 +359,7 @@ export function RipplesTeamView({
                 interactive
                 busy={busy}
                 challengeEnabled={config.challengeEnabled}
-                canDelete={(c) => c.authorPlayerId === myPlayer.id}
+                canDelete={canEditCard}
                 onAddRoot={(text) => addCard("FIRST", text)}
                 onAddChild={(parent, order, text) => addCard(order, text, parent.id)}
                 onDelete={removeCard}
