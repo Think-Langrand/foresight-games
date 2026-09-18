@@ -42,6 +42,7 @@ export interface PlaceholderExercise {
   kind: "placeholder";
   exerciseId: string;
   title: string;
+  unavailable?: boolean; // its board failed to load (vs. simply not built yet)
 }
 export type ExerciseAnswers = WorksheetExercise | ImplicationsExercise | PlaceholderExercise;
 

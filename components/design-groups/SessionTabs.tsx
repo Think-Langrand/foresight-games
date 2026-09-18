@@ -76,7 +76,11 @@ export function SessionTabs({
             <ImplicationsPanel ex={active} view={mapView} setView={setMapView} showMeta={false} />
           )}
           {active.kind === "placeholder" && (
-            <p className="text-[14px] italic text-muted">No answers to show for this session.</p>
+            <p className="text-[14px] italic text-muted">
+              {active.unavailable
+                ? "This session’s answers couldn’t be loaded right now. Try refreshing in a moment."
+                : "No answers to show for this session."}
+            </p>
           )}
         </main>
       )}

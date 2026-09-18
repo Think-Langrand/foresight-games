@@ -11,6 +11,7 @@ import { shapeExerciseAnswers } from "@/lib/group-answers";
 import { RipplesTeamView } from "@/components/workshop/RipplesTeamView";
 import { WorksheetView } from "@/components/workshop/WorksheetView";
 import { SessionTabs } from "@/components/design-groups/SessionTabs";
+import type { ExerciseAnswers } from "@/components/design-groups/AnswerPanels";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,16 @@ export default async function DesignGroupExercisePage({
   const [scenario, drivers, pastWeeks] = await Promise.all([
     getRippleScenario(session),
     getRippleDrivers(session),
-    Promise.all(earlier.map((ex) => shapeExerciseAnswers(ex, { scenarioTitle: group.scenarioTitle }))),
+    // Each earlier week loads independently: the tabs are ancillary, so one failing board
+    // becomes an "unavailable" tab rather than taking down the live session.
+    Promise.all(
+      earlier.map((ex) =>
+        shapeExerciseAnswers(ex, { scenarioTitle: group.scenarioTitle }).catch((err): ExerciseAnswers => {
+          console.error(`[design-group session] earlier week ${ex.id} failed to load`, err);
+          return { kind: "placeholder", exerciseId: ex.id, title: ex.title, unavailable: true };
+        })
+      )
+    ),
   ]);
   const render = getExerciseType(exercise.type)?.render ?? "placeholder";
 
