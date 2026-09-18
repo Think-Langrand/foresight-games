@@ -5,51 +5,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { csvCell, download } from "@/components/admin/exportUtils";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import { FuturesWheel } from "@/components/workshop/FuturesWheel";
-import { ImplicationTree } from "@/components/workshop/ImplicationTree";
-import { ImplicationList } from "@/components/workshop/ImplicationList";
-import { enumerateChains, type RippleCard } from "@/lib/ripples-types";
+import {
+  ImplicationsPanel,
+  WorksheetPanel,
+  type AnswerRow,
+  type ExerciseAnswers,
+  type MapView,
+  type QuestionBlock,
+} from "@/components/design-groups/AnswerPanels";
+import { enumerateChains } from "@/lib/ripples-types";
 
-// Read-only admin view of a design group's answers, one tab per exercise (week). Each tab
-// renders in its exercise's natural shape — worksheet Q&A, implication futures-wheel, or a
-// "not built yet" note. Admins can delete a single answer, clear a week's board, or reset
-// the whole group (each behind a confirm; card deletes are irreversible). JSON/CSV export.
-
-export interface AnswerRow {
-  id: string; // ripple_card id (for admin delete)
-  text: string;
-  author: string;
-  createdAt: string;
-}
-export interface QuestionBlock {
-  key: string;
-  label: string;
-  kind: "brainstorm" | "question";
-  removed?: boolean; // answers under a section key no longer in the spec
-  answers: AnswerRow[];
-}
-
-export interface WorksheetExercise {
-  kind: "worksheet";
-  exerciseId: string;
-  title: string;
-  questions: QuestionBlock[];
-}
-export interface ImplicationsExercise {
-  kind: "implications";
-  exerciseId: string;
-  title: string;
-  scenarioTitle: string;
-  cards: RippleCard[]; // all of the shared team's cards (drives the wheel/tree/list)
-  brainstorm: AnswerRow[]; // the section=null STICKY notes
-  questions: QuestionBlock[]; // section-tagged question/brainstorm blocks, if the week carries any
-}
-export interface PlaceholderExercise {
-  kind: "placeholder";
-  exerciseId: string;
-  title: string;
-}
-export type ExerciseAnswers = WorksheetExercise | ImplicationsExercise | PlaceholderExercise;
+// Admin view of a design group's answers, one tab per exercise (week). Each tab renders in
+// its exercise's natural shape (the shared read-only panels in AnswerPanels) — worksheet
+// Q&A, implication futures-wheel, or a "not built yet" note. Admins can delete a single
+// answer, clear a week's board, or reset the whole group (each behind a confirm; card
+// deletes are irreversible), seed an implications map from earlier weeks, and export.
 
 export interface GroupAnswersData {
   groupName: string;
@@ -59,10 +29,6 @@ export interface GroupAnswersData {
 
 // Max answers per seed request — must match MAX_SEED in the .../design-groups/[groupId]/seed route.
 const SEED_BATCH = 50;
-
-const MAP_VIEWS = ["wheel", "tree", "list"] as const;
-type MapView = (typeof MAP_VIEWS)[number];
-const MAP_LABELS: Record<MapView, string> = { wheel: "Wheel", tree: "Tree", list: "List" };
 
 type Pending =
   | { kind: "answer"; exerciseId: string; cardId: string; label: string }
@@ -348,75 +314,6 @@ export function AdminGroupAnswers({
   );
 }
 
-function AnswerList({ answers, onDelete }: { answers: AnswerRow[]; onDelete?: (row: AnswerRow) => void }) {
-  // Bullets when there are several answers; a lone answer reads as a plain paragraph.
-  const single = answers.length === 1;
-  return (
-    <ul className="mt-2 flex flex-col gap-1.5">
-      {answers.map((a) => (
-        <li key={a.id} className="group flex items-start gap-2">
-          {!single && (
-            <span aria-hidden className="mt-[2px] shrink-0 select-none text-[13.5px] leading-[1.4] text-muted">
-              •
-            </span>
-          )}
-          <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
-            <div className="min-w-0 text-[13.5px] leading-[1.4]">
-              {a.text}
-              {a.author && <span className="ml-2 text-[10px] uppercase tracking-[0.06em] text-muted">— {a.author}</span>}
-            </div>
-            {onDelete && (
-              <button
-                onClick={() => onDelete(a)}
-                aria-label="Delete answer"
-                title="Delete answer"
-                className="shrink-0 rounded-[2px] px-1 text-[12px] font-bold text-muted opacity-0 outline-none hover:text-coral focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ink group-hover:opacity-100 group-focus-within:opacity-100"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function WorksheetPanel({ ex, onDelete }: { ex: WorksheetExercise; onDelete?: (row: AnswerRow) => void }) {
-  if (ex.questions.length === 0)
-    return <p className="text-[13px] italic text-muted">No questions defined for this week.</p>;
-  return <QuestionBlocks questions={ex.questions} onDelete={onDelete} />;
-}
-
-// One or more section-tagged Q&A blocks (question prompts + brainstorm areas), read-only.
-// Shared by the worksheet tab and the implications tab (implications weeks can carry blocks).
-function QuestionBlocks({ questions, onDelete }: { questions: QuestionBlock[]; onDelete?: (row: AnswerRow) => void }) {
-  return (
-    <div className="flex flex-col gap-5">
-      {questions.map((q) => (
-        <div key={q.key}>
-          <div className="flex items-center gap-2">
-            <h3 className="text-[14px] font-bold">{q.label || q.key}</h3>
-            <span className="rounded-[2px] bg-[var(--hairline)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
-              {q.kind}
-            </span>
-            {q.removed && (
-              <span className="rounded-[2px] bg-coral px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-white">
-                removed question
-              </span>
-            )}
-          </div>
-          {q.answers.length === 0 ? (
-            <p className="mt-1 text-[13px] italic text-muted">No answers.</p>
-          ) : (
-            <AnswerList answers={q.answers} onDelete={onDelete} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 interface SeedSource {
   key: string; // `${exerciseId}:${sectionKey}`
   weekTitle: string;
@@ -538,67 +435,5 @@ function SeedKeyChangesPanel({
         </div>
       )}
     </details>
-  );
-}
-
-function ImplicationsPanel({
-  ex,
-  view,
-  setView,
-  onDelete,
-  seed,
-}: {
-  ex: ImplicationsExercise;
-  view: MapView;
-  setView: (v: MapView) => void;
-  onDelete?: (row: AnswerRow) => void;
-  seed?: React.ReactNode;
-}) {
-  const hasTree = ex.cards.some((c) => c.order !== "STICKY");
-  return (
-    <div className="flex flex-col gap-6">
-      {seed}
-      <div>
-        <div className="mb-3 flex items-center gap-1">
-          {MAP_VIEWS.map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={
-                "rounded-[2px] border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.06em] " +
-                (v === view ? "border-ink bg-ink text-white" : "border-[var(--rule)] bg-paper text-muted hover:border-ink")
-              }
-            >
-              {MAP_LABELS[v]}
-            </button>
-          ))}
-        </div>
-        {!hasTree ? (
-          <p className="text-[13px] italic text-muted">No implications mapped yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            {view === "wheel" && <FuturesWheel cards={ex.cards} centerLabel={ex.scenarioTitle} />}
-            {view === "tree" && <ImplicationTree cards={ex.cards} scenarioTitle={ex.scenarioTitle} />}
-            {view === "list" && <ImplicationList cards={ex.cards} scenarioTitle={ex.scenarioTitle} />}
-          </div>
-        )}
-      </div>
-
-      {ex.questions.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-[13px] font-bold uppercase tracking-[0.08em] text-muted">Questions</h3>
-          <QuestionBlocks questions={ex.questions} onDelete={onDelete} />
-        </div>
-      )}
-
-      <div>
-        <h3 className="mb-2 text-[13px] font-bold uppercase tracking-[0.08em] text-muted">Brainstorm notes</h3>
-        {ex.brainstorm.length === 0 ? (
-          <p className="text-[13px] italic text-muted">No brainstorm notes.</p>
-        ) : (
-          <AnswerList answers={ex.brainstorm} onDelete={onDelete} />
-        )}
-      </div>
-    </div>
   );
 }

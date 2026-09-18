@@ -257,9 +257,10 @@ export function RipplesTeamView({
     });
   };
 
-  // Worksheet-style question/brainstorm blocks an implications exercise can carry, rendered
-  // below the tree via the shared <WorksheetSections> — same STICKY-card substrate. On a
-  // shared-team board the whole group co-owns them; solo stays author-only.
+  // Who may edit/delete a card — tree nodes, brainstorm notes, and the worksheet-style
+  // blocks an implications exercise can carry (rendered below the tree via the shared
+  // <WorksheetSections>). On a shared-team board the whole group co-owns every card
+  // (matching the server rule); solo stays author-only.
   const canEditCard = sharedTeam ? () => true : (c: RippleCard) => c.authorPlayerId === myPlayer.id;
   const addSectionCard = (section: string, text: string) =>
     run(async () => {
@@ -333,7 +334,7 @@ export function RipplesTeamView({
         <div className="flex flex-col gap-8">
           <BrainstormSection
             stickies={stickies}
-            canEdit={(c) => c.authorPlayerId === myPlayer.id}
+            canEdit={canEditCard}
             busy={busy}
             onAdd={(text) => addCard("STICKY", text, undefined, Date.now())}
             onDelete={removeCard}
@@ -360,6 +361,8 @@ export function RipplesTeamView({
                 busy={busy}
                 challengeEnabled={config.challengeEnabled}
                 canDelete={canEditCard}
+                canEdit={canEditCard}
+                onEdit={editCard}
                 onAddRoot={(text) => addCard("FIRST", text)}
                 onAddChild={(parent, order, text) => addCard(order, text, parent.id)}
                 onDelete={removeCard}

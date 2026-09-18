@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   CARD_TEXT_MAX,
   PHASE_PREFIXES,
@@ -14,18 +14,20 @@ import { rippleRoleColor } from "@/components/workshop/RippleCard";
 // An auto-arranged, horizontal implications tree grown from flat cards + parentId.
 // Scenario-name root → key changes (FIRST) → SECOND → TERMINAL, each branching into
 // any number of children. Connectors are pure CSS (stub + spine + ticks); new nodes
-// animate in. Interactive mode shows ＋ (add child) and ✕ (delete own); read-only
-// mode (done/present/admin) just renders the shape.
+// animate in. Interactive mode shows ＋ (add child), ✎ / click-to-edit and ✕ (delete),
+// each gated per card; read-only mode (done/present/admin) just renders the shape.
 export function ImplicationTree({
   cards,
   scenarioTitle,
   interactive = false,
   busy = false,
   canDelete,
+  canEdit,
   challengeEnabled = false,
   onAddRoot,
   onAddChild,
   onDelete,
+  onEdit,
   onFlag,
   onVote,
 }: {
@@ -35,10 +37,13 @@ export function ImplicationTree({
   busy?: boolean;
   // Which cards this viewer may delete (author-owned). Defaults to all in interactive mode.
   canDelete?: (card: RippleCard) => boolean;
+  // Which cards this viewer may reword. No onEdit → nothing is editable.
+  canEdit?: (card: RippleCard) => boolean;
   challengeEnabled?: boolean;
   onAddRoot?: (text: string) => void; // add a key change (FIRST) off the scenario root
   onAddChild?: (parent: RippleCard, order: CardOrder, text: string) => void;
   onDelete?: (card: RippleCard) => void;
+  onEdit?: (cardId: string, text: string) => void;
   onFlag?: (card: RippleCard) => void;
   onVote?: (card: RippleCard) => void;
 }) {
@@ -46,6 +51,32 @@ export function ImplicationTree({
   // Tree roots are the key changes (FIRST) — brainstorm STICKY notes share the null
   // parent but are not part of the tree.
   const roots = (childrenMap.get(null) ?? []).filter((c) => c.order === "FIRST");
+
+  // Inline edit of one node at a time. State lives here (nodes are render functions, not
+  // components). `handled` guards against the commit firing twice (Enter then blur).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const handled = useRef(false);
+  const startEdit = (c: RippleCard) => {
+    handled.current = false;
+    setEditingId(c.id);
+    setEditText(c.text);
+  };
+  const commitEdit = () => {
+    if (handled.current) return;
+    handled.current = true;
+    const id = editingId;
+    const original = cards.find((c) => c.id === id)?.text;
+    const t = editText.trim();
+    setEditingId(null);
+    setEditText("");
+    if (id && t && t.length <= CARD_TEXT_MAX && t !== original) onEdit?.(id, t);
+  };
+  const cancelEdit = () => {
+    handled.current = true;
+    setEditingId(null);
+    setEditText("");
+  };
 
   // Connectors are fresh elements (functions), and the whole tree is rendered with
   // plain render functions (NOT inner components) so React reconciles nodes in place
@@ -56,6 +87,8 @@ export function ImplicationTree({
 
   const renderNode = (card: RippleCard) => {
     const deletable = interactive && (canDelete ? canDelete(card) : true);
+    const editable = interactive && !!onEdit && !card.greyed && (canEdit ? canEdit(card) : true);
+    const editing = editable && editingId === card.id;
     return (
       <div
         className={
@@ -72,14 +105,65 @@ export function ImplicationTree({
             <span className="text-[8.5px] font-bold uppercase tracking-[0.06em] text-muted">today-thinking</span>
           )}
         </div>
-        <p className="mt-1 text-[12.5px] leading-[1.35]">{card.text}</p>
+        {editing ? (
+          <div className="mt-1">
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") cancelEdit();
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  commitEdit();
+                }
+              }}
+              rows={3}
+              autoFocus
+              aria-label="Edit node"
+              className="w-full resize-none rounded-[2px] border border-ink bg-paper p-1.5 text-[12.5px] leading-[1.35] outline-none"
+            />
+            <span
+              className={
+                "text-[10px] " + (editText.length > CARD_TEXT_MAX ? "font-bold text-coral" : "text-muted")
+              }
+            >
+              {editText.length}/{CARD_TEXT_MAX} · Enter to save, Esc to cancel
+            </span>
+          </div>
+        ) : (
+          <p
+            className={"mt-1 text-[12.5px] leading-[1.35] " + (editable ? "cursor-text" : "")}
+            onClick={editable ? () => startEdit(card) : undefined}
+            onKeyDown={
+              editable
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      startEdit(card);
+                    }
+                  }
+                : undefined
+            }
+            role={editable ? "button" : undefined}
+            tabIndex={editable ? 0 : undefined}
+            title={editable ? "Click to edit" : undefined}
+          >
+            {card.text}
+          </p>
+        )}
         {card.sourceLabel && (
           <p className="mt-1 truncate text-[9px] uppercase tracking-[0.06em] text-muted" title={`Seeded from ${card.sourceLabel}`}>
             ↳ from {card.sourceLabel}
           </p>
         )}
-        {interactive && (challengeEnabled || deletable) && !card.greyed && (
+        {interactive && (challengeEnabled || deletable || editable) && !card.greyed && !editing && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {editable && (
+              <MiniBtn onClick={() => startEdit(card)} label="Edit">
+                ✎
+              </MiniBtn>
+            )}
             {challengeEnabled &&
               (!card.flagged ? (
                 <MiniBtn tone="warn" onClick={() => onFlag?.(card)}>
@@ -90,7 +174,11 @@ export function ImplicationTree({
                   vote
                 </MiniBtn>
               ))}
-            {deletable && <MiniBtn onClick={() => onDelete?.(card)}>✕</MiniBtn>}
+            {deletable && (
+              <MiniBtn onClick={() => onDelete?.(card)} label="Delete">
+                ✕
+              </MiniBtn>
+            )}
           </div>
         )}
       </div>
@@ -238,14 +326,18 @@ function MiniBtn({
   children,
   onClick,
   tone,
+  label,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   tone?: "warn";
+  label?: string; // accessible name for icon-only buttons
 }) {
   return (
     <button
       onClick={onClick}
+      aria-label={label}
+      title={label}
       className={
         "rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] " +
         (tone === "warn"
