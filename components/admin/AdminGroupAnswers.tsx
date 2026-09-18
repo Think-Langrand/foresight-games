@@ -96,9 +96,54 @@ export function AdminGroupAnswers({
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [seedMsg, setSeedMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   const active = exercises.find((e) => e.exerciseId === activeId) ?? initial;
   const cardsBase = `/api/admin/projects/${projectId}/design-groups/${groupId}/cards`;
+
+  // Copy earlier-week answers onto the active implications map as key changes (FIRST).
+  // Never throws — reports the outcome inline under the seed panel.
+  async function runSeed(sourceCardIds: string[]): Promise<boolean> {
+    if (!active || sourceCardIds.length === 0) return false;
+    setSeeding(true);
+    setSeedMsg(null);
+    try {
+      const res = await fetch(`/api/admin/projects/${projectId}/design-groups/${groupId}/seed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exerciseId: active.exerciseId, sourceCardIds }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; added?: number; skipped?: number };
+      if (!res.ok) throw new Error(data.error || "Seeding failed.");
+      const added = data.added ?? 0;
+      const skipped = data.skipped ?? 0;
+      setSeedMsg({
+        tone: "ok",
+        text:
+          `Added ${added} key change${added === 1 ? "" : "s"} to the map.` +
+          (skipped ? ` ${skipped} already there.` : ""),
+      });
+      router.refresh();
+      return true;
+    } catch (e) {
+      setSeedMsg({ tone: "err", text: e instanceof Error ? e.message : "Seeding failed — please try again." });
+      return false;
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  // Seed candidates: section-tagged answers from every other week of this group.
+  const seedSources: SeedSource[] = exercises
+    .flatMap((ex) =>
+      ex.exerciseId === active?.exerciseId || ex.kind === "placeholder"
+        ? []
+        : ex.questions
+            .filter((q) => q.answers.length > 0)
+            .map((q) => ({ key: `${ex.exerciseId}:${q.key}`, weekTitle: ex.title, question: q }))
+    )
+    .sort((a, b) => Number(isKeyChanges(b.question)) - Number(isKeyChanges(a.question)));
 
   // Never throws — on failure it keeps the modal open and surfaces a message rather than
   // leaving an unhandled rejection.
@@ -202,7 +247,10 @@ export function AdminGroupAnswers({
                   key={ex.exerciseId}
                   role="tab"
                   aria-selected={on}
-                  onClick={() => setActiveId(ex.exerciseId)}
+                  onClick={() => {
+                    setActiveId(ex.exerciseId);
+                    setSeedMsg(null);
+                  }}
                   className={
                     "-mb-px border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
                     (on ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")
@@ -228,7 +276,23 @@ export function AdminGroupAnswers({
 
           {active && active.kind === "worksheet" && <WorksheetPanel ex={active} onDelete={onDeleteAnswer} />}
           {active && active.kind === "implications" && (
-            <ImplicationsPanel ex={active} view={mapView} setView={setMapView} onDelete={onDeleteAnswer} />
+            <ImplicationsPanel
+              ex={active}
+              view={mapView}
+              setView={setMapView}
+              onDelete={onDeleteAnswer}
+              seed={
+                <SeedKeyChangesPanel
+                  key={active.exerciseId}
+                  sources={seedSources}
+                  seededIds={new Set(active.cards.map((c) => c.sourceCardId).filter((x): x is string => !!x))}
+                  defaultOpen={!active.cards.some((c) => c.order === "FIRST")}
+                  busy={seeding}
+                  message={seedMsg}
+                  onSeed={runSeed}
+                />
+              }
+            />
           )}
           {active && active.kind === "placeholder" && (
             <p className="text-[14px] italic text-muted">This week hasn&rsquo;t been built yet.</p>
@@ -342,20 +406,147 @@ function QuestionBlocks({ questions, onDelete }: { questions: QuestionBlock[]; o
   );
 }
 
+interface SeedSource {
+  key: string; // `${exerciseId}:${sectionKey}`
+  weekTitle: string;
+  question: QuestionBlock;
+}
+
+// Week 1's "Our 6 key changes" is the canonical seed; sort it first and open it.
+function isKeyChanges(q: QuestionBlock): boolean {
+  return q.key === "six-changes";
+}
+
+// Seed an implications map's key changes from the group's answers on other weeks. Pick
+// answers by checkbox (or "Add all" per question); ones already on the map are ticked
+// and disabled. Seeded cards are ordinary, editable FIRST cards on the shared board.
+function SeedKeyChangesPanel({
+  sources,
+  seededIds,
+  defaultOpen,
+  busy,
+  message,
+  onSeed,
+}: {
+  sources: SeedSource[];
+  seededIds: Set<string>;
+  defaultOpen: boolean;
+  busy: boolean;
+  message: { tone: "ok" | "err"; text: string } | null;
+  onSeed: (sourceCardIds: string[]) => Promise<boolean>;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const seed = async (ids: string[]) => {
+    if (await onSeed(ids)) setSelected(new Set());
+  };
+  const picked = [...selected].filter((id) => !seededIds.has(id));
+  // Latch the initial open state so the panel doesn't snap shut once the first seed lands.
+  const [initiallyOpen] = useState(defaultOpen);
+
+  return (
+    <details open={initiallyOpen} className="rounded-[4px] border border-[var(--rule)] bg-paper p-3">
+      <summary className="cursor-pointer select-none text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
+        Seed key changes from earlier weeks
+      </summary>
+      <p className="mt-2 text-[12.5px] text-muted">
+        Copies answers onto this map as key changes (&ldquo;In this world…&rdquo;). The group can reword, delete, or
+        build on them like any card.
+      </p>
+      {sources.length === 0 ? (
+        <p className="mt-3 text-[13px] italic text-muted">No answers on this group&rsquo;s other weeks yet.</p>
+      ) : (
+        <div className="mt-3 flex flex-col gap-3">
+          {sources.map((s) => {
+            const remaining = s.question.answers.filter((a) => !seededIds.has(a.id)).map((a) => a.id);
+            return (
+              <details key={s.key} open={isKeyChanges(s.question)} className="border-t border-[var(--rule)] pt-2">
+                <summary className="flex cursor-pointer select-none flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">{s.weekTitle} ›</span>
+                  <span className="text-[13.5px] font-bold">{s.question.label || s.question.key}</span>
+                  <span className="text-[11px] text-muted">
+                    {s.question.answers.length - remaining.length}/{s.question.answers.length} on map
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault(); // don't toggle the <details>
+                      seed(remaining);
+                    }}
+                    disabled={busy || remaining.length === 0}
+                    className={btn + " ml-auto"}
+                  >
+                    Add all
+                  </button>
+                </summary>
+                <ul className="mt-2 flex flex-col gap-1">
+                  {s.question.answers.map((a) => {
+                    const done = seededIds.has(a.id);
+                    return (
+                      <li key={a.id}>
+                        <label className={"flex items-start gap-2 text-[13.5px] leading-[1.4] " + (done ? "text-muted" : "cursor-pointer")}>
+                          <input
+                            type="checkbox"
+                            className="mt-[3px] shrink-0"
+                            checked={done || selected.has(a.id)}
+                            disabled={done || busy}
+                            onChange={() => toggle(a.id)}
+                          />
+                          <span className="min-w-0">
+                            {a.text}
+                            {a.author && (
+                              <span className="ml-2 text-[10px] uppercase tracking-[0.06em] text-muted">— {a.author}</span>
+                            )}
+                            {done && (
+                              <span className="ml-2 text-[10px] font-bold uppercase tracking-[0.06em] text-muted">✓ on map</span>
+                            )}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            );
+          })}
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[var(--rule)] pt-3">
+            {message && (
+              <span className={"text-[12.5px] " + (message.tone === "err" ? "font-semibold text-coral" : "text-muted")}>
+                {message.text}
+              </span>
+            )}
+            <button onClick={() => seed(picked)} disabled={busy || picked.length === 0} className={btn}>
+              {busy ? "Adding…" : picked.length ? `Add ${picked.length} selected →` : "Add selected →"}
+            </button>
+          </div>
+        </div>
+      )}
+    </details>
+  );
+}
+
 function ImplicationsPanel({
   ex,
   view,
   setView,
   onDelete,
+  seed,
 }: {
   ex: ImplicationsExercise;
   view: MapView;
   setView: (v: MapView) => void;
   onDelete?: (row: AnswerRow) => void;
+  seed?: React.ReactNode;
 }) {
   const hasTree = ex.cards.some((c) => c.order !== "STICKY");
   return (
     <div className="flex flex-col gap-6">
+      {seed}
       <div>
         <div className="mb-3 flex items-center gap-1">
           {MAP_VIEWS.map((v) => (

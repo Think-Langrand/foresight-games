@@ -212,6 +212,8 @@ export interface RippleCard {
   greyed: boolean;
   sort: number; // orders STICKY brainstorm notes (drag-reorder); 0 for tree cards
   section: string | null; // worksheet area key for STICKY cards; null = default board
+  sourceCardId: string | null; // admin-seeded copy: the earlier-week answer it came from
+  sourceLabel: string | null; // …and that week's title, for the "from …" tag
   createdTime: string;
 }
 

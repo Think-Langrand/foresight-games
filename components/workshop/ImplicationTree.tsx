@@ -73,6 +73,11 @@ export function ImplicationTree({
           )}
         </div>
         <p className="mt-1 text-[12.5px] leading-[1.35]">{card.text}</p>
+        {card.sourceLabel && (
+          <p className="mt-1 truncate text-[9px] uppercase tracking-[0.06em] text-muted" title={`Seeded from ${card.sourceLabel}`}>
+            ↳ from {card.sourceLabel}
+          </p>
+        )}
         {interactive && (challengeEnabled || deletable) && !card.greyed && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {challengeEnabled &&

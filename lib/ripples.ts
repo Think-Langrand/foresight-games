@@ -50,6 +50,8 @@ interface CardRow {
   greyed: boolean;
   sort: number | null;
   section: string | null;
+  source_card_id: string | null;
+  source_label: string | null;
   created_at: string;
 }
 interface ChipRow {
@@ -95,6 +97,8 @@ function mapCard(r: CardRow): RippleCard {
     greyed: r.greyed ?? false,
     sort: r.sort ?? 0,
     section: r.section ?? null,
+    sourceCardId: r.source_card_id ?? null,
+    sourceLabel: r.source_label ?? null,
     createdTime: r.created_at,
   };
 }
@@ -521,6 +525,63 @@ export async function deleteCard(code: string, cardId: string): Promise<void> {
 export async function deleteAllCards(code: string): Promise<void> {
   const { error } = await supabaseAdmin().from("ripple_cards").delete().eq("code", up(code));
   if (error) throw error;
+}
+
+// Cards by id, across boards (admin seeding reads source answers from earlier weeks).
+// Returns the raw board code with each card so the caller can check where it lives.
+export async function getCardsByIds(ids: string[]): Promise<(RippleCard & { code: string })[]> {
+  if (ids.length === 0) return [];
+  const rows = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin().from("ripple_cards").select("*").in("id", ids);
+    if (error) throw error;
+    return (data ?? []) as (CardRow & { code: string })[];
+  });
+  return rows.map((r) => ({ ...mapCard(r), code: r.code }));
+}
+
+// Admin: seed a board's key changes (FIRST cards, no author) from earlier-week answers.
+// Skips sources already seeded onto this board. created_at is staggered by 1ms so the
+// tree (ordered by created time) keeps the given order within one bulk insert.
+export async function seedFirstCards(input: {
+  sessionId: string;
+  code: string;
+  teamId: string;
+  items: { sourceCardId: string; text: string; sourceLabel: string }[];
+}): Promise<{ added: number; skipped: number }> {
+  const code = up(input.code);
+  const ids = input.items.map((i) => i.sourceCardId);
+  if (ids.length === 0) return { added: 0, skipped: 0 };
+  const already = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("ripple_cards")
+      .select("source_card_id")
+      .eq("code", code)
+      .in("source_card_id", ids);
+    if (error) throw error;
+    return new Set((data ?? []).map((r) => r.source_card_id as string));
+  });
+  const fresh = input.items.filter((i, idx) => !already.has(i.sourceCardId) && ids.indexOf(i.sourceCardId) === idx);
+  if (fresh.length > 0) {
+    const base = Date.now();
+    const { error } = await supabaseAdmin()
+      .from("ripple_cards")
+      .insert(
+        fresh.map((i, n) => ({
+          session_id: input.sessionId,
+          code,
+          team_id: input.teamId,
+          author_player_id: null,
+          card_order: "FIRST",
+          parent_card_id: null,
+          text: i.text,
+          source_card_id: i.sourceCardId,
+          source_label: i.sourceLabel,
+          created_at: new Date(base + n).toISOString(),
+        }))
+      );
+    if (error) throw error;
+  }
+  return { added: fresh.length, skipped: input.items.length - fresh.length };
 }
 
 export async function flagCard(code: string, cardId: string): Promise<void> {
