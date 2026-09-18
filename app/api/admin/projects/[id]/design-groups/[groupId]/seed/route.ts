@@ -10,6 +10,8 @@ import { getCardsByIds, getRippleTeams, seedFirstCards } from "@/lib/ripples";
 
 export const dynamic = "force-dynamic";
 
+// Per-request cap; the admin UI batches larger selections ("Add all") to this size
+// (SEED_BATCH in components/admin/AdminGroupAnswers.tsx — keep them equal).
 const MAX_SEED = 50;
 
 // Admin-only: seed an implications week's key changes (FIRST cards) from answers on the

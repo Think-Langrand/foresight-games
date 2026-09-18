@@ -57,6 +57,9 @@ export interface GroupAnswersData {
   exercises: ExerciseAnswers[];
 }
 
+// Max answers per seed request — must match MAX_SEED in the .../design-groups/[groupId]/seed route.
+const SEED_BATCH = 50;
+
 const MAP_VIEWS = ["wheel", "tree", "list"] as const;
 type MapView = (typeof MAP_VIEWS)[number];
 const MAP_LABELS: Record<MapView, string> = { wheel: "Wheel", tree: "Tree", list: "List" };
@@ -108,16 +111,21 @@ export function AdminGroupAnswers({
     if (!active || sourceCardIds.length === 0) return false;
     setSeeding(true);
     setSeedMsg(null);
+    let added = 0;
+    let skipped = 0;
     try {
-      const res = await fetch(`/api/admin/projects/${projectId}/design-groups/${groupId}/seed`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exerciseId: active.exerciseId, sourceCardIds }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; added?: number; skipped?: number };
-      if (!res.ok) throw new Error(data.error || "Seeding failed.");
-      const added = data.added ?? 0;
-      const skipped = data.skipped ?? 0;
+      // The route caps one request at SEED_BATCH answers; "Add all" can exceed that.
+      for (let i = 0; i < sourceCardIds.length; i += SEED_BATCH) {
+        const res = await fetch(`/api/admin/projects/${projectId}/design-groups/${groupId}/seed`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ exerciseId: active.exerciseId, sourceCardIds: sourceCardIds.slice(i, i + SEED_BATCH) }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string; added?: number; skipped?: number };
+        if (!res.ok) throw new Error(data.error || "Seeding failed.");
+        added += data.added ?? 0;
+        skipped += data.skipped ?? 0;
+      }
       setSeedMsg({
         tone: "ok",
         text:
@@ -127,7 +135,10 @@ export function AdminGroupAnswers({
       router.refresh();
       return true;
     } catch (e) {
-      setSeedMsg({ tone: "err", text: e instanceof Error ? e.message : "Seeding failed — please try again." });
+      const msg = e instanceof Error ? e.message : "Seeding failed — please try again.";
+      // Earlier batches may already have landed — say so and show them.
+      setSeedMsg({ tone: "err", text: added ? `${msg} (${added} added before the error.)` : msg });
+      if (added) router.refresh();
       return false;
     } finally {
       setSeeding(false);

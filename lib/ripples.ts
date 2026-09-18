@@ -540,8 +540,10 @@ export async function getCardsByIds(ids: string[]): Promise<(RippleCard & { code
 }
 
 // Admin: seed a board's key changes (FIRST cards, no author) from earlier-week answers.
-// Skips sources already seeded onto this board. created_at is staggered by 1ms so the
-// tree (ordered by created time) keeps the given order within one bulk insert.
+// Sources already seeded onto this board are skipped atomically by the unique
+// (code, source_card_id) constraint (0018), so concurrent requests can't duplicate.
+// created_at is staggered by 1ms so the tree (ordered by created time) keeps the given
+// order within one bulk insert.
 export async function seedFirstCards(input: {
   sessionId: string;
   code: string;
@@ -549,24 +551,16 @@ export async function seedFirstCards(input: {
   items: { sourceCardId: string; text: string; sourceLabel: string }[];
 }): Promise<{ added: number; skipped: number }> {
   const code = up(input.code);
-  const ids = input.items.map((i) => i.sourceCardId);
-  if (ids.length === 0) return { added: 0, skipped: 0 };
-  const already = await withRetry(async () => {
+  const unique = input.items.filter(
+    (i, idx) => input.items.findIndex((j) => j.sourceCardId === i.sourceCardId) === idx
+  );
+  let added = 0;
+  if (unique.length > 0) {
+    const base = Date.now();
     const { data, error } = await supabaseAdmin()
       .from("ripple_cards")
-      .select("source_card_id")
-      .eq("code", code)
-      .in("source_card_id", ids);
-    if (error) throw error;
-    return new Set((data ?? []).map((r) => r.source_card_id as string));
-  });
-  const fresh = input.items.filter((i, idx) => !already.has(i.sourceCardId) && ids.indexOf(i.sourceCardId) === idx);
-  if (fresh.length > 0) {
-    const base = Date.now();
-    const { error } = await supabaseAdmin()
-      .from("ripple_cards")
-      .insert(
-        fresh.map((i, n) => ({
+      .upsert(
+        unique.map((i, n) => ({
           session_id: input.sessionId,
           code,
           team_id: input.teamId,
@@ -577,11 +571,14 @@ export async function seedFirstCards(input: {
           source_card_id: i.sourceCardId,
           source_label: i.sourceLabel,
           created_at: new Date(base + n).toISOString(),
-        }))
-      );
+        })),
+        { onConflict: "code,source_card_id", ignoreDuplicates: true }
+      )
+      .select("id");
     if (error) throw error;
+    added = data?.length ?? 0;
   }
-  return { added: fresh.length, skipped: input.items.length - fresh.length };
+  return { added, skipped: input.items.length - added };
 }
 
 export async function flagCard(code: string, cardId: string): Promise<void> {
