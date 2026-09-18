@@ -4,11 +4,14 @@ import { getProjectBySlug } from "@/lib/projects";
 import { getSessionUser } from "@/lib/supabase-auth";
 import { getSessionByCode } from "@/lib/workshop";
 import { getDesignGroup } from "@/lib/design-groups";
-import { getExercise } from "@/lib/design-group-exercises";
+import { getExercise, listExercises } from "@/lib/design-group-exercises";
 import { getRippleScenario, getRippleDrivers } from "@/lib/ripples";
-import { exerciseStatus, getExerciseType } from "@/lib/exercise-types";
+import { exerciseStatus, getExerciseType, isBoardBacked } from "@/lib/exercise-types";
+import { shapeExerciseAnswers } from "@/lib/group-answers";
 import { RipplesTeamView } from "@/components/workshop/RipplesTeamView";
 import { WorksheetView } from "@/components/workshop/WorksheetView";
+import { SessionTabs } from "@/components/design-groups/SessionTabs";
+import type { ExerciseAnswers } from "@/components/design-groups/AnswerPanels";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +30,9 @@ function Gate({ backHref, title, children }: { backHref: string; title: string; 
 // One exercise (week), full-screen. Gated on close + schedule (admins bypass both). A
 // `closed` or not-yet-`scheduled` week is blocked for members; `locked` still renders
 // read-only. The exercise type decides the renderer: the implications tree, the
-// spec-driven worksheet, or a "being designed" placeholder.
+// spec-driven worksheet, or a "being designed" placeholder. Earlier weeks' answers ride
+// along as read-only session tabs (shaped server-side — their board codes never reach
+// the client, so a closed earlier week stays viewable but not writable).
 export default async function DesignGroupExercisePage({
   params,
 }: {
@@ -77,22 +82,39 @@ export default async function DesignGroupExercisePage({
     );
   }
 
-  const [scenario, drivers] = await Promise.all([
+  // Earlier weeks = lower sort, board-backed (placeholders skipped). Closed ones included:
+  // they're shown read-only, and only their shaped answers are sent.
+  const earlier = (await listExercises(groupId)).filter(
+    (ex) => ex.sort < exercise.sort && isBoardBacked(ex.type) && ex.sessionCode
+  );
+  const [scenario, drivers, pastWeeks] = await Promise.all([
     getRippleScenario(session),
     getRippleDrivers(session),
+    // Each earlier week loads independently: the tabs are ancillary, so one failing board
+    // becomes an "unavailable" tab rather than taking down the live session.
+    Promise.all(
+      earlier.map((ex) =>
+        shapeExerciseAnswers(ex, { scenarioTitle: group.scenarioTitle }).catch((err): ExerciseAnswers => {
+          console.error(`[design-group session] earlier week ${ex.id} failed to load`, err);
+          return { kind: "placeholder", exerciseId: ex.id, title: ex.title, unavailable: true };
+        })
+      )
+    ),
   ]);
   const render = getExerciseType(exercise.type)?.render ?? "placeholder";
 
   if (render === "implications") {
     return (
-      <RipplesTeamView
-        code={session.code}
-        scenario={scenario}
-        drivers={drivers}
-        basePath={`/project/${title}`}
-        hiddenSections={project.homeConfig.hiddenScenarioSections}
-        sections={exercise.sections}
-      />
+      <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>
+        <RipplesTeamView
+          code={session.code}
+          scenario={scenario}
+          drivers={drivers}
+          basePath={`/project/${title}`}
+          hiddenSections={project.homeConfig.hiddenScenarioSections}
+          sections={exercise.sections}
+        />
+      </SessionTabs>
     );
   }
   if (render === "worksheet") {
@@ -101,15 +123,17 @@ export default async function DesignGroupExercisePage({
     const sections =
       exercise.sections.length > 0 ? exercise.sections : getExerciseType(exercise.type)?.sections ?? [];
     return (
-      <WorksheetView
-        code={session.code}
-        sections={sections}
-        title={exercise.title}
-        backHref={backHref}
-        scenario={scenario}
-        drivers={drivers}
-        hiddenSections={project.homeConfig.hiddenScenarioSections}
-      />
+      <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>
+        <WorksheetView
+          code={session.code}
+          sections={sections}
+          title={exercise.title}
+          backHref={backHref}
+          scenario={scenario}
+          drivers={drivers}
+          hiddenSections={project.homeConfig.hiddenScenarioSections}
+        />
+      </SessionTabs>
     );
   }
   return (
