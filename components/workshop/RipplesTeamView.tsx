@@ -351,13 +351,15 @@ export function RipplesTeamView({
 
           <section>
             <SectionHead n={2} title="Map the implications">
-              Start from the scenario: add key changes, then branch each forward — “Because of that…”, then “And this causes…”.
+              Start from the scenario: add key changes, then branch each forward — “Because of that…”, then “And
+              this causes…”, as far down the chain as it stays useful.
             </SectionHead>
             <div className="mt-3">
               <ImplicationTree
                 cards={myCards}
                 scenarioTitle={config.scenarioTitle}
                 interactive
+                showHeaders
                 busy={busy}
                 challengeEnabled={config.challengeEnabled}
                 canDelete={canEditCard}

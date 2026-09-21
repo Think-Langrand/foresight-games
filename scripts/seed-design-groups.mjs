@@ -63,9 +63,6 @@ const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const randomCode = () =>
   Array.from({ length: 4 }, () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join("");
 
-// Tree cards need their parent inserted first; stickies have no parent.
-const DEPTH = { STICKY: 0, FIRST: 0, SECOND: 1, TERMINAL: 2 };
-
 async function createBoard({ projectId, title, prompt, config, color, phase }) {
   for (let attempt = 0; attempt < 6; attempt++) {
     const code = randomCode();
@@ -202,9 +199,21 @@ async function main() {
       }
 
       for (const c of cards) idMap.set(c.id, randomUUID());
-      for (const depth of [0, 1, 2]) {
-        const rows = cards
-          .filter((c) => (DEPTH[c.order] ?? 0) === depth)
+      // Insert in waves so a card's parent always exists first: wave 0 is the
+      // parentless cards, each later wave the children of everything already in.
+      // Depth-agnostic, so the tree can be as deep as the fixture goes.
+      const pending = [...cards];
+      const inserted = new Set();
+      while (pending.length) {
+        const wave = pending.filter((c) => !c.parentId || inserted.has(c.parentId));
+        if (!wave.length) {
+          throw new Error(
+            `Seed cards have an unresolvable parent chain (cycle or dangling parentId): ${pending
+              .map((c) => c.id)
+              .join(", ")}`
+          );
+        }
+        const rows = wave
           .map((c) => ({
             id: idMap.get(c.id),
             session_id: board.sessionId,
@@ -221,6 +230,10 @@ async function main() {
             created_at: c.createdAt,
           }));
         if (rows.length) await q(sb.from("ripple_cards").insert(rows));
+        for (const c of wave) {
+          inserted.add(c.id);
+          pending.splice(pending.indexOf(c), 1);
+        }
       }
       cardCount += cards.length;
     }
