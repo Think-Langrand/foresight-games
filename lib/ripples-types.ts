@@ -2,8 +2,9 @@
 // No server imports — safe in client components, route handlers, and tests.
 //
 // The game: players build causal chains of implication cards inside a scenario
-// (FIRST "In this world…" → SECOND "Because of that…" → TERMINAL "And this causes…"),
-// then wager chips on which implications matter. A facilitator advances phases.
+// ("In this world…" → "Because of that…" → "And this causes…", branching onward as
+// far as the group wants to push it), then wager chips on which implications
+// matter. A facilitator advances phases.
 
 import type { WorkshopSession } from "@/lib/workshop-types";
 
@@ -52,26 +53,86 @@ export function stepPhase(current: RipplePhase, dir: 1 | -1): RipplePhase {
 // ---------------------------------------------------------------------------
 // Card order + the prompt each level of the tree uses
 // ---------------------------------------------------------------------------
-// FIRST = a key change (root of the tree, off the scenario node); SECOND/TERMINAL
-// are the implications that branch from it. STICKY = a freeform brainstorm note,
-// independent of the tree (never a parent or child).
-export type CardOrder = "FIRST" | "SECOND" | "TERMINAL" | "STICKY";
+// A tree card's order encodes its depth, so the server can check a new card's
+// level from the parent row alone — no chain walk. The chain grows as far as a
+// group wants to push it, and the three original names are the first three
+// entries, so existing boards keep working untouched:
+//
+//   depth 0 → "FIRST"    (= 1st entry) — a key change, hanging off the scenario
+//   depth 1 → "SECOND"
+//   depth 2 → "TERMINAL"
+//   depth 3+ → "ORDER_4", "ORDER_5", …  (ORDER_n = the nth level = depth n-1)
+//
+// Raising the cap is appending one string here. `card_order` is plain text with
+// no CHECK constraint (supabase/migrations/0007_ripples.sql) — don't add one, or
+// this list stops being the single source of truth.
+export const TREE_ORDERS = [
+  "FIRST",
+  "SECOND",
+  "TERMINAL",
+  "ORDER_4",
+  "ORDER_5",
+  "ORDER_6",
+  "ORDER_7",
+  "ORDER_8",
+  "ORDER_9",
+  "ORDER_10",
+] as const;
 
-export const PHASE_PREFIXES: Record<CardOrder, string> = {
-  FIRST: "In this world…",
-  SECOND: "Because of that…",
-  TERMINAL: "And this causes…",
-  STICKY: "Note",
-};
+export type TreeOrder = (typeof TREE_ORDERS)[number];
 
-export function prefixFor(order: CardOrder): string {
-  return PHASE_PREFIXES[order];
+// STICKY is a freeform brainstorm note, independent of the tree (never a parent
+// or child), so it has no depth at all.
+export type CardOrder = TreeOrder | "STICKY";
+
+// Deepest tree level, 0-based. A guard against a runaway map, not a design
+// limit; real chains stop well short of it.
+export const MAX_TREE_DEPTH = TREE_ORDERS.length - 1;
+
+const DEPTH_BY_ORDER = new Map<string, number>(TREE_ORDERS.map((o, i) => [o, i] as const));
+
+// A card order's depth in the tree, or null if it isn't a tree card at all.
+// Tolerant of junk (an unrecognised value reads as null) so one bad row can't
+// throw the whole board.
+export function depthOfOrder(order: CardOrder | string): number | null {
+  return DEPTH_BY_ORDER.get(order) ?? null;
 }
 
-// The card order a given parent's child must be (scenario root → FIRST → SECOND →
-// TERMINAL). Root (no parent) → FIRST. TERMINAL is a leaf (null = no more).
-export function childOrderOf(parentOrder: CardOrder | null): CardOrder | null {
-  return parentOrder === null ? "FIRST" : parentOrder === "FIRST" ? "SECOND" : parentOrder === "SECOND" ? "TERMINAL" : null;
+// The order a card at `depth` must carry; null past the cap.
+export function orderAtDepth(depth: number): TreeOrder | null {
+  return TREE_ORDERS[depth] ?? null;
+}
+
+export function isTreeOrder(v: string): v is TreeOrder {
+  return DEPTH_BY_ORDER.has(v);
+}
+
+// The card order a given parent's child must be. Root (no parent) → FIRST.
+// null = no child allowed: the chain has bottomed out at MAX_TREE_DEPTH, or the
+// parent isn't a tree card (a STICKY note never takes children).
+export function childOrderOf(parentOrder: CardOrder | null): TreeOrder | null {
+  if (parentOrder === null) return "FIRST";
+  const depth = depthOfOrder(parentOrder);
+  return depth === null ? null : orderAtDepth(depth + 1);
+}
+
+// The build-form prompt for a level. Past the second level the phrasing just
+// repeats — every further step is another "and this causes…".
+export function prefixForDepth(depth: number): string {
+  return depth <= 0 ? "In this world…" : depth === 1 ? "Because of that…" : "And this causes…";
+}
+
+// 1 → "1st", 2 → "2nd", 3 → "3rd", 4 → "4th"… (11/12/13 are the usual exceptions).
+export function ordinal(n: number): string {
+  const suffix =
+    n % 100 >= 11 && n % 100 <= 13 ? "th" : n % 10 === 1 ? "st" : n % 10 === 2 ? "nd" : n % 10 === 3 ? "rd" : "th";
+  return `${n}${suffix}`;
+}
+
+// How a level is named to the reader: the roots are the key changes, and their
+// implications count outward from there (1st order, 2nd order, …).
+export function orderLabelForDepth(depth: number): string {
+  return depth <= 0 ? "Key change" : `${ordinal(depth)} order`;
 }
 
 export const CARD_TEXT_MAX = 200;
@@ -212,6 +273,8 @@ export interface RippleCard {
   greyed: boolean;
   sort: number; // orders STICKY brainstorm notes (drag-reorder); 0 for tree cards
   section: string | null; // worksheet area key for STICKY cards; null = default board
+  sourceCardId: string | null; // admin-seeded copy: the earlier-week answer it came from
+  sourceLabel: string | null; // …and that week's title, for the "from …" tag
   createdTime: string;
 }
 
@@ -238,6 +301,13 @@ export interface RipplesView {
 // Pure derivations (used by the harvest panel, export, and unit tests)
 // ---------------------------------------------------------------------------
 
+// The tree's roots: parentless cards that aren't brainstorm notes. Keyed off
+// parentId rather than order === "FIRST" so a row whose order disagrees with its
+// position still reads as the root of its chain.
+export function isTreeRoot(card: RippleCard): boolean {
+  return card.parentId === null && card.order !== "STICKY";
+}
+
 // parentId → its children, sorted oldest-first. Roots live under the null key.
 export function buildChildrenMap(cards: RippleCard[]): Map<string | null, RippleCard[]> {
   const map = new Map<string | null, RippleCard[]>();
@@ -251,6 +321,51 @@ export function buildChildrenMap(cards: RippleCard[]): Map<string | null, Ripple
     arr.sort((a, b) => a.createdTime.localeCompare(b.createdTime));
   }
   return map;
+}
+
+// cardId → its depth in the tree, walked from the roots. This — not the stored
+// `card_order` — is what every view labels and colours by, so a row whose order
+// disagrees with where it actually sits still reads correctly. Cards orphaned by
+// a missing parent, caught in a parent cycle, or past MAX_TREE_DEPTH are absent
+// from the map (and so invisible in every view).
+export function depthByCard(cards: RippleCard[]): Map<string, number> {
+  const children = buildChildrenMap(cards);
+  const depths = new Map<string, number>();
+  let level = cards.filter(isTreeRoot);
+  for (let depth = 0; depth <= MAX_TREE_DEPTH && level.length > 0; depth++) {
+    const next: RippleCard[] = [];
+    for (const card of level) {
+      if (depths.has(card.id)) continue; // cycle guard
+      depths.set(card.id, depth);
+      next.push(...(children.get(card.id) ?? []));
+    }
+    level = next;
+  }
+  return depths;
+}
+
+// The deepest implication column a tree will actually draw, 0-based (-1 = none).
+// Mirrors the render predicates exactly: every non-greyed card that can still
+// take a child renders a ＋ one column further right, and in interactive mode the
+// add-a-key-change ＋ always occupies column 0. Drives the column headers. Pass
+// `depths` when the caller already has the map, to avoid walking the tree twice.
+export function maxRenderedDepth(
+  cards: RippleCard[],
+  {
+    interactive = false,
+    depths = depthByCard(cards),
+  }: { interactive?: boolean; depths?: Map<string, number> } = {}
+): number {
+  const byId = new Map(cards.map((c) => [c.id, c] as const));
+  let max = interactive ? 0 : -1; // the add-root ＋ always holds column 0
+  for (const [id, depth] of depths) {
+    if (depth > max) max = depth;
+    if (!interactive) continue;
+    const card = byId.get(id);
+    if (!card || card.greyed) continue;
+    if (childOrderOf(card.order) !== null && depth + 1 > max) max = depth + 1;
+  }
+  return Math.min(max, MAX_TREE_DEPTH);
 }
 
 export function chipCountByCard(chips: RippleChip[]): Map<string, number> {
@@ -285,7 +400,7 @@ export function longestChain(
     return result;
   }
 
-  const roots = cards.filter((c) => c.order === "FIRST");
+  const roots = cards.filter(isTreeRoot);
   let best: RippleCard[] = [];
   for (const root of roots) {
     const chain = longestFrom(root, new Set());
@@ -332,7 +447,7 @@ export function mostBranchedFirstOrder(
   cards: RippleCard[]
 ): { card: RippleCard; branchCount: number; subtreeSize: number } | null {
   const children = buildChildrenMap(cards);
-  const roots = cards.filter((c) => c.order === "FIRST");
+  const roots = cards.filter(isTreeRoot);
   let best: { card: RippleCard; branchCount: number; subtreeSize: number } | null = null;
   for (const root of roots) {
     const branchCount = (children.get(root.id) ?? []).length;
@@ -380,7 +495,7 @@ export function enumerateChains(
     seen.delete(card.id);
   }
 
-  for (const root of teamCards.filter((c) => c.order === "FIRST")) {
+  for (const root of teamCards.filter(isTreeRoot)) {
     walk(root, [], new Set());
   }
   return out;

@@ -1,12 +1,23 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_RIPPLES_CONFIG,
+  MAX_TREE_DEPTH,
+  TREE_ORDERS,
   buildChildrenMap,
+  childOrderOf,
   chipCountByCard,
+  depthByCard,
+  depthOfOrder,
   enumerateChains,
+  isTreeOrder,
   longestChain,
+  maxRenderedDepth,
   mostBranchedFirstOrder,
   mostChippedCards,
+  orderAtDepth,
+  orderLabelForDepth,
+  ordinal,
+  prefixForDepth,
   resolveConfig,
   stepPhase,
   type CardOrder,
@@ -34,6 +45,8 @@ function card(
     flagged: false,
     greyed: false,
     section: null,
+    sourceCardId: null,
+    sourceLabel: null,
     createdTime: `2026-01-01T00:00:${String(seq).padStart(2, "0")}Z`,
   };
 }
@@ -171,5 +184,187 @@ describe("stepPhase", () => {
     expect(stepPhase("LOBBY", -1)).toBe("LOBBY");
     expect(stepPhase("CLOSED", 1)).toBe("CLOSED");
     expect(stepPhase("BUILD", -1)).toBe("PREMISE");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Depth model — the order alphabet, the cap, and the labels
+// ---------------------------------------------------------------------------
+
+// A chain as deep as the cap allows, built with orderAtDepth so it can't drift
+// out of step with the alphabet. D0 is the root, D9 the deepest legal card.
+const deepChain: RippleCard[] = Array.from({ length: MAX_TREE_DEPTH + 1 }, (_, d) =>
+  card(`D${d}`, orderAtDepth(d)!, d === 0 ? null : `D${d - 1}`, "T3", 10 + d)
+);
+
+describe("the order alphabet", () => {
+  it("pins the legacy names to their depths, so old boards keep reading correctly", () => {
+    expect(depthOfOrder("FIRST")).toBe(0);
+    expect(depthOfOrder("SECOND")).toBe(1);
+    expect(depthOfOrder("TERMINAL")).toBe(2);
+    expect(depthOfOrder("ORDER_4")).toBe(3);
+  });
+
+  it("round-trips every tree order through depth and back", () => {
+    for (const order of TREE_ORDERS) {
+      expect(orderAtDepth(depthOfOrder(order)!)).toBe(order);
+    }
+  });
+
+  it("has no depth for a note or for junk", () => {
+    expect(depthOfOrder("STICKY")).toBeNull();
+    expect(depthOfOrder("NONSENSE")).toBeNull();
+    expect(depthOfOrder("ORDER_0")).toBeNull();
+    expect(depthOfOrder("ORDER_999")).toBeNull();
+    expect(isTreeOrder("STICKY")).toBe(false);
+    expect(isTreeOrder("TERMINAL")).toBe(true);
+  });
+
+  it("caps the map at ten levels", () => {
+    // Pinned literally: appending to TREE_ORDERS is a product decision, not a typo.
+    expect(MAX_TREE_DEPTH).toBe(9);
+    expect(TREE_ORDERS).toHaveLength(10);
+    expect(orderAtDepth(MAX_TREE_DEPTH)).not.toBeNull();
+    expect(orderAtDepth(MAX_TREE_DEPTH + 1)).toBeNull();
+  });
+});
+
+describe("childOrderOf", () => {
+  it("walks the chain one level at a time, past the old three-level limit", () => {
+    expect(childOrderOf(null)).toBe("FIRST");
+    expect(childOrderOf("FIRST")).toBe("SECOND");
+    expect(childOrderOf("SECOND")).toBe("TERMINAL");
+    expect(childOrderOf("TERMINAL")).toBe("ORDER_4");
+    expect(childOrderOf("ORDER_4")).toBe("ORDER_5");
+  });
+
+  it("stops exactly at the cap", () => {
+    expect(childOrderOf(orderAtDepth(MAX_TREE_DEPTH - 1))).toBe(orderAtDepth(MAX_TREE_DEPTH));
+    expect(childOrderOf(orderAtDepth(MAX_TREE_DEPTH))).toBeNull();
+  });
+
+  it("refuses to give a note or a junk order any children", () => {
+    expect(childOrderOf("STICKY")).toBeNull();
+    expect(childOrderOf("NONSENSE" as CardOrder)).toBeNull();
+  });
+});
+
+describe("level labels", () => {
+  it("names the roots as key changes and counts implications outward from there", () => {
+    expect(orderLabelForDepth(0)).toBe("Key change");
+    expect(orderLabelForDepth(1)).toBe("1st order");
+    expect(orderLabelForDepth(2)).toBe("2nd order");
+    expect(orderLabelForDepth(3)).toBe("3rd order");
+    expect(orderLabelForDepth(9)).toBe("9th order");
+  });
+
+  it("gets the teens right", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111, 112, 113].map(ordinal)).toEqual([
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "11th",
+      "12th",
+      "13th",
+      "21st",
+      "22nd",
+      "23rd",
+      "101st",
+      "111th",
+      "112th",
+      "113th",
+    ]);
+  });
+
+  it("keeps the first two build prompts and repeats the third from then on", () => {
+    expect(prefixForDepth(0)).toBe("In this world…");
+    expect(prefixForDepth(1)).toBe("Because of that…");
+    for (let d = 2; d <= MAX_TREE_DEPTH; d++) {
+      expect(prefixForDepth(d)).toBe("And this causes…");
+    }
+  });
+});
+
+describe("depthByCard", () => {
+  it("walks depth from the roots, not from the stored order", () => {
+    const depths = depthByCard(cards);
+    expect(depths.get("A")).toBe(0);
+    expect(depths.get("B")).toBe(1);
+    expect(depths.get("C")).toBe(2);
+    expect(depths.get("D")).toBe(1);
+    expect(depths.get("F")).toBe(0);
+  });
+
+  it("trusts position over a mislabelled order", () => {
+    // X claims to be a key change but hangs off a root — it's a 1st-order card.
+    const mislabelled = [card("W", "FIRST", null, "T4", 1), card("X", "FIRST", "W", "T4", 2)];
+    expect(depthByCard(mislabelled).get("X")).toBe(1);
+  });
+
+  it("covers a chain all the way to the cap", () => {
+    const depths = depthByCard(deepChain);
+    expect(depths.size).toBe(MAX_TREE_DEPTH + 1);
+    expect(depths.get(`D${MAX_TREE_DEPTH}`)).toBe(MAX_TREE_DEPTH);
+  });
+
+  it("leaves out brainstorm notes, orphans, and cycles", () => {
+    const sticky = card("S", "STICKY", null, "T5", 1);
+    const orphan = card("O", "SECOND", "missing", "T5", 2);
+    const loopA = card("LA", "SECOND", "LB", "T5", 3);
+    const loopB = card("LB", "SECOND", "LA", "T5", 4);
+    const depths = depthByCard([sticky, orphan, loopA, loopB]);
+    expect(depths.size).toBe(0);
+  });
+});
+
+describe("maxRenderedDepth", () => {
+  it("reports only the occupied columns when read-only", () => {
+    expect(maxRenderedDepth(cards)).toBe(2);
+    expect(maxRenderedDepth([])).toBe(-1);
+  });
+
+  it("leaves room for the ＋ column when interactive", () => {
+    expect(maxRenderedDepth(cards, { interactive: true })).toBe(3);
+    // No cards yet, but the add-a-key-change ＋ still needs column 0.
+    expect(maxRenderedDepth([], { interactive: true })).toBe(0);
+  });
+
+  it("adds no ＋ column for a greyed leaf, which can't take children", () => {
+    const leaf = card("B", "SECOND", "A", "T6", 2);
+    const root = card("A", "FIRST", null, "T6", 1);
+    // Live leaf at depth 1 → its ＋ opens column 2. Greyed, it opens nothing, and
+    // the widest row is A's own ＋ back at column 1.
+    expect(maxRenderedDepth([root, leaf], { interactive: true })).toBe(2);
+    expect(maxRenderedDepth([root, { ...leaf, greyed: true }], { interactive: true })).toBe(1);
+  });
+
+  it("adds no ＋ column past the cap", () => {
+    expect(maxRenderedDepth(deepChain, { interactive: true })).toBe(MAX_TREE_DEPTH);
+  });
+
+  it("gives the same answer from a precomputed depth map", () => {
+    // The tree passes its own map in so the walk happens once per render.
+    for (const board of [cards, deepChain, []]) {
+      for (const interactive of [true, false]) {
+        expect(maxRenderedDepth(board, { interactive, depths: depthByCard(board) })).toBe(
+          maxRenderedDepth(board, { interactive })
+        );
+      }
+    }
+  });
+});
+
+describe("deep chains in the derivations", () => {
+  it("follows a chain past the old three-level limit", () => {
+    const best = longestChain(deepChain);
+    expect(best?.chain).toHaveLength(MAX_TREE_DEPTH + 1);
+    expect(best?.chain.map((c) => c.id)).toEqual(deepChain.map((c) => c.id));
+  });
+
+  it("enumerates a deep chain as one root→leaf path", () => {
+    const chains = enumerateChains(deepChain, [], "T3");
+    expect(chains).toHaveLength(1);
+    expect(chains[0].chain).toHaveLength(MAX_TREE_DEPTH + 1);
   });
 });

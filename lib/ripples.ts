@@ -50,6 +50,8 @@ interface CardRow {
   greyed: boolean;
   sort: number | null;
   section: string | null;
+  source_card_id: string | null;
+  source_label: string | null;
   created_at: string;
 }
 interface ChipRow {
@@ -95,6 +97,8 @@ function mapCard(r: CardRow): RippleCard {
     greyed: r.greyed ?? false,
     sort: r.sort ?? 0,
     section: r.section ?? null,
+    sourceCardId: r.source_card_id ?? null,
+    sourceLabel: r.source_label ?? null,
     createdTime: r.created_at,
   };
 }
@@ -521,6 +525,60 @@ export async function deleteCard(code: string, cardId: string): Promise<void> {
 export async function deleteAllCards(code: string): Promise<void> {
   const { error } = await supabaseAdmin().from("ripple_cards").delete().eq("code", up(code));
   if (error) throw error;
+}
+
+// Cards by id, across boards (admin seeding reads source answers from earlier weeks).
+// Returns the raw board code with each card so the caller can check where it lives.
+export async function getCardsByIds(ids: string[]): Promise<(RippleCard & { code: string })[]> {
+  if (ids.length === 0) return [];
+  const rows = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin().from("ripple_cards").select("*").in("id", ids);
+    if (error) throw error;
+    return (data ?? []) as (CardRow & { code: string })[];
+  });
+  return rows.map((r) => ({ ...mapCard(r), code: r.code }));
+}
+
+// Admin: seed a board's key changes (FIRST cards, no author) from earlier-week answers.
+// Sources already seeded onto this board are skipped atomically by the unique
+// (code, source_card_id) constraint (0018), so concurrent requests can't duplicate.
+// created_at is staggered by 1ms so the tree (ordered by created time) keeps the given
+// order within one bulk insert.
+export async function seedFirstCards(input: {
+  sessionId: string;
+  code: string;
+  teamId: string;
+  items: { sourceCardId: string; text: string; sourceLabel: string }[];
+}): Promise<{ added: number; skipped: number }> {
+  const code = up(input.code);
+  const unique = input.items.filter(
+    (i, idx) => input.items.findIndex((j) => j.sourceCardId === i.sourceCardId) === idx
+  );
+  let added = 0;
+  if (unique.length > 0) {
+    const base = Date.now();
+    const { data, error } = await supabaseAdmin()
+      .from("ripple_cards")
+      .upsert(
+        unique.map((i, n) => ({
+          session_id: input.sessionId,
+          code,
+          team_id: input.teamId,
+          author_player_id: null,
+          card_order: "FIRST",
+          parent_card_id: null,
+          text: i.text,
+          source_card_id: i.sourceCardId,
+          source_label: i.sourceLabel,
+          created_at: new Date(base + n).toISOString(),
+        })),
+        { onConflict: "code,source_card_id", ignoreDuplicates: true }
+      )
+      .select("id");
+    if (error) throw error;
+    added = data?.length ?? 0;
+  }
+  return { added, skipped: input.items.length - added };
 }
 
 export async function flagCard(code: string, cardId: string): Promise<void> {
