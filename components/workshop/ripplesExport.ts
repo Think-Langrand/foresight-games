@@ -5,18 +5,21 @@
 // present view and solo play.
 
 import {
-  PHASE_PREFIXES,
   chipCountByCard,
+  depthByCard,
   enumerateChains,
   longestChain,
   mostBranchedFirstOrder,
   mostChippedCards,
+  orderLabelForDepth,
+  prefixForDepth,
   type RipplesView,
 } from "@/lib/ripples-types";
 
 export function buildRipplesExport(view: RipplesView) {
   const { session, config, teams, players, cards, chips } = view;
   const chipCounts = chipCountByCard(chips);
+  const depths = depthByCard(cards);
   return {
     code: session.code,
     title: config.scenarioTitle,
@@ -44,17 +47,25 @@ export function buildRipplesExport(view: RipplesView) {
             submittedAt: p.submittedAt,
             answers: config.questions.map((q, i) => ({ question: q, answer: p.answers[String(i)] ?? "" })),
           })),
-        cards: tc.map((c) => ({
-          id: c.id,
-          order: c.order,
-          parentId: c.parentId,
-          prefix: PHASE_PREFIXES[c.order],
-          text: c.text,
-          authorPlayerId: c.authorPlayerId,
-          flagged: c.flagged,
-          greyed: c.greyed,
-          chipTotal: chipCounts.get(c.id) ?? 0,
-        })),
+        cards: tc.map((c) => {
+          // Depth is walked from the roots, so it's right even for a legacy row
+          // whose stored order disagrees with where it sits. A brainstorm note has
+          // no depth and so no level label.
+          const depth = depths.get(c.id) ?? null;
+          return {
+            id: c.id,
+            order: c.order,
+            depth,
+            level: depth === null ? null : orderLabelForDepth(depth),
+            parentId: c.parentId,
+            prefix: depth === null ? "Note" : prefixForDepth(depth),
+            text: c.text,
+            authorPlayerId: c.authorPlayerId,
+            flagged: c.flagged,
+            greyed: c.greyed,
+            chipTotal: chipCounts.get(c.id) ?? 0,
+          };
+        }),
         chains: enumerateChains(cards, chips, t.id),
         highlights: {
           longestChain: longest?.chain.map((c) => c.text) ?? [],

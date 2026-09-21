@@ -1,18 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
-import { buildChildrenMap, type CardOrder, type RippleCard } from "@/lib/ripples-types";
-import { rippleRoleColor } from "@/components/workshop/RippleCard";
+import { buildChildrenMap, depthByCard, type RippleCard } from "@/lib/ripples-types";
+import { rippleDepthColor } from "@/components/workshop/RippleCard";
 
-// A "futures wheel": the scenario sits at the hub, first-order implications ring it,
-// and second/third-order implications radiate further out. Weighted radial layout —
-// each branch gets an angular slice proportional to how bushy it is — so nothing
-// bunches up. Same tree data (buildChildrenMap) as the ImplicationTree, drawn round.
+// A "futures wheel": the scenario sits at the hub, the key changes ring it, and each
+// further order of implication radiates outward on its own ring. Weighted radial
+// layout — each branch gets an angular slice proportional to how bushy it is — so
+// nothing bunches up. Rings and the canvas scale to however deep the map actually
+// runs. Same tree data (buildChildrenMap / depthByCard) as the ImplicationTree,
+// drawn round.
 interface WheelNode {
   id: string;
   text: string;
-  order: CardOrder;
-  depth: number;
+  depth: number; // ring index: 0 = the key changes (the hub is not a node)
   x: number;
   y: number;
 }
@@ -23,30 +24,65 @@ interface WheelLink {
   y2: number;
 }
 
-const SIZE = 760;
-const RADII = [0, SIZE * 0.17, SIZE * 0.31, SIZE * 0.45]; // depth 0=hub, 1/2/3
-const NODE_R = [64, 50, 40, 32]; // radius by depth
+const HUB_R = 64; // the scenario hub
+const FIRST_RING = 130; // hub centre → the key-change ring
+const RING_GAP = 106; // …and between each ring after that
+const MIN_RING_GAP = 74; // rings tighten as the map deepens, but not past this
+const PAD = 16; // breathing room outside the last ring
 
-function layout(cards: RippleCard[]): { nodes: WheelNode[]; links: WheelLink[] } {
+// Ring gap shrinks as the map deepens, so a ten-level wheel stays roughly a screen
+// wide instead of growing past 2000px. At three rings this reproduces the original
+// fixed layout exactly.
+function ringGap(rings: number): number {
+  return Math.max(MIN_RING_GAP, RING_GAP - Math.max(0, rings - 3) * 8);
+}
+
+// Distance from the hub to ring `depth` (0-based).
+function radiusOf(depth: number, rings: number): number {
+  return FIRST_RING + depth * ringGap(rings);
+}
+
+// Nodes shrink with depth — the outer rings hold the most cards — but floor out so
+// the text stays legible. 64/50/39/30 for the first few, matching the old wheel.
+function nodeRadius(depth: number): number {
+  return Math.max(18, Math.round(HUB_R * Math.pow(0.78, depth + 1)));
+}
+
+function layout(cards: RippleCard[]): { nodes: WheelNode[]; links: WheelLink[]; size: number } {
   const childrenMap = buildChildrenMap(cards);
-  const roots = (childrenMap.get(null) ?? []).filter((c) => c.order === "FIRST");
-  const cx = SIZE / 2;
-  const cy = SIZE / 2;
+  const depths = depthByCard(cards);
+  const roots = (childrenMap.get(null) ?? []).filter((c) => c.order !== "STICKY");
+  const rings = depths.size ? Math.max(...depths.values()) + 1 : 1;
+  const size = 2 * (radiusOf(rings - 1, rings) + nodeRadius(rings - 1) + PAD);
+  const cx = size / 2;
+  const cy = size / 2;
   const nodes: WheelNode[] = [];
   const links: WheelLink[] = [];
 
-  // Bushiness = leaf count of the subtree (min 1), so branches share the circle fairly.
+  // Bushiness = leaf count of the subtree (min 1), so branches share the circle
+  // fairly. Memoized — it's read once per branch and again per child, which at ten
+  // levels would otherwise re-walk each subtree many times over.
+  const weights = new Map<string, number>();
   const weight = (card: RippleCard): number => {
+    const cached = weights.get(card.id);
+    if (cached !== undefined) return cached;
+    weights.set(card.id, 1); // cycle guard, replaced below
     const kids = childrenMap.get(card.id) ?? [];
-    return kids.length ? kids.reduce((s, k) => s + weight(k), 0) : 1;
+    const w = kids.length ? kids.reduce((s, k) => s + weight(k), 0) : 1;
+    weights.set(card.id, w);
+    return w;
   };
 
-  const place = (card: RippleCard, depth: number, a0: number, a1: number, px: number, py: number) => {
+  // depthByCard stops at the cap and drops cycles, so a card with no depth is not
+  // drawn — which is also what keeps this recursion bounded.
+  const place = (card: RippleCard, a0: number, a1: number, px: number, py: number) => {
+    const depth = depths.get(card.id);
+    if (depth === undefined) return;
     const mid = (a0 + a1) / 2;
-    const r = RADII[Math.min(depth, RADII.length - 1)];
+    const r = radiusOf(depth, rings);
     const x = cx + r * Math.cos(mid);
     const y = cy + r * Math.sin(mid);
-    nodes.push({ id: card.id, text: card.text, order: card.order, depth, x, y });
+    nodes.push({ id: card.id, text: card.text, depth, x, y });
     links.push({ x1: px, y1: py, x2: x, y2: y });
     const kids = childrenMap.get(card.id) ?? [];
     if (kids.length) {
@@ -54,7 +90,7 @@ function layout(cards: RippleCard[]): { nodes: WheelNode[]; links: WheelLink[] }
       let cur = a0;
       for (const k of kids) {
         const span = (weight(k) / tot) * (a1 - a0);
-        place(k, depth + 1, cur, cur + span, x, y);
+        place(k, cur, cur + span, x, y);
         cur += span;
       }
     }
@@ -65,17 +101,17 @@ function layout(cards: RippleCard[]): { nodes: WheelNode[]; links: WheelLink[] }
     let cur = -Math.PI / 2; // first ring starts at the top
     for (const r of roots) {
       const span = (weight(r) / tot) * (2 * Math.PI);
-      place(r, 1, cur, cur + span, cx, cy);
+      place(r, cur, cur + span, cx, cy);
       cur += span;
     }
   }
-  return { nodes, links };
+  return { nodes, links, size };
 }
 
 export function FuturesWheel({ cards, centerLabel }: { cards: RippleCard[]; centerLabel: string }) {
-  const { nodes, links } = useMemo(() => layout(cards), [cards]);
-  const cx = SIZE / 2;
-  const cy = SIZE / 2;
+  const { nodes, links, size } = useMemo(() => layout(cards), [cards]);
+  const cx = size / 2;
+  const cy = size / 2;
 
   if (nodes.length === 0) {
     return <p className="text-[13px] italic text-muted">No implications on the map yet.</p>;
@@ -83,8 +119,8 @@ export function FuturesWheel({ cards, centerLabel }: { cards: RippleCard[]; cent
 
   return (
     <div className="overflow-auto pb-2">
-      <div className="relative mx-auto" style={{ width: SIZE, height: SIZE }}>
-        <svg width={SIZE} height={SIZE} className="absolute inset-0" style={{ pointerEvents: "none" }}>
+      <div className="relative mx-auto" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="absolute inset-0" style={{ pointerEvents: "none" }}>
           {links.map((l, i) => (
             <line
               key={i}
@@ -98,15 +134,15 @@ export function FuturesWheel({ cards, centerLabel }: { cards: RippleCard[]; cent
           ))}
         </svg>
 
-        <WheelCircle x={cx} y={cy} r={NODE_R[0]} bg="var(--lime)" border="var(--ink)" hub label={centerLabel || "This world"} />
+        <WheelCircle x={cx} y={cy} r={HUB_R} bg="var(--lime)" border="var(--ink)" hub label={centerLabel || "This world"} />
         {nodes.map((n) => (
           <WheelCircle
             key={n.id}
             x={n.x}
             y={n.y}
-            r={NODE_R[Math.min(n.depth, NODE_R.length - 1)]}
+            r={nodeRadius(n.depth)}
             bg="var(--card)"
-            border={rippleRoleColor(n.order)}
+            border={rippleDepthColor(n.depth)}
             label={n.text}
           />
         ))}

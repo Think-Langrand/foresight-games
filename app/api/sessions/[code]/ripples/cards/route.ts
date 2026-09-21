@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import { addCard, getPlayerByParticipant, getRippleCard } from "@/lib/ripples";
-import { CARD_TEXT_MAX, type CardOrder } from "@/lib/ripples-types";
+import { CARD_TEXT_MAX, MAX_TREE_DEPTH, childOrderOf, isTreeOrder, type CardOrder } from "@/lib/ripples-types";
 
 export const dynamic = "force-dynamic";
-
-const ORDERS: CardOrder[] = ["FIRST", "SECOND", "TERMINAL", "STICKY"];
 
 // Submit an implication card. The team is derived from the player (never trusted
 // from the client). Phase + parent rules are enforced server-side.
@@ -45,7 +43,7 @@ export async function POST(
     if (!player) return NextResponse.json({ error: "Join the session first." }, { status: 403 });
 
     const order = body.cardOrder as CardOrder;
-    if (!ORDERS.includes(order)) {
+    if (order !== "STICKY" && !isTreeOrder(order)) {
       return NextResponse.json({ error: "Invalid card order." }, { status: 400 });
     }
 
@@ -63,9 +61,10 @@ export async function POST(
     }
 
     // Tree shape: a FIRST card (key change) hangs off the scenario root with no
-    // parent; SECOND builds on a FIRST; TERMINAL builds on a SECOND. STICKY is a
-    // freeform brainstorm note with no parent (independent of the tree). Any number
-    // of children per node.
+    // parent; every deeper card builds on the level directly above it. A card's
+    // order encodes its depth, so the parent row alone says what its children must
+    // be — no chain walk. STICKY is a freeform brainstorm note with no parent
+    // (independent of the tree). Any number of children per node.
     let parentId: string | null = null;
     if (order === "FIRST" || order === "STICKY") {
       if (body.parentCardId) {
@@ -83,8 +82,14 @@ export async function POST(
       if (parent.greyed) {
         return NextResponse.json({ error: "Can't build on a challenged card." }, { status: 400 });
       }
-      const needed = order === "SECOND" ? "FIRST" : "SECOND";
-      if (parent.order !== needed) {
+      const needed = childOrderOf(parent.order);
+      if (needed === null) {
+        return NextResponse.json(
+          { error: `The map is capped at ${MAX_TREE_DEPTH + 1} levels.` },
+          { status: 400 }
+        );
+      }
+      if (order !== needed) {
         return NextResponse.json({ error: "Build on the previous level's node." }, { status: 400 });
       }
       parentId = parent.id;
