@@ -347,12 +347,15 @@ export function depthByCard(cards: RippleCard[]): Map<string, number> {
 // The deepest implication column a tree will actually draw, 0-based (-1 = none).
 // Mirrors the render predicates exactly: every non-greyed card that can still
 // take a child renders a ＋ one column further right, and in interactive mode the
-// add-a-key-change ＋ always occupies column 0. Drives the column headers.
+// add-a-key-change ＋ always occupies column 0. Drives the column headers. Pass
+// `depths` when the caller already has the map, to avoid walking the tree twice.
 export function maxRenderedDepth(
   cards: RippleCard[],
-  { interactive = false }: { interactive?: boolean } = {}
+  {
+    interactive = false,
+    depths = depthByCard(cards),
+  }: { interactive?: boolean; depths?: Map<string, number> } = {}
 ): number {
-  const depths = depthByCard(cards);
   const byId = new Map(cards.map((c) => [c.id, c] as const));
   let max = interactive ? 0 : -1; // the add-root ＋ always holds column 0
   for (const [id, depth] of depths) {

@@ -50,8 +50,12 @@ export function ImplicationList({ cards, scenarioTitle }: { cards: RippleCard[];
   }
 
   // One chip per level actually on the board, so a deep map gets deep chips and a
-  // shallow one isn't cluttered with empties.
-  const filters: Filter[] = ["ALL", ...Array.from(new Set(rows.map((r) => r.depth))).sort((a, b) => a - b)];
+  // shallow one isn't cluttered with empties. The selected level stays in the list
+  // even once its last card is deleted — otherwise the active chip disappears and
+  // the table reads as empty with nothing to click back to.
+  const present = new Set(rows.map((r) => r.depth));
+  if (typeof filter === "number") present.add(filter);
+  const filters: Filter[] = ["ALL", ...Array.from(present).sort((a, b) => a - b)];
   const countOf = (f: Filter) => (f === "ALL" ? rows.length : rows.filter((r) => r.depth === f).length);
   const shown = filter === "ALL" ? rows : rows.filter((r) => r.depth === filter);
 

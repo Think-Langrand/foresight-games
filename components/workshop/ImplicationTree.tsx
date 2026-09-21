@@ -74,7 +74,13 @@ export function ImplicationTree({
   // but are not part of the tree.
   const roots = (childrenMap.get(null) ?? []).filter((c) => c.order !== "STICKY");
   const depths = useMemo(() => depthByCard(cards), [cards]);
-  const lastColumn = useMemo(() => maxRenderedDepth(cards, { interactive }), [cards, interactive]);
+  // Same invariant as renderBranch: only draw a root that depthByCard placed.
+  const drawnRoots = roots.filter((r) => depths.has(r.id));
+  // Reuses the depth map above rather than walking the tree a second time.
+  const lastColumn = useMemo(
+    () => maxRenderedDepth(cards, { interactive, depths }),
+    [cards, interactive, depths]
+  );
 
   // Inline edit of one node at a time. State lives here (nodes are render functions, not
   // components). `handled` guards against the commit firing twice (Enter then blur).
@@ -221,7 +227,10 @@ export function ImplicationTree({
   const renderBranch = (card: RippleCard): React.ReactNode => {
     const depth = depths.get(card.id);
     if (depth === undefined) return null;
-    const kids = childrenMap.get(card.id) ?? [];
+    // Only children that themselves render count: one past the cap draws nothing,
+    // and gating the connector on the raw list would leave a stub and spine hanging
+    // off into empty space.
+    const kids = (childrenMap.get(card.id) ?? []).filter((k) => depths.has(k.id));
     // The order for a *new* child comes from the parent's stored order, matching
     // what the server will check. null = the chain has hit the cap.
     const nextOrder = childOrderOf(card.order);
@@ -297,7 +306,7 @@ export function ImplicationTree({
               className="flex flex-col justify-center gap-3 border-l-2 border-[var(--hairline)]"
               style={{ borderLeftWidth: SPINE_W }}
             >
-              {roots.map((r) => (
+              {drawnRoots.map((r) => (
                 <div key={r.id} className="flex items-center">
                   {tick()}
                   {renderBranch(r)}
@@ -309,7 +318,7 @@ export function ImplicationTree({
                   <AddChildNode depth={0} busy={busy} onAdd={(text) => onAddRoot?.(text)} />
                 </div>
               ) : (
-                roots.length === 0 && (
+                drawnRoots.length === 0 && (
                   <div className="flex items-center">
                     {tick()}
                     <span className="text-[12px] italic text-muted">No key changes.</span>

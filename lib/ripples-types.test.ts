@@ -342,6 +342,17 @@ describe("maxRenderedDepth", () => {
   it("adds no ＋ column past the cap", () => {
     expect(maxRenderedDepth(deepChain, { interactive: true })).toBe(MAX_TREE_DEPTH);
   });
+
+  it("gives the same answer from a precomputed depth map", () => {
+    // The tree passes its own map in so the walk happens once per render.
+    for (const board of [cards, deepChain, []]) {
+      for (const interactive of [true, false]) {
+        expect(maxRenderedDepth(board, { interactive, depths: depthByCard(board) })).toBe(
+          maxRenderedDepth(board, { interactive })
+        );
+      }
+    }
+  });
 });
 
 describe("deep chains in the derivations", () => {

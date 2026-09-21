@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import { addCard, getPlayerByParticipant, getRippleCard } from "@/lib/ripples";
-import { CARD_TEXT_MAX, MAX_TREE_DEPTH, childOrderOf, isTreeOrder, type CardOrder } from "@/lib/ripples-types";
+import {
+  CARD_TEXT_MAX,
+  MAX_TREE_DEPTH,
+  depthOfOrder,
+  isTreeOrder,
+  orderAtDepth,
+  type CardOrder,
+} from "@/lib/ripples-types";
 
 export const dynamic = "force-dynamic";
 
@@ -82,14 +89,23 @@ export async function POST(
       if (parent.greyed) {
         return NextResponse.json({ error: "Can't build on a challenged card." }, { status: 400 });
       }
-      const needed = childOrderOf(parent.order);
-      if (needed === null) {
+      // Three distinct refusals, kept apart so the message names the real reason:
+      // the parent isn't part of the tree, the chain is already as deep as it goes,
+      // or the requested level doesn't follow the parent's.
+      const parentDepth = depthOfOrder(parent.order);
+      if (parentDepth === null) {
+        return NextResponse.json(
+          { error: "Build the map on a map node, not a brainstorm note." },
+          { status: 400 }
+        );
+      }
+      if (parentDepth >= MAX_TREE_DEPTH) {
         return NextResponse.json(
           { error: `The map is capped at ${MAX_TREE_DEPTH + 1} levels.` },
           { status: 400 }
         );
       }
-      if (order !== needed) {
+      if (order !== orderAtDepth(parentDepth + 1)) {
         return NextResponse.json({ error: "Build on the previous level's node." }, { status: 400 });
       }
       parentId = parent.id;
