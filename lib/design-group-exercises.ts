@@ -170,6 +170,10 @@ function buildSharedBoardConfig(
     ...DEFAULT_RIPPLES_CONFIG,
     solo: false,
     sharedTeam: true,
+    // Explicit, not inherited: the spread above writes DEFAULT_RIPPLES_CONFIG's `false`
+    // into the stored blob, which would defeat resolveConfig's absent-key→sharedTeam
+    // fallback and leave NEW boards without the rank step while old ones have it.
+    scoringEnabled: true,
     challengeEnabled: false,
     scenarioRef: scenario.id,
     projectRef: carmelitaProjectRef,

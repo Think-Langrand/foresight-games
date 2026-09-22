@@ -172,6 +172,12 @@ export interface RipplesConfig {
   // no team picker — every member auto-joins the ONE pre-seeded team and edits the
   // same map live. Members never advance phases or submit; an admin finalizes.
   sharedTeam: boolean;
+  // The RANK step: score each key change 1–5 on plausibility and impact before mapping
+  // it (lib/ripples-scoring.ts). ABSENT from a stored config blob → defaults to this
+  // board's `sharedTeam`, so every design-group board provisioned before this existed
+  // turns it on with no backfill, while the solo/standalone game keeps its one-page
+  // layout. Set it explicitly to override either way.
+  scoringEnabled: boolean;
   // The reflection questions asked after the three rounds (admin-editable).
   questions: string[];
 }
@@ -198,6 +204,7 @@ export const DEFAULT_RIPPLES_CONFIG: RipplesConfig = {
   lensDeckEnabled: false,
   solo: false,
   sharedTeam: false,
+  scoringEnabled: false,
   questions: DEFAULT_QUESTIONS,
 };
 
@@ -217,6 +224,10 @@ export function resolveConfig(raw: Record<string, unknown> | null | undefined): 
           resolution: str(x.resolution, ""),
         }))
     : DEFAULT_RIPPLES_CONFIG.resolutions;
+  // Resolved first: `scoringEnabled` falls back to it when the key is absent, so a board
+  // provisioned before scoring existed reads as enabled iff it's a shared (design-group)
+  // board. See the field comment on RipplesConfig.
+  const sharedTeam = bool(r.sharedTeam, DEFAULT_RIPPLES_CONFIG.sharedTeam);
   return {
     scenarioRef: str(r.scenarioRef, DEFAULT_RIPPLES_CONFIG.scenarioRef),
     projectRef: typeof r.projectRef === "string" ? r.projectRef : DEFAULT_RIPPLES_CONFIG.projectRef,
@@ -230,7 +241,8 @@ export function resolveConfig(raw: Record<string, unknown> | null | undefined): 
     challengeEnabled: bool(r.challengeEnabled, DEFAULT_RIPPLES_CONFIG.challengeEnabled),
     lensDeckEnabled: bool(r.lensDeckEnabled, DEFAULT_RIPPLES_CONFIG.lensDeckEnabled),
     solo: bool(r.solo, DEFAULT_RIPPLES_CONFIG.solo),
-    sharedTeam: bool(r.sharedTeam, DEFAULT_RIPPLES_CONFIG.sharedTeam),
+    sharedTeam,
+    scoringEnabled: bool(r.scoringEnabled, sharedTeam),
     questions:
       Array.isArray(r.questions) && r.questions.length > 0
         ? (r.questions as unknown[]).filter((q): q is string => typeof q === "string" && q.trim().length > 0)
@@ -275,6 +287,10 @@ export interface RippleCard {
   section: string | null; // worksheet area key for STICKY cards; null = default board
   sourceCardId: string | null; // admin-seeded copy: the earlier-week answer it came from
   sourceLabel: string | null; // …and that week's title, for the "from …" tag
+  // The group's shared 1–5 ranking of a KEY CHANGE (tree root); null = not yet scored,
+  // and null on every other kind of card. Read via lib/ripples-scoring.ts, never raw.
+  plausibility: number | null;
+  impact: number | null;
   createdTime: string;
 }
 

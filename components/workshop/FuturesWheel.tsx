@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { buildChildrenMap, depthByCard, type RippleCard } from "@/lib/ripples-types";
+import { sortRootsByRank } from "@/lib/ripples-scoring";
 import { rippleDepthColor } from "@/components/workshop/RippleCard";
 
 // A "futures wheel": the scenario sits at the hub, the key changes ring it, and each
@@ -51,7 +52,8 @@ function nodeRadius(depth: number): number {
 function layout(cards: RippleCard[]): { nodes: WheelNode[]; links: WheelLink[]; size: number } {
   const childrenMap = buildChildrenMap(cards);
   const depths = depthByCard(cards);
-  const roots = (childrenMap.get(null) ?? []).filter((c) => c.order !== "STICKY");
+  // Same rank order as the tree, so the three views never disagree about the key changes.
+  const roots = sortRootsByRank((childrenMap.get(null) ?? []).filter((c) => c.order !== "STICKY"));
   const rings = depths.size ? Math.max(...depths.values()) + 1 : 1;
   const size = 2 * (radiusOf(rings - 1, rings) + nodeRadius(rings - 1) + PAD);
   const cx = size / 2;

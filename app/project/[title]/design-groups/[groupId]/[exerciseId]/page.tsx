@@ -6,7 +6,7 @@ import { getSessionByCode } from "@/lib/workshop";
 import { getDesignGroup } from "@/lib/design-groups";
 import { getExercise, listExercises } from "@/lib/design-group-exercises";
 import { getRippleScenario, getRippleDrivers } from "@/lib/ripples";
-import { exerciseStatus, getExerciseType, isBoardBacked } from "@/lib/exercise-types";
+import { exerciseStatus, getExerciseType, isBoardBacked, resolveEffectiveSections } from "@/lib/exercise-types";
 import { shapeExerciseAnswers } from "@/lib/group-answers";
 import { RipplesTeamView } from "@/components/workshop/RipplesTeamView";
 import { WorksheetView } from "@/components/workshop/WorksheetView";
@@ -112,7 +112,7 @@ export default async function DesignGroupExercisePage({
           drivers={drivers}
           basePath={`/project/${title}`}
           hiddenSections={project.homeConfig.hiddenScenarioSections}
-          sections={exercise.sections}
+          sections={resolveEffectiveSections(exercise.type, exercise.sections)}
         />
       </SessionTabs>
     );
@@ -120,8 +120,7 @@ export default async function DesignGroupExercisePage({
   if (render === "worksheet") {
     // Prefer the exercise's own (admin-edited) question snapshot; fall back to the code
     // template for pre-migration weeks that were never customized.
-    const sections =
-      exercise.sections.length > 0 ? exercise.sections : getExerciseType(exercise.type)?.sections ?? [];
+    const sections = resolveEffectiveSections(exercise.type, exercise.sections);
     return (
       <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>
         <WorksheetView

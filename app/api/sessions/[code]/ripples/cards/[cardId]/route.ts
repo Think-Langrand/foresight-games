@@ -5,11 +5,13 @@ import {
   flagCard,
   getPlayerByParticipant,
   getRippleCard,
+  scoreCard,
   updateCardSort,
   updateCardText,
   voteCard,
 } from "@/lib/ripples";
-import { CARD_TEXT_MAX, resolveConfig } from "@/lib/ripples-types";
+import { CARD_TEXT_MAX, isTreeRoot, resolveConfig } from "@/lib/ripples-types";
+import { AXIS_LABELS, SCORE_AXES, SCORE_MAX, SCORE_MIN, coerceScore } from "@/lib/ripples-scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +26,12 @@ export async function PATCH(
   }
   const { code, cardId } = await params;
   let body: {
-    action?: "flag" | "vote" | "reorder" | "text";
+    action?: "flag" | "vote" | "reorder" | "text" | "score";
     participantId?: string;
     sort?: number;
     text?: string;
+    plausibility?: number | null;
+    impact?: number | null;
   } = {};
   try {
     body = await req.json();
@@ -59,6 +63,47 @@ export async function PATCH(
     if (body.action === "reorder") {
       await updateCardSort(session.code, cardId, typeof body.sort === "number" ? body.sort : 0);
       return NextResponse.json({ ok: true });
+    }
+
+    // Score a KEY CHANGE on the 1–5 plausibility / impact axes (the rank step). One
+    // shared score per card — a group decision, not a per-member average — so the same
+    // co-ownership rule as the text edit below applies: on a shared board anyone may set
+    // it. Partial by design: each button row sends only its own axis.
+    //
+    // Sits ABOVE the challengeEnabled gate deliberately — design-group boards have
+    // challenge off, and they are exactly the boards that rank.
+    if (body.action === "score") {
+      if (!config.scoringEnabled) {
+        return NextResponse.json({ error: "Ranking is off for this board." }, { status: 403 });
+      }
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only score your own card." }, { status: 403 });
+      }
+      if (!isTreeRoot(card)) {
+        return NextResponse.json({ error: "Only key changes can be scored." }, { status: 400 });
+      }
+      const patch: { plausibility?: number | null; impact?: number | null } = {};
+      for (const axis of SCORE_AXES) {
+        if (!(axis in body)) continue; // absent → leave that axis as it is
+        const raw = body[axis];
+        if (raw === null) {
+          patch[axis] = null; // explicit clear (un-score)
+          continue;
+        }
+        const value = coerceScore(raw);
+        if (value === null) {
+          return NextResponse.json(
+            { error: `${AXIS_LABELS[axis]} must be ${SCORE_MIN}–${SCORE_MAX}.` },
+            { status: 400 }
+          );
+        }
+        patch[axis] = value;
+      }
+      if (Object.keys(patch).length === 0) {
+        return NextResponse.json({ error: "No score to set." }, { status: 400 });
+      }
+      await scoreCard(session.code, cardId, patch);
+      return NextResponse.json({ ok: true, ...patch });
     }
 
     // Edit a card's text in place — author-owned, EXCEPT on a shared-team board (design

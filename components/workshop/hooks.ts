@@ -144,6 +144,10 @@ export function useRipplesView(code: string) {
   return useLiveView<RipplesView>(code, "/ripples", RIPPLES_TABLES);
 }
 
+// One or both axes of a key change's shared score. Partial throughout — the two 1–5
+// button rows each send (and each optimistically apply) only their own axis.
+export type ScorePatch = { plausibility?: number | null; impact?: number | null };
+
 // Optimistic overlay for the card board. The realtime view is eventually-consistent
 // but laggy (network → Postgres → broadcast → 250ms debounce → refetch), so writes
 // feel slow and the tree re-renders only after the round-trip. This layers instant
@@ -155,6 +159,11 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
   const [deletes, setDeletes] = useState<Set<string>>(() => new Set());
   const [sorts, setSorts] = useState<Map<string, number>>(() => new Map());
   const [edits, setEdits] = useState<Map<string, string>>(() => new Map());
+  // `inflight` counts this card's score writes that haven't come back yet. While any is
+  // outstanding the overlay has to stand, because the server list in hand may predate it.
+  const [scores, setScores] = useState<Map<string, { patch: ScorePatch; inflight: number }>>(
+    () => new Map()
+  );
   const [seen, setSeen] = useState(serverCards);
 
   // Reconcile overlays the instant a fresh server list arrives — a render-time state
@@ -195,6 +204,30 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
       }
       return changed ? next : prev;
     });
+    // Per-AXIS, not per-object: the two score rows write independently, so a
+    // plausibility round-trip landing first must not drop a still-pending impact.
+    //
+    // `inflight === 0` is the escape hatch that keeps an overlay from sticking forever.
+    // On a shared board another member can write the same axis after us; the server then
+    // settles on THEIR value, ours never comes back, and a match-only test would pin this
+    // viewer's rank badges and matrix chip to a number nobody else sees. So once our own
+    // writes have all returned, the first server list after them wins whatever it says.
+    setScores((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, { patch, inflight }] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        const settled =
+          !server ||
+          inflight === 0 ||
+          (Object.keys(patch) as (keyof ScorePatch)[]).every((axis) => server[axis] === patch[axis]);
+        if (settled) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
   }
 
   const cards = useMemo(() => {
@@ -202,18 +235,19 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     const merged = adds.length
       ? [...serverCards, ...adds.filter((a) => !serverIds.has(a.id))]
       : serverCards;
-    if (!deletes.size && !sorts.size && !edits.size) return merged;
+    if (!deletes.size && !sorts.size && !edits.size && !scores.size) return merged;
     return merged
       .filter((c) => !deletes.has(c.id))
       .map((c) => {
-        if (!sorts.has(c.id) && !edits.has(c.id)) return c;
+        if (!sorts.has(c.id) && !edits.has(c.id) && !scores.has(c.id)) return c;
         return {
           ...c,
           ...(sorts.has(c.id) ? { sort: sorts.get(c.id)! } : {}),
           ...(edits.has(c.id) ? { text: edits.get(c.id)! } : {}),
+          ...(scores.get(c.id)?.patch ?? {}),
         };
       });
-  }, [serverCards, adds, deletes, sorts, edits]);
+  }, [serverCards, adds, deletes, sorts, edits, scores]);
 
   const addLocal = useCallback((c: RippleCard) => setAdds((p) => [...p, c]), []);
   const removeLocal = useCallback((id: string) => setDeletes((p) => new Set(p).add(id)), []);
@@ -235,8 +269,61 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     (id: string, text: string) => setEdits((p) => new Map(p).set(id, text)),
     []
   );
+  // MERGES rather than replaces, so setting impact doesn't wipe a plausibility write
+  // that hasn't come back from the server yet. Call it as the write leaves; pair every
+  // call with exactly one settleScoreLocal / dropScoreLocal when it comes back.
+  const scoreLocal = useCallback(
+    (id: string, patch: ScorePatch) =>
+      setScores((p) => {
+        const pending = p.get(id);
+        return new Map(p).set(id, {
+          patch: { ...pending?.patch, ...patch },
+          inflight: (pending?.inflight ?? 0) + 1,
+        });
+      }),
+    []
+  );
+  // The write came back OK. Hold the value one more beat — the server list in hand may
+  // predate it — then let the next one settle the card, with our value or a teammate's.
+  const settleScoreLocal = useCallback(
+    (id: string) =>
+      setScores((p) => {
+        const pending = p.get(id);
+        if (!pending) return p;
+        return new Map(p).set(id, { ...pending, inflight: Math.max(0, pending.inflight - 1) });
+      }),
+    []
+  );
+  // The write was refused. Drop its axes outright so they fall back to the server's
+  // value — never to a locally reconstructed "previous", which on a shared board is
+  // itself just an older optimistic guess. Axes still in flight are left alone.
+  const dropScoreLocal = useCallback(
+    (id: string, axes: (keyof ScorePatch)[]) =>
+      setScores((p) => {
+        const pending = p.get(id);
+        if (!pending) return p;
+        const patch = { ...pending.patch };
+        for (const axis of axes) delete patch[axis];
+        const next = new Map(p);
+        const inflight = Math.max(0, pending.inflight - 1);
+        if (Object.keys(patch).length === 0) next.delete(id);
+        else next.set(id, { patch, inflight });
+        return next;
+      }),
+    []
+  );
 
-  return { cards, addLocal, removeLocal, unremoveLocal, reorderLocal, editLocal };
+  return {
+    cards,
+    addLocal,
+    removeLocal,
+    unremoveLocal,
+    reorderLocal,
+    editLocal,
+    scoreLocal,
+    settleScoreLocal,
+    dropScoreLocal,
+  };
 }
 
 // ---- Ripples write helpers ----
@@ -284,6 +371,25 @@ export async function reorderRippleCard(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "reorder", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+// Set a key change's shared plausibility/impact score. Send only the axis that changed;
+// the route leaves an absent axis alone.
+export async function scoreRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string } & ScorePatch
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "score", ...body }),
     }
   );
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
