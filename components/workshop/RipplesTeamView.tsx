@@ -500,6 +500,7 @@ export function RipplesTeamView({
           busy={busy}
           readOnly={!building}
           onScore={scoreKeyChange}
+          onBeginMapping={() => setStep("map")}
         />
       )}
 

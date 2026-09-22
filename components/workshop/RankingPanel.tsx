@@ -7,7 +7,6 @@ import {
   AXIS_ENDS,
   cardScores,
   rankByCardId,
-  rankValue,
   rankedRoots,
   scoringComplete,
   scoringProgress,
@@ -30,11 +29,16 @@ export function RankingPanel({
   busy,
   readOnly = false,
   onScore,
+  onBeginMapping,
 }: {
   keyChanges: RippleCard[];
   busy: boolean;
   readOnly?: boolean;
   onScore: (cardId: string, patch: ScorePatchInput) => void;
+  // Optional: the step-2 hand-off, shown only once every key change is scored. Absent
+  // wherever there are no steps to move between (the locked week summary), which is why
+  // the completion state falls back to the plain count rather than a dead button.
+  onBeginMapping?: () => void;
 }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [byScore, setByScore] = useState(false);
@@ -50,7 +54,7 @@ export function RankingPanel({
   if (total === 0) {
     return (
       <section>
-        <Head scored={scored} total={total} complete={false} />
+        <Head scored={scored} total={total} complete={false} onBeginMapping={onBeginMapping} />
         <p className="mt-4 rounded-[3px] border border-[var(--hairline)] bg-card p-5 text-[13px] italic text-muted">
           No key changes on this board yet. A facilitator seeds them from your Session 1
           answers before this step.
@@ -62,7 +66,7 @@ export function RankingPanel({
   return (
     <section>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <Head scored={scored} total={total} complete={complete} />
+        <Head scored={scored} total={total} complete={complete} onBeginMapping={onBeginMapping} />
         <button
           type="button"
           onClick={() => setByScore((v) => !v)}
@@ -80,7 +84,6 @@ export function RankingPanel({
         <ol className="flex min-w-0 flex-col gap-3">
           {rows.map((card) => {
             const { plausibility, impact } = cardScores(card);
-            const value = rankValue(card);
             const rank = ranks.get(card.id) ?? null;
             const on = hovered === card.id;
             return (
@@ -106,14 +109,6 @@ export function RankingPanel({
                     {rank ?? "–"}
                   </span>
                   <p className="min-w-0 flex-1 text-[14px] font-semibold leading-[1.35]">{card.text}</p>
-                  <span
-                    className={
-                      "shrink-0 rounded-[2px] border px-2 py-1 text-[11.5px] font-bold tabular-nums " +
-                      (value === null ? "border-[var(--hairline)] text-muted" : "border-ink text-ink")
-                    }
-                  >
-                    {value === null ? "—" : `${plausibility}×${impact} = ${value}`}
-                  </span>
                 </div>
 
                 <div className="mt-3 flex flex-col gap-2 border-t border-[var(--rule)] pt-3">
@@ -152,7 +147,17 @@ export function RankingPanel({
   );
 }
 
-function Head({ scored, total, complete }: { scored: number; total: number; complete: boolean }) {
+function Head({
+  scored,
+  total,
+  complete,
+  onBeginMapping,
+}: {
+  scored: number;
+  total: number;
+  complete: boolean;
+  onBeginMapping?: () => void;
+}) {
   return (
     <div>
       <h2 className="text-[18px] font-extrabold uppercase tracking-tight">Rank the key changes</h2>
@@ -160,17 +165,19 @@ function Head({ scored, total, complete }: { scored: number; total: number; comp
         Take each key change and agree, as a group, how plausible it is and how much impact
         it would have. Do not rank individually. Only have one person record.
       </p>
-      <p className="mt-1.5 text-[12px] font-bold uppercase tracking-[0.06em]">
-        {complete ? (
-          <span className="rounded-[2px] bg-lime px-2 py-0.5 text-ink">
-            All {total} ranked — on to the map →
-          </span>
-        ) : (
-          <span className="text-muted">
-            {scored} of {total} scored
-          </span>
-        )}
-      </p>
+      {complete && onBeginMapping ? (
+        <button
+          type="button"
+          onClick={onBeginMapping}
+          className="mt-2 rounded-[2px] border border-ink bg-blue px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white transition-opacity hover:opacity-90"
+        >
+          Begin Mapping →
+        </button>
+      ) : (
+        <p className="mt-1.5 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
+          {scored} of {total} scored
+        </p>
+      )}
     </div>
   );
 }
