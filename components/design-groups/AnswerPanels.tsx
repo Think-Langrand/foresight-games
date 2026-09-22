@@ -50,13 +50,13 @@ export const MAP_VIEWS = ["wheel", "tree", "list"] as const;
 export type MapView = (typeof MAP_VIEWS)[number];
 const MAP_LABELS: Record<MapView, string> = { wheel: "Wheel", tree: "Tree", list: "List" };
 
-// `showMeta` = admin chrome: author bylines, question-kind and "removed question" badges.
+// `showMeta` = admin chrome: question-kind and "removed question" badges.
 interface PanelOpts {
   onDelete?: (row: AnswerRow) => void;
   showMeta?: boolean;
 }
 
-export function AnswerList({ answers, onDelete, showMeta = true }: { answers: AnswerRow[] } & PanelOpts) {
+export function AnswerList({ answers, onDelete }: { answers: AnswerRow[] } & PanelOpts) {
   // Bullets when there are several answers; a lone answer reads as a plain paragraph.
   const single = answers.length === 1;
   return (
@@ -69,12 +69,9 @@ export function AnswerList({ answers, onDelete, showMeta = true }: { answers: An
             </span>
           )}
           <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
-            <div className="min-w-0 text-[13.5px] leading-[1.4]">
-              {a.text}
-              {showMeta && a.author && (
-                <span className="ml-2 text-[10px] uppercase tracking-[0.06em] text-muted">— {a.author}</span>
-              )}
-            </div>
+            {/* No byline: an answer sheet reads as the group's answers, not a list of who
+                said what. `author` is still carried on the row for the CSV export. */}
+            <div className="min-w-0 text-[13.5px] leading-[1.4]">{a.text}</div>
             {onDelete && (
               <button
                 onClick={() => onDelete(a)}
@@ -121,7 +118,7 @@ export function QuestionBlocks({ questions, onDelete, showMeta = true }: { quest
           {q.answers.length === 0 ? (
             <p className="mt-1 text-[13px] italic text-muted">No answers.</p>
           ) : (
-            <AnswerList answers={q.answers} onDelete={onDelete} showMeta={showMeta} />
+            <AnswerList answers={q.answers} onDelete={onDelete} />
           )}
         </div>
       ))}

@@ -52,6 +52,8 @@ interface CardRow {
   section: string | null;
   source_card_id: string | null;
   source_label: string | null;
+  plausibility: number | null;
+  impact: number | null;
   created_at: string;
 }
 interface ChipRow {
@@ -99,6 +101,8 @@ function mapCard(r: CardRow): RippleCard {
     section: r.section ?? null,
     sourceCardId: r.source_card_id ?? null,
     sourceLabel: r.source_label ?? null,
+    plausibility: r.plausibility ?? null,
+    impact: r.impact ?? null,
     createdTime: r.created_at,
   };
 }
@@ -579,6 +583,23 @@ export async function seedFirstCards(input: {
     added = data?.length ?? 0;
   }
   return { added, skipped: input.items.length - added };
+}
+
+// Set a key change's shared group score (the rank step). PARTIAL: an axis absent from
+// `patch` is left alone, so the two 1–5 button rows write independently and a slow
+// round-trip on one can't clobber the other. Validation (range, roots only) happens at
+// the route — this stays the thin persistence layer, like every writer in here.
+export async function scoreCard(
+  code: string,
+  cardId: string,
+  patch: { plausibility?: number | null; impact?: number | null }
+): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update(patch)
+    .eq("code", up(code))
+    .eq("id", cardId);
+  if (error) throw error;
 }
 
 export async function flagCard(code: string, cardId: string): Promise<void> {

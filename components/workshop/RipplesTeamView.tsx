@@ -21,22 +21,37 @@ import {
   deleteRippleCard,
   reorderRippleCard,
   editRippleCard,
+  scoreRippleCard,
   postRippleSubmit,
 } from "@/components/workshop/hooks";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import { BrainstormSection } from "@/components/workshop/BrainstormSection";
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
+import { RankingPanel } from "@/components/workshop/RankingPanel";
 import {
   PHASE_LABELS,
+  isTreeRoot,
   type CardOrder,
   type RippleArtImage,
   type RippleCard,
   type RipplesConfig,
   type RipplePhase,
 } from "@/lib/ripples-types";
+import { scoringComplete, scoringProgress, type ScorePatchInput } from "@/lib/ripples-scoring";
 import { type WorksheetSection } from "@/lib/exercise-types";
 
 const MIN_KEY_CHANGES = 3;
+
+// The three steps a design-group implication exercise walks: rank the key changes, map
+// them, then capture what the map surfaced. Steps are open from the start — a shared
+// board is worked asynchronously, so gating one behind another just strands people.
+type BuildStep = "rank" | "map" | "risks";
+const BUILD_STEPS: readonly BuildStep[] = ["rank", "map", "risks"];
+const STEP_LABELS: Record<BuildStep, string> = {
+  rank: "1 · Rank",
+  map: "2 · Map",
+  risks: "3 · Risks & opportunities",
+};
 const NO_CARDS: RippleCard[] = []; // stable ref so the optimistic overlay doesn't churn
 
 // The finished map reads three ways: a radial futures wheel, the build-time tree,
@@ -70,14 +85,25 @@ export function RipplesTeamView({
   const { view, error, loading, refresh } = useRipplesView(code);
   const { pid, nick, saveNick, playerId, join } = useSharedBoardMembership(code, view, refresh);
   // Instant local mutations layered over the (laggy) realtime board.
-  const { cards, addLocal, removeLocal, unremoveLocal, reorderLocal, editLocal } = useOptimisticCards(
-    view?.cards ?? NO_CARDS
-  );
+  const {
+    cards,
+    addLocal,
+    removeLocal,
+    unremoveLocal,
+    reorderLocal,
+    editLocal,
+    scoreLocal,
+    settleScoreLocal,
+    dropScoreLocal,
+  } = useOptimisticCards(view?.cards ?? NO_CARDS);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   // Scenario ↔ exercise swap (shared with WorksheetView): read the scenario first, toggle
   // to the map. Replaces the old always-visible scenario + slide-up worksheet overlay.
   const [showScenario, setShowScenario] = useState(true);
+  // Declared up here with the other state, NOT in the build branch below — several early
+  // returns sit between the two, and a hook after one of them would break the order.
+  const [step, setStep] = useState<BuildStep>("rank");
   const heroArt = scenarioHero(scenario);
 
   const run = useCallback(async (fn: () => Promise<void>) => {
@@ -153,8 +179,18 @@ export function RipplesTeamView({
 
   const myCards = cards.filter((c) => c.teamId === myTeam.id);
   const myTeammates = players.filter((p) => p.teamId === myTeam.id);
-  const keyChanges = myCards.filter((c) => c.order === "FIRST");
-  const stickies = myCards.filter((c) => c.order === "STICKY").sort((a, b) => a.sort - b.sort);
+  // isTreeRoot, not order === "FIRST": every renderer (and the scoring route) uses the
+  // tolerant predicate, so a row whose stored order disagrees with its position still
+  // counts as the key change it visibly is.
+  const keyChanges = myCards.filter(isTreeRoot);
+  // `!c.section` matters: an implications exercise can also carry worksheet sections,
+  // whose answers are STICKY cards too. Without the guard those answers show up on the
+  // brainstorm pad as editable — and deletable — notes, which is how a group loses its
+  // step-3 work from step 1. Every other reader of this board (shapeFromView, the admin
+  // and past-week views) already splits the two on `section`.
+  const stickies = myCards
+    .filter((c) => c.order === "STICKY" && !c.section)
+    .sort((a, b) => a.sort - b.sort);
   const playerNames = new Map<string, string>(players.map((p) => [p.id, p.displayName] as const));
 
   const goPhase = (target: RipplePhase) =>
@@ -286,6 +322,26 @@ export function RipplesTeamView({
     });
   };
 
+  // Set one axis of a key change's shared group score: show it instantly, then hand the
+  // card back to the server. Unlike editCard there is no locally reconstructed "previous"
+  // to revert to — this is a value the whole group writes, so `cards` may already be
+  // carrying our own optimistic guess. Success settles the overlay (the next server list
+  // decides the value, ours or a teammate's later write); failure drops this axis, which
+  // falls straight back to whatever the server holds.
+  const scoreKeyChange = (cardId: string, patch: ScorePatchInput) => {
+    const axes = Object.keys(patch) as (keyof ScorePatchInput)[];
+    scoreLocal(cardId, patch);
+    run(async () => {
+      try {
+        await scoreRippleCard(code, cardId, { participantId: pid, ...patch });
+        settleScoreLocal(cardId);
+      } catch (e) {
+        dropScoreLocal(cardId, axes);
+        throw e;
+      }
+    });
+  };
+
   // Members in a facilitated PREMISE just read + wait; solo self-advances into BUILD.
   const canBuild = solo || building;
   const toggleScenario = () => {
@@ -296,6 +352,190 @@ export function RipplesTeamView({
     if (!building) goPhase("BUILD"); // solo: advance into the build phase on first go
     setShowScenario(false);
   };
+
+  // The build body's four blocks, hoisted so the two layouts below are the SAME
+  // elements in the same order — one stacked, one split across step tabs. Forking the
+  // JSX instead is how the un-tabbed path silently drifts from the tabbed one.
+  const brainstormBlock = (
+    <BrainstormSection
+      stickies={stickies}
+      canEdit={canEditCard}
+      busy={busy}
+      onAdd={(text) => addCard("STICKY", text, undefined, Date.now())}
+      onDelete={removeCard}
+      onReorder={reorderSticky}
+      onEdit={editCard}
+      header={
+        <SectionHead n={1} title="Brainstorm key changes">
+          Peel a note off the pad for each thing that changes in this world.{" "}
+          <span className="font-semibold text-ink">Click a note to edit it</span>, drag to
+          reorder. These are just notes, separate from the tree below.
+        </SectionHead>
+      }
+    />
+  );
+  const treeBlock = (
+    <section>
+      <SectionHead n={2} title="Map the implications">
+        Start from the scenario: add key changes, then branch each forward — “Because of that…”, then “And
+        this causes…”, as far down the chain as it stays useful.
+      </SectionHead>
+      <div className="mt-3">
+        <ImplicationTree
+          cards={myCards}
+          scenarioTitle={config.scenarioTitle}
+          interactive
+          showHeaders
+          busy={busy}
+          challengeEnabled={config.challengeEnabled}
+          canDelete={canEditCard}
+          canEdit={canEditCard}
+          onEdit={editCard}
+          onAddRoot={(text) => addCard("FIRST", text)}
+          onAddChild={(parent, order, text) => addCard(order, text, parent.id)}
+          onDelete={removeCard}
+          onFlag={(card) => run(async () => { await patchRippleCard(code, card.id, { action: "flag", participantId: pid }); })}
+          onVote={(card) => run(async () => { await patchRippleCard(code, card.id, { action: "vote", participantId: pid }); })}
+        />
+      </div>
+    </section>
+  );
+  // The blocks themselves. On the stacked layout they sit under a numbered "Questions"
+  // head; on the tabbed one the step tab already names them, so the head would repeat it.
+  const sectionsBody =
+    sections.length > 0 ? (
+      <WorksheetSections
+        sections={sections}
+        cards={cards}
+        editable={building}
+        canEdit={canEditCard}
+        busy={busy}
+        playerNames={playerNames}
+        onAdd={addSectionCard}
+        onDelete={removeCard}
+        onEdit={editCard}
+        onReorder={reorderSectionCard}
+      />
+    ) : null;
+  const sectionsBlock = sectionsBody && (
+    <section>
+      <SectionHead n={3} title="Questions">
+        Answer these together — responses save to the shared board.
+      </SectionHead>
+      <div className="mt-3">{sectionsBody}</div>
+    </section>
+  );
+  const footerBlock = (
+    <>
+      {/* Reflection questions moved to a separate workshop (kept in git history). A shared
+          board (design groups) is self-paced and async — nothing to submit, so the footer
+          is just the credit line. */}
+      {sharedTeam ? (
+        <div className="border-t border-[var(--rule)] pt-6 text-[12px] text-muted">
+          Langrand 2026
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 border-t border-[var(--rule)] pt-6">
+          <button
+            onClick={() =>
+              run(async () => {
+                await postRippleSubmit(code, { participantId: pid, answers: [] });
+                if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
+              })
+            }
+            disabled={busy || keyChanges.length < MIN_KEY_CHANGES}
+            className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
+          >
+            {myPlayer.submittedAt ? "Update map" : "Submit map"} →
+          </button>
+          {keyChanges.length < MIN_KEY_CHANGES && (
+            <span className="text-[12px] italic text-muted">
+              Add at least {MIN_KEY_CHANGES} key changes first.
+            </span>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  // Off (solo / standalone Ripples): the one-page stack, exactly as before — same
+  // elements, same order, no tab bar, so React reconciles it identically.
+  const { scored: rankScored, total: rankTotal } = scoringProgress(keyChanges);
+  const buildBody = !config.scoringEnabled ? (
+    <div className="flex flex-col gap-8">
+      {brainstormBlock}
+      {treeBlock}
+      {sectionsBlock}
+      {footerBlock}
+    </div>
+  ) : (
+    <div className="flex flex-col gap-8">
+      {/* Same markup as the worksheet's step tabs (WorksheetSections) so the two read as
+          one pattern. The aria-label is what distinguishes this from the outer
+          past-weeks bar, which is styled identically. */}
+      <div
+        role="tablist"
+        aria-label="Exercise steps"
+        className="flex flex-wrap gap-1 border-b border-[var(--rule)]"
+      >
+        {BUILD_STEPS.map((s) => (
+          <button
+            key={s}
+            role="tab"
+            aria-selected={step === s}
+            onClick={() => setStep(s)}
+            className={
+              "-mb-px border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
+              (step === s ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")
+            }
+          >
+            {STEP_LABELS[s]}
+          </button>
+        ))}
+      </div>
+
+      {step === "rank" && (
+        <RankingPanel
+          keyChanges={keyChanges}
+          busy={busy}
+          readOnly={!building}
+          onScore={scoreKeyChange}
+          onBeginMapping={() => setStep("map")}
+        />
+      )}
+
+      {step === "map" && (
+        <>
+          {/* A nudge, never a gate: the board is worked asynchronously, so anyone who
+              arrives mid-ranking still needs the map. */}
+          {rankTotal > 0 && !scoringComplete(keyChanges) && (
+            <p className="rounded-[3px] border border-[var(--hairline)] bg-card px-4 py-2.5 text-[12.5px] text-muted">
+              {rankScored} of {rankTotal} key changes ranked.{" "}
+              <button
+                onClick={() => setStep("rank")}
+                className="font-bold text-blue underline underline-offset-2"
+              >
+                Finish ranking
+              </button>{" "}
+              to order the map by priority — unranked changes sit at the end for now.
+            </p>
+          )}
+          {brainstormBlock}
+          {treeBlock}
+        </>
+      )}
+
+      {step === "risks" &&
+        (sectionsBody ?? (
+          <p className="text-[13px] italic text-muted">
+            No blocks are set up for this step yet — a facilitator adds them in the
+            program editor.
+          </p>
+        ))}
+
+      {footerBlock}
+    </div>
+  );
 
   return (
     <Shell wide>
@@ -331,100 +571,7 @@ export function RipplesTeamView({
           />
         </>
       ) : building ? (
-        <div className="flex flex-col gap-8">
-          <BrainstormSection
-            stickies={stickies}
-            canEdit={canEditCard}
-            busy={busy}
-            onAdd={(text) => addCard("STICKY", text, undefined, Date.now())}
-            onDelete={removeCard}
-            onReorder={reorderSticky}
-            onEdit={editCard}
-            header={
-              <SectionHead n={1} title="Brainstorm key changes">
-                Peel a note off the pad for each thing that changes in this world.{" "}
-                <span className="font-semibold text-ink">Click a note to edit it</span>, drag to
-                reorder. These are just notes, separate from the tree below.
-              </SectionHead>
-            }
-          />
-
-          <section>
-            <SectionHead n={2} title="Map the implications">
-              Start from the scenario: add key changes, then branch each forward — “Because of that…”, then “And
-              this causes…”, as far down the chain as it stays useful.
-            </SectionHead>
-            <div className="mt-3">
-              <ImplicationTree
-                cards={myCards}
-                scenarioTitle={config.scenarioTitle}
-                interactive
-                showHeaders
-                busy={busy}
-                challengeEnabled={config.challengeEnabled}
-                canDelete={canEditCard}
-                canEdit={canEditCard}
-                onEdit={editCard}
-                onAddRoot={(text) => addCard("FIRST", text)}
-                onAddChild={(parent, order, text) => addCard(order, text, parent.id)}
-                onDelete={removeCard}
-                onFlag={(card) => run(async () => { await patchRippleCard(code, card.id, { action: "flag", participantId: pid }); })}
-                onVote={(card) => run(async () => { await patchRippleCard(code, card.id, { action: "vote", participantId: pid }); })}
-              />
-            </div>
-          </section>
-
-          {sections.length > 0 && (
-            <section>
-              <SectionHead n={3} title="Questions">
-                Answer these together — responses save to the shared board.
-              </SectionHead>
-              <div className="mt-3">
-                <WorksheetSections
-                  sections={sections}
-                  cards={cards}
-                  editable={building}
-                  canEdit={canEditCard}
-                  busy={busy}
-                  playerNames={playerNames}
-                  onAdd={addSectionCard}
-                  onDelete={removeCard}
-                  onEdit={editCard}
-                  onReorder={reorderSectionCard}
-                />
-              </div>
-            </section>
-          )}
-
-          {/* Reflection questions moved to a separate workshop (kept in git history). Shared
-              boards (design groups) are self-paced and async — an admin finalizes the map. */}
-          {sharedTeam ? (
-            <div className="border-t border-[var(--rule)] pt-6 text-[12px] italic text-muted">
-              This is your group&rsquo;s shared board — build it together, whenever. A
-              facilitator will finalize the map when the group is done.
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 border-t border-[var(--rule)] pt-6">
-              <button
-                onClick={() =>
-                  run(async () => {
-                    await postRippleSubmit(code, { participantId: pid, answers: [] });
-                    if (solo) await patchSession(code, { phase: "HARVEST", phaseEndsAt: null });
-                  })
-                }
-                disabled={busy || keyChanges.length < MIN_KEY_CHANGES}
-                className="rounded-[2px] border border-ink bg-lime px-5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-lime-deep disabled:opacity-40"
-              >
-                {myPlayer.submittedAt ? "Update map" : "Submit map"} →
-              </button>
-              {keyChanges.length < MIN_KEY_CHANGES && (
-                <span className="text-[12px] italic text-muted">
-                  Add at least {MIN_KEY_CHANGES} key changes first.
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+        buildBody
       ) : (
         <Panel>
           <p className="text-[14px] text-muted">Opening the map…</p>
@@ -518,6 +665,12 @@ function DoneSummary({
           )}
         </div>
       </div>
+
+      {/* A locked week lands here, so the group's ranking has to survive the lock —
+          it is half the artefact, and Session 3 reads it back from this view. */}
+      {config.scoringEnabled && (
+        <RankingPanel keyChanges={cards.filter(isTreeRoot)} busy={false} readOnly onScore={() => {}} />
+      )}
 
       {view === "wheel" ? (
         <FuturesWheel cards={cards} centerLabel={config.scenarioTitle} />

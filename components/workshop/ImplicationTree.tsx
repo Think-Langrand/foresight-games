@@ -12,6 +12,7 @@ import {
   type CardOrder,
   type RippleCard,
 } from "@/lib/ripples-types";
+import { rankByCardId, sortRootsByRank } from "@/lib/ripples-scoring";
 import { rippleDepthColor } from "@/components/workshop/RippleCard";
 
 // Column geometry, in px. The header row and the tree share these, so a label
@@ -72,7 +73,13 @@ export function ImplicationTree({
   const childrenMap = useMemo(() => buildChildrenMap(cards), [cards]);
   // Tree roots are the key changes — brainstorm STICKY notes share the null parent
   // but are not part of the tree.
-  const roots = (childrenMap.get(null) ?? []).filter((c) => c.order !== "STICKY");
+  // Key changes read in rank order once the group has scored them (a no-op — plain
+  // createdTime order — on an unscored board, so nothing shifts for solo/standalone).
+  const roots = useMemo(
+    () => sortRootsByRank((childrenMap.get(null) ?? []).filter((c) => c.order !== "STICKY")),
+    [childrenMap]
+  );
+  const ranks = useMemo(() => rankByCardId(cards), [cards]);
   const depths = useMemo(() => depthByCard(cards), [cards]);
   // Same invariant as renderBranch: only draw a root that depthByCard placed.
   const drawnRoots = roots.filter((r) => depths.has(r.id));
@@ -135,8 +142,23 @@ export function ImplicationTree({
           <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted">
             {prefixForDepth(depth)}
           </span>
-          {card.greyed && (
+          {card.greyed ? (
             <span className="text-[8.5px] font-bold uppercase tracking-[0.06em] text-muted">today-thinking</span>
+          ) : (
+            depth === 0 &&
+            ranks.has(card.id) && (
+              <span className="inline-flex shrink-0 items-center gap-1">
+                <span
+                  title={`Ranked ${ranks.get(card.id)} by plausibility × impact`}
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-ink bg-lime text-[9px] font-bold tabular-nums"
+                >
+                  {ranks.get(card.id)}
+                </span>
+                <span className="text-[8.5px] font-bold tabular-nums text-muted">
+                  {card.plausibility}×{card.impact}
+                </span>
+              </span>
+            )
           )}
         </div>
         {editing ? (

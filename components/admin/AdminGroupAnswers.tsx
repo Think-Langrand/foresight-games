@@ -407,9 +407,6 @@ function SeedKeyChangesPanel({
                           />
                           <span className="min-w-0">
                             {a.text}
-                            {a.author && (
-                              <span className="ml-2 text-[10px] uppercase tracking-[0.06em] text-muted">— {a.author}</span>
-                            )}
                             {done && (
                               <span className="ml-2 text-[10px] font-bold uppercase tracking-[0.06em] text-muted">✓ on map</span>
                             )}
