@@ -105,6 +105,30 @@ const SCENARIO_ASSESSMENT_SECTIONS: WorksheetSection[] = [
   },
 ];
 
+// --- Implication Mapping (Week 2), step 3 -------------------------------------
+// The RANK and MAP steps are code (the scoring panel and the tree). The third step rides
+// the ordinary section substrate, so a facilitator can reword it like any worksheet block.
+// Both sections share ONE `step`, so WorksheetSections renders its flat stack rather than
+// a second tab bar nested inside the exercise's own tabs — adding a section with a
+// DIFFERENT step here would flip it to tabs-inside-tabs.
+// Keys are permanent ids written onto every answer card's `section` — never rename them.
+const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
+  {
+    key: "implication-opportunities",
+    kind: "brainstorm",
+    step: "Risks & opportunities",
+    label: "Opportunities",
+    help: "Where does this future open something up — a new capability, a new mandate, new relationships? Draw on the branches you just mapped, not on today's wish list.",
+  },
+  {
+    key: "implication-risks",
+    kind: "brainstorm",
+    step: "Risks & opportunities",
+    label: "Risks",
+    help: "Where does this future put the institute, its people, or the public at risk? Aim for a mix — a wall of only risks means you stopped early.",
+  },
+];
+
 export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   "scenario-assessment": {
     id: "scenario-assessment",
@@ -127,6 +151,7 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
     label: "Implication Mapping",
     render: "implications",
     boardBacked: true,
+    sections: IMPLICATIONS_SECTIONS,
   },
   placeholder: {
     id: "placeholder",

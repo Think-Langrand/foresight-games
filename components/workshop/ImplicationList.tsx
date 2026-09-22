@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { buildChildrenMap, depthByCard, orderLabelForDepth, type RippleCard } from "@/lib/ripples-types";
+import { sortRootsByRank } from "@/lib/ripples-scoring";
 import { rippleDepthColor } from "@/components/workshop/RippleCard";
 
 // The finished map as a flat, readable table: every implication on its own row,
@@ -27,7 +28,8 @@ const INDENT = 12;
 function flatten(cards: RippleCard[]): Row[] {
   const childrenMap = buildChildrenMap(cards);
   const depths = depthByCard(cards);
-  const roots = (childrenMap.get(null) ?? []).filter((c) => c.order !== "STICKY");
+  // Same rank order as the tree, so the three views never disagree about the key changes.
+  const roots = sortRootsByRank((childrenMap.get(null) ?? []).filter((c) => c.order !== "STICKY"));
   const rows: Row[] = [];
   // Depth comes from depthByCard, which stops at the cap and drops cycles — so
   // this walk can't run away on a malformed parent chain.

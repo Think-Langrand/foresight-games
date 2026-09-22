@@ -1,4 +1,4 @@
-import { getExerciseType, type WorksheetSection } from "@/lib/exercise-types";
+import { getExerciseType, resolveEffectiveSections, type WorksheetSection } from "@/lib/exercise-types";
 import type { RippleCard, RipplesView } from "@/lib/ripples-types";
 import type { AnswerRow, ExerciseAnswers, QuestionBlock } from "@/components/design-groups/AnswerPanels";
 
@@ -58,8 +58,7 @@ export function shapeFromView(
   };
 
   if (render === "worksheet") {
-    const spec: WorksheetSection[] =
-      ex.sections.length > 0 ? ex.sections : getExerciseType(ex.type)?.sections ?? [];
+    const spec: WorksheetSection[] = resolveEffectiveSections(ex.type, ex.sections);
     return { kind: "worksheet", exerciseId: ex.id, title: ex.title, questions: buildQuestions(spec) };
   }
 
@@ -76,7 +75,10 @@ export function shapeFromView(
       scenarioTitle: view.config.scenarioTitle || opts.scenarioTitle || "",
       cards,
       brainstorm,
-      questions: buildQuestions(ex.sections),
+      // resolveEffectiveSections, not the raw column: an implications week that was never
+      // customized stores [] and must fall back to the type's template, or its risks /
+      // opportunities blocks are invisible here.
+      questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
     };
   }
 

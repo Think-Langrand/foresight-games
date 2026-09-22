@@ -47,6 +47,8 @@ function card(
     section: null,
     sourceCardId: null,
     sourceLabel: null,
+    plausibility: null,
+    impact: null,
     createdTime: `2026-01-01T00:00:${String(seq).padStart(2, "0")}Z`,
   };
 }
@@ -171,6 +173,26 @@ describe("resolveConfig", () => {
     const c = resolveConfig({ chainSeconds: -5, chipsPerPlayer: "lots" as unknown });
     expect(c.chainSeconds).toBe(DEFAULT_RIPPLES_CONFIG.chainSeconds);
     expect(c.chipsPerPlayer).toBe(DEFAULT_RIPPLES_CONFIG.chipsPerPlayer);
+  });
+
+  // The no-backfill contract: design-group boards provisioned before the rank step
+  // existed have no `scoringEnabled` key, and must still turn it on.
+  describe("scoringEnabled defaults to sharedTeam", () => {
+    it("is off for a solo/standalone board", () => {
+      expect(resolveConfig({}).scoringEnabled).toBe(false);
+      expect(resolveConfig({ solo: true }).scoringEnabled).toBe(false);
+    });
+    it("is ON for an existing shared board that never stored the key", () => {
+      expect(resolveConfig({ sharedTeam: true }).scoringEnabled).toBe(true);
+    });
+    it("lets an explicit value win either way", () => {
+      expect(resolveConfig({ sharedTeam: true, scoringEnabled: false }).scoringEnabled).toBe(false);
+      expect(resolveConfig({ sharedTeam: false, scoringEnabled: true }).scoringEnabled).toBe(true);
+    });
+    it("falls back to the sharedTeam default when the stored value is junk", () => {
+      expect(resolveConfig({ scoringEnabled: "yes" as unknown }).scoringEnabled).toBe(false);
+      expect(resolveConfig({ sharedTeam: true, scoringEnabled: "no" as unknown }).scoringEnabled).toBe(true);
+    });
   });
 });
 

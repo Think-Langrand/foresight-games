@@ -15,6 +15,7 @@ import {
   prefixForDepth,
   type RipplesView,
 } from "@/lib/ripples-types";
+import { rankByCardId, rankValue, rankedRoots } from "@/lib/ripples-scoring";
 
 export function buildRipplesExport(view: RipplesView) {
   const { session, config, teams, players, cards, chips } = view;
@@ -34,6 +35,7 @@ export function buildRipplesExport(view: RipplesView) {
       const longest = longestChain(tc);
       const topChipped = mostChippedCards(tc, tch, 1)[0];
       const branch = mostBranchedFirstOrder(tc);
+      const ranks = rankByCardId(tc);
       return {
         id: t.id,
         name: t.name,
@@ -64,6 +66,11 @@ export function buildRipplesExport(view: RipplesView) {
             flagged: c.flagged,
             greyed: c.greyed,
             chipTotal: chipCounts.get(c.id) ?? 0,
+            // Only a key change carries these; null everywhere else.
+            plausibility: c.plausibility,
+            impact: c.impact,
+            rankValue: rankValue(c),
+            rank: ranks.get(c.id) ?? null,
           };
         }),
         chains: enumerateChains(cards, chips, t.id),
@@ -75,6 +82,16 @@ export function buildRipplesExport(view: RipplesView) {
           mostBranchedFirstOrder: branch
             ? { text: branch.card.text, branchCount: branch.branchCount }
             : null,
+          // The key changes top-down, so the export reads without reconstructing the sort.
+          ranking: rankedRoots(tc)
+            .filter((r) => r.rank !== null)
+            .map((r) => ({
+              rank: r.rank,
+              text: r.card.text,
+              plausibility: r.plausibility,
+              impact: r.impact,
+              value: r.value,
+            })),
         },
       };
     }),
