@@ -85,8 +85,17 @@ export function RipplesTeamView({
   const { view, error, loading, refresh } = useRipplesView(code);
   const { pid, nick, saveNick, playerId, join } = useSharedBoardMembership(code, view, refresh);
   // Instant local mutations layered over the (laggy) realtime board.
-  const { cards, addLocal, removeLocal, unremoveLocal, reorderLocal, editLocal, scoreLocal } =
-    useOptimisticCards(view?.cards ?? NO_CARDS);
+  const {
+    cards,
+    addLocal,
+    removeLocal,
+    unremoveLocal,
+    reorderLocal,
+    editLocal,
+    scoreLocal,
+    settleScoreLocal,
+    dropScoreLocal,
+  } = useOptimisticCards(view?.cards ?? NO_CARDS);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   // Scenario ↔ exercise swap (shared with WorksheetView): read the scenario first, toggle
@@ -174,7 +183,14 @@ export function RipplesTeamView({
   // tolerant predicate, so a row whose stored order disagrees with its position still
   // counts as the key change it visibly is.
   const keyChanges = myCards.filter(isTreeRoot);
-  const stickies = myCards.filter((c) => c.order === "STICKY").sort((a, b) => a.sort - b.sort);
+  // `!c.section` matters: an implications exercise can also carry worksheet sections,
+  // whose answers are STICKY cards too. Without the guard those answers show up on the
+  // brainstorm pad as editable — and deletable — notes, which is how a group loses its
+  // step-3 work from step 1. Every other reader of this board (shapeFromView, the admin
+  // and past-week views) already splits the two on `section`.
+  const stickies = myCards
+    .filter((c) => c.order === "STICKY" && !c.section)
+    .sort((a, b) => a.sort - b.sort);
   const playerNames = new Map<string, string>(players.map((p) => [p.id, p.displayName] as const));
 
   const goPhase = (target: RipplePhase) =>
@@ -306,20 +322,21 @@ export function RipplesTeamView({
     });
   };
 
-  // Set one axis of a key change's shared group score. Same optimistic shape as editCard:
-  // show it instantly, put the previous value back if the server refuses.
+  // Set one axis of a key change's shared group score: show it instantly, then hand the
+  // card back to the server. Unlike editCard there is no locally reconstructed "previous"
+  // to revert to — this is a value the whole group writes, so `cards` may already be
+  // carrying our own optimistic guess. Success settles the overlay (the next server list
+  // decides the value, ours or a teammate's later write); failure drops this axis, which
+  // falls straight back to whatever the server holds.
   const scoreKeyChange = (cardId: string, patch: ScorePatchInput) => {
-    const prev = cards.find((c) => c.id === cardId);
-    const revert = prev && {
-      ...(patch.plausibility !== undefined ? { plausibility: prev.plausibility } : {}),
-      ...(patch.impact !== undefined ? { impact: prev.impact } : {}),
-    };
+    const axes = Object.keys(patch) as (keyof ScorePatchInput)[];
     scoreLocal(cardId, patch);
     run(async () => {
       try {
         await scoreRippleCard(code, cardId, { participantId: pid, ...patch });
+        settleScoreLocal(cardId);
       } catch (e) {
-        if (revert) scoreLocal(cardId, revert);
+        dropScoreLocal(cardId, axes);
         throw e;
       }
     });

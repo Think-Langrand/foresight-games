@@ -159,7 +159,11 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
   const [deletes, setDeletes] = useState<Set<string>>(() => new Set());
   const [sorts, setSorts] = useState<Map<string, number>>(() => new Map());
   const [edits, setEdits] = useState<Map<string, string>>(() => new Map());
-  const [scores, setScores] = useState<Map<string, ScorePatch>>(() => new Map());
+  // `inflight` counts this card's score writes that haven't come back yet. While any is
+  // outstanding the overlay has to stand, because the server list in hand may predate it.
+  const [scores, setScores] = useState<Map<string, { patch: ScorePatch; inflight: number }>>(
+    () => new Map()
+  );
   const [seen, setSeen] = useState(serverCards);
 
   // Reconcile overlays the instant a fresh server list arrives — a render-time state
@@ -202,13 +206,20 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     });
     // Per-AXIS, not per-object: the two score rows write independently, so a
     // plausibility round-trip landing first must not drop a still-pending impact.
+    //
+    // `inflight === 0` is the escape hatch that keeps an overlay from sticking forever.
+    // On a shared board another member can write the same axis after us; the server then
+    // settles on THEIR value, ours never comes back, and a match-only test would pin this
+    // viewer's rank badges and matrix chip to a number nobody else sees. So once our own
+    // writes have all returned, the first server list after them wins whatever it says.
     setScores((prev) => {
       let changed = false;
       const next = new Map(prev);
-      for (const [id, patch] of prev) {
+      for (const [id, { patch, inflight }] of prev) {
         const server = serverCards.find((c) => c.id === id);
         const settled =
           !server ||
+          inflight === 0 ||
           (Object.keys(patch) as (keyof ScorePatch)[]).every((axis) => server[axis] === patch[axis]);
         if (settled) {
           next.delete(id);
@@ -233,7 +244,7 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
           ...c,
           ...(sorts.has(c.id) ? { sort: sorts.get(c.id)! } : {}),
           ...(edits.has(c.id) ? { text: edits.get(c.id)! } : {}),
-          ...(scores.get(c.id) ?? {}),
+          ...(scores.get(c.id)?.patch ?? {}),
         };
       });
   }, [serverCards, adds, deletes, sorts, edits, scores]);
@@ -259,14 +270,60 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     []
   );
   // MERGES rather than replaces, so setting impact doesn't wipe a plausibility write
-  // that hasn't come back from the server yet.
+  // that hasn't come back from the server yet. Call it as the write leaves; pair every
+  // call with exactly one settleScoreLocal / dropScoreLocal when it comes back.
   const scoreLocal = useCallback(
     (id: string, patch: ScorePatch) =>
-      setScores((p) => new Map(p).set(id, { ...p.get(id), ...patch })),
+      setScores((p) => {
+        const pending = p.get(id);
+        return new Map(p).set(id, {
+          patch: { ...pending?.patch, ...patch },
+          inflight: (pending?.inflight ?? 0) + 1,
+        });
+      }),
+    []
+  );
+  // The write came back OK. Hold the value one more beat — the server list in hand may
+  // predate it — then let the next one settle the card, with our value or a teammate's.
+  const settleScoreLocal = useCallback(
+    (id: string) =>
+      setScores((p) => {
+        const pending = p.get(id);
+        if (!pending) return p;
+        return new Map(p).set(id, { ...pending, inflight: Math.max(0, pending.inflight - 1) });
+      }),
+    []
+  );
+  // The write was refused. Drop its axes outright so they fall back to the server's
+  // value — never to a locally reconstructed "previous", which on a shared board is
+  // itself just an older optimistic guess. Axes still in flight are left alone.
+  const dropScoreLocal = useCallback(
+    (id: string, axes: (keyof ScorePatch)[]) =>
+      setScores((p) => {
+        const pending = p.get(id);
+        if (!pending) return p;
+        const patch = { ...pending.patch };
+        for (const axis of axes) delete patch[axis];
+        const next = new Map(p);
+        const inflight = Math.max(0, pending.inflight - 1);
+        if (Object.keys(patch).length === 0) next.delete(id);
+        else next.set(id, { patch, inflight });
+        return next;
+      }),
     []
   );
 
-  return { cards, addLocal, removeLocal, unremoveLocal, reorderLocal, editLocal, scoreLocal };
+  return {
+    cards,
+    addLocal,
+    removeLocal,
+    unremoveLocal,
+    reorderLocal,
+    editLocal,
+    scoreLocal,
+    settleScoreLocal,
+    dropScoreLocal,
+  };
 }
 
 // ---- Ripples write helpers ----

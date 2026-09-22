@@ -68,7 +68,10 @@ export function ImpactMatrix({
                   >
                     {cell.cards.map((c) => {
                       const on = hoveredId === c.id;
-                      const dim = hoveredId !== null && !on;
+                      // Keys off the RESOLVED card, not the raw id: hovering a list row
+                      // for a half-scored key change places nothing here, and dimming on
+                      // the bare id would fade the whole matrix with nothing lit up.
+                      const dim = hovered !== null && !on;
                       return (
                         <button
                           key={c.id}
