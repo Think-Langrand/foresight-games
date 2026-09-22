@@ -135,7 +135,7 @@ export function orderLabelForDepth(depth: number): string {
   return depth <= 0 ? "Key change" : `${ordinal(depth)} order`;
 }
 
-export const CARD_TEXT_MAX = 200;
+export const CARD_TEXT_MAX = 500;
 
 // ---------------------------------------------------------------------------
 // Per-session config (stored in sessions.config jsonb; snapshotted at create)

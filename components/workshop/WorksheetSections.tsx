@@ -175,8 +175,8 @@ function QuestionSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
-  const over = text.length > CARD_TEXT_MAX;
-  const editOver = editText.length > CARD_TEXT_MAX;
+  const over = text.trim().length > CARD_TEXT_MAX;
+  const editOver = editText.trim().length > CARD_TEXT_MAX;
   // Bullets when there are several answers; a lone answer reads as a plain paragraph.
   const single = answers.length === 1;
   const submit = () => {
@@ -229,7 +229,7 @@ function QuestionSection({
                       />
                       <div className="mt-1 flex items-center justify-end gap-2">
                         <span className={"mr-auto text-[10px] " + (editOver ? "font-bold text-coral" : "text-muted")}>
-                          {editText.length}/{CARD_TEXT_MAX}
+                          {editText.trim().length}/{CARD_TEXT_MAX}
                         </span>
                         <button
                           onClick={cancelEdit}
@@ -304,16 +304,21 @@ function QuestionSection({
       </div>
       {!readOnly && (
         <div className="mt-2 flex items-start gap-2">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
-            }}
-            rows={2}
-            placeholder="Add your answer…"
-            className="flex-1 resize-none rounded-[2px] border border-[var(--hairline)] bg-paper p-2 text-[13px] outline-none focus:border-ink"
-          />
+          <div className="min-w-0 flex-1">
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
+              }}
+              rows={2}
+              placeholder="Add your answer…"
+              className="w-full resize-none rounded-[2px] border border-[var(--hairline)] bg-paper p-2 text-[13px] outline-none focus:border-ink"
+            />
+            <span className={"mt-1 block text-[10px] " + (over ? "font-bold text-coral" : "text-muted")}>
+              {text.trim().length}/{CARD_TEXT_MAX}
+            </span>
+          </div>
           <button
             onClick={submit}
             disabled={busy || !text.trim() || over}

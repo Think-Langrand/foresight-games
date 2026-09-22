@@ -43,7 +43,7 @@ export function BrainstormSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const handled = useRef(false);
-  const over = text.length > CARD_TEXT_MAX;
+  const over = text.trim().length > CARD_TEXT_MAX;
   const submit = () => {
     const t = text.trim();
     if (!t || over) return;
@@ -125,7 +125,7 @@ export function BrainstormSection({
                 />
                 <div className="mt-1 flex items-center justify-between">
                   <span className={"text-[10px] " + (over ? "font-bold text-coral" : "text-black/40")}>
-                    {text.length}/{CARD_TEXT_MAX}
+                    {text.trim().length}/{CARD_TEXT_MAX}
                   </span>
                   <button
                     onClick={submit}

@@ -181,10 +181,10 @@ export function ImplicationTree({
             />
             <span
               className={
-                "text-[10px] " + (editText.length > CARD_TEXT_MAX ? "font-bold text-coral" : "text-muted")
+                "text-[10px] " + (editText.trim().length > CARD_TEXT_MAX ? "font-bold text-coral" : "text-muted")
               }
             >
-              {editText.length}/{CARD_TEXT_MAX} · Enter to save, Esc to cancel
+              {editText.trim().length}/{CARD_TEXT_MAX} · Enter to save, Esc to cancel
             </span>
           </div>
         ) : (
@@ -376,7 +376,7 @@ function AddChildNode({
   useEffect(() => {
     if (open) box.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [open]);
-  const over = text.length > CARD_TEXT_MAX;
+  const over = text.trim().length > CARD_TEXT_MAX;
   const submit = () => {
     const t = text.trim();
     if (!t || over) return;
@@ -415,7 +415,7 @@ function AddChildNode({
       />
       <div className="mt-1 flex items-center justify-between">
         <span className={"text-[10px] " + (over ? "font-bold text-coral" : "text-muted")}>
-          {text.length}/{CARD_TEXT_MAX}
+          {text.trim().length}/{CARD_TEXT_MAX}
         </span>
         <span className="flex gap-1">
           <MiniBtn onClick={() => setOpen(false)}>close</MiniBtn>
