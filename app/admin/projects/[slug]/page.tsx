@@ -152,7 +152,15 @@ export default async function ProjectAdminPage({
       </section>
 
       <section className="mt-12">
-        <span className="eyebrow ink">Design groups</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="eyebrow ink">Design groups</span>
+          <Link
+            href={`/admin/projects/${slug}/activity`}
+            className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
+          >
+            Group activity →
+          </Link>
+        </div>
         <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-muted">
           Set up the groups for this project and assign each one a scenario. Members
           self-select their group on the site&rsquo;s <span className="font-semibold text-ink">Design
