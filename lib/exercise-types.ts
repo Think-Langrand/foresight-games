@@ -108,24 +108,20 @@ const SCENARIO_ASSESSMENT_SECTIONS: WorksheetSection[] = [
 // --- Implication Mapping (Week 2), step 3 -------------------------------------
 // The RANK and MAP steps are code (the scoring panel and the tree). The third step rides
 // the ordinary section substrate, so a facilitator can reword it like any worksheet block.
-// Both sections share ONE `step`, so WorksheetSections renders its flat stack rather than
-// a second tab bar nested inside the exercise's own tabs — adding a section with a
-// DIFFERENT step here would flip it to tabs-inside-tabs.
+// It is a single Sandbox — the same free sticky wall Week 1 ends on. Risks & opportunities
+// moved to Week 3. Keep every section here on ONE `step`: WorksheetSections then renders
+// its flat stack rather than a second tab bar nested inside the exercise's own tabs.
 // Keys are permanent ids written onto every answer card's `section` — never rename them.
+// Cards still tagged with the retired `implication-risks` / `implication-opportunities`
+// keys are not lost: the answer shaping surfaces them under a "removed block" heading.
 const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
   {
-    key: "implication-opportunities",
+    key: "implication-sandbox",
     kind: "brainstorm",
-    step: "Risks & opportunities",
-    label: "Opportunities",
-    help: "Where does this future open something up — a new capability, a new mandate, new relationships? Draw on the branches you just mapped, not on today's wish list.",
-  },
-  {
-    key: "implication-risks",
-    kind: "brainstorm",
-    step: "Risks & opportunities",
-    label: "Risks",
-    help: "Where does this future put the institute, its people, or the public at risk? Aim for a mix — a wall of only risks means you stopped early.",
+    step: "Sandbox",
+    board: true, // a large sticky board, like Week 1's parking-lot
+    label: "Sandbox — good ideas for later",
+    help: "A free space for brainstorming — capture any ideas, questions, or possibilities that come up, including ones you can't act on yet.",
   },
 ];
 

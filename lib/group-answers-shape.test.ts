@@ -133,20 +133,17 @@ describe("shapeFromView — implications weeks", () => {
     expect(shapeFromView(ex("implications"), null)).toEqual({ kind: "placeholder", exerciseId: "EX", title: "Week" });
   });
 
-  // Every pre-existing Session-2 row stores sections = [], so the risks / opportunities
-  // blocks only surface here if the shaping falls back to the type's code template.
+  // Every pre-existing Session-2 row stores sections = [], so the Sandbox block only
+  // surfaces here if the shaping falls back to the type's code template.
   it("falls back to the type template when the week stores no sections", () => {
-    const cards = [card("r1", "STICKY", { section: "implication-risks", seq: 1 })];
+    const cards = [card("s1", "STICKY", { section: "implication-sandbox", seq: 1 })];
     const out = shapeFromView(ex("implications", []), view(cards));
     if (out.kind !== "implications") throw new Error("expected implications");
-    expect(out.questions.map((q) => q.key)).toEqual([
-      "implication-opportunities",
-      "implication-risks",
-    ]);
+    expect(out.questions.map((q) => q.key)).toEqual(["implication-sandbox"]);
     // …and an answer already on the board binds to its block rather than reading as orphaned.
-    const risks = out.questions.find((q) => q.key === "implication-risks");
-    expect(risks?.removed).toBeFalsy();
-    expect(risks?.answers.map((a) => a.id)).toEqual(["r1"]);
+    const sandbox = out.questions.find((q) => q.key === "implication-sandbox");
+    expect(sandbox?.removed).toBeFalsy();
+    expect(sandbox?.answers.map((a) => a.id)).toEqual(["s1"]);
   });
 });
 

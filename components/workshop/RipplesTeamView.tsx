@@ -43,14 +43,15 @@ import { type WorksheetSection } from "@/lib/exercise-types";
 const MIN_KEY_CHANGES = 3;
 
 // The three steps a design-group implication exercise walks: rank the key changes, map
-// them, then capture what the map surfaced. Steps are open from the start — a shared
-// board is worked asynchronously, so gating one behind another just strands people.
-type BuildStep = "rank" | "map" | "risks";
-const BUILD_STEPS: readonly BuildStep[] = ["rank", "map", "risks"];
+// them, then a free Sandbox for whatever the map shook loose (risks & opportunities live
+// in Week 3 now). Steps are open from the start — a shared board is worked asynchronously,
+// so gating one behind another just strands people.
+type BuildStep = "rank" | "map" | "sandbox";
+const BUILD_STEPS: readonly BuildStep[] = ["rank", "map", "sandbox"];
 const STEP_LABELS: Record<BuildStep, string> = {
   rank: "1 · Rank",
   map: "2 · Map",
-  risks: "3 · Risks & opportunities",
+  sandbox: "3 · Sandbox",
 };
 const NO_CARDS: RippleCard[] = []; // stable ref so the optimistic overlay doesn't churn
 
@@ -186,8 +187,8 @@ export function RipplesTeamView({
   // `!c.section` matters: an implications exercise can also carry worksheet sections,
   // whose answers are STICKY cards too. Without the guard those answers show up on the
   // brainstorm pad as editable — and deletable — notes, which is how a group loses its
-  // step-3 work from step 1. Every other reader of this board (shapeFromView, the admin
-  // and past-week views) already splits the two on `section`.
+  // Sandbox work to the solo pad. Every other reader of this board (shapeFromView, the
+  // admin and past-week views) already splits the two on `section`.
   const stickies = myCards
     .filter((c) => c.order === "STICKY" && !c.section)
     .sort((a, b) => a.sort - b.sort);
@@ -353,9 +354,11 @@ export function RipplesTeamView({
     setShowScenario(false);
   };
 
-  // The build body's four blocks, hoisted so the two layouts below are the SAME
-  // elements in the same order — one stacked, one split across step tabs. Forking the
-  // JSX instead is how the un-tabbed path silently drifts from the tabbed one.
+  // The build body's four blocks, hoisted so the two layouts below share the SAME
+  // elements in the same order — one stacked, one split across step tabs (which skips the
+  // brainstorm pad: a design group maps straight from its ranked key changes, and its free
+  // notes live on the Sandbox tab). Forking the JSX instead is how the un-tabbed path
+  // silently drifts from the tabbed one.
   const brainstormBlock = (
     <BrainstormSection
       stickies={stickies}
@@ -520,12 +523,11 @@ export function RipplesTeamView({
               to order the map by priority — unranked changes sit at the end for now.
             </p>
           )}
-          {brainstormBlock}
           {treeBlock}
         </>
       )}
 
-      {step === "risks" &&
+      {step === "sandbox" &&
         (sectionsBody ?? (
           <p className="text-[13px] italic text-muted">
             No blocks are set up for this step yet — a facilitator adds them in the
@@ -550,7 +552,7 @@ export function RipplesTeamView({
           canBuild ? (
             <ScenarioToggle
               showingScenario={showScenario}
-              exerciseLabel="Build the map"
+              exerciseLabel="Worksheet"
               onToggle={toggleScenario}
               disabled={busy}
             />
