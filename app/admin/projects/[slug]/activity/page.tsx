@@ -64,6 +64,7 @@ export default async function ProjectActivityPage({
       peopleByCode={activity.peopleByCode}
       namesByPlayerId={activity.namesByPlayerId}
       weekDetail={weekDetail}
+      now={activity.readAt}
     />
   );
 }

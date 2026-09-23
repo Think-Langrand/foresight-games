@@ -30,9 +30,10 @@ const KINDS = [
   { key: "answers", label: "answers" },
 ] as const;
 
-// `now` is captured once per mount by the caller, never read from the clock during render:
-// this component is server-rendered and then hydrated, so a bucket boundary crossed in
-// between would make the two passes disagree. Same reason AdminDesignGroups holds `now`.
+// `now` is stamped ONCE by the server page and passed down as a prop, never read from the
+// clock during render: this component is server-rendered and then hydrated, and a lazy
+// useState initializer runs again on the client, so a bucket boundary crossed between the
+// two passes ("4m ago" → "5m ago") would be a hydration mismatch.
 function relTime(iso: string | null, now: number): string {
   if (!iso) return "";
   const ms = now - Date.parse(iso);
@@ -53,6 +54,7 @@ export function AdminProgramActivity({
   peopleByCode,
   namesByPlayerId,
   weekDetail,
+  now,
 }: {
   slug: string;
   projectName: string;
@@ -61,10 +63,9 @@ export function AdminProgramActivity({
   peopleByCode: Record<string, { players: number; submitted: number }>;
   namesByPlayerId: Record<string, string>;
   weekDetail?: WeekDetail;
+  now: number; // epoch ms, stamped when the data was read (see relTime)
 }) {
   const { weeks, groups } = program;
-  // Captured once per mount so the SSR pass and hydration agree (see relTime).
-  const [now] = useState(() => Date.now());
 
   // A group's board for a week — its code, tally and people — or null when it has no board.
   const cell = (weekIdx: number, groupId: string) => {

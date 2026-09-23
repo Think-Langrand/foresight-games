@@ -25,6 +25,9 @@ export interface ProgramActivity {
   tallyByCode: Record<string, CardTally>;
   peopleByCode: Record<string, BoardPeople>;
   namesByPlayerId: Record<string, string>;
+  // Epoch ms at which the rows were read. The page hands it to the client component for its
+  // "4m ago" labels — stamped here, once, so the SSR and hydration passes agree.
+  readAt: number;
 }
 
 interface CardRow {
@@ -95,6 +98,7 @@ export async function getProgramActivity(projectId: string): Promise<ProgramActi
     tallyByCode: Object.fromEntries(tallies),
     peopleByCode,
     namesByPlayerId,
+    readAt: Date.now(),
   };
 }
 
