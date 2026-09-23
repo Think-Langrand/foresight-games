@@ -61,9 +61,11 @@ export function WorksheetSections({
   const tabbed = steps.length >= 2;
   const activeStep = steps[Math.min(activeStepIdx, steps.length - 1)];
   const visibleSections = tabbed ? sections.filter((s) => s.step?.trim() === activeStep) : sections;
-  // A lone brainstorm section flagged `board` (the Sandbox) gets a taller, board-like canvas.
+  // A lone brainstorm section flagged `board` (the Sandbox) gets a taller, board-like canvas —
+  // as one tab of a stepped worksheet, or as the only block on the implications board's
+  // Sandbox tab (a single step there, so `tabbed` is false).
   const tallCanvas =
-    tabbed && visibleSections.length === 1 && visibleSections[0].kind === "brainstorm" && Boolean(visibleSections[0].board);
+    visibleSections.length === 1 && visibleSections[0].kind === "brainstorm" && Boolean(visibleSections[0].board);
 
   return (
     <>
