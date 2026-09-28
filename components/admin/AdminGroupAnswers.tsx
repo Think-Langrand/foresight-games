@@ -47,14 +47,18 @@ function slugify(s: string): string {
 export function AdminGroupAnswers({
   data,
   backHref,
+  slug,
   projectId,
   groupId,
+  siblings,
   initialExerciseId,
 }: {
   data: GroupAnswersData;
   backHref: string;
+  slug: string;
   projectId: string;
   groupId: string;
+  siblings: { id: string; name: string; color: string | null }[];
   initialExerciseId?: string;
 }) {
   const router = useRouter();
@@ -70,6 +74,16 @@ export function AdminGroupAnswers({
 
   const active = exercises.find((e) => e.exerciseId === activeId) ?? initial;
   const cardsBase = `/api/admin/projects/${projectId}/design-groups/${groupId}/cards`;
+
+  // Group switcher: jump to the same WEEK in a neighbouring group. Exercise ids are
+  // per-group, so the link travels by position (?week=, 1-based) and the page resolves it
+  // against that group's own rows.
+  const activeIndex = Math.max(0, exercises.findIndex((e) => e.exerciseId === active?.exerciseId));
+  const myIndex = siblings.findIndex((g) => g.id === groupId);
+  const siblingHref = (id: string) =>
+    `/admin/projects/${slug}/design-groups/${id}/answers?week=${activeIndex + 1}`;
+  const prevGroup = myIndex > 0 ? siblings[myIndex - 1] : null;
+  const nextGroup = myIndex >= 0 && myIndex < siblings.length - 1 ? siblings[myIndex + 1] : null;
 
   // Copy earlier-week answers onto the active implications map as key changes (FIRST).
   // Never throws — reports the outcome inline under the seed panel.
@@ -194,6 +208,33 @@ export function AdminGroupAnswers({
             {data.groupName} — Answers
           </h1>
           {data.scenarioTitle && <p className="mt-0.5 text-[13px] text-muted">{data.scenarioTitle}</p>}
+          {siblings.length > 1 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.06em]">
+              {prevGroup ? (
+                <Link href={siblingHref(prevGroup.id)} className="text-blue underline hover:text-ink">
+                  ‹ {prevGroup.name}
+                </Link>
+              ) : (
+                <span className="text-muted opacity-50">‹ {siblings[0]?.name}</span>
+              )}
+              <span className="text-muted">
+                {myIndex + 1} / {siblings.length}
+              </span>
+              {nextGroup ? (
+                <Link href={siblingHref(nextGroup.id)} className="text-blue underline hover:text-ink">
+                  {nextGroup.name} ›
+                </Link>
+              ) : (
+                <span className="text-muted opacity-50">{siblings[siblings.length - 1]?.name} ›</span>
+              )}
+              <Link
+                href={`/admin/projects/${slug}/activity?week=${activeIndex + 1}`}
+                className="text-blue underline hover:text-ink"
+              >
+                All groups this week →
+              </Link>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button onClick={exportJson} disabled={!hasContent} className={btn}>

@@ -594,6 +594,18 @@ export function AdminDesignGroups({
                         <td colSpan={6} className="py-1 pb-2">
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
                             {groups.length === 0 && <span className="italic">No groups yet.</span>}
+                            {/* The activity page keys weeks by POSITION, so this link is only
+                                truthful against the saved program: an unsaved new week has no
+                                slots, and an unsaved move/delete shifts every later week's
+                                index out from under it. Hide it until the draft is saved. */}
+                            {!dirty && Object.keys(w.slots).length > 0 && (
+                              <Link
+                                href={`/admin/projects/${slug}/activity?week=${i + 1}`}
+                                className="font-semibold text-blue underline hover:text-ink"
+                              >
+                                all groups ›
+                              </Link>
+                            )}
                             {groups.map((g) => {
                               const exId = w.slots[g.id];
                               const code = w.sessionByGroup[g.id];
