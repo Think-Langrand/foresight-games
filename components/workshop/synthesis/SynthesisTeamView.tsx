@@ -7,6 +7,7 @@ import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
 import { ClusterBoard } from "@/components/workshop/synthesis/ClusterBoard";
+import type { DeleteThemeMode } from "@/components/workshop/synthesis/DeleteThemeModal";
 import { HopesFearsBoard } from "@/components/workshop/synthesis/HopesFearsBoard";
 import { ReferenceRail } from "@/components/workshop/synthesis/ReferenceRail";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
@@ -266,6 +267,52 @@ export function SynthesisTeamView({
     });
   };
 
+  // Delete a theme, having already decided what happens to what it holds (DeleteThemeModal).
+  //
+  // The theme is removed from the view only once the work has actually landed. The old
+  // behaviour removed it optimistically and put it back when the route refused, which read
+  // as the card vanishing and then an error arriving — the refusal was correct, the timing
+  // was not.
+  //
+  //   move  — hand the implications back to the tray, then delete. The theme's own
+  //           hope/fear chains still go, and the modal says so.
+  //   purge — delete the implications first (each cascades its own subtree), then the
+  //           theme. Doing the children first is what keeps the route's guard satisfied
+  //           rather than working around it.
+  const deleteTheme = (theme: RippleCard, mode: DeleteThemeMode) =>
+    run(async () => {
+      const held = board.clusters.get(theme.id) ?? [];
+
+      for (const card of held) {
+        if (mode === "move") {
+          const order = orderAtDepth(0);
+          if (order) reparentLocal(card.id, null, order);
+          try {
+            await reparentRippleCard(code, card.id, { participantId: pid, parentCardId: null });
+          } catch (e) {
+            dropReparentLocal(card.id);
+            throw e;
+          }
+        } else {
+          removeLocal(card.id);
+          try {
+            await deleteRippleCard(code, card.id, { participantId: pid });
+          } catch (e) {
+            unremoveLocal(card.id);
+            throw e;
+          }
+        }
+      }
+
+      removeLocal(theme.id);
+      try {
+        await deleteRippleCard(code, theme.id, { participantId: pid });
+      } catch (e) {
+        unremoveLocal(theme.id);
+        throw e;
+      }
+    });
+
   // Apply a list renumbering from planReorder. Each row is one small write; the lists here
   // hold a handful of cards, so a drop is a handful of requests at most.
   const applySorts = async (writes: SortWrite[], undo: () => void) => {
@@ -471,6 +518,7 @@ export function SynthesisTeamView({
           onStartTheme={startThemeWith}
           onPark={park}
           onDeleteCard={removeCard}
+          onDeleteTheme={deleteTheme}
           onMerge={merge}
         />
       )}

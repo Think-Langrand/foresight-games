@@ -10,6 +10,10 @@ import {
   InlineText,
 } from "@/components/workshop/synthesis/SynthesisCard";
 import type { Week2Lineage } from "@/lib/synthesis-shape";
+import {
+  DeleteThemeModal,
+  type DeleteThemeMode,
+} from "@/components/workshop/synthesis/DeleteThemeModal";
 
 // Implication cards carry their own tint so they read as objects sitting IN a theme rather
 // than as text printed on it — the theme box is lime, its well is near-white, and a card
@@ -63,6 +67,7 @@ export function ClusterBoard({
   onStartTheme,
   onPark,
   onDeleteCard,
+  onDeleteTheme,
   onMerge,
 }: {
   board: SynthesisBoard;
@@ -80,6 +85,8 @@ export function ClusterBoard({
   onStartTheme: (card: RippleCard) => void;
   onPark: (card: RippleCard, parked: boolean) => void;
   onDeleteCard: (card: RippleCard) => void;
+  // Deleting a theme also decides the fate of what it holds — see DeleteThemeModal.
+  onDeleteTheme: (theme: RippleCard, mode: DeleteThemeMode) => void;
   onMerge: (survivor: RippleCard, absorbed: RippleCard) => void;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -88,6 +95,9 @@ export function ClusterBoard({
   const [addingTo, setAddingTo] = useState<string | null>(null); // theme id, or "tray"
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
   const [showParked, setShowParked] = useState(false);
+  // The theme awaiting a delete decision. Nothing is written until the modal is answered,
+  // so a theme never vanishes and then reappears when the route refuses.
+  const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
   const columnRefs = useRef(new Map<string, HTMLDivElement | null>());
 
   const byId = new Map<string, RippleCard>();
@@ -98,6 +108,22 @@ export function ClusterBoard({
     ...[...board.clusters.values()].flat(),
   ])
     byId.set(c.id, c);
+
+  // Everything hanging off a theme in hope/fear chains, at any depth — the modal says how
+  // much goes with it, so first-level children alone would understate the damage.
+  const countChain = (rootId: string): number => {
+    let n = 0;
+    const walk = (id: string, seen: Set<string>) => {
+      for (const c of board.chains.get(id) ?? []) {
+        if (seen.has(c.id)) continue;
+        seen.add(c.id);
+        n += 1;
+        walk(c.id, seen);
+      }
+    };
+    walk(rootId, new Set([rootId]));
+    return n;
+  };
 
   const endDrag = () => {
     setDrag(null);
@@ -558,20 +584,19 @@ export function ClusterBoard({
                         />
                       </div>
                       {editable && (
-                        <button
-                          onClick={() => onDeleteCard(theme)}
-                          aria-label="Delete theme"
-                          title={
-                            held.length > 0
-                              ? "Move its implications out first"
-                              : chainCount > 0
-                                ? "Also deletes its hopes & fears"
-                                : "Delete theme"
-                          }
-                          className="shrink-0 text-[11px] font-bold text-muted hover:text-coral"
-                        >
-                          ✕
-                        </button>
+                        <CardMenu label="Theme actions">
+                          {(close) => (
+                            <CardMenuItem
+                              danger
+                              onClick={() => {
+                                close();
+                                setPendingDelete(theme);
+                              }}
+                            >
+                              Delete theme…
+                            </CardMenuItem>
+                          )}
+                        </CardMenu>
                       )}
                     </div>
                     <div className="text-[10px] uppercase tracking-[0.06em] text-muted">
@@ -692,6 +717,20 @@ export function ClusterBoard({
           </div>
         )}
       </section>
+
+      <DeleteThemeModal
+        open={pendingDelete !== null}
+        themeText={pendingDelete?.text ?? ""}
+        implications={pendingDelete ? (board.clusters.get(pendingDelete.id)?.length ?? 0) : 0}
+        chainCards={pendingDelete ? countChain(pendingDelete.id) : 0}
+        busy={busy}
+        onCancel={() => setPendingDelete(null)}
+        onChoose={(mode) => {
+          const theme = pendingDelete;
+          setPendingDelete(null);
+          if (theme) onDeleteTheme(theme, mode);
+        }}
+      />
     </div>
   );
 }
