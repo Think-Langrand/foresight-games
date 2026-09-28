@@ -8,6 +8,7 @@ import {
   type ExerciseAnswers,
   type MapView,
 } from "@/components/design-groups/AnswerPanels";
+import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
 import { emptyTally, sumTallies, type CardTally } from "@/lib/design-activity-shape";
 import type { ProgramDTO } from "@/lib/design-program-shape";
 
@@ -364,6 +365,7 @@ function WeekPanels({
       {active.answers.kind === "implications" && (
         <ImplicationsPanel ex={active.answers} view={mapView} setView={setMapView} showMeta />
       )}
+      {active.answers.kind === "synthesis" && <SynthesisPanel ex={active.answers} showMeta />}
       {active.answers.kind === "placeholder" && (
         <p className="text-[14px] italic text-muted">
           {active.answers.unavailable
