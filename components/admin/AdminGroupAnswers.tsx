@@ -14,6 +14,8 @@ import {
   type QuestionBlock,
 } from "@/components/design-groups/AnswerPanels";
 import { enumerateChains } from "@/lib/ripples-types";
+import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
+import { implicationSeedCandidates } from "@/lib/synthesis-shape";
 
 // Admin view of a design group's answers, one tab per exercise (week). Each tab renders in
 // its exercise's natural shape (the shared read-only panels in AnswerPanels) — worksheet
@@ -125,16 +127,50 @@ export function AdminGroupAnswers({
     }
   }
 
-  // Seed candidates: section-tagged answers from every other week of this group.
-  const seedSources: SeedSource[] = exercises
-    .flatMap((ex) =>
-      ex.exerciseId === active?.exerciseId || ex.kind === "placeholder"
-        ? []
-        : ex.questions
-            .filter((q) => q.answers.length > 0)
-            .map((q) => ({ key: `${ex.exerciseId}:${q.key}`, weekTitle: ex.title, question: q }))
-    )
-    .sort((a, b) => Number(isKeyChanges(b.question)) - Number(isKeyChanges(a.question)));
+  // Seed candidates from every OTHER week of this group. Two sources, because the two
+  // seedable targets want different material:
+  //   - section-tagged answers (STICKY cards) — e.g. Week 1's "Our 6 key changes"
+  //   - an implications week's TREE cards, which live on ex.cards and appear in no
+  //     question block at all. These are what a synthesis week clusters, so without them
+  //     Week 3's tray has nothing to seed from.
+  const sectionSources: SeedSource[] = exercises.flatMap((ex) =>
+    ex.exerciseId === active?.exerciseId || ex.kind === "placeholder"
+      ? []
+      : ex.questions
+          .filter((q) => q.answers.length > 0)
+          .map((q) => ({ key: `${ex.exerciseId}:${q.key}`, weekTitle: ex.title, question: q }))
+  );
+  const implicationSources: SeedSource[] = exercises.flatMap((ex) => {
+    if (ex.exerciseId === active?.exerciseId || ex.kind !== "implications") return [];
+    // One block per key change, so the admin picks implications in the context they came
+    // from rather than out of one flat list.
+    const byKeyChange = new Map<string, AnswerRow[]>();
+    for (const c of implicationSeedCandidates(ex.cards)) {
+      const arr = byKeyChange.get(c.keyChange);
+      const row: AnswerRow = { id: c.id, text: c.text, author: "", createdAt: c.createdAt };
+      if (arr) arr.push(row);
+      else byKeyChange.set(c.keyChange, [row]);
+    }
+    return [...byKeyChange].map(([keyChange, answers], i) => ({
+      key: `${ex.exerciseId}:impl:${i}`,
+      weekTitle: ex.title,
+      question: {
+        key: `${ex.exerciseId}:impl:${i}`,
+        label: keyChange,
+        kind: "brainstorm" as const,
+        answers,
+      },
+    }));
+  });
+  // Put whichever source IS the canonical seed for this target first, and leave the rest
+  // in week order below it.
+  const seedSources: SeedSource[] = (
+    active?.kind === "synthesis"
+      ? [...implicationSources, ...sectionSources]
+      : [...sectionSources, ...implicationSources]
+  ).sort((a, b) =>
+    active?.kind === "synthesis" ? 0 : Number(isKeyChanges(b.question)) - Number(isKeyChanges(a.question))
+  );
 
   // Never throws — on failure it keeps the modal open and surfaces a message rather than
   // leaving an unhandled rejection.
@@ -179,6 +215,25 @@ export function AdminGroupAnswers({
         for (const q of ex.questions)
           for (const a of q.answers)
             lines.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt].map(csvCell).join(","));
+      } else if (ex.kind === "synthesis") {
+        for (const t of ex.themes) {
+          lines.push([ex.title, "Theme", "theme", t.text, "", ""].map(csvCell).join(","));
+          for (const a of t.implications)
+            lines.push([ex.title, `Theme: ${t.text}`, "implication", a.text, a.author, a.createdAt].map(csvCell).join(","));
+          for (const c of t.chain)
+            lines.push(
+              [ex.title, `Theme: ${t.text}`, c.cardKind, `${"→ ".repeat(c.depth - 1)}${c.text}`, c.author, c.createdAt]
+                .map(csvCell)
+                .join(",")
+            );
+        }
+        for (const a of ex.unclustered)
+          lines.push([ex.title, "Not in a theme", "implication", a.text, a.author, a.createdAt].map(csvCell).join(","));
+        for (const q of ex.questions)
+          for (const a of q.answers)
+            lines.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt].map(csvCell).join(","));
+        for (const a of ex.parked)
+          lines.push([ex.title, "Parked", "parked", a.text, a.author, a.createdAt].map(csvCell).join(","));
       }
     }
     download("﻿" + lines.join("\r\n"), `${base}.csv`, "text/csv;charset=utf-8;");
@@ -188,7 +243,9 @@ export function AdminGroupAnswers({
     (ex) =>
       (ex.kind === "worksheet" && ex.questions.some((q) => q.answers.length > 0)) ||
       (ex.kind === "implications" &&
-        (ex.cards.length > 0 || ex.brainstorm.length > 0 || ex.questions.some((q) => q.answers.length > 0)))
+        (ex.cards.length > 0 || ex.brainstorm.length > 0 || ex.questions.some((q) => q.answers.length > 0))) ||
+      (ex.kind === "synthesis" &&
+        (ex.cards.length > 0 || ex.questions.some((q) => q.answers.length > 0)))
   );
   const activeBoardBacked = active && active.kind !== "placeholder";
   const onDeleteAnswer =
@@ -312,6 +369,26 @@ export function AdminGroupAnswers({
               }
             />
           )}
+          {active && active.kind === "synthesis" && (
+            <SynthesisPanel
+              ex={active}
+              onDelete={onDeleteAnswer}
+              seed={
+                <SeedKeyChangesPanel
+                  key={active.exerciseId}
+                  title="Seed implications"
+                  blurb="Pick last session's implications to drop into this week's clustering tray."
+                  sources={seedSources}
+                  seededIds={new Set(active.cards.map((c) => c.sourceCardId).filter((x): x is string => !!x))}
+                  // Open while the tray is still empty of seeded material.
+                  defaultOpen={!active.cards.some((c) => c.sourceCardId)}
+                  busy={seeding}
+                  message={seedMsg}
+                  onSeed={runSeed}
+                />
+              }
+            />
+          )}
           {active && active.kind === "placeholder" && (
             <p className="text-[14px] italic text-muted">This week hasn&rsquo;t been built yet.</p>
           )}
@@ -376,6 +453,10 @@ function SeedKeyChangesPanel({
   busy,
   message,
   onSeed,
+  // The mechanics are identical for both seedable targets; only the wording differs, so
+  // the copy is a prop rather than a second copy of this panel.
+  title = "Seed key changes from earlier weeks",
+  blurb = "Copies answers onto this map as key changes (“In this world…”). The group can reword, delete, or build on them like any card.",
 }: {
   sources: SeedSource[];
   seededIds: Set<string>;
@@ -383,6 +464,8 @@ function SeedKeyChangesPanel({
   busy: boolean;
   message: { tone: "ok" | "err"; text: string } | null;
   onSeed: (sourceCardIds: string[]) => Promise<boolean>;
+  title?: string;
+  blurb?: string;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
@@ -402,12 +485,9 @@ function SeedKeyChangesPanel({
   return (
     <details open={initiallyOpen} className="rounded-[4px] border border-[var(--rule)] bg-paper p-3">
       <summary className="cursor-pointer select-none text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
-        Seed key changes from earlier weeks
+        {title}
       </summary>
-      <p className="mt-2 text-[12.5px] text-muted">
-        Copies answers onto this map as key changes (&ldquo;In this world…&rdquo;). The group can reword, delete, or
-        build on them like any card.
-      </p>
+      <p className="mt-2 text-[12.5px] text-muted">{blurb}</p>
       {sources.length === 0 ? (
         <p className="mt-3 text-[13px] italic text-muted">No answers on this group&rsquo;s other weeks yet.</p>
       ) : (

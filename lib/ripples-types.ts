@@ -138,6 +138,24 @@ export function orderLabelForDepth(depth: number): string {
 export const CARD_TEXT_MAX = 500;
 
 // ---------------------------------------------------------------------------
+// Card kind (ripple_cards.card_kind, migration 0020)
+// ---------------------------------------------------------------------------
+// What a card IS, where the tree alone can't say. null = a plain implication, which is
+// every card on every board before Week 3 (Synthesis), plus every brainstorm sticky.
+//
+// A Week 3 theme carries implication children AND hope/fear children at the SAME depth,
+// so this column is the only thing separating the two. Plain text with no CHECK
+// constraint (see the card_order note above) — THIS list is the source of truth.
+export const CARD_KINDS = ["theme", "hope", "fear"] as const;
+export type CardKind = (typeof CARD_KINDS)[number];
+
+const CARD_KIND_SET = new Set<string>(CARD_KINDS);
+
+export function isCardKind(v: unknown): v is CardKind {
+  return typeof v === "string" && CARD_KIND_SET.has(v);
+}
+
+// ---------------------------------------------------------------------------
 // Per-session config (stored in sessions.config jsonb; snapshotted at create)
 // ---------------------------------------------------------------------------
 export interface ScenarioResolution {
@@ -291,6 +309,12 @@ export interface RippleCard {
   // and null on every other kind of card. Read via lib/ripples-scoring.ts, never raw.
   plausibility: number | null;
   impact: number | null;
+  // What the card is, when the tree can't say — a Week 3 theme / hope / fear. null is a
+  // plain implication (and every card on a Week 1-2 board). See CARD_KINDS.
+  cardKind: CardKind | null;
+  // Week 3's "set aside without deleting" tray. Deliberately NOT `greyed`, which is the
+  // challenge mechanic's flag — see migration 0020.
+  parked: boolean;
   createdTime: string;
 }
 
@@ -358,6 +382,98 @@ export function depthByCard(cards: RippleCard[]): Map<string, number> {
     level = next;
   }
   return depths;
+}
+
+// ---------------------------------------------------------------------------
+// Reparenting (Week 3 clustering: drag an implication into a theme, and back out)
+// ---------------------------------------------------------------------------
+// Moving a card changes its DEPTH, and depth is encoded in `card_order`, so a move has
+// to rewrite the order of the card AND of every descendant under it.
+
+export interface ReparentMove {
+  cardId: string;
+  order: TreeOrder;
+}
+
+export type ReparentRefusal =
+  | "NOT_TREE_CARD" // the card or the new parent is a STICKY note, or doesn't exist
+  | "PARENT_NOT_FOUND"
+  | "PARENT_NOT_PLACED" // the walk never placed the parent, so it's already invisible
+  | "PARENT_UNAVAILABLE" // greyed (challenged out) or parked
+  | "CYCLE" // onto itself, or into its own descendant
+  | "TOO_DEEP"
+  | "NO_CHANGE";
+
+export type ReparentPlan =
+  | { ok: true; moves: ReparentMove[] }
+  | { ok: false; reason: ReparentRefusal };
+
+// Plan a move of `cardId` under `newParentId` (null = back out to a root).
+//
+// Depth comes from depthByCard — the WALKED depth, not the parent's stored order. That is
+// deliberately different from the POST-a-card route, which only has the parent row to go
+// on; here we already need the whole board to find the subtree, so we use the same
+// tolerant source every view renders from. A useful side effect: the emitted moves also
+// HEAL any row whose stored order had drifted from where it actually sits.
+//
+// Moves come back deepest-last, so an applier that writes them in order leaves the moved
+// card itself for last — a partial failure then leaves it un-moved rather than half-moved.
+export function planReparent(
+  cards: RippleCard[],
+  cardId: string,
+  newParentId: string | null
+): ReparentPlan {
+  const byId = new Map(cards.map((c) => [c.id, c] as const));
+  const card = byId.get(cardId);
+  if (!card || card.order === "STICKY") return { ok: false, reason: "NOT_TREE_CARD" };
+  if (newParentId === cardId) return { ok: false, reason: "CYCLE" };
+  if ((card.parentId ?? null) === newParentId) return { ok: false, reason: "NO_CHANGE" };
+
+  const depths = depthByCard(cards);
+  let newDepth = 0;
+  if (newParentId !== null) {
+    const parent = byId.get(newParentId);
+    if (!parent) return { ok: false, reason: "PARENT_NOT_FOUND" };
+    if (parent.order === "STICKY") return { ok: false, reason: "NOT_TREE_CARD" };
+    if (parent.greyed || parent.parked) return { ok: false, reason: "PARENT_UNAVAILABLE" };
+    const parentDepth = depths.get(newParentId);
+    // A parent the walk never placed is invisible in every view; hanging a card off it
+    // would make that card invisible too — and then nobody could move it back.
+    if (parentDepth === undefined) return { ok: false, reason: "PARENT_NOT_PLACED" };
+    newDepth = parentDepth + 1;
+  }
+
+  // Breadth-first over the card's own subtree, recording each node's depth RELATIVE to
+  // the moved card. Cycle-guarded and capped, so a malformed board can't spin here.
+  const children = buildChildrenMap(cards);
+  const seen = new Set<string>([cardId]);
+  const subtree: { card: RippleCard; rel: number }[] = [];
+  let level: RippleCard[] = [card];
+  for (let rel = 0; rel <= MAX_TREE_DEPTH && level.length > 0; rel++) {
+    const next: RippleCard[] = [];
+    for (const c of level) {
+      subtree.push({ card: c, rel });
+      if (c.id === newParentId) return { ok: false, reason: "CYCLE" }; // moving into itself
+      for (const kid of children.get(c.id) ?? []) {
+        if (seen.has(kid.id)) continue;
+        seen.add(kid.id);
+        next.push(kid);
+      }
+    }
+    level = next;
+  }
+
+  const deepestRel = subtree.reduce((max, n) => Math.max(max, n.rel), 0);
+  if (newDepth + deepestRel > MAX_TREE_DEPTH) return { ok: false, reason: "TOO_DEEP" };
+
+  // Deepest-last (the BFS collected shallowest-first, so walk it backwards).
+  const moves: ReparentMove[] = [];
+  for (let i = subtree.length - 1; i >= 0; i--) {
+    const { card: c, rel } = subtree[i];
+    const order = orderAtDepth(newDepth + rel);
+    if (order) moves.push({ cardId: c.id, order });
+  }
+  return { ok: true, moves };
 }
 
 // The deepest implication column a tree will actually draw, 0-based (-1 = none).

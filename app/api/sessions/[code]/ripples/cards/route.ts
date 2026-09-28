@@ -5,10 +5,13 @@ import {
   CARD_TEXT_MAX,
   MAX_TREE_DEPTH,
   depthOfOrder,
+  isCardKind,
   isTreeOrder,
   orderAtDepth,
+  type CardKind,
   type CardOrder,
 } from "@/lib/ripples-types";
+import { placementError } from "@/lib/synthesis-shape";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +32,7 @@ export async function POST(
     text?: string;
     sort?: number;
     section?: string | null; // worksheet area key (STICKY only); null = default board
+    cardKind?: string | null; // Week 3: theme / hope / fear. Absent = a plain implication.
   } = {};
   try {
     body = await req.json();
@@ -52,6 +56,22 @@ export async function POST(
     const order = body.cardOrder as CardOrder;
     if (order !== "STICKY" && !isTreeOrder(order)) {
       return NextResponse.json({ error: "Invalid card order." }, { status: 400 });
+    }
+
+    // Week 3 card kinds. Absent/null = a plain implication, which is what every Week 1-2
+    // caller sends, so those paths are unchanged.
+    let kind: CardKind | null = null;
+    if (body.cardKind != null) {
+      if (!isCardKind(body.cardKind)) {
+        return NextResponse.json({ error: "Invalid card kind." }, { status: 400 });
+      }
+      kind = body.cardKind;
+    }
+    if (kind !== null && order === "STICKY") {
+      return NextResponse.json({ error: "A brainstorm note has no kind." }, { status: 400 });
+    }
+    if (kind === "theme" && order !== "FIRST") {
+      return NextResponse.json({ error: "A theme is a top-level card." }, { status: 400 });
     }
 
     // The whole tree is built during one BUILD phase.
@@ -108,6 +128,12 @@ export async function POST(
       if (order !== orderAtDepth(parentDepth + 1)) {
         return NextResponse.json({ error: "Build on the previous level's node." }, { status: 400 });
       }
+      // Week 3 kind invariants, shared with the reparent action so the two can't drift.
+      const misplaced = placementError(kind, parent.cardKind);
+      if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });
+      if (parent.parked) {
+        return NextResponse.json({ error: "Can't build on a parked card." }, { status: 400 });
+      }
       parentId = parent.id;
     }
 
@@ -122,6 +148,7 @@ export async function POST(
       sort: typeof body.sort === "number" ? body.sort : 0,
       // A worksheet buckets sticky cards into named areas; tree cards have no section.
       section: order === "STICKY" && typeof body.section === "string" ? body.section : null,
+      cardKind: kind,
     });
     return NextResponse.json({ card });
   } catch (err) {

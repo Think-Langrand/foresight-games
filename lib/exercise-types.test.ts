@@ -4,12 +4,14 @@ import {
   DEFAULT_PROGRAM,
   getExerciseType,
   isBoardBacked,
+  supportsSections,
   exerciseTypeLabel,
   exerciseStatus,
   exerciseEditable,
   worksheetSteps,
   resolveSections,
   newSectionKey,
+  defaultProgramWeeks,
 } from "./exercise-types";
 
 describe("exercise-types registry", () => {
@@ -22,14 +24,15 @@ describe("exercise-types registry", () => {
 
   it("marks board-backed types correctly; unknown = not board-backed", () => {
     expect(isBoardBacked("implications")).toBe(true);
+    expect(isBoardBacked("synthesis")).toBe(true);
     expect(isBoardBacked("scenario-assessment")).toBe(true);
     expect(isBoardBacked("placeholder")).toBe(false);
     expect(isBoardBacked("nope")).toBe(false);
   });
 
-  it("worksheet types have unique section keys (blank templates allowed)", () => {
+  it("types that carry sections have unique section keys (blank templates allowed)", () => {
     for (const t of Object.values(EXERCISE_TYPES)) {
-      if (t.render !== "worksheet") continue;
+      if (!supportsSections(t.id)) continue;
       const keys = (t.sections ?? []).map((s) => s.key);
       expect(new Set(keys).size).toBe(keys.length); // no dupes — section is the card bucket
     }
@@ -199,13 +202,37 @@ describe("exercise-types registry", () => {
     });
   });
 
-  it("default program is Week 1 assessment, Week 2 implications, then placeholders", () => {
+  it("default program is assessment, implications, synthesis, then a placeholder", () => {
     expect(DEFAULT_PROGRAM.map((w) => w.type)).toEqual([
       "scenario-assessment",
       "implications",
-      "placeholder",
+      "synthesis",
       "placeholder",
     ]);
     expect(DEFAULT_PROGRAM.map((w) => w.sort)).toEqual([0, 1, 2, 3]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Synthesis (Week 3)
+// ---------------------------------------------------------------------------
+describe("synthesis exercise type", () => {
+  it("is registered, board-backed, and carries editable sections", () => {
+    expect(getExerciseType("synthesis")?.render).toBe("synthesis");
+    expect(isBoardBacked("synthesis")).toBe(true);
+    expect(supportsSections("synthesis")).toBe(true);
+  });
+
+  it("keeps its risks & opportunities blocks on ONE step, so no tab bar nests", () => {
+    const sections = EXERCISE_TYPES.synthesis.sections!;
+    expect(worksheetSteps(sections)).toHaveLength(1);
+    expect(sections.map((s) => s.key)).toEqual(["synthesis-risks", "synthesis-opportunities"]);
+    // Both are board-like canvases, which is what makes the step render them tall.
+    expect(sections.every((s) => s.kind === "brainstorm" && s.board)).toBe(true);
+  });
+
+  it("is session 3 of the default program", () => {
+    expect(DEFAULT_PROGRAM[2].type).toBe("synthesis");
+    expect(defaultProgramWeeks()[2].sections).toHaveLength(2);
   });
 });
