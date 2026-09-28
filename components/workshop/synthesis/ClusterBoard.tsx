@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { RippleCard } from "@/lib/ripples-types";
+import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
 import { insertionPoint, type SynthesisBoard } from "@/lib/synthesis-shape";
 import {
   AddCardForm,
@@ -62,6 +62,7 @@ export function ClusterBoard({
   onAddTheme,
   onAddImplication,
   onEditCard,
+  onDescribeCard,
   onMoveCard,
   onMoveTheme,
   onStartTheme,
@@ -78,6 +79,7 @@ export function ClusterBoard({
   onAddTheme: (text: string) => void;
   onAddImplication: (text: string, themeId: string | null) => void;
   onEditCard: (card: RippleCard, text: string) => void;
+  onDescribeCard: (card: RippleCard, description: string) => void;
   // Put `card` in `themeId` (null = the tray), immediately before `beforeId` (null = last).
   onMoveCard: (card: RippleCard, themeId: string | null, beforeId: string | null) => void;
   onMoveTheme: (theme: RippleCard, beforeId: string | null) => void;
@@ -575,13 +577,28 @@ export function ClusterBoard({
                           ⠿⠿
                         </span>
                       )}
-                      <div className="min-w-0 flex-1 text-[13.5px] font-bold">
-                        <InlineText
-                          text={theme.text}
-                          editable={editable}
-                          busy={busy}
-                          onSave={(next) => onEditCard(theme, next)}
-                        />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13.5px] font-bold">
+                          <InlineText
+                            text={theme.text}
+                            editable={editable}
+                            busy={busy}
+                            onSave={(next) => onEditCard(theme, next)}
+                          />
+                        </div>
+                        {/* What the group means by this theme — the thing that settles
+                            whether a borderline implication belongs here or next door. */}
+                        <div className="mt-0.5 text-[11.5px] leading-[1.4] text-muted">
+                          <InlineText
+                            text={theme.description ?? ""}
+                            editable={editable}
+                            busy={busy}
+                            emptyLabel="＋ Describe this theme"
+                            placeholder="What does this theme mean?"
+                            maxLength={CARD_DESCRIPTION_MAX}
+                            onSave={(next) => onDescribeCard(theme, next)}
+                          />
+                        </div>
                       </div>
                       {editable && (
                         <CardMenu label="Theme actions">

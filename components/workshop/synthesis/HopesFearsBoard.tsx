@@ -5,6 +5,8 @@ import type { RippleCard } from "@/lib/ripples-types";
 import type { HopeFear, SynthesisBoard, Week2Lineage } from "@/lib/synthesis-shape";
 import { HopeFearChain } from "@/components/workshop/synthesis/HopeFearChain";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
+import { HopeFearPicker } from "@/components/workshop/synthesis/HopeFearPicker";
+import { MAX_TREE_DEPTH, childOrderOf } from "@/lib/ripples-types";
 
 // STEP 2 — hopes & fears, one theme at a time.
 //
@@ -20,6 +22,7 @@ export function HopesFearsBoard({
   busy,
   onAdd,
   onEdit,
+  onDescribe,
   onDelete,
   onGoToCluster,
 }: {
@@ -29,6 +32,7 @@ export function HopesFearsBoard({
   busy: boolean;
   onAdd: (parent: RippleCard, kind: HopeFear, text: string) => void;
   onEdit: (card: RippleCard, text: string) => void;
+  onDescribe: (card: RippleCard, description: string) => void;
   onDelete: (card: RippleCard) => void;
   onGoToCluster: () => void;
 }) {
@@ -87,9 +91,15 @@ export function HopesFearsBoard({
       {active && (
         <>
           <ThemeLineagePanel
+            theme={active}
             implications={board.clusters.get(active.id) ?? []}
             lineage={lineage}
+            editable={editable}
+            busy={busy}
+            onEditTheme={(text) => onEdit(active, text)}
+            onDescribeTheme={(description) => onDescribe(active, description)}
           />
+
           <HopeFearChain
             key={active.id}
             theme={active}
@@ -100,6 +110,20 @@ export function HopesFearsBoard({
             onEdit={onEdit}
             onDelete={onDelete}
           />
+
+          {editable && (
+            <div className="mt-2 border-t border-[var(--rule)] pt-6">
+              <HopeFearPicker
+                busy={busy}
+                // Nothing can hang off the theme once the ladder has bottomed out.
+                disabled={
+                  !childOrderOf(active.order) ||
+                  (board.chainDepth.get(active.id) ?? 0) >= MAX_TREE_DEPTH
+                }
+                onAdd={(kind, text) => onAdd(active, kind, text)}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

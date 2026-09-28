@@ -167,6 +167,7 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     Map<string, { parentId: string | null; order: CardOrder }>
   >(() => new Map());
   const [parks, setParks] = useState<Map<string, boolean>>(() => new Map());
+  const [descs, setDescs] = useState<Map<string, string | null>>(() => new Map());
   // `inflight` counts this card's score writes that haven't come back yet. While any is
   // outstanding the overlay has to stand, because the server list in hand may predate it.
   const [scores, setScores] = useState<Map<string, { patch: ScorePatch; inflight: number }>>(
@@ -236,6 +237,18 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
       }
       return changed ? next : prev;
     });
+    setDescs((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, d] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        if (!server || server.description === d) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
     // Per-AXIS, not per-object: the two score rows write independently, so a
     // plausibility round-trip landing first must not drop a still-pending impact.
     //
@@ -273,7 +286,8 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
       !edits.size &&
       !scores.size &&
       !reparents.size &&
-      !parks.size
+      !parks.size &&
+      !descs.size
     )
       return merged;
     return merged
@@ -284,7 +298,8 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
           !edits.has(c.id) &&
           !scores.has(c.id) &&
           !reparents.has(c.id) &&
-          !parks.has(c.id)
+          !parks.has(c.id) &&
+          !descs.has(c.id)
         )
           return c;
         const move = reparents.get(c.id);
@@ -295,9 +310,10 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
           ...(scores.get(c.id)?.patch ?? {}),
           ...(move ? { parentId: move.parentId, order: move.order } : {}),
           ...(parks.has(c.id) ? { parked: parks.get(c.id)! } : {}),
+          ...(descs.has(c.id) ? { description: descs.get(c.id)! } : {}),
         };
       });
-  }, [serverCards, adds, deletes, sorts, edits, scores, reparents, parks]);
+  }, [serverCards, adds, deletes, sorts, edits, scores, reparents, parks, descs]);
 
   const addLocal = useCallback((c: RippleCard) => setAdds((p) => [...p, c]), []);
   const removeLocal = useCallback((id: string) => setDeletes((p) => new Set(p).add(id)), []);
@@ -332,6 +348,10 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
         next.delete(id);
         return next;
       }),
+    []
+  );
+  const describeLocal = useCallback(
+    (id: string, description: string | null) => setDescs((p) => new Map(p).set(id, description)),
     []
   );
   const parkLocal = useCallback(
@@ -403,6 +423,7 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     dropReparentLocal,
     parkLocal,
     dropParkLocal,
+    describeLocal,
     scoreLocal,
     settleScoreLocal,
     dropScoreLocal,
@@ -474,6 +495,24 @@ export async function reparentRippleCard(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "reparent", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+// Set (or, with an empty string, clear) a theme's description.
+export async function describeRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; description: string }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "description", ...body }),
     }
   );
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");

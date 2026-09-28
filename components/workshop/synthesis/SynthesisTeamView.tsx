@@ -16,6 +16,7 @@ import {
   useRipplesView,
   useOptimisticCards,
   deleteRippleCard,
+  describeRippleCard,
   editRippleCard,
   parkRippleCard,
   postRippleCard,
@@ -98,6 +99,7 @@ export function SynthesisTeamView({
     dropReparentLocal,
     parkLocal,
     dropParkLocal,
+    describeLocal,
   } = useOptimisticCards(view?.cards ?? NO_CARDS);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -250,6 +252,19 @@ export function SynthesisTeamView({
         await editRippleCard(code, card.id, { participantId: pid, text });
       } catch (e) {
         editLocal(card.id, prev);
+        throw e;
+      }
+    });
+  };
+
+  const describeCard = (card: RippleCard, description: string) => {
+    const prev = card.description ?? null;
+    describeLocal(card.id, description || null);
+    run(async () => {
+      try {
+        await describeRippleCard(code, card.id, { participantId: pid, description });
+      } catch (e) {
+        describeLocal(card.id, prev);
         throw e;
       }
     });
@@ -513,6 +528,7 @@ export function SynthesisTeamView({
           onAddTheme={addTheme}
           onAddImplication={addImplication}
           onEditCard={editCard}
+          onDescribeCard={describeCard}
           onMoveCard={moveCard}
           onMoveTheme={moveTheme}
           onStartTheme={startThemeWith}
@@ -531,6 +547,7 @@ export function SynthesisTeamView({
           busy={busy}
           onAdd={addChainCard}
           onEdit={editCard}
+          onDescribe={describeCard}
           onDelete={removeCard}
           onGoToCluster={() => setStep("cluster")}
         />

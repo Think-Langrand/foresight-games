@@ -136,6 +136,9 @@ export function orderLabelForDepth(depth: number): string {
 }
 
 export const CARD_TEXT_MAX = 500;
+// A theme's optional note about what it means. Longer than a card's text because it is
+// prose, but still bounded — the database has no limit, this is the limit.
+export const CARD_DESCRIPTION_MAX = 1000;
 
 // ---------------------------------------------------------------------------
 // Card kind (ripple_cards.card_kind, migration 0020)
@@ -315,6 +318,9 @@ export interface RippleCard {
   // Week 3's "set aside without deleting" tray. Deliberately NOT `greyed`, which is the
   // challenge mechanic's flag — see migration 0020.
   parked: boolean;
+  // An optional longer note beside `text` (0021). Themes use it to say what the group
+  // means by the theme; null everywhere else.
+  description: string | null;
   createdTime: string;
 }
 

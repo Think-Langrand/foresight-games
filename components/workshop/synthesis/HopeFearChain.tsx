@@ -184,7 +184,13 @@ export function HopeFearChain({
   };
 
   const roots = (board.chains.get(theme.id) ?? []).filter((c) => isHopeFear(c.cardKind));
-  const themeAdd = renderAdd(theme, ["hope", "fear"]);
+  // The theme's own "write a hope / write a fear" lives in HopeFearPicker at the foot of
+  // the step, so the chain only offers the per-node flip side.
+  const themeAdd = null;
+
+  // With nothing written yet the chain has nothing to draw; the picker below is the whole
+  // interface at that point.
+  if (roots.length === 0) return null;
 
   return (
     <div className="overflow-x-auto pb-2">

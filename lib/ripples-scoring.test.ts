@@ -47,6 +47,7 @@ function card(
     impact: opts.impact ?? null,
     cardKind: null,
     parked: false,
+    description: null,
     createdTime: `2026-01-01T00:00:${String(opts.seq ?? 0).padStart(2, "0")}Z`,
   };
 }

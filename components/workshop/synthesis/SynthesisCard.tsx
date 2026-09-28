@@ -14,6 +14,11 @@ export function InlineText({
   onSave,
   className = "",
   placeholder = "Card text",
+  // Shown in place of empty text, as a single-click affordance. Without it, an empty
+  // field has nothing to double-click and is effectively unreachable.
+  emptyLabel,
+  maxLength = CARD_TEXT_MAX,
+  rows,
 }: {
   text: string;
   editable: boolean;
@@ -21,6 +26,9 @@ export function InlineText({
   onSave: (next: string) => void;
   className?: string;
   placeholder?: string;
+  emptyLabel?: string;
+  maxLength?: number;
+  rows?: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(text);
@@ -33,9 +41,25 @@ export function InlineText({
   const commit = () => {
     const next = draft.trim();
     setEditing(false);
-    if (next && next !== text) onSave(next);
+    // An optional field may be cleared; a required one falls back to what it was.
+    if (next !== text && (next || emptyLabel)) onSave(next);
     else setDraft(text);
   };
+
+  if (!editing && !text && emptyLabel) {
+    if (!editable) return null;
+    return (
+      <button
+        onClick={() => {
+          setDraft("");
+          setEditing(true);
+        }}
+        className={"text-left text-[11px] font-bold uppercase tracking-[0.05em] text-blue hover:underline " + className}
+      >
+        {emptyLabel}
+      </button>
+    );
+  }
 
   if (!editing) {
     return (
@@ -61,7 +85,7 @@ export function InlineText({
     <textarea
       ref={ref}
       value={draft}
-      maxLength={CARD_TEXT_MAX}
+      maxLength={maxLength}
       disabled={busy}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -77,7 +101,7 @@ export function InlineText({
         }
       }}
       placeholder={placeholder}
-      rows={Math.min(6, Math.max(2, Math.ceil(draft.length / 34)))}
+      rows={rows ?? Math.min(6, Math.max(2, Math.ceil(draft.length / 34)))}
       className={"w-full resize-none rounded-[2px] border border-ink bg-paper p-1.5 text-[12.5px] leading-[1.4] outline-none " + className}
     />
   );

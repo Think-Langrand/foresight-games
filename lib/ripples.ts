@@ -59,6 +59,7 @@ interface CardRow {
   impact: number | null;
   card_kind: string | null;
   parked: boolean | null;
+  description: string | null;
   created_at: string;
 }
 interface ChipRow {
@@ -106,6 +107,7 @@ function mapCard(r: CardRow): RippleCard {
     // implication rather than breaking the board.
     cardKind: isCardKind(r.card_kind) ? r.card_kind : null,
     parked: r.parked === true,
+    description: r.description ?? null,
     sort: r.sort ?? 0,
     section: r.section ?? null,
     sourceCardId: r.source_card_id ?? null,
@@ -584,6 +586,20 @@ export async function applyReparent(
       .eq("id", cardId);
     if (error) throw error;
   });
+}
+
+// A theme's optional note about what it means. An empty string clears it.
+export async function updateCardDescription(
+  code: string,
+  cardId: string,
+  description: string | null
+): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update({ description })
+    .eq("code", up(code))
+    .eq("id", cardId);
+  if (error) throw error;
 }
 
 // Week 3's Parked tray: set a card aside without deleting it. Unlike flagCard this toggles

@@ -9,11 +9,13 @@ import {
   listBoardCards,
   scoreCard,
   setCardParked,
+  updateCardDescription,
   updateCardSort,
   updateCardText,
   voteCard,
 } from "@/lib/ripples";
 import {
+  CARD_DESCRIPTION_MAX,
   CARD_TEXT_MAX,
   isTreeRoot,
   planReparent,
@@ -48,10 +50,19 @@ export async function PATCH(
   }
   const { code, cardId } = await params;
   let body: {
-    action?: "flag" | "vote" | "reorder" | "text" | "score" | "reparent" | "park";
+    action?:
+      | "flag"
+      | "vote"
+      | "reorder"
+      | "text"
+      | "description"
+      | "score"
+      | "reparent"
+      | "park";
     participantId?: string;
     sort?: number;
     text?: string;
+    description?: string | null;
     plausibility?: number | null;
     impact?: number | null;
     parentCardId?: string | null;
@@ -128,6 +139,23 @@ export async function PATCH(
       }
       await scoreCard(session.code, cardId, patch);
       return NextResponse.json({ ok: true, ...patch });
+    }
+
+    // A theme's optional note about what it means. Empty clears it. Same co-ownership
+    // rule as the text edit below.
+    if (body.action === "description") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only edit your own card." }, { status: 403 });
+      }
+      const raw = (body.description ?? "").trim();
+      if (raw.length > CARD_DESCRIPTION_MAX) {
+        return NextResponse.json(
+          { error: `A description is at most ${CARD_DESCRIPTION_MAX} characters.` },
+          { status: 400 }
+        );
+      }
+      await updateCardDescription(session.code, cardId, raw || null);
+      return NextResponse.json({ ok: true, description: raw || null });
     }
 
     // Cluster a card into a theme, un-cluster it back to the tray (parentCardId: null), or
