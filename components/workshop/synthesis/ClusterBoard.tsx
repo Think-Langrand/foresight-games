@@ -3,7 +3,18 @@
 import { useRef, useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import { insertionPoint, type SynthesisBoard } from "@/lib/synthesis-shape";
-import { AddCardForm, InlineText } from "@/components/workshop/synthesis/SynthesisCard";
+import {
+  AddCardForm,
+  CardMenu,
+  CardMenuItem,
+  InlineText,
+} from "@/components/workshop/synthesis/SynthesisCard";
+import type { Week2Lineage } from "@/lib/synthesis-shape";
+
+// Implication cards carry their own tint so they read as objects sitting IN a theme rather
+// than as text printed on it — the theme box is lime, its well is near-white, and a card
+// needs to be neither.
+const CARD_BG = "#efeade";
 
 // STEP 1 — cluster Week 2's implications into themes.
 //
@@ -41,6 +52,7 @@ function isFarSide(e: React.DragEvent, axis: Axis): boolean {
 
 export function ClusterBoard({
   board,
+  lineage,
   editable,
   busy,
   onAddTheme,
@@ -54,6 +66,8 @@ export function ClusterBoard({
   onMerge,
 }: {
   board: SynthesisBoard;
+  // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
+  lineage: Record<string, Week2Lineage>;
   editable: boolean;
   busy: boolean;
   onAddTheme: (text: string) => void;
@@ -195,77 +209,123 @@ export function ClusterBoard({
     const dragging = drag?.id === card.id;
     const merging = mergeFrom !== null && mergeFrom.id !== card.id;
     const hasChildren = (board.clusters.get(card.id)?.length ?? 0) > 0;
+    const from = card.sourceCardId ? lineage[card.sourceCardId] : undefined;
     return (
       <div
         {...dragProps(card.id, "card")}
         {...slotProps(zone, card.id, axis, list)}
+        style={{ background: CARD_BG }}
         className={
-          "group relative w-full rounded-[2px] border bg-paper p-2 text-[12.5px] leading-[1.4] shadow-[1px_2px_0_rgba(36,36,34,0.08)] " +
+          "group relative w-full rounded-[3px] border p-2.5 shadow-[1px_2px_0_rgba(36,36,34,0.10)] " +
           (editable ? "cursor-grab active:cursor-grabbing " : "") +
           (dragging ? "rotate-1 opacity-40 " : "") +
-          (merging ? "border-blue " : "border-black/10 ")
+          (merging ? "border-blue " : "border-black/15 ")
         }
       >
-        <InlineText
-          text={card.text}
-          editable={editable}
-          busy={busy}
-          onSave={(next) => onEditCard(card, next)}
-        />
-
-        {/* Where this implication came from in Week 2, when it was seeded rather than typed. */}
-        {card.sourceLabel && (
-          <div className="mt-1 text-[10px] uppercase tracking-[0.06em] text-muted">
-            ↳ from {card.sourceLabel}
+        <div className="flex items-start gap-1.5">
+          {/* The implication is the card. Everything else is secondary to it. */}
+          <div className="min-w-0 flex-1 text-[13.5px] leading-[1.45]">
+            <InlineText
+              text={card.text}
+              editable={editable}
+              busy={busy}
+              onSave={(next) => onEditCard(card, next)}
+            />
           </div>
-        )}
 
-        {editable && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-            {merging ? (
+          {editable &&
+            (merging ? (
               <button
                 onClick={() => {
                   onMerge(card, mergeFrom!);
                   setMergeFrom(null);
                 }}
-                className="rounded-[2px] border border-blue px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.05em] text-blue"
+                className="shrink-0 rounded-[2px] border border-blue px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.05em] text-blue"
               >
                 Merge into this
               </button>
             ) : (
-              <>
-                {!hasChildren && (
-                  <button
-                    onClick={() => setMergeFrom(card)}
-                    className="text-[9.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
-                  >
-                    Merge…
-                  </button>
+              <CardMenu>
+                {(close) => (
+                  <>
+                    {themeId !== null && (
+                      <CardMenuItem
+                        onClick={() => {
+                          close();
+                          onMoveCard(card, null, null);
+                        }}
+                      >
+                        Move out of theme
+                      </CardMenuItem>
+                    )}
+                    <CardMenuItem
+                      onClick={() => {
+                        close();
+                        onPark(card, !card.parked);
+                      }}
+                    >
+                      {card.parked ? "Restore from parked" : "Park"}
+                    </CardMenuItem>
+                    {!hasChildren && (
+                      <CardMenuItem
+                        onClick={() => {
+                          close();
+                          setMergeFrom(card);
+                        }}
+                      >
+                        Merge into…
+                      </CardMenuItem>
+                    )}
+                    <CardMenuItem
+                      danger
+                      onClick={() => {
+                        close();
+                        onDeleteCard(card);
+                      }}
+                    >
+                      Delete
+                    </CardMenuItem>
+                  </>
                 )}
-                <button
-                  onClick={() => onPark(card, !card.parked)}
-                  className="text-[9.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
-                >
-                  {card.parked ? "Restore" : "Park"}
-                </button>
-                {themeId !== null && (
-                  <button
-                    onClick={() => onMoveCard(card, null, null)}
-                    className="text-[9.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
-                  >
-                    Remove from theme
-                  </button>
-                )}
-                <button
-                  onClick={() => onDeleteCard(card)}
-                  aria-label="Delete card"
-                  className="ml-auto text-[11px] font-bold text-muted hover:text-coral"
-                >
-                  ✕
-                </button>
-              </>
-            )}
-          </div>
+              </CardMenu>
+            ))}
+        </div>
+
+        {/* Where it came from, folded away. Absent for a card typed here by hand, for a
+            seed whose Week 2 source was deleted, and for a group whose Week 2 is still a
+            placeholder — each simply shows no trail rather than an empty disclosure. */}
+        {from && (
+          <details
+            className="mt-1.5"
+            // The card is draggable, so a mousedown on the summary would otherwise start a
+            // drag instead of toggling the disclosure.
+            onDragStart={(e) => e.preventDefault()}
+          >
+            <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-[0.06em] text-muted hover:text-ink">
+              ▸ Where this came from
+            </summary>
+            <div className="mt-1.5 border-l-2 border-black/15 pl-2">
+              <div className="text-[9px] font-bold uppercase tracking-[0.08em] text-muted">
+                Key change
+              </div>
+              <div className="mt-0.5 text-[11.5px] font-bold leading-[1.35]">
+                {from.keyChange}
+              </div>
+              {from.chain.length > 1 && (
+                <ol className="mt-1.5 flex flex-col gap-0.5">
+                  {from.chain.slice(1).map((step, i) => (
+                    <li
+                      key={i}
+                      className="text-[11px] leading-[1.35] text-muted"
+                      style={{ paddingLeft: `${i * 10}px` }}
+                    >
+                      ↳ {step}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </details>
         )}
       </div>
     );

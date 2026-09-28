@@ -154,3 +154,88 @@ export function AddCardForm({
     </div>
   );
 }
+
+// A "⋯" overflow menu. Card actions live in here rather than on the card face, so the card
+// reads as its text and nothing else until you go looking for an action.
+export function CardMenu({
+  label = "Card actions",
+  children,
+}: {
+  label?: string;
+  children: (close: () => void) => React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement | null>(null);
+
+  // Subscribing to document events is what effects are for. Closing on an outside click
+  // has to be on the document, because the click that dismisses the menu by definition
+  // lands somewhere this component does not render.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrap} className="relative shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-label={label}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        title={label}
+        // Not draggable: a mousedown here must open the menu, not start dragging the card.
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
+        className={
+          "rounded-[2px] px-1.5 py-0.5 text-[14px] font-bold leading-none text-muted transition-opacity hover:bg-black/10 hover:text-ink " +
+          (open ? "bg-black/10 text-ink opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100")
+        }
+      >
+        ⋯
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-1 flex min-w-[11rem] flex-col rounded-[3px] border border-ink bg-paper py-1 shadow-[2px_3px_0_rgba(36,36,34,0.18)]"
+        >
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// One row inside a CardMenu.
+export function CardMenuItem({
+  onClick,
+  danger,
+  children,
+}: {
+  onClick: () => void;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      role="menuitem"
+      onClick={onClick}
+      className={
+        "px-3 py-1.5 text-left text-[12px] font-bold uppercase tracking-[0.05em] hover:bg-lime " +
+        (danger ? "text-coral" : "text-ink")
+      }
+    >
+      {children}
+    </button>
+  );
+}

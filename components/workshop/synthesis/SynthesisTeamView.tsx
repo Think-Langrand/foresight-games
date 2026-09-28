@@ -460,6 +460,7 @@ export function SynthesisTeamView({
       {step === "cluster" && (
         <ClusterBoard
           board={board}
+          lineage={lineage}
           editable={editable}
           busy={busy}
           onAddTheme={addTheme}
