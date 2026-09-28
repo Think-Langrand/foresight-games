@@ -4,6 +4,8 @@
 // A design group runs a program of exercises (weeks). Each exercise has a `type`
 // that decides how it renders and whether it needs a shared board:
 //   - implications        → the existing RipplesTeamView (tree + one brainstorm)
+//   - synthesis           → SynthesisTeamView (cluster into themes → hopes & fears →
+//                           risks & opportunities), Week 3
 //   - scenario-assessment → a spec-driven WorksheetView (brainstorm + question areas)
 //   - placeholder         → "being designed" panel; no board
 //
@@ -13,7 +15,7 @@
 //   - brainstorm → a free wall of stickies
 //   - question   → a prompt with accumulating short answer cards (concurrency-safe)
 
-export type ExerciseRender = "implications" | "worksheet" | "placeholder";
+export type ExerciseRender = "implications" | "worksheet" | "synthesis" | "placeholder";
 export type SectionKind = "brainstorm" | "question";
 
 export interface WorksheetSection {
@@ -125,6 +127,31 @@ const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
   },
 ];
 
+// --- Synthesis (Week 3), step 3 -----------------------------------------------
+// The CLUSTER and HOPES & FEARS steps are code (the drag board and the chain editor). The
+// third step rides the ordinary section substrate, so a facilitator can reword it like any
+// worksheet block. Keep BOTH sections on ONE `step`: WorksheetSections then renders its
+// flat stack rather than a second tab bar nested inside the exercise's own three tabs.
+// Keys are permanent ids written onto every answer card's `section` — never rename them.
+const SYNTHESIS_SECTIONS: WorksheetSection[] = [
+  {
+    key: "synthesis-risks",
+    kind: "brainstorm",
+    step: "Risks & opportunities",
+    board: true,
+    label: "Risks, challenges & threats",
+    help: "Looking across your themes and the fears you wrote, what could go wrong, get harder, or work against you in this future?",
+  },
+  {
+    key: "synthesis-opportunities",
+    kind: "brainstorm",
+    step: "Risks & opportunities",
+    board: true,
+    label: "Opportunities",
+    help: "And what openings does this future create — things that become possible, easier, or worth getting ahead of?",
+  },
+];
+
 export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   "scenario-assessment": {
     id: "scenario-assessment",
@@ -148,6 +175,15 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
     render: "implications",
     boardBacked: true,
     sections: IMPLICATIONS_SECTIONS,
+  },
+  // Week 3: cluster Week 2's implications into themes, chain hopes & fears off each
+  // theme, then generate risks & opportunities. Three code-driven steps on one board.
+  synthesis: {
+    id: "synthesis",
+    label: "Synthesis (Themes, Hopes & Fears)",
+    render: "synthesis",
+    boardBacked: true,
+    sections: SYNTHESIS_SECTIONS,
   },
   placeholder: {
     id: "placeholder",
@@ -271,15 +307,18 @@ export function isBoardBacked(id: string): boolean {
 }
 
 // Does this type render editable worksheet-style question/brainstorm blocks (the section
-// substrate)? Worksheets do; the implications board also renders blocks below its tree, so
-// both expose the admin block editor and carry per-exercise `sections`.
+// substrate)? Worksheets do; the implications and synthesis boards also render blocks
+// alongside their own steps, so all three expose the admin block editor and carry
+// per-exercise `sections`.
 export function supportsSections(id: string): boolean {
   const r = EXERCISE_TYPES[id]?.render;
-  return r === "worksheet" || r === "implications";
+  return r === "worksheet" || r === "implications" || r === "synthesis";
 }
 
 // The default program seeded when a group's scenario is assigned. Session 1 = scenario
-// assessment, Session 2 = implication mapping, Sessions 3-4 = TBD placeholders.
+// assessment, Session 2 = implication mapping, Session 3 = synthesis, Session 4 = TBD.
+// Only new projects get this; existing groups keep whatever their rows already say, and an
+// admin changes a week's type in the program editor.
 export interface ProgramWeek {
   sort: number;
   type: string;
@@ -288,8 +327,8 @@ export interface ProgramWeek {
 export const DEFAULT_PROGRAM: ProgramWeek[] = [
   { sort: 0, type: "scenario-assessment", title: "Session 1 · Scenario Assessment" },
   { sort: 1, type: "implications", title: "Session 2 · Implication Mapping" },
-  { sort: 2, type: "placeholder", title: "Session 3 · TBD" },
-  { sort: 3, type: "placeholder", title: "Session 4 · Synthesis (TBD)" },
+  { sort: 2, type: "synthesis", title: "Session 3 · Synthesis" },
+  { sort: 3, type: "placeholder", title: "Session 4 · TBD" },
 ];
 
 // A CanonicalWeek is the group-AGNOSTIC content of one program week — the single thing

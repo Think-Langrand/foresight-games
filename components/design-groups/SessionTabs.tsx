@@ -7,6 +7,7 @@ import {
   type ExerciseAnswers,
   type MapView,
 } from "@/components/design-groups/AnswerPanels";
+import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
 
 // Session tabs on a design group's session page: the current session (the live board,
 // passed as children) plus a read-only tab per earlier week, so a group can glance back at
@@ -75,6 +76,7 @@ export function SessionTabs({
           {active.kind === "implications" && (
             <ImplicationsPanel ex={active} view={mapView} setView={setMapView} showMeta={false} />
           )}
+          {active.kind === "synthesis" && <SynthesisPanel ex={active} showMeta={false} />}
           {active.kind === "placeholder" && (
             <p className="text-[14px] italic text-muted">
               {active.unavailable

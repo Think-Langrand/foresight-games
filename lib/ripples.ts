@@ -5,8 +5,11 @@ import { getForesightDrivers, getScenario, foresightConfigured } from "@/lib/for
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import { TEAM_COLORS, type WorkshopSession } from "@/lib/workshop-types";
 import {
+  isCardKind,
   resolveConfig,
+  type CardKind,
   type CardOrder,
+  type ReparentMove,
   type RippleArtImage,
   type RippleCard,
   type RippleChip,
@@ -54,6 +57,8 @@ interface CardRow {
   source_label: string | null;
   plausibility: number | null;
   impact: number | null;
+  card_kind: string | null;
+  parked: boolean | null;
   created_at: string;
 }
 interface ChipRow {
@@ -97,6 +102,10 @@ function mapCard(r: CardRow): RippleCard {
     lensId: r.lens_id ?? null,
     flagged: r.flagged ?? false,
     greyed: r.greyed ?? false,
+    // Tolerant, like the card_order cast above: an unrecognised kind reads as a plain
+    // implication rather than breaking the board.
+    cardKind: isCardKind(r.card_kind) ? r.card_kind : null,
+    parked: r.parked === true,
     sort: r.sort ?? 0,
     section: r.section ?? null,
     sourceCardId: r.source_card_id ?? null,
@@ -471,6 +480,7 @@ export async function addCard(input: {
   text: string;
   sort?: number;
   section?: string | null; // worksheet area key (STICKY only)
+  cardKind?: CardKind | null; // Week 3: theme / hope / fear. null = a plain implication.
 }): Promise<RippleCard> {
   const row = await withRetry(async () => {
     const { data, error } = await supabaseAdmin()
@@ -485,6 +495,7 @@ export async function addCard(input: {
         text: input.text,
         sort: input.sort ?? 0,
         section: input.section ?? null,
+        card_kind: input.cardKind ?? null,
       })
       .select("*")
       .single();
@@ -509,6 +520,78 @@ export async function updateCardText(code: string, cardId: string, text: string)
   const { error } = await supabaseAdmin()
     .from("ripple_cards")
     .update({ text })
+    .eq("code", up(code))
+    .eq("id", cardId);
+  if (error) throw error;
+}
+
+// Every card on one board. Cheaper than getRipplesView (one query, no teams / players /
+// chips / answers) and enough for the whole-board checks reparenting needs.
+export async function listBoardCards(code: string): Promise<RippleCard[]> {
+  const rows = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("ripple_cards")
+      .select("*")
+      .eq("code", up(code))
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as CardRow[];
+  });
+  return rows.map(mapCard);
+}
+
+// Apply a reparent plan from planReparent (lib/ripples-types.ts): re-point the moved card
+// and rewrite the `card_order` of its whole subtree.
+//
+// Descendants go first, batched one update per distinct order, and the moved card's parent
+// pointer goes LAST — so a partial failure leaves it un-moved rather than half-moved. Either
+// way the board still RENDERS correctly, because every view walks depth rather than trusting
+// the stored order; the only symptom of drift is a later add-a-child being refused, and a
+// retry heals it because planReparent recomputes from the board and re-emits corrective
+// moves. supabase-js has no transaction; if that ever proves not good enough, a plpgsql
+// function is the escape hatch.
+export async function applyReparent(
+  code: string,
+  cardId: string,
+  parentId: string | null,
+  moves: ReparentMove[]
+): Promise<void> {
+  const byOrder = new Map<string, string[]>();
+  for (const m of moves) {
+    if (m.cardId === cardId) continue; // the moved card is written last, with its parent
+    const arr = byOrder.get(m.order);
+    if (arr) arr.push(m.cardId);
+    else byOrder.set(m.order, [m.cardId]);
+  }
+
+  for (const [order, ids] of byOrder) {
+    await withRetry(async () => {
+      const { error } = await supabaseAdmin()
+        .from("ripple_cards")
+        .update({ card_order: order })
+        .eq("code", up(code))
+        .in("id", ids);
+      if (error) throw error;
+    });
+  }
+
+  const own = moves.find((m) => m.cardId === cardId);
+  await withRetry(async () => {
+    const { error } = await supabaseAdmin()
+      .from("ripple_cards")
+      .update({ parent_card_id: parentId, ...(own ? { card_order: own.order } : {}) })
+      .eq("code", up(code))
+      .eq("id", cardId);
+    if (error) throw error;
+  });
+}
+
+// Week 3's Parked tray: set a card aside without deleting it. Unlike flagCard this toggles
+// BOTH ways — nothing is destroyed, so a parked card can always be dragged back out.
+export async function setCardParked(code: string, cardId: string, parked: boolean): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update({ parked })
     .eq("code", up(code))
     .eq("id", cardId);
   if (error) throw error;

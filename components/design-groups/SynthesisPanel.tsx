@@ -1,0 +1,142 @@
+"use client";
+
+import {
+  AnswerList,
+  QuestionBlocks,
+  type PanelOpts,
+  type SynthesisExercise,
+  type SynthesisTheme,
+} from "@/components/design-groups/AnswerPanels";
+
+// Read-only rendering of a Week 3 (synthesis) week: the themes with their clustered
+// implications and hope/fear chains, then the leftovers, the risks & opportunities boards,
+// and the parked pile.
+//
+// THREE consumers, deliberately one component: the admin answers viewer, the member
+// session page's earlier-week tabs, and the live board itself once the week is locked
+// (phase HARVEST/CLOSED). A locked week has to keep showing the whole artefact.
+
+const KIND_STYLE: Record<"hope" | "fear", string> = {
+  hope: "bg-lime text-ink",
+  fear: "bg-coral text-white",
+};
+
+function ThemeBlock({ theme, ...opts }: { theme: SynthesisTheme } & PanelOpts) {
+  return (
+    <div className="border-l-2 border-[var(--rule)] pl-3">
+      <h3 className="text-[14px] font-bold">{theme.text}</h3>
+
+      {theme.implications.length > 0 && (
+        <div className="mt-1">
+          <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
+            Implications
+          </div>
+          <AnswerList answers={theme.implications} {...opts} />
+        </div>
+      )}
+
+      {theme.chain.length > 0 && (
+        <div className="mt-3">
+          <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
+            Hopes &amp; fears
+          </div>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {theme.chain.map((row) => (
+              <li
+                key={row.id}
+                className="group flex items-start gap-2 text-[13.5px] leading-[1.4]"
+                // Depth 1 sits flush; each further link in the chain steps right, so the
+                // indentation itself reads as "and that creates…".
+                style={{ paddingLeft: `${(row.depth - 1) * 18}px` }}
+              >
+                <span
+                  className={
+                    "mt-[1px] shrink-0 rounded-[2px] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] " +
+                    KIND_STYLE[row.cardKind]
+                  }
+                >
+                  {row.cardKind}
+                </span>
+                <div className="min-w-0 flex-1">{row.text}</div>
+                {opts.onDelete && (
+                  <button
+                    onClick={() => opts.onDelete?.(row)}
+                    aria-label="Delete answer"
+                    title="Delete answer"
+                    className="shrink-0 rounded-[2px] px-1 text-[12px] font-bold text-muted opacity-0 outline-none hover:text-coral focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ink group-hover:opacity-100 group-focus-within:opacity-100"
+                  >
+                    ✕
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {theme.implications.length === 0 && theme.chain.length === 0 && (
+        <p className="mt-1 text-[13px] italic text-muted">Nothing in this theme yet.</p>
+      )}
+    </div>
+  );
+}
+
+export function SynthesisPanel({
+  ex,
+  seed,
+  ...opts
+}: { ex: SynthesisExercise; seed?: React.ReactNode } & PanelOpts) {
+  const empty =
+    ex.themes.length === 0 &&
+    ex.unclustered.length === 0 &&
+    ex.parked.length === 0 &&
+    ex.questions.every((q) => q.answers.length === 0);
+
+  return (
+    <div className="flex flex-col gap-6">
+      {seed}
+
+      {empty && <p className="text-[13px] italic text-muted">Nothing on this board yet.</p>}
+
+      {ex.themes.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
+            Themes
+          </h3>
+          <div className="flex flex-col gap-5">
+            {ex.themes.map((t) => (
+              <ThemeBlock key={t.id} theme={t} {...opts} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {ex.unclustered.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
+            Not sorted into a theme
+          </h3>
+          <AnswerList answers={ex.unclustered} {...opts} />
+        </div>
+      )}
+
+      {ex.questions.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
+            Risks &amp; opportunities
+          </h3>
+          <QuestionBlocks questions={ex.questions} {...opts} />
+        </div>
+      )}
+
+      {ex.parked.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
+            Parked ({ex.parked.length})
+          </summary>
+          <AnswerList answers={ex.parked} {...opts} />
+        </details>
+      )}
+    </div>
+  );
+}

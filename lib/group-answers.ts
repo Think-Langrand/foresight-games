@@ -17,7 +17,13 @@ export async function shapeExerciseAnswers(
 ): Promise<ExerciseAnswers> {
   const render = getExerciseType(ex.type)?.render;
   let view: RipplesView | null = null;
-  if (ex.sessionCode && (render === "worksheet" || render === "implications")) {
+  // Every board-backed render must be listed here. A missing one leaves `view` null, so
+  // shapeFromView falls through to "placeholder" and the admin viewer reports an empty week
+  // over a board full of work — with no error anywhere.
+  if (
+    ex.sessionCode &&
+    (render === "worksheet" || render === "implications" || render === "synthesis")
+  ) {
     const session = await getSessionByCode(ex.sessionCode);
     if (session) view = await getRipplesView(session);
   }

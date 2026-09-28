@@ -1,6 +1,13 @@
 import { getExerciseType, resolveEffectiveSections, type WorksheetSection } from "@/lib/exercise-types";
 import type { RippleCard, RipplesView } from "@/lib/ripples-types";
-import type { AnswerRow, ExerciseAnswers, QuestionBlock } from "@/components/design-groups/AnswerPanels";
+import type {
+  AnswerRow,
+  ChainRow,
+  ExerciseAnswers,
+  QuestionBlock,
+  SynthesisTheme,
+} from "@/components/design-groups/AnswerPanels";
+import { indexSynthesisBoard, isHopeFear } from "@/lib/synthesis-shape";
 
 // Pure shaping of one design-group week's board into its read-only answers — worksheet
 // Q&A, an implications map (+ brainstorm / question blocks), or a placeholder. No I/O:
@@ -78,6 +85,49 @@ export function shapeFromView(
       // resolveEffectiveSections, not the raw column: an implications week that was never
       // customized stores [] and must fall back to the type's template, or its risks /
       // opportunities blocks are invisible here.
+      questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
+    };
+  }
+
+  if (render === "synthesis" && view) {
+    const board = indexSynthesisBoard(view.cards);
+
+    // Each theme's hopes & fears, flattened depth-first so the panel's indentation reads
+    // as the chain itself rather than as a flat list.
+    const flattenChain = (parentId: string): ChainRow[] => {
+      const out: ChainRow[] = [];
+      const walk = (id: string) => {
+        for (const c of board.chains.get(id) ?? []) {
+          const depth = board.chainDepth.get(c.id);
+          // Absent from chainDepth = unreachable from any theme, so drawn by no view.
+          // Skipped here too, so the answer sheet matches what the group actually sees.
+          if (depth === undefined || !isHopeFear(c.cardKind)) continue;
+          out.push({ ...toRow(c), cardKind: c.cardKind, depth });
+          walk(c.id);
+        }
+      };
+      walk(parentId);
+      return out;
+    };
+
+    const themes: SynthesisTheme[] = board.themes.map((t) => ({
+      id: t.id,
+      text: t.text,
+      implications: (board.clusters.get(t.id) ?? []).map(toRow),
+      chain: flattenChain(t.id),
+    }));
+
+    return {
+      kind: "synthesis",
+      exerciseId: ex.id,
+      title: ex.title,
+      cards: view.cards,
+      themes,
+      unclustered: board.unclustered.map(toRow),
+      parked: board.parked.map(toRow),
+      // resolveEffectiveSections, not the raw column: a synthesis week that was never
+      // customized stores [] and must fall back to the type's template, or its risks /
+      // opportunities answers are invisible here.
       questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
     };
   }

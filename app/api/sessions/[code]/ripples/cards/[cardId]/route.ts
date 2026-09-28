@@ -1,16 +1,38 @@
 import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import {
+  applyReparent,
   deleteCard,
   flagCard,
   getPlayerByParticipant,
   getRippleCard,
+  listBoardCards,
   scoreCard,
+  setCardParked,
   updateCardSort,
   updateCardText,
   voteCard,
 } from "@/lib/ripples";
-import { CARD_TEXT_MAX, isTreeRoot, resolveConfig } from "@/lib/ripples-types";
+import {
+  CARD_TEXT_MAX,
+  isTreeRoot,
+  planReparent,
+  resolveConfig,
+  type ReparentRefusal,
+} from "@/lib/ripples-types";
+import { indexSynthesisBoard, placementError } from "@/lib/synthesis-shape";
+
+// One human sentence per refusal planReparent can return — the reasons exist so the
+// message can name the real cause, like the POST route's three distinct parent refusals.
+const REPARENT_MESSAGES: Record<ReparentRefusal, string> = {
+  NOT_TREE_CARD: "That card can't be moved there.",
+  PARENT_NOT_FOUND: "That group no longer exists — reload the board.",
+  PARENT_NOT_PLACED: "That group isn't on the board any more — reload and try again.",
+  PARENT_UNAVAILABLE: "That group is parked or has been challenged out.",
+  CYCLE: "A card can't be moved inside itself.",
+  TOO_DEEP: "That chain is already as deep as it goes.",
+  NO_CHANGE: "It's already there.",
+};
 import { AXIS_LABELS, SCORE_AXES, SCORE_MAX, SCORE_MIN, coerceScore } from "@/lib/ripples-scoring";
 
 export const dynamic = "force-dynamic";
@@ -26,12 +48,14 @@ export async function PATCH(
   }
   const { code, cardId } = await params;
   let body: {
-    action?: "flag" | "vote" | "reorder" | "text" | "score";
+    action?: "flag" | "vote" | "reorder" | "text" | "score" | "reparent" | "park";
     participantId?: string;
     sort?: number;
     text?: string;
     plausibility?: number | null;
     impact?: number | null;
+    parentCardId?: string | null;
+    parked?: boolean;
   } = {};
   try {
     body = await req.json();
@@ -104,6 +128,70 @@ export async function PATCH(
       }
       await scoreCard(session.code, cardId, patch);
       return NextResponse.json({ ok: true, ...patch });
+    }
+
+    // Cluster a card into a theme, un-cluster it back to the tray (parentCardId: null), or
+    // re-hang a whole subtree — Week 3's drag board. Depth is encoded in card_order, so the
+    // move rewrites the order of this card AND of every descendant under it; planReparent
+    // works that out from the whole board and applyReparent writes it deepest-first.
+    //
+    // Sits ABOVE the challengeEnabled gate deliberately, like `score` below: design-group
+    // boards have challenge off, and they are exactly the boards that cluster.
+    if (body.action === "reparent") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only move your own card." }, { status: 403 });
+      }
+      const parentId = body.parentCardId ?? null;
+      // The SAME kind rules the add-a-card route applies. Without this a hope could be
+      // dragged out to a root, leaving it with no theme ancestor — absent from chainDepth,
+      // drawn by no view, and so impossible for anyone to see or delete again.
+      if (parentId === null) {
+        const misplaced = placementError(card.cardKind, undefined);
+        if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });
+      } else {
+        const parent = await getRippleCard(session.code, parentId);
+        if (!parent) {
+          return NextResponse.json({ error: REPARENT_MESSAGES.PARENT_NOT_FOUND }, { status: 404 });
+        }
+        if (parent.teamId !== player.teamId) {
+          return NextResponse.json({ error: "That card is on another board." }, { status: 403 });
+        }
+        const misplaced = placementError(card.cardKind, parent.cardKind);
+        if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });
+      }
+      const boardCards = await listBoardCards(session.code);
+      const plan = planReparent(
+        boardCards.filter((c) => c.teamId === card.teamId),
+        cardId,
+        parentId
+      );
+      if (!plan.ok) {
+        return NextResponse.json({ error: REPARENT_MESSAGES[plan.reason] }, { status: 400 });
+      }
+      await applyReparent(session.code, cardId, parentId, plan.moves);
+      const own = plan.moves.find((m) => m.cardId === cardId);
+      return NextResponse.json({ ok: true, parentCardId: parentId, cardOrder: own?.order });
+    }
+
+    // Park a card in Week 3's tray — set aside, not deleted, and draggable back out. Uses
+    // the dedicated `parked` column, never `greyed` (that one belongs to challenge voting).
+    if (body.action === "park") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only park your own card." }, { status: 403 });
+      }
+      if (typeof body.parked !== "boolean") {
+        return NextResponse.json({ error: "parked must be true or false." }, { status: 400 });
+      }
+      // A theme is emptied and deleted, never parked — parking one would hide its whole
+      // cluster along with it.
+      if (card.cardKind === "theme") {
+        return NextResponse.json(
+          { error: "A theme can't be parked — empty it and delete it instead." },
+          { status: 400 }
+        );
+      }
+      await setCardParked(session.code, cardId, body.parked);
+      return NextResponse.json({ ok: true, parked: body.parked });
     }
 
     // Edit a card's text in place — author-owned, EXCEPT on a shared-team board (design
@@ -187,6 +275,25 @@ export async function DELETE(
     const config = resolveConfig(session.config);
     if (!config.sharedTeam && card.authorPlayerId !== player.id) {
       return NextResponse.json({ error: "You can only delete your own card." }, { status: 403 });
+    }
+
+    // parent_card_id is ON DELETE CASCADE (migration 0007), so deleting a Week 3 theme
+    // would silently take its whole subtree with it — every implication seeded in from
+    // Week 2 and every hope/fear chain hanging off it. Refuse while it still holds
+    // implications; the group drags them out or parks them first. (Hope/fear children are
+    // the theme's own work and go with it — the client confirm names the count.)
+    if (card.cardKind === "theme") {
+      const board = await listBoardCards(session.code);
+      const cluster = indexSynthesisBoard(board.filter((c) => c.teamId === card.teamId)).clusters;
+      const held = cluster.get(cardId)?.length ?? 0;
+      if (held > 0) {
+        return NextResponse.json(
+          {
+            error: `This theme still holds ${held} implication${held === 1 ? "" : "s"}. Move them out or park them first.`,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     await deleteCard(session.code, cardId);
