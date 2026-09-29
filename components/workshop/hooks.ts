@@ -454,6 +454,8 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     parkLocal,
     dropParkLocal,
     describeLocal,
+    shortlistLocal,
+    dropShortlistLocal,
     scoreLocal,
     settleScoreLocal,
     dropScoreLocal,

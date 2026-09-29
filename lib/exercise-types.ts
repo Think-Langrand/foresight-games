@@ -127,28 +127,23 @@ const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
   },
 ];
 
-// --- Synthesis (Week 3), step 3 -----------------------------------------------
-// The CLUSTER and HOPES & FEARS steps are code (the drag board and the chain editor). The
-// third step rides the ordinary section substrate, so a facilitator can reword it like any
-// worksheet block. Keep BOTH sections on ONE `step`: WorksheetSections then renders its
-// flat stack rather than a second tab bar nested inside the exercise's own three tabs.
-// Keys are permanent ids written onto every answer card's `section` — never rename them.
+// --- Synthesis (Week 3), the Sandbox ------------------------------------------
+// The four steps are code (cluster, what's at stake, hopes & fears, the shortlist). What
+// rides the section substrate is a Sandbox, the same free sticky wall Weeks 1 and 2 both
+// end on, shown beneath the shortlist.
+//
+// The retired `synthesis-risks` / `synthesis-opportunities` keys are NOT reused or
+// renamed — a key is the permanent link to every answer card written under it. Risks and
+// opportunities are cards on a theme now (step 2), not loose stickies. Any card still
+// carrying a retired key surfaces in the admin viewer under a "removed block" heading.
 const SYNTHESIS_SECTIONS: WorksheetSection[] = [
   {
-    key: "synthesis-risks",
+    key: "synthesis-sandbox",
     kind: "brainstorm",
-    step: "Risks & opportunities",
+    step: "Sandbox",
     board: true,
-    label: "Risks, challenges & threats",
-    help: "Looking across your themes and the fears you wrote, what could go wrong, get harder, or work against you in this future?",
-  },
-  {
-    key: "synthesis-opportunities",
-    kind: "brainstorm",
-    step: "Risks & opportunities",
-    board: true,
-    label: "Opportunities",
-    help: "And what openings does this future create — things that become possible, easier, or worth getting ahead of?",
+    label: "Sandbox — good ideas for later",
+    help: "A free space for anything the week shook loose — questions, tangents, things worth coming back to.",
   },
 ];
 
@@ -180,7 +175,7 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   // theme, then generate risks & opportunities. Three code-driven steps on one board.
   synthesis: {
     id: "synthesis",
-    label: "Synthesis (Themes, Hopes & Fears)",
+    label: "Synthesis (Themes, Stakes, Hopes & Fears)",
     render: "synthesis",
     boardBacked: true,
     sections: SYNTHESIS_SECTIONS,

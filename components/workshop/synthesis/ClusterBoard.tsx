@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
-import { insertionPoint, type SynthesisBoard } from "@/lib/synthesis-shape";
+import { childrenOf, insertionPoint, type SynthesisBoard } from "@/lib/synthesis-shape";
 import {
   AddCardForm,
   CardMenu,
@@ -111,19 +111,20 @@ export function ClusterBoard({
   ])
     byId.set(c.id, c);
 
-  // Everything hanging off a theme in hope/fear chains, at any depth — the modal says how
-  // much goes with it, so first-level children alone would understate the damage.
-  const countChain = (rootId: string): number => {
+  // Everything that would go with a theme: its hope/fear chains to full depth, plus the
+  // risks, opportunities and tensions written on it. The modal names the damage, so an
+  // undercount here is the difference between an informed choice and a surprise.
+  const chainCountOf = (themeId: string): number => {
     let n = 0;
     const walk = (id: string, seen: Set<string>) => {
-      for (const c of board.chains.get(id) ?? []) {
-        if (seen.has(c.id)) continue;
+      for (const c of childrenOf(board, id)) {
+        if (seen.has(c.id) || c.cardKind === null) continue;
         seen.add(c.id);
         n += 1;
         walk(c.id, seen);
       }
     };
-    walk(rootId, new Set([rootId]));
+    walk(themeId, new Set([themeId]));
     return n;
   };
 
@@ -236,7 +237,7 @@ export function ClusterBoard({
   ) => {
     const dragging = drag?.id === card.id;
     const merging = mergeFrom !== null && mergeFrom.id !== card.id;
-    const hasChildren = (board.clusters.get(card.id)?.length ?? 0) > 0;
+    const hasChildren = childrenOf(board, card.id).length > 0;
     const from = card.sourceCardId ? lineage[card.sourceCardId] : undefined;
     return (
       <div
@@ -477,7 +478,7 @@ export function ClusterBoard({
             {addingTheme ? (
               <div className="w-72" onClick={(e) => e.stopPropagation()}>
                 <AddCardForm
-                  label="Name this theme…"
+                  label="Name this theme — as a statement about change…"
                   busy={busy}
                   autoFocus
                   onAdd={onAddTheme}
@@ -492,9 +493,10 @@ export function ClusterBoard({
                 <p className="text-[14px] font-bold uppercase tracking-[0.06em]">
                   Drag an implication here to start your first theme
                 </p>
-                <p className="text-[12.5px] text-muted">
-                  Or click to name one yourself. Group the implications that belong
-                  together, then give the group a name.
+                <p className="mx-auto max-w-[58ch] text-[12.5px] leading-[1.45] text-muted">
+                  Or click to name one yourself. Name a theme as a statement about change —
+                  &ldquo;Responsibility moves to communities faster than resources do&rdquo;
+                  rather than &ldquo;Community capacity&rdquo;.
                 </p>
               </>
             )}
@@ -709,6 +711,38 @@ export function ClusterBoard({
         )}
       </section>
 
+      {/* ---- unplaceable ----
+           A card the board could not attach to anything: a hope with no theme above it,
+           usually from an older board. Delete-only — there is no sensible "put it back",
+           and the point is that it is visible rather than silently gone. */}
+      {board.orphans.length > 0 && (
+        <section className="rounded-[3px] border border-dashed border-coral/50 p-3">
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.08em] text-coral">
+            Loose cards ({board.orphans.length})
+          </h2>
+          <p className="mt-1 text-[11.5px] italic text-muted">
+            These aren&rsquo;t attached to a theme, so no step can show them. Delete them, or
+            ask a facilitator to look.
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {board.orphans.map((c) => (
+              <li key={c.id} className="group flex items-start gap-2 text-[12.5px] leading-[1.4]">
+                <span className="min-w-0 flex-1">{c.text}</span>
+                {editable && (
+                  <button
+                    onClick={() => onDeleteCard(c)}
+                    aria-label="Delete card"
+                    className="shrink-0 text-[11px] font-bold text-muted opacity-0 hover:text-coral group-hover:opacity-100"
+                  >
+                    ✕
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* ---- parked ---- */}
       <section
         {...zoneProps("parked")}
@@ -739,7 +773,7 @@ export function ClusterBoard({
         open={pendingDelete !== null}
         themeText={pendingDelete?.text ?? ""}
         implications={pendingDelete ? (board.clusters.get(pendingDelete.id)?.length ?? 0) : 0}
-        chainCards={pendingDelete ? countChain(pendingDelete.id) : 0}
+        chainCards={pendingDelete ? chainCountOf(pendingDelete.id) : 0}
         busy={busy}
         onCancel={() => setPendingDelete(null)}
         onChoose={(mode) => {

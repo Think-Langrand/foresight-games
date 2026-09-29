@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { MAX_TREE_DEPTH, childOrderOf, type RippleCard } from "@/lib/ripples-types";
+import {
+  CARD_DESCRIPTION_MAX,
+  MAX_TREE_DEPTH,
+  childOrderOf,
+  type RippleCard,
+} from "@/lib/ripples-types";
 import { flipOf, isHopeFear, type HopeFear, type SynthesisBoard } from "@/lib/synthesis-shape";
 import { AddCardForm, InlineText } from "@/components/workshop/synthesis/SynthesisCard";
 
@@ -48,7 +53,9 @@ export function HopeFearChain({
   editable,
   busy,
   onAdd,
+  onAddAssumption,
   onEdit,
+  onDescribe,
   onDelete,
 }: {
   theme: RippleCard;
@@ -56,12 +63,17 @@ export function HopeFearChain({
   editable: boolean;
   busy: boolean;
   onAdd: (parent: RippleCard, kind: HopeFear, text: string) => void;
+  onAddAssumption: (parent: RippleCard, text: string) => void;
   onEdit: (card: RippleCard, text: string) => void;
+  onDescribe: (card: RippleCard, description: string) => void;
   onDelete: (card: RippleCard) => void;
 }) {
   // Which node is currently showing its composer, and for which kind. Hoisted here because
   // the nodes below are render functions and cannot hold state of their own.
   const [adding, setAdding] = useState<{ parentId: string; kind: HopeFear } | null>(null);
+  // Which card is having an assumption written on it. Separate from `adding` because the
+  // two composers are different questions and can be open on different cards.
+  const [assuming, setAssuming] = useState<string | null>(null);
 
   const stub = () => (
     <span
@@ -117,33 +129,107 @@ export function HopeFearChain({
   };
 
   // A single hope/fear node.
-  const renderNode = (card: RippleCard, kind: HopeFear) => (
-    <div
-      className="group shrink-0 animate-rise rounded-[2px] border border-black/10 border-l-4 bg-paper p-2 text-[12.5px] leading-[1.4] shadow-[1px_2px_0_rgba(36,36,34,0.08)]"
-      style={{ width: NODE_W, borderLeftColor: KIND_BORDER[kind] }}
-    >
-      <div className="mb-1 flex items-center gap-1.5">
-        <span
-          className={
-            "rounded-[2px] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] " +
-            KIND_CHIP[kind]
-          }
-        >
-          {kind}
-        </span>
-        {editable && (
-          <button
-            onClick={() => onDelete(card)}
-            aria-label="Delete card"
-            className="ml-auto text-[11px] font-bold text-muted opacity-0 hover:text-coral group-hover:opacity-100 group-focus-within:opacity-100"
+  const renderNode = (card: RippleCard, kind: HopeFear) => {
+    const assumptions = board.assumptions.get(card.id) ?? [];
+    const canAssume = editable && Boolean(childOrderOf(card.order));
+    return (
+      <div
+        className="group shrink-0 animate-rise rounded-[2px] border border-black/10 border-l-4 bg-paper p-2 text-[12.5px] leading-[1.4] shadow-[1px_2px_0_rgba(36,36,34,0.08)]"
+        style={{ width: NODE_W, borderLeftColor: KIND_BORDER[kind] }}
+      >
+        <div className="mb-1 flex items-center gap-1.5">
+          <span
+            className={
+              "rounded-[2px] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] " +
+              KIND_CHIP[kind]
+            }
           >
-            ✕
-          </button>
+            {kind}
+          </span>
+          {editable && (
+            <button
+              onClick={() => onDelete(card)}
+              aria-label="Delete card"
+              className="ml-auto text-[11px] font-bold text-muted opacity-0 hover:text-coral group-hover:opacity-100 group-focus-within:opacity-100"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <InlineText text={card.text} editable={editable} busy={busy} onSave={(t) => onEdit(card, t)} />
+
+        {/* The value the hope or fear touches — the "because" that separates this step
+            from step 2. A risk says what could happen; this says why it matters to us. */}
+        <div className="mt-1.5 border-t border-black/10 pt-1.5 text-[11px] leading-[1.4] text-muted">
+          <InlineText
+            text={card.description ?? ""}
+            editable={editable}
+            busy={busy}
+            emptyLabel="＋ Why does this matter?"
+            placeholder="…because ___. This tells us we want to protect or advance ___."
+            maxLength={CARD_DESCRIPTION_MAX}
+            rows={3}
+            onSave={(next) => onDescribe(card, next)}
+          />
+        </div>
+
+        {/* Assumptions are NOT chain steps — they say what we are treating as true, rather
+            than what follows next — so they read as a list on the card, not as another
+            node. Keeping them visually distinct is the whole point of the distinction. */}
+        {(assumptions.length > 0 || canAssume) && (
+          <div className="mt-1.5 border-t border-black/10 pt-1.5">
+            <div className="text-[9px] font-bold uppercase tracking-[0.08em] text-muted">
+              Assuming
+            </div>
+            {assumptions.map((a) => (
+              <div key={a.id} className="group/a mt-1 flex items-start gap-1 text-[11px] leading-[1.35]">
+                <span aria-hidden className="mt-[1px] shrink-0 text-black/30">
+                  ◆
+                </span>
+                <div className="min-w-0 flex-1">
+                  <InlineText
+                    text={a.text}
+                    editable={editable}
+                    busy={busy}
+                    onSave={(t) => onEdit(a, t)}
+                  />
+                </div>
+                {editable && (
+                  <button
+                    onClick={() => onDelete(a)}
+                    aria-label="Delete assumption"
+                    className="shrink-0 text-[10px] font-bold text-muted opacity-0 hover:text-coral group-hover/a:opacity-100"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            {canAssume &&
+              (assuming === card.id ? (
+                <div className="mt-1.5">
+                  <AddCardForm
+                    label="Does protecting that require keeping our current way of working?"
+                    busy={busy}
+                    autoFocus
+                    onAdd={(text) => onAddAssumption(card, text)}
+                    onDone={() => setAssuming(null)}
+                  />
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAssuming(card.id)}
+                  className="mt-1 text-[9.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+                >
+                  ＋ An assumption
+                </button>
+              ))}
+          </div>
         )}
       </div>
-      <InlineText text={card.text} editable={editable} busy={busy} onSave={(t) => onEdit(card, t)} />
-    </div>
-  );
+    );
+  };
 
   // One node plus everything hanging off it, laid out left→right.
   const renderBranch = (card: RippleCard): React.ReactNode => {

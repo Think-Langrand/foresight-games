@@ -22,7 +22,7 @@ export function DeleteThemeModal({
   open: boolean;
   themeText: string;
   implications: number;
-  chainCards: number;
+  chainCards: number; // hopes, fears, assumptions, risks, opportunities, tensions
   busy: boolean;
   onChoose: (mode: DeleteThemeMode) => void;
   onCancel: () => void;
@@ -69,9 +69,12 @@ export function DeleteThemeModal({
               )}
               {implications > 0 && chainCards > 0 && " and "}
               {chainCards > 0 && (
-                <strong className="text-ink">
-                  {n(chainCards, "hope or fear", "hopes and fears")}
-                </strong>
+                <>
+                  <strong className="text-ink">
+                    {n(chainCards, "other card", "other cards")}
+                  </strong>{" "}
+                  written on it — hopes, fears, risks, opportunities
+                </>
               )}
               .
             </>
@@ -88,8 +91,8 @@ export function DeleteThemeModal({
               Move the implications back to the tray, then delete
               {chainCards > 0 && (
                 <span className="mt-0.5 block text-[10.5px] font-normal normal-case tracking-normal text-ink/70">
-                  Its {n(chainCards, "hope or fear", "hopes and fears")} will still be deleted —
-                  they belong to the theme.
+                  Its {n(chainCards, "other card", "other cards")} will still be deleted —
+                  the hopes, fears, risks and opportunities belong to the theme.
                 </span>
               )}
             </button>

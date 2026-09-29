@@ -15,6 +15,8 @@ function card(
     parentId?: string;
     cardKind?: RippleCard["cardKind"];
     parked?: boolean;
+    description?: string | null;
+    shortlisted?: boolean;
   } = {}
 ): RippleCard {
   return {
@@ -35,8 +37,8 @@ function card(
     impact: null,
     cardKind: opts.cardKind ?? null,
     parked: opts.parked ?? false,
-    description: null,
-    shortlisted: false,
+    description: opts.description ?? null,
+    shortlisted: opts.shortlisted ?? false,
     createdTime: `2026-01-01T00:00:${String(opts.seq ?? 0).padStart(2, "0")}Z`,
   };
 }
@@ -177,8 +179,7 @@ describe("shapeFromView — synthesis weeks", () => {
     card("F1", "TERMINAL", { seq: 4, parentId: "H1", cardKind: "fear" }),
     card("I2", "FIRST", { seq: 5 }),
     card("PK", "FIRST", { seq: 6, parked: true }),
-    card("R1", "STICKY", { seq: 7, section: "synthesis-risks" }),
-    card("O1", "STICKY", { seq: 8, section: "synthesis-opportunities" }),
+    card("N1", "STICKY", { seq: 7, section: "synthesis-sandbox" }),
   ];
 
   it("shapes themes with their implications and their hope/fear chain", () => {
@@ -202,16 +203,12 @@ describe("shapeFromView — synthesis weeks", () => {
     expect(out.parked.map((a) => a.id)).toEqual(["PK"]);
   });
 
-  it("falls back to the code template so risks/opportunities answers stay visible", () => {
+  it("falls back to the code template so Sandbox notes stay visible", () => {
     // An un-customized week stores sections: [] — the raw column would show no blocks.
     const out = shapeFromView(ex("synthesis"), view(board()));
     if (out.kind !== "synthesis") return;
-    expect(out.questions.map((q) => q.key)).toEqual([
-      "synthesis-risks",
-      "synthesis-opportunities",
-    ]);
-    expect(out.questions[0].answers.map((a) => a.id)).toEqual(["R1"]);
-    expect(out.questions[1].answers.map((a) => a.id)).toEqual(["O1"]);
+    expect(out.questions.map((q) => q.key)).toEqual(["synthesis-sandbox"]);
+    expect(out.questions[0].answers.map((a) => a.id)).toEqual(["N1"]);
   });
 
   it("omits a hope unreachable from any theme, matching what the board draws", () => {
@@ -221,6 +218,55 @@ describe("shapeFromView — synthesis weeks", () => {
     );
     if (out.kind !== "synthesis") return;
     expect(out.themes[0].chain.map((c) => c.id)).not.toContain("GHOST");
+  });
+
+  it("carries the theme's description, stake lists and shortlist marks", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme", description: "What the group means" }),
+        card("R1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "risk", description: "via slower sign-off", shortlisted: true }),
+        card("O1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "opportunity" }),
+        card("T1", "SECOND", { seq: 4, parentId: "TH1", cardKind: "tension" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    const t = out.themes[0];
+    expect(t.description).toBe("What the group means");
+    expect(t.risks).toEqual([
+      expect.objectContaining({ id: "R1", mechanism: "via slower sign-off", shortlisted: true }),
+    ]);
+    expect(t.opportunities.map((r) => r.id)).toEqual(["O1"]);
+    expect(t.tensions.map((r) => r.id)).toEqual(["T1"]);
+  });
+
+  it("hangs assumptions on their hope, and the value with it", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("H1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "hope", description: "because trust matters" }),
+        card("A1", "TERMINAL", { seq: 3, parentId: "H1", cardKind: "assumption" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    const [hope] = out.themes[0].chain;
+    expect(hope.value).toBe("because trust matters");
+    expect(hope.assumptions.map((a) => a.id)).toEqual(["A1"]);
+    // Not a chain row of its own — the colour maps and the CSV Kind column depend on this.
+    expect(out.themes[0].chain.map((c) => c.id)).toEqual(["H1"]);
+  });
+
+  it("surfaces unplaceable cards rather than dropping them", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("LOOSE", "FIRST", { seq: 2, cardKind: "hope" }), // no theme above it
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.orphans.map((a) => a.id)).toEqual(["LOOSE"]);
   });
 
   it("degrades to a placeholder when the board could not be loaded", () => {

@@ -4,6 +4,7 @@ import type {
   AnswerRow,
   ChainRow,
   ExerciseAnswers,
+  StakeRow,
   QuestionBlock,
   SynthesisTheme,
 } from "@/components/design-groups/AnswerPanels";
@@ -92,8 +93,15 @@ export function shapeFromView(
   if (render === "synthesis" && view) {
     const board = indexSynthesisBoard(view.cards);
 
+    const toStake = (c: RippleCard): StakeRow => ({
+      ...toRow(c),
+      mechanism: c.description,
+      shortlisted: c.shortlisted,
+    });
+
     // Each theme's hopes & fears, flattened depth-first so the panel's indentation reads
-    // as the chain itself rather than as a flat list.
+    // as the chain itself. Assumptions ride ON a row rather than becoming rows of their
+    // own — they say what we are treating as true, not what follows next.
     const flattenChain = (parentId: string): ChainRow[] => {
       const out: ChainRow[] = [];
       const walk = (id: string) => {
@@ -102,7 +110,13 @@ export function shapeFromView(
           // Absent from chainDepth = unreachable from any theme, so drawn by no view.
           // Skipped here too, so the answer sheet matches what the group actually sees.
           if (depth === undefined || !isHopeFear(c.cardKind)) continue;
-          out.push({ ...toRow(c), cardKind: c.cardKind, depth });
+          out.push({
+            ...toRow(c),
+            cardKind: c.cardKind,
+            depth,
+            value: c.description,
+            assumptions: (board.assumptions.get(c.id) ?? []).map(toRow),
+          });
           walk(c.id);
         }
       };
@@ -113,7 +127,11 @@ export function shapeFromView(
     const themes: SynthesisTheme[] = board.themes.map((t) => ({
       id: t.id,
       text: t.text,
+      description: t.description,
       implications: (board.clusters.get(t.id) ?? []).map(toRow),
+      risks: (board.risks.get(t.id) ?? []).map(toStake),
+      opportunities: (board.opportunities.get(t.id) ?? []).map(toStake),
+      tensions: (board.tensions.get(t.id) ?? []).map(toStake),
       chain: flattenChain(t.id),
     }));
 
@@ -125,9 +143,10 @@ export function shapeFromView(
       themes,
       unclustered: board.unclustered.map(toRow),
       parked: board.parked.map(toRow),
+      orphans: board.orphans.map(toRow),
       // resolveEffectiveSections, not the raw column: a synthesis week that was never
-      // customized stores [] and must fall back to the type's template, or its risks /
-      // opportunities answers are invisible here.
+      // customized stores [] and must fall back to the type's template, or its Sandbox
+      // notes are invisible here.
       questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
     };
   }

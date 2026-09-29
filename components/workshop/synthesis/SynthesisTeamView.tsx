@@ -7,9 +7,11 @@ import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
 import { ClusterBoard } from "@/components/workshop/synthesis/ClusterBoard";
+import { StakeBoard } from "@/components/workshop/synthesis/StakeBoard";
+import { ShortlistBoard } from "@/components/workshop/synthesis/ShortlistBoard";
+import { ThemeWorkspace } from "@/components/workshop/synthesis/ThemeWorkspace";
 import type { DeleteThemeMode } from "@/components/workshop/synthesis/DeleteThemeModal";
 import { HopesFearsBoard } from "@/components/workshop/synthesis/HopesFearsBoard";
-import { ReferenceRail } from "@/components/workshop/synthesis/ReferenceRail";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
 import { shapeFromView } from "@/lib/group-answers-shape";
 import {
@@ -22,6 +24,7 @@ import {
   postRippleCard,
   reorderRippleCard,
   reparentRippleCard,
+  shortlistRippleCard,
 } from "@/components/workshop/hooks";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
@@ -29,14 +32,15 @@ import {
   CARD_TEXT_MAX,
   childOrderOf,
   orderAtDepth,
+  type CardKind,
   type RippleCard,
   type RipplePhase,
 } from "@/lib/ripples-types";
 import {
   indexSynthesisBoard,
+  childrenOf,
   planReorder,
   SORT_STEP,
-  type HopeFear,
   type SortWrite,
   type Week2Lineage,
 } from "@/lib/synthesis-shape";
@@ -55,12 +59,13 @@ import type { WorksheetSection } from "@/lib/exercise-types";
 // semantics, and a second one would entangle two unrelated flows. The two share their
 // chrome through BoardShell and their card plumbing through hooks.ts.
 
-type SynthStep = "cluster" | "hopes" | "risks";
-const SYNTH_STEPS: readonly SynthStep[] = ["cluster", "hopes", "risks"];
+type SynthStep = "cluster" | "stakes" | "hopes" | "shortlist";
+const SYNTH_STEPS: readonly SynthStep[] = ["cluster", "stakes", "hopes", "shortlist"];
 const STEP_LABELS: Record<SynthStep, string> = {
   cluster: "1 · Cluster",
-  hopes: "2 · Hopes & Fears",
-  risks: "3 · Risks & Opportunities",
+  stakes: "2 · What's at Stake",
+  hopes: "3 · Hopes & Fears",
+  shortlist: "4 · Top 3 & 3",
 };
 
 const NO_CARDS: RippleCard[] = [];
@@ -100,6 +105,8 @@ export function SynthesisTeamView({
     parkLocal,
     dropParkLocal,
     describeLocal,
+    shortlistLocal,
+    dropShortlistLocal,
   } = useOptimisticCards(view?.cards ?? NO_CARDS);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -107,6 +114,9 @@ export function SynthesisTeamView({
   // Declared up here with the other state, NOT inside the build branch below — several
   // early returns sit between the two, and a hook after one of them would break the order.
   const [step, setStep] = useState<SynthStep>("cluster");
+  // Hoisted beside `step` for the same hook-order reason, and shared by steps 2 and 3 so
+  // moving between them keeps you on the theme you were working on.
+  const [themeId, setThemeId] = useState<string | null>(null);
 
   const run = useCallback(async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -230,7 +240,7 @@ export function SynthesisTeamView({
       }
     });
 
-  const addChainCard = (parent: RippleCard, kind: HopeFear, text: string) =>
+  const addChildCard = (parent: RippleCard, kind: CardKind, text: string) =>
     run(async () => {
       const order = childOrderOf(parent.order);
       if (!order) throw new Error("That chain is already as deep as it goes.");
@@ -391,6 +401,18 @@ export function SynthesisTeamView({
     );
   };
 
+  const shortlist = (card: RippleCard, shortlisted: boolean) => {
+    shortlistLocal(card.id, shortlisted);
+    run(async () => {
+      try {
+        await shortlistRippleCard(code, card.id, { participantId: pid, shortlisted });
+      } catch (e) {
+        dropShortlistLocal(card.id);
+        throw e;
+      }
+    });
+  };
+
   const park = (card: RippleCard, parked: boolean) => {
     parkLocal(card.id, parked);
     run(async () => {
@@ -415,7 +437,7 @@ export function SynthesisTeamView({
       setFlash(`Those two are too long to merge (max ${CARD_TEXT_MAX} characters).`);
       return;
     }
-    if ((board.clusters.get(absorbed.id)?.length ?? 0) > 0 || (board.chains.get(absorbed.id)?.length ?? 0) > 0) {
+    if (childrenOf(board, absorbed.id).length > 0) {
       setFlash("Empty that card out before merging it.");
       return;
     }
@@ -539,13 +561,50 @@ export function SynthesisTeamView({
         />
       )}
 
+      {step === "stakes" && (
+        <ThemeWorkspace
+          board={board}
+          lineage={lineage}
+          editable={editable}
+          busy={busy}
+          themeId={themeId}
+          onPickTheme={setThemeId}
+          countFor={(t) =>
+            (board.risks.get(t.id)?.length ?? 0) +
+            (board.opportunities.get(t.id)?.length ?? 0) +
+            (board.tensions.get(t.id)?.length ?? 0)
+          }
+          emptyBlurb="What's at stake is worked out theme by theme, so the group needs to cluster its implications first."
+          onEditTheme={editCard}
+          onDescribeTheme={describeCard}
+          onGoToCluster={() => setStep("cluster")}
+        >
+          {(active) => (
+            <StakeBoard
+              key={active.id}
+              theme={active}
+              board={board}
+              editable={editable}
+              busy={busy}
+              onAdd={(parent, kind, text) => addChildCard(parent, kind, text)}
+              onEdit={editCard}
+              onDescribe={describeCard}
+              onDelete={removeCard}
+            />
+          )}
+        </ThemeWorkspace>
+      )}
+
       {step === "hopes" && (
         <HopesFearsBoard
           board={board}
           lineage={lineage}
           editable={editable}
           busy={busy}
-          onAdd={addChainCard}
+          themeId={themeId}
+          onPickTheme={setThemeId}
+          onAdd={addChildCard}
+          onAddAssumption={(parent, text) => addChildCard(parent, "assumption", text)}
           onEdit={editCard}
           onDescribe={describeCard}
           onDelete={removeCard}
@@ -553,30 +612,33 @@ export function SynthesisTeamView({
         />
       )}
 
-      {step === "risks" && (
-        <div className="flex flex-col gap-5">
-          <ReferenceRail board={board} />
-          {sections.length > 0 ? (
-            <WorksheetSections
-              sections={sections}
-              cards={cards}
-              editable={editable}
-              canEdit={canEditCard}
-              busy={busy}
-              playerNames={playerNames}
-              onAdd={addSectionCard}
-              onDelete={removeCard}
-              onEdit={(cardId, text) => {
-                const card = cards.find((c) => c.id === cardId);
-                if (card) editCard(card, text);
-              }}
-              onReorder={reorderSectionCard}
-            />
-          ) : (
-            <p className="text-[13px] italic text-muted">
-              No blocks are set up for this step yet — a facilitator adds them in the program
-              editor.
-            </p>
+      {step === "shortlist" && (
+        <div className="flex flex-col gap-8">
+          <ShortlistBoard
+            board={board}
+            editable={editable}
+            busy={busy}
+            onToggle={shortlist}
+            onGoToStakes={() => setStep("stakes")}
+          />
+          {sections.length > 0 && (
+            <div className="border-t border-[var(--rule)] pt-6">
+              <WorksheetSections
+                sections={sections}
+                cards={cards}
+                editable={editable}
+                canEdit={canEditCard}
+                busy={busy}
+                playerNames={playerNames}
+                onAdd={addSectionCard}
+                onDelete={removeCard}
+                onEdit={(cardId, text) => {
+                  const card = cards.find((c) => c.id === cardId);
+                  if (card) editCard(card, text);
+                }}
+                onReorder={reorderSectionCard}
+              />
+            </div>
           )}
         </div>
       )}

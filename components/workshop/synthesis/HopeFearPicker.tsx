@@ -14,13 +14,13 @@ import { AddCardForm } from "@/components/workshop/synthesis/SynthesisCard";
 const FACE: Record<HopeFear, { title: string; blurb: string; mark: string; className: string }> = {
   hope: {
     title: "A hope",
-    blurb: "If this theme goes well, what becomes possible?",
+    blurb: "What would it mean to us if this went well? What do we want to protect or advance?",
     mark: "☀",
     className: "border-[var(--lime-deep)] bg-lime/40 hover:bg-lime/60",
   },
   fear: {
     title: "A fear",
-    blurb: "If this theme goes badly, what do you dread?",
+    blurb: "What would we hate to lose here, and why does that matter to us?",
     mark: "☂",
     className: "border-coral bg-coral/15 hover:bg-coral/25",
   },
@@ -67,9 +67,17 @@ export function HopeFearPicker({
 
   return (
     <div>
-      <p className="mb-2.5 text-center text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
-        Write about this theme — pick one
-      </p>
+      <div className="mb-3 text-center">
+        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+          Write about this theme — pick one
+        </p>
+        {/* The distinction the whole step rests on. Step 2 asked what could happen; this
+            asks why it matters to us, or the two exercises produce the same list twice. */}
+        <p className="mx-auto mt-1 max-w-[54ch] text-[12px] italic leading-[1.45] text-muted">
+          Not what could happen — that was the last step. What value, commitment or identity
+          does it touch?
+        </p>
+      </div>
       <div className="flex flex-wrap justify-center gap-4">
         {(["hope", "fear"] as const).map((kind) => {
           const face = FACE[kind];

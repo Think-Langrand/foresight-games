@@ -40,13 +40,27 @@ export interface ImplicationsExercise {
 }
 // A hope or fear in a theme's chain, flattened with its depth so the panel can indent it.
 export interface ChainRow extends AnswerRow {
+  // Deliberately narrow: assumptions hang OFF a chain row rather than becoming a third
+  // kind in it, so the colour maps and the CSV's Kind column stay honest.
   cardKind: "hope" | "fear";
   depth: number; // 1 = written straight onto the theme, 2 = its flip side, …
+  value: string | null; // why it matters — the card's description
+  assumptions: AnswerRow[]; // what we're treating as true
+}
+
+// A risk, an opportunity, or a preserved surprise/disagreement.
+export interface StakeRow extends AnswerRow {
+  mechanism: string | null; // through what mechanism, and for whom
+  shortlisted: boolean; // picked out for the committee
 }
 export interface SynthesisTheme {
   id: string;
   text: string;
+  description: string | null; // what the group means by this theme
   implications: AnswerRow[]; // the Week 2 implications clustered into this theme
+  risks: StakeRow[];
+  opportunities: StakeRow[];
+  tensions: StakeRow[]; // surprises and disagreements, preserved rather than resolved
   chain: ChainRow[]; // its hopes & fears, depth-first so indentation reads as the chain
 }
 export interface SynthesisExercise {
@@ -57,7 +71,10 @@ export interface SynthesisExercise {
   themes: SynthesisTheme[];
   unclustered: AnswerRow[]; // implications never sorted into a theme
   parked: AnswerRow[]; // set aside by the group, kept for the record
-  questions: QuestionBlock[]; // the Risks & Opportunities boards
+  // Cards the board could not place — a hope with no theme above it. Surfaced so nothing
+  // is ever silently lost; an empty list is the normal case.
+  orphans: AnswerRow[];
+  questions: QuestionBlock[]; // the Sandbox
 }
 export interface PlaceholderExercise {
   kind: "placeholder";

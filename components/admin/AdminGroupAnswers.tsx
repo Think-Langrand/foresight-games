@@ -16,6 +16,7 @@ import {
 import { enumerateChains } from "@/lib/ripples-types";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
 import { implicationSeedCandidates } from "@/lib/synthesis-shape";
+import { synthesisCsvRows } from "@/lib/group-answers-csv";
 
 // Admin view of a design group's answers, one tab per exercise (week). Each tab renders in
 // its exercise's natural shape (the shared read-only panels in AnswerPanels) — worksheet
@@ -216,24 +217,8 @@ export function AdminGroupAnswers({
           for (const a of q.answers)
             lines.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt].map(csvCell).join(","));
       } else if (ex.kind === "synthesis") {
-        for (const t of ex.themes) {
-          lines.push([ex.title, "Theme", "theme", t.text, "", ""].map(csvCell).join(","));
-          for (const a of t.implications)
-            lines.push([ex.title, `Theme: ${t.text}`, "implication", a.text, a.author, a.createdAt].map(csvCell).join(","));
-          for (const c of t.chain)
-            lines.push(
-              [ex.title, `Theme: ${t.text}`, c.cardKind, `${"→ ".repeat(c.depth - 1)}${c.text}`, c.author, c.createdAt]
-                .map(csvCell)
-                .join(",")
-            );
-        }
-        for (const a of ex.unclustered)
-          lines.push([ex.title, "Not in a theme", "implication", a.text, a.author, a.createdAt].map(csvCell).join(","));
-        for (const q of ex.questions)
-          for (const a of q.answers)
-            lines.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt].map(csvCell).join(","));
-        for (const a of ex.parked)
-          lines.push([ex.title, "Parked", "parked", a.text, a.author, a.createdAt].map(csvCell).join(","));
+        // Extracted and unit-tested — see lib/group-answers-csv.ts for why.
+        for (const row of synthesisCsvRows(ex)) lines.push(row.map(csvCell).join(","));
       }
     }
     download("﻿" + lines.join("\r\n"), `${base}.csv`, "text/csv;charset=utf-8;");
