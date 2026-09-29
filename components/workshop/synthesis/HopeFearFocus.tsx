@@ -19,20 +19,40 @@ import {
 // Flipping keeps the pair in the data (the new card hangs off this one), which is what
 // lets the gallery say "flipped from a hope" without drawing a tree to prove it.
 
-const FACE: Record<HopeFear, { chip: string; edge: string; mark: string; flip: string }> = {
+const FACE: Record<HopeFear, { chip: string; tint: string; rule: string; mark: string; flip: string }> = {
   hope: {
     chip: "bg-lime text-ink",
-    edge: "border-l-[var(--lime-deep)]",
+    tint: "bg-lime/20",
+    rule: "border-[var(--lime-deep)]",
     mark: "☀",
     flip: "What's the fear on the other side of this?",
   },
   fear: {
     chip: "bg-coral text-white",
-    edge: "border-l-coral",
+    tint: "bg-coral/12",
+    rule: "border-coral",
     mark: "☂",
     flip: "What's the hope on the other side of this?",
   },
 };
+
+// A labelled area of the card, the way a form on a physical card is laid out.
+function Field({
+  label,
+  children,
+  rule,
+}: {
+  label: string;
+  children: React.ReactNode;
+  rule: string;
+}) {
+  return (
+    <div className={"border-t-2 border-dashed px-6 py-4 " + rule}>
+      <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">{label}</div>
+      <div className="mt-1.5">{children}</div>
+    </div>
+  );
+}
 
 export function HopeFearFocus({
   card,
@@ -65,46 +85,64 @@ export function HopeFearFocus({
   const canExtend = editable && Boolean(childOrderOf(card.order));
 
   return (
-    <div className={"rounded-[4px] border-2 border-l-8 border-ink bg-card p-5 " + face.edge}>
-      <div className="flex items-start gap-3">
-        <span
-          className={
-            "shrink-0 rounded-[2px] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] " +
-            face.chip
-          }
-        >
-          {kind}
-        </span>
-        <div className="min-w-0 flex-1 text-[17px] font-bold leading-[1.3]">
+    // An oversized playing card: the group is filling one in, so it should look like one
+    // rather than like a settings panel. Centred and bounded so the writing areas stay a
+    // comfortable line length however wide the window is.
+    <div
+      className={
+        "relative mx-auto w-full max-w-[42rem] overflow-hidden rounded-[10px] border-2 border-ink shadow-[4px_6px_0_rgba(36,36,34,0.18)] " +
+        face.tint
+      }
+    >
+      {/* Corner pips, the second one rotated, the way a court card reads either way up. */}
+      <span aria-hidden className="pointer-events-none absolute left-4 top-3 text-[20px] leading-none opacity-30">
+        {face.mark}
+      </span>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-3 right-4 rotate-180 text-[20px] leading-none opacity-30"
+      >
+        {face.mark}
+      </span>
+
+      <div className="px-6 pb-5 pt-5">
+        <div className="flex items-start gap-3 pl-8">
+          <span
+            className={
+              "shrink-0 rounded-[2px] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] " +
+              face.chip
+            }
+          >
+            {kind}
+          </span>
+          {editable && (
+            <div className="ml-auto">
+              <CardMenu>
+                {(close) => (
+                  <CardMenuItem
+                    danger
+                    onClick={() => {
+                      close();
+                      onDelete(card);
+                    }}
+                  >
+                    Delete
+                  </CardMenuItem>
+                )}
+              </CardMenu>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-2.5 pl-8 pr-2 text-[20px] font-extrabold leading-[1.25]">
           <InlineText text={card.text} editable={editable} busy={busy} onSave={(t) => onEdit(card, t)} />
         </div>
-        <span aria-hidden className="shrink-0 text-[22px] leading-none opacity-25">
-          {face.mark}
-        </span>
-        {editable && (
-          <CardMenu>
-            {(close) => (
-              <CardMenuItem
-                danger
-                onClick={() => {
-                  close();
-                  onDelete(card);
-                }}
-              >
-                Delete
-              </CardMenuItem>
-            )}
-          </CardMenu>
-        )}
       </div>
 
       {/* Why it matters. The step's whole point: step 2 said what could happen, this says
           what it touches in us. Given real room, because it is a sentence not a label. */}
-      <div className="mt-4">
-        <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-          Why does this matter to us?
-        </div>
-        <div className="mt-1 max-w-[70ch] text-[14px] leading-[1.55]">
+      <Field label="Why does this matter to us?" rule={face.rule}>
+        <div className="text-[14px] leading-[1.55]">
           <InlineText
             text={card.description ?? ""}
             editable={editable}
@@ -116,19 +154,16 @@ export function HopeFearFocus({
             onSave={(next) => onDescribe(card, next)}
           />
         </div>
-      </div>
+      </Field>
 
       {/* What we're treating as true. Their own cards, because the group is meant to be
           able to list and challenge them later, not dig them out of prose. */}
-      <div className="mt-4 border-t border-[var(--hairline)] pt-3">
-        <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-          What are we assuming?
-        </div>
+      <Field label="What are we assuming?" rule={face.rule}>
         {assumptions.length > 0 && (
-          <ul className="mt-1.5 flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-1.5">
             {assumptions.map((a) => (
-              <li key={a.id} className="group flex items-start gap-2 text-[13px] leading-[1.45]">
-                <span aria-hidden className="mt-[2px] shrink-0 text-black/30">
+              <li key={a.id} className="group flex items-start gap-2 text-[13.5px] leading-[1.45]">
+                <span aria-hidden className="mt-[2px] shrink-0 text-black/35">
                   ◆
                 </span>
                 <div className="min-w-0 flex-1">
@@ -149,7 +184,7 @@ export function HopeFearFocus({
         )}
         {canExtend &&
           (assuming ? (
-            <div className="mt-2 max-w-[44rem]">
+            <div className={assumptions.length > 0 ? "mt-2" : ""}>
               <AddCardForm
                 label="Does protecting that require keeping our current way of working?"
                 busy={busy}
@@ -161,32 +196,30 @@ export function HopeFearFocus({
           ) : (
             <button
               onClick={() => setAssuming(true)}
-              className="mt-1.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+              className={
+                "text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline " +
+                (assumptions.length > 0 ? "mt-2" : "")
+              }
             >
               ＋ An assumption
             </button>
           ))}
-      </div>
+      </Field>
 
       {/* The flip. A new card, hanging off this one so the pair is recorded. */}
       {canExtend && (
-        <div className="mt-4 border-t border-[var(--hairline)] pt-3">
+        <Field label="The other side" rule={face.rule}>
           {flipping ? (
-            <div className="max-w-[44rem]">
-              <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-                The other side
-              </div>
-              <AddCardForm
-                label={face.flip}
-                busy={busy}
-                autoFocus
-                onAdd={(text) => {
-                  onFlip(card, flipOf(kind), text);
-                  setFlipping(false);
-                }}
-                onDone={() => setFlipping(false)}
-              />
-            </div>
+            <AddCardForm
+              label={face.flip}
+              busy={busy}
+              autoFocus
+              onAdd={(text) => {
+                onFlip(card, flipOf(kind), text);
+                setFlipping(false);
+              }}
+              onDone={() => setFlipping(false)}
+            />
           ) : (
             <button
               onClick={() => setFlipping(true)}
@@ -195,7 +228,7 @@ export function HopeFearFocus({
               ↩ Flip it — write the {flipOf(kind)}
             </button>
           )}
-        </div>
+        </Field>
       )}
     </div>
   );

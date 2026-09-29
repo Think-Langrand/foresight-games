@@ -12,9 +12,19 @@ import { AddCardForm } from "@/components/workshop/synthesis/SynthesisCard";
 // group is protecting — exactly backwards. The pairs are still recorded; a flipped card
 // just says what it came from instead of being drawn hanging off it.
 
-const FACE: Record<HopeFear, { chip: string; border: string; mark: string }> = {
-  hope: { chip: "bg-lime text-ink", border: "border-l-[var(--lime-deep)]", mark: "☀" },
-  fear: { chip: "bg-coral text-white", border: "border-l-coral", mark: "☂" },
+const FACE: Record<HopeFear, { chip: string; tint: string; addTint: string; mark: string }> = {
+  hope: {
+    chip: "bg-lime text-ink",
+    tint: " bg-lime/25",
+    addTint: "border-[var(--lime-deep)]/60 hover:bg-lime/25",
+    mark: "☀",
+  },
+  fear: {
+    chip: "bg-coral text-white",
+    tint: " bg-coral/15",
+    addTint: "border-coral/50 hover:bg-coral/15",
+    mark: "☂",
+  },
 };
 
 export function HopeFearGallery({
@@ -44,7 +54,7 @@ export function HopeFearGallery({
         <p className="text-[12px] italic text-muted">Pick one to work on it below.</p>
       </div>
 
-      <div className="flex flex-wrap items-stretch gap-2.5">
+      <div className="flex flex-wrap items-stretch gap-3">
         {entries.map(({ card, flippedFrom }) => {
           const kind = card.cardKind as HopeFear;
           const face = FACE[kind];
@@ -55,22 +65,30 @@ export function HopeFearGallery({
               onClick={() => onSelect(card)}
               aria-pressed={on}
               className={
-                "flex w-[15.5rem] flex-col gap-1.5 rounded-[3px] border border-l-4 p-2.5 text-left transition-all " +
-                face.border +
+                "flex h-[13.5rem] w-[15rem] flex-col gap-2 rounded-[6px] border-2 p-3.5 text-left transition-all " +
+                face.tint +
                 (on
-                  ? " border-ink bg-paper shadow-[2px_3px_0_rgba(36,36,34,0.16)]"
-                  : " border-black/15 bg-paper/70 hover:-translate-y-0.5 hover:shadow-[2px_3px_0_rgba(36,36,34,0.10)]")
+                  ? " border-ink shadow-[3px_5px_0_rgba(36,36,34,0.20)]"
+                  : " border-black/20 hover:-translate-y-1 hover:border-ink hover:shadow-[3px_5px_0_rgba(36,36,34,0.14)]")
               }
             >
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between gap-1.5">
                 <span
                   className={
-                    "rounded-[2px] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] " +
+                    "rounded-[2px] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.08em] " +
                     face.chip
                   }
                 >
                   {kind}
                 </span>
+                <span aria-hidden className="text-[16px] leading-none opacity-35">
+                  {face.mark}
+                </span>
+              </div>
+
+              <div className="line-clamp-5 text-[13.5px] font-bold leading-[1.35]">{card.text}</div>
+
+              <div className="mt-auto flex flex-col gap-1">
                 {/* What it answers. The pair is kept in the data; this is all the tree was
                     ever telling you, in one line. */}
                 {flippedFrom && (
@@ -78,17 +96,15 @@ export function HopeFearGallery({
                     ↩ flipped from {flippedFrom.cardKind}
                   </span>
                 )}
-              </div>
-
-              <div className="line-clamp-3 text-[12.5px] leading-[1.4]">{card.text}</div>
-
-              {/* What is still missing, so the gallery shows where the work is. */}
-              <div className="mt-auto flex items-center gap-2 pt-0.5 text-[9.5px] font-bold uppercase tracking-[0.05em]">
-                {card.description ? (
-                  <span className="text-muted">✓ Why it matters</span>
-                ) : (
-                  <span className="text-coral">Needs a why</span>
-                )}
+                {/* Where the work still is, so the gallery is a to-do list as well. */}
+                <span
+                  className={
+                    "text-[9.5px] font-bold uppercase tracking-[0.06em] " +
+                    (card.description ? "text-muted" : "text-coral")
+                  }
+                >
+                  {card.description ? "✓ Why it matters" : "Needs a why"}
+                </span>
               </div>
             </button>
           );
@@ -96,7 +112,7 @@ export function HopeFearGallery({
 
         {editable &&
           (adding ? (
-            <div className="w-[15.5rem]">
+            <div className="flex h-[13.5rem] w-[15rem] flex-col justify-center rounded-[6px] border-2 border-ink bg-paper p-3">
               <AddCardForm
                 label={
                   adding === "hope"
@@ -110,25 +126,23 @@ export function HopeFearGallery({
               />
             </div>
           ) : (
-            <div className="flex w-[15.5rem] flex-col gap-2">
-              {(["hope", "fear"] as const).map((kind) => (
-                <button
-                  key={kind}
-                  onClick={() => setAdding(kind)}
-                  className={
-                    "flex flex-1 items-center justify-center gap-2 rounded-[3px] border-2 border-dashed p-3 text-[11px] font-bold uppercase tracking-[0.06em] text-muted transition-colors hover:border-ink hover:text-ink " +
-                    (kind === "hope"
-                      ? "border-[var(--lime-deep)]/60 hover:bg-lime/30"
-                      : "border-coral/50 hover:bg-coral/15")
-                  }
-                >
-                  <span aria-hidden className="text-[15px] leading-none opacity-50">
-                    {FACE[kind].mark}
-                  </span>
+            (["hope", "fear"] as const).map((kind) => (
+              <button
+                key={kind}
+                onClick={() => setAdding(kind)}
+                className={
+                  "flex h-[13.5rem] w-[15rem] flex-col items-center justify-center gap-2.5 rounded-[6px] border-2 border-dashed p-4 text-center transition-all hover:-translate-y-1 hover:border-ink " +
+                  FACE[kind].addTint
+                }
+              >
+                <span aria-hidden className="text-[30px] leading-none opacity-40">
+                  {FACE[kind].mark}
+                </span>
+                <span className="text-[13px] font-extrabold uppercase tracking-[0.06em] text-muted">
                   ＋ A {kind}
-                </button>
-              ))}
-            </div>
+                </span>
+              </button>
+            ))
           ))}
       </div>
     </div>
