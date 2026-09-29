@@ -9,6 +9,7 @@ import {
   listBoardCards,
   scoreCard,
   setCardParked,
+  setCardShortlisted,
   updateCardDescription,
   updateCardSort,
   updateCardText,
@@ -58,7 +59,8 @@ export async function PATCH(
       | "description"
       | "score"
       | "reparent"
-      | "park";
+      | "park"
+      | "shortlist";
     participantId?: string;
     sort?: number;
     text?: string;
@@ -67,6 +69,7 @@ export async function PATCH(
     impact?: number | null;
     parentCardId?: string | null;
     parked?: boolean;
+    shortlisted?: boolean;
   } = {};
   try {
     body = await req.json();
@@ -199,6 +202,26 @@ export async function PATCH(
       await applyReparent(session.code, cardId, parentId, plan.moves);
       const own = plan.moves.find((m) => m.cardId === cardId);
       return NextResponse.json({ ok: true, parentCardId: parentId, cardOrder: own?.order });
+    }
+
+    // Week 3 step 4: pick this out as one of the three to explain to the committee.
+    // Only the analytical cards can be shortlisted — a hope is not a finding and a theme
+    // is the container. Refused by kind, the same way park refuses a theme.
+    if (body.action === "shortlist") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only change your own card." }, { status: 403 });
+      }
+      if (typeof body.shortlisted !== "boolean") {
+        return NextResponse.json({ error: "shortlisted must be true or false." }, { status: 400 });
+      }
+      if (card.cardKind !== "risk" && card.cardKind !== "opportunity") {
+        return NextResponse.json(
+          { error: "Only a risk or an opportunity can go on the shortlist." },
+          { status: 400 }
+        );
+      }
+      await setCardShortlisted(session.code, cardId, body.shortlisted);
+      return NextResponse.json({ ok: true, shortlisted: body.shortlisted });
     }
 
     // Park a card in Week 3's tray — set aside, not deleted, and draggable back out. Uses

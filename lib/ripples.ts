@@ -485,6 +485,7 @@ export async function addCard(input: {
   sort?: number;
   section?: string | null; // worksheet area key (STICKY only)
   cardKind?: CardKind | null; // Week 3: theme / hope / fear. null = a plain implication.
+  description?: string | null;
 }): Promise<RippleCard> {
   const row = await withRetry(async () => {
     const { data, error } = await supabaseAdmin()
@@ -500,6 +501,7 @@ export async function addCard(input: {
         sort: input.sort ?? 0,
         section: input.section ?? null,
         card_kind: input.cardKind ?? null,
+        description: input.description || null,
       })
       .select("*")
       .single();
@@ -599,6 +601,20 @@ export async function updateCardDescription(
   const { error } = await supabaseAdmin()
     .from("ripple_cards")
     .update({ description })
+    .eq("code", up(code))
+    .eq("id", cardId);
+  if (error) throw error;
+}
+
+// Week 3 step 4: pick a risk or opportunity out for the committee, or unpick it.
+export async function setCardShortlisted(
+  code: string,
+  cardId: string,
+  shortlisted: boolean
+): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update({ shortlisted })
     .eq("code", up(code))
     .eq("id", cardId);
   if (error) throw error;

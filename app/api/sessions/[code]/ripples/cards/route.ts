@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import { addCard, getPlayerByParticipant, getRippleCard } from "@/lib/ripples";
 import {
+  CARD_DESCRIPTION_MAX,
   CARD_TEXT_MAX,
   MAX_TREE_DEPTH,
   depthOfOrder,
@@ -32,7 +33,8 @@ export async function POST(
     text?: string;
     sort?: number;
     section?: string | null; // worksheet area key (STICKY only); null = default board
-    cardKind?: string | null; // Week 3: theme / hope / fear. Absent = a plain implication.
+    cardKind?: string | null; // Week 3: theme / hope / fear / risk / opportunity / …
+    description?: string | null; // optional longer note, set at creation
   } = {};
   try {
     body = await req.json();
@@ -70,13 +72,21 @@ export async function POST(
     if (kind !== null && order === "STICKY") {
       return NextResponse.json({ error: "A brainstorm note has no kind." }, { status: 400 });
     }
-    if (kind === "theme" && order !== "FIRST") {
-      return NextResponse.json({ error: "A theme is a top-level card." }, { status: 400 });
-    }
 
     // The whole tree is built during one BUILD phase.
     if (session.phase !== "BUILD") {
       return NextResponse.json({ error: "Not accepting cards right now." }, { status: 403 });
+    }
+
+    // Set at creation so a two-field composer ("what could be lost" + "through what
+    // mechanism") is one round trip; creating then patching leaves a described-nothing
+    // card behind when the second call fails.
+    const description = (body.description ?? "").trim();
+    if (description.length > CARD_DESCRIPTION_MAX) {
+      return NextResponse.json(
+        { error: `A description is at most ${CARD_DESCRIPTION_MAX} characters.` },
+        { status: 400 }
+      );
     }
 
     const text = (body.text ?? "").trim();
@@ -93,6 +103,9 @@ export async function POST(
     // be — no chain walk. STICKY is a freeform brainstorm note with no parent
     // (independent of the tree). Any number of children per node.
     let parentId: string | null = null;
+    // The parent's kind, for the single placementError call below: undefined = this card
+    // is becoming a root.
+    let parentKind: CardKind | null | undefined;
     if (order === "FIRST" || order === "STICKY") {
       if (body.parentCardId) {
         return NextResponse.json({ error: "This card has no parent." }, { status: 400 });
@@ -128,14 +141,22 @@ export async function POST(
       if (order !== orderAtDepth(parentDepth + 1)) {
         return NextResponse.json({ error: "Build on the previous level's node." }, { status: 400 });
       }
-      // Week 3 kind invariants, shared with the reparent action so the two can't drift.
-      const misplaced = placementError(kind, parent.cardKind);
-      if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });
       if (parent.parked) {
         return NextResponse.json({ error: "Can't build on a parked card." }, { status: 400 });
       }
       parentId = parent.id;
+      parentKind = parent.cardKind;
     }
+
+    // Week 3 kind invariants, in ONE place covering both the root and parented paths, and
+    // shared with the reparent action so the two cannot drift. A STICKY is forced to
+    // kind null above, and placementError(null, undefined) is legal, so notes pass through.
+    //
+    // The root path used to skip this entirely, which let {cardOrder:"FIRST",
+    // cardKind:"hope"} create a card with no theme above it — in the database, drawn by
+    // no view, deletable by nobody.
+    const misplaced = placementError(kind, parentKind);
+    if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });
 
     const card = await addCard({
       sessionId: session.id,
@@ -149,6 +170,7 @@ export async function POST(
       // A worksheet buckets sticky cards into named areas; tree cards have no section.
       section: order === "STICKY" && typeof body.section === "string" ? body.section : null,
       cardKind: kind,
+      description,
     });
     return NextResponse.json({ card });
   } catch (err) {

@@ -168,6 +168,7 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
   >(() => new Map());
   const [parks, setParks] = useState<Map<string, boolean>>(() => new Map());
   const [descs, setDescs] = useState<Map<string, string | null>>(() => new Map());
+  const [shorts, setShorts] = useState<Map<string, boolean>>(() => new Map());
   // `inflight` counts this card's score writes that haven't come back yet. While any is
   // outstanding the overlay has to stand, because the server list in hand may predate it.
   const [scores, setScores] = useState<Map<string, { patch: ScorePatch; inflight: number }>>(
@@ -249,6 +250,18 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
       }
       return changed ? next : prev;
     });
+    setShorts((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, v] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        if (!server || server.shortlisted === v) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
     // Per-AXIS, not per-object: the two score rows write independently, so a
     // plausibility round-trip landing first must not drop a still-pending impact.
     //
@@ -287,7 +300,8 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
       !scores.size &&
       !reparents.size &&
       !parks.size &&
-      !descs.size
+      !descs.size &&
+      !shorts.size
     )
       return merged;
     return merged
@@ -299,7 +313,8 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
           !scores.has(c.id) &&
           !reparents.has(c.id) &&
           !parks.has(c.id) &&
-          !descs.has(c.id)
+          !descs.has(c.id) &&
+          !shorts.has(c.id)
         )
           return c;
         const move = reparents.get(c.id);
@@ -311,9 +326,10 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
           ...(move ? { parentId: move.parentId, order: move.order } : {}),
           ...(parks.has(c.id) ? { parked: parks.get(c.id)! } : {}),
           ...(descs.has(c.id) ? { description: descs.get(c.id)! } : {}),
+          ...(shorts.has(c.id) ? { shortlisted: shorts.get(c.id)! } : {}),
         };
       });
-  }, [serverCards, adds, deletes, sorts, edits, scores, reparents, parks, descs]);
+  }, [serverCards, adds, deletes, sorts, edits, scores, reparents, parks, descs, shorts]);
 
   const addLocal = useCallback((c: RippleCard) => setAdds((p) => [...p, c]), []);
   const removeLocal = useCallback((id: string) => setDeletes((p) => new Set(p).add(id)), []);
@@ -343,6 +359,20 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
   const dropReparentLocal = useCallback(
     (id: string) =>
       setReparents((p) => {
+        if (!p.has(id)) return p;
+        const next = new Map(p);
+        next.delete(id);
+        return next;
+      }),
+    []
+  );
+  const shortlistLocal = useCallback(
+    (id: string, shortlisted: boolean) => setShorts((p) => new Map(p).set(id, shortlisted)),
+    []
+  );
+  const dropShortlistLocal = useCallback(
+    (id: string) =>
+      setShorts((p) => {
         if (!p.has(id)) return p;
         const next = new Map(p);
         next.delete(id);
@@ -454,6 +484,7 @@ export async function postRippleCard(
     sort?: number;
     section?: string | null;
     cardKind?: CardKind | null; // Week 3: theme / hope / fear. Omit for an implication.
+    description?: string | null;
   }
 ) {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/cards`, {
@@ -513,6 +544,24 @@ export async function describeRippleCard(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "description", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+// Pick a risk or opportunity out for the committee shortlist, or unpick it.
+export async function shortlistRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; shortlisted: boolean }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "shortlist", ...body }),
     }
   );
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
