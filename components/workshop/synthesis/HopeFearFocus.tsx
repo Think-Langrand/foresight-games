@@ -62,6 +62,7 @@ export function HopeFearFocus({
   onEdit,
   onDescribe,
   onAddAssumption,
+  onRequestDelete,
   onDelete,
 }: {
   card: RippleCard;
@@ -71,6 +72,7 @@ export function HopeFearFocus({
   onEdit: (card: RippleCard, text: string) => void;
   onDescribe: (card: RippleCard, description: string) => void;
   onAddAssumption: (parent: RippleCard, text: string) => void;
+  onRequestDelete: (card: RippleCard) => void;
   onDelete: (card: RippleCard) => void;
 }) {
   const [assuming, setAssuming] = useState(false);
@@ -119,10 +121,10 @@ export function HopeFearFocus({
                     danger
                     onClick={() => {
                       close();
-                      onDelete(card);
+                      onRequestDelete(card);
                     }}
                   >
-                    Delete
+                    Delete…
                   </CardMenuItem>
                 )}
               </CardMenu>

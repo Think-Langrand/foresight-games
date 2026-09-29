@@ -9,6 +9,7 @@ import {
   placementError,
   planReorder,
   childrenOf,
+  descendantsOf,
   flattenChainCards,
   stakeLedger,
   shortlistCounts,
@@ -663,5 +664,44 @@ describe("flattenChainCards", () => {
 
   it("returns nothing for a theme with no hopes or fears", () => {
     expect(flattenChainCards(indexSynthesisBoard([theme("TH", 1)]), "TH")).toEqual([]);
+  });
+});
+
+describe("descendantsOf", () => {
+  const board = () =>
+    indexSynthesisBoard([
+      theme("TH", 1),
+      card("I1", "SECOND", "TH", 2),
+      card("R1", "SECOND", "TH", 3, { cardKind: "risk" }),
+      card("H1", "SECOND", "TH", 4, { cardKind: "hope" }),
+      card("A1", "TERMINAL", "H1", 5, { cardKind: "assumption" }),
+      card("F1", "TERMINAL", "H1", 6, { cardKind: "fear" }),
+      card("A2", "ORDER_4", "F1", 7, { cardKind: "assumption" }),
+    ]);
+
+  it("counts the whole subtree, not just the first level", () => {
+    // Deleting H1 takes its assumption, the fear flipped from it, AND that fear's own
+    // assumption — a confirmation naming only direct children would say 2, not 3.
+    expect(descendantsOf(board(), "H1").map((c) => c.id).sort()).toEqual(["A1", "A2", "F1"]);
+  });
+
+  it("spans every bucket from a theme", () => {
+    expect(descendantsOf(board(), "TH").map((c) => c.id).sort()).toEqual(
+      ["A1", "A2", "F1", "H1", "I1", "R1"].sort()
+    );
+  });
+
+  it("returns nothing for a leaf", () => {
+    expect(descendantsOf(board(), "A1")).toEqual([]);
+  });
+
+  it("does not hang on a parent cycle", () => {
+    const cycled = indexSynthesisBoard([
+      theme("TH", 1),
+      card("H", "SECOND", "TH", 2, { cardKind: "hope" }),
+      card("X", "TERMINAL", "H", 3, { cardKind: "fear" }),
+      card("Y", "ORDER_4", "X", 4, { cardKind: "hope" }),
+    ]);
+    expect(descendantsOf(cycled, "H").map((c) => c.id)).toEqual(["X", "Y"]);
   });
 });

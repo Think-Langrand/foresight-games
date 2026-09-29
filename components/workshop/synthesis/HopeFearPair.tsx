@@ -49,6 +49,7 @@ export function HopeFearPair({
   onDescribe,
   onAddAssumption,
   onFlip,
+  onRequestDelete,
   onDelete,
 }: {
   card: RippleCard;
@@ -60,6 +61,9 @@ export function HopeFearPair({
   onDescribe: (card: RippleCard, description: string) => void;
   onAddAssumption: (parent: RippleCard, text: string) => void;
   onFlip: (parent: RippleCard, kind: HopeFear, text: string) => void;
+  // The open card's delete asks first; an assumption's ✕ does not — it is a single line
+  // with nothing under it.
+  onRequestDelete: (card: RippleCard) => void;
   onDelete: (card: RippleCard) => void;
 }) {
   const [writing, setWriting] = useState(false);
@@ -88,6 +92,7 @@ export function HopeFearPair({
           onEdit={onEdit}
           onDescribe={onDescribe}
           onAddAssumption={onAddAssumption}
+          onRequestDelete={onRequestDelete}
           onDelete={onDelete}
         />
       </div>

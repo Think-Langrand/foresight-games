@@ -344,6 +344,24 @@ export function flattenChainCards(board: SynthesisBoard, themeId: string): Chain
   return out;
 }
 
+// Everything that would go with a card if it were deleted: its children, their children,
+// and so on. parent_card_id is ON DELETE CASCADE, so a confirmation that names only the
+// first level understates the damage.
+export function descendantsOf(board: SynthesisBoard, cardId: string): RippleCard[] {
+  const out: RippleCard[] = [];
+  const seen = new Set<string>([cardId]);
+  const walk = (id: string) => {
+    for (const c of childrenOf(board, id)) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      out.push(c);
+      walk(c.id);
+    }
+  };
+  walk(cardId);
+  return out;
+}
+
 export interface ThemeStake {
   theme: RippleCard;
   risks: RippleCard[];

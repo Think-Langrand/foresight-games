@@ -3,7 +3,11 @@
 import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import type { ChainEntry, HopeFear } from "@/lib/synthesis-shape";
-import { AddCardForm } from "@/components/workshop/synthesis/SynthesisCard";
+import {
+  AddCardForm,
+  CardMenu,
+  CardMenuItem,
+} from "@/components/workshop/synthesis/SynthesisCard";
 
 // Everything written on this theme so far, as small cards you can scan and pick from.
 //
@@ -33,6 +37,7 @@ export function HopeFearGallery({
   editable,
   busy,
   onSelect,
+  onRequestDelete,
   onQuickAdd,
 }: {
   entries: ChainEntry[];
@@ -40,6 +45,7 @@ export function HopeFearGallery({
   editable: boolean;
   busy: boolean;
   onSelect: (card: RippleCard) => void;
+  onRequestDelete: (card: RippleCard) => void;
   onQuickAdd: (kind: HopeFear, text: string) => void;
 }) {
   const [adding, setAdding] = useState<HopeFear | null>(null);
@@ -60,12 +66,22 @@ export function HopeFearGallery({
           const face = FACE[kind];
           const on = card.id === selectedId;
           return (
-            <button
+            // A div rather than a button: the ⋯ menu is interactive and cannot legally
+            // nest inside one. Keyboard-reachable, so selecting a card never needs a mouse.
+            <div
               key={card.id}
-              onClick={() => onSelect(card)}
+              role="button"
+              tabIndex={0}
               aria-pressed={on}
+              onClick={() => onSelect(card)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelect(card);
+                }
+              }}
               className={
-                "flex h-[13.5rem] w-[15rem] flex-col gap-2 rounded-[6px] border-2 p-3.5 text-left transition-all " +
+                "group flex h-[13.5rem] w-[15rem] cursor-pointer flex-col gap-2 rounded-[6px] border-2 p-3.5 text-left transition-all " +
                 face.tint +
                 (on
                   ? " border-ink shadow-[3px_5px_0_rgba(36,36,34,0.20)]"
@@ -81,9 +97,29 @@ export function HopeFearGallery({
                 >
                   {kind}
                 </span>
-                <span aria-hidden className="text-[16px] leading-none opacity-35">
-                  {face.mark}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span aria-hidden className="text-[16px] leading-none opacity-35">
+                    {face.mark}
+                  </span>
+                  {editable && (
+                    // Stop the click here: opening the menu is not choosing the card.
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <CardMenu>
+                        {(close) => (
+                          <CardMenuItem
+                            danger
+                            onClick={() => {
+                              close();
+                              onRequestDelete(card);
+                            }}
+                          >
+                            Delete…
+                          </CardMenuItem>
+                        )}
+                      </CardMenu>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="line-clamp-5 text-[13.5px] font-bold leading-[1.35]">{card.text}</div>
@@ -106,7 +142,7 @@ export function HopeFearGallery({
                   {card.description ? "✓ Why it matters" : "Needs a why"}
                 </span>
               </div>
-            </button>
+            </div>
           );
         })}
 

@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
+
 import type { RippleCard } from "@/lib/ripples-types";
 import {
+  descendantsOf,
   flattenChainCards,
   type HopeFear,
   type SynthesisBoard,
@@ -11,6 +14,7 @@ import { HopeFearGallery } from "@/components/workshop/synthesis/HopeFearGallery
 import { HopeFearPair } from "@/components/workshop/synthesis/HopeFearPair";
 import { HopeFearPicker } from "@/components/workshop/synthesis/HopeFearPicker";
 import { ThemeWorkspace } from "@/components/workshop/synthesis/ThemeWorkspace";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 // STEP 3 — hopes & fears, one theme at a time.
 //
@@ -56,7 +60,14 @@ export function HopesFearsBoard({
   onDelete: (card: RippleCard) => void;
   onGoToCluster: () => void;
 }) {
+  // One dialog serves both the gallery and the open card: deleting is the same decision
+  // wherever you start it, and a hope takes its assumptions and the fear flipped from it
+  // with it (parent_card_id is ON DELETE CASCADE).
+  const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
+  const doomed = pendingDelete ? descendantsOf(board, pendingDelete.id) : [];
+
   return (
+    <>
     <ThemeWorkspace
       board={board}
       lineage={lineage}
@@ -96,6 +107,7 @@ export function HopesFearsBoard({
               editable={editable}
               busy={busy}
               onSelect={(c) => onFocus(c.id)}
+              onRequestDelete={setPendingDelete}
               onQuickAdd={(kind, text) => onAdd(active, kind, text)}
             />
 
@@ -111,6 +123,7 @@ export function HopesFearsBoard({
                 onDescribe={onDescribe}
                 onAddAssumption={onAddAssumption}
                 onFlip={onFlip}
+                onRequestDelete={setPendingDelete}
                 onDelete={onDelete}
               />
             )}
@@ -118,5 +131,33 @@ export function HopesFearsBoard({
         );
       }}
     </ThemeWorkspace>
+
+    <ConfirmModal
+      open={pendingDelete !== null}
+      title={`Delete this ${pendingDelete?.cardKind ?? "card"}?`}
+      busy={busy}
+      confirmLabel="Delete"
+      message={
+        doomed.length === 0 ? (
+          <>This can&rsquo;t be undone.</>
+        ) : (
+          <>
+            This also deletes{" "}
+            <strong className="text-ink">
+              {doomed.length} card{doomed.length === 1 ? "" : "s"}
+            </strong>{" "}
+            written on it — its assumptions and anything flipped from it. This can&rsquo;t be
+            undone.
+          </>
+        )
+      }
+      onCancel={() => setPendingDelete(null)}
+      onConfirm={() => {
+        const card = pendingDelete;
+        setPendingDelete(null);
+        if (card) onDelete(card);
+      }}
+    />
+    </>
   );
 }
