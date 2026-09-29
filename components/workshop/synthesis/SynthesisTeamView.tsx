@@ -404,8 +404,12 @@ export function SynthesisTeamView({
     );
   };
 
-  // Writing a hope or fear opens it: the next question — why does this matter — is the
-  // point of the step, and it lives in the focus panel.
+  // Writing a hope or fear from the gallery opens it: there is nothing else to look at,
+  // and the next question — why does this matter — is the point of the step.
+  //
+  // Writing the OTHER SIDE of an open card deliberately does not (it uses addChildCard):
+  // the whole reason the pair is shown side by side is to see them together, and pivoting
+  // away the moment the second one exists would hide the pair you just completed.
   const addChainCardFocused = (parent: RippleCard, kind: CardKind, text: string) =>
     run(async () => {
       const order = childOrderOf(parent.order);
@@ -628,6 +632,7 @@ export function SynthesisTeamView({
           onPickTheme={setThemeId}
           onFocus={setFocusId}
           onAdd={addChainCardFocused}
+          onFlip={addChildCard}
           onAddAssumption={(parent, text) => addChildCard(parent, "assumption", text)}
           onEdit={editCard}
           onDescribe={describeCard}

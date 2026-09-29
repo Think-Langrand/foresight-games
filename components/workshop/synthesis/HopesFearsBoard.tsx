@@ -8,7 +8,7 @@ import {
   type Week2Lineage,
 } from "@/lib/synthesis-shape";
 import { HopeFearGallery } from "@/components/workshop/synthesis/HopeFearGallery";
-import { HopeFearFocus } from "@/components/workshop/synthesis/HopeFearFocus";
+import { HopeFearPair } from "@/components/workshop/synthesis/HopeFearPair";
 import { HopeFearPicker } from "@/components/workshop/synthesis/HopeFearPicker";
 import { ThemeWorkspace } from "@/components/workshop/synthesis/ThemeWorkspace";
 
@@ -32,6 +32,7 @@ export function HopesFearsBoard({
   onPickTheme,
   onFocus,
   onAdd,
+  onFlip,
   onAddAssumption,
   onEdit,
   onDescribe,
@@ -47,6 +48,8 @@ export function HopesFearsBoard({
   onPickTheme: (id: string) => void;
   onFocus: (id: string | null) => void;
   onAdd: (parent: RippleCard, kind: HopeFear, text: string) => void;
+  // Writing the other side does NOT move focus — see SynthesisTeamView.
+  onFlip: (parent: RippleCard, kind: HopeFear, text: string) => void;
   onAddAssumption: (parent: RippleCard, text: string) => void;
   onEdit: (card: RippleCard, text: string) => void;
   onDescribe: (card: RippleCard, description: string) => void;
@@ -97,16 +100,17 @@ export function HopesFearsBoard({
             />
 
             {focused && (
-              <HopeFearFocus
+              <HopeFearPair
                 key={focused.id}
                 card={focused}
                 board={board}
                 editable={editable}
                 busy={busy}
+                onFocus={onFocus}
                 onEdit={onEdit}
                 onDescribe={onDescribe}
                 onAddAssumption={onAddAssumption}
-                onFlip={onAdd}
+                onFlip={onFlip}
                 onDelete={onDelete}
               />
             )}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CARD_DESCRIPTION_MAX, childOrderOf, type RippleCard } from "@/lib/ripples-types";
-import { flipOf, type HopeFear, type SynthesisBoard } from "@/lib/synthesis-shape";
+import type { HopeFear, SynthesisBoard } from "@/lib/synthesis-shape";
 import {
   AddCardForm,
   CardMenu,
@@ -62,7 +62,6 @@ export function HopeFearFocus({
   onEdit,
   onDescribe,
   onAddAssumption,
-  onFlip,
   onDelete,
 }: {
   card: RippleCard;
@@ -72,11 +71,9 @@ export function HopeFearFocus({
   onEdit: (card: RippleCard, text: string) => void;
   onDescribe: (card: RippleCard, description: string) => void;
   onAddAssumption: (parent: RippleCard, text: string) => void;
-  onFlip: (parent: RippleCard, kind: HopeFear, text: string) => void;
   onDelete: (card: RippleCard) => void;
 }) {
   const [assuming, setAssuming] = useState(false);
-  const [flipping, setFlipping] = useState(false);
 
   const kind = card.cardKind as HopeFear;
   const face = FACE[kind];
@@ -86,11 +83,10 @@ export function HopeFearFocus({
 
   return (
     // An oversized playing card: the group is filling one in, so it should look like one
-    // rather than like a settings panel. Centred and bounded so the writing areas stay a
-    // comfortable line length however wide the window is.
+    // rather than like a settings panel. The pair around it decides the width.
     <div
       className={
-        "relative mx-auto w-full max-w-[42rem] overflow-hidden rounded-[10px] border-2 border-ink shadow-[4px_6px_0_rgba(36,36,34,0.18)] " +
+        "relative w-full overflow-hidden rounded-[10px] border-2 border-ink shadow-[4px_6px_0_rgba(36,36,34,0.18)] " +
         face.tint
       }
     >
@@ -206,30 +202,6 @@ export function HopeFearFocus({
           ))}
       </Field>
 
-      {/* The flip. A new card, hanging off this one so the pair is recorded. */}
-      {canExtend && (
-        <Field label="The other side" rule={face.rule}>
-          {flipping ? (
-            <AddCardForm
-              label={face.flip}
-              busy={busy}
-              autoFocus
-              onAdd={(text) => {
-                onFlip(card, flipOf(kind), text);
-                setFlipping(false);
-              }}
-              onDone={() => setFlipping(false)}
-            />
-          ) : (
-            <button
-              onClick={() => setFlipping(true)}
-              className="rounded-[2px] border border-ink bg-paper px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime"
-            >
-              ↩ Flip it — write the {flipOf(kind)}
-            </button>
-          )}
-        </Field>
-      )}
     </div>
   );
 }
