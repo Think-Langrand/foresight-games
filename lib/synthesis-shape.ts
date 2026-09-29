@@ -320,6 +320,30 @@ export function childrenOf(board: SynthesisBoard, cardId: string): RippleCard[] 
   ];
 }
 
+// Every hope and fear under a theme, depth-first so a flipped card follows the one it
+// came from. `depth` is its chain depth (1 = written straight onto the theme), and
+// `flippedFrom` is the card it answers, which the gallery shows instead of drawing a tree.
+export interface ChainEntry {
+  card: RippleCard;
+  depth: number;
+  flippedFrom: RippleCard | null;
+}
+
+export function flattenChainCards(board: SynthesisBoard, themeId: string): ChainEntry[] {
+  const out: ChainEntry[] = [];
+  const walk = (parentId: string, parent: RippleCard | null) => {
+    for (const c of board.chains.get(parentId) ?? []) {
+      const depth = board.chainDepth.get(c.id);
+      // Absent from chainDepth = unreachable from any theme, so drawn by no view.
+      if (depth === undefined || !isHopeFear(c.cardKind)) continue;
+      out.push({ card: c, depth, flippedFrom: parent });
+      walk(c.id, c);
+    }
+  };
+  walk(themeId, null);
+  return out;
+}
+
 export interface ThemeStake {
   theme: RippleCard;
   risks: RippleCard[];

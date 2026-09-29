@@ -449,10 +449,27 @@ export function ClusterBoard({
 
       {/* ---- the themes ---- */}
       <section>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="mb-1 flex flex-wrap items-center gap-2">
           <h2 className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
             Themes ({board.themes.length})
           </h2>
+          {/* A target, not a rule. Too few and a theme is just a restatement of the map;
+              too many and nothing has actually been grouped. The counter says where you
+              are without stopping anyone who has a reason to be outside it. */}
+          <span
+            className={
+              "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] " +
+              (board.themes.length >= 3 && board.themes.length <= 5
+                ? "border-ink bg-lime text-ink"
+                : "border-[var(--rule)] text-muted")
+            }
+          >
+            {board.themes.length < 3
+              ? `Aim for 3–5 · ${3 - board.themes.length} to go`
+              : board.themes.length <= 5
+                ? "3–5 · good range"
+                : `${board.themes.length} — more than 5, consider merging`}
+          </span>
           {editable && (
             <button
               onClick={() => setAddingTheme((v) => !v)}

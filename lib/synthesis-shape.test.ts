@@ -9,6 +9,7 @@ import {
   placementError,
   planReorder,
   childrenOf,
+  flattenChainCards,
   stakeLedger,
   shortlistCounts,
 } from "./synthesis-shape";
@@ -623,5 +624,44 @@ describe("stakeLedger + shortlistCounts", () => {
       risks: 0,
       opportunities: 0,
     });
+  });
+});
+
+describe("flattenChainCards", () => {
+  const board = () =>
+    indexSynthesisBoard([
+      theme("TH", 1),
+      card("H1", "SECOND", "TH", 2, { cardKind: "hope" }),
+      card("F1", "TERMINAL", "H1", 3, { cardKind: "fear" }),
+      card("H2", "ORDER_4", "F1", 4, { cardKind: "hope" }),
+      card("F2", "SECOND", "TH", 5, { cardKind: "fear" }),
+      card("A1", "TERMINAL", "H1", 6, { cardKind: "assumption" }),
+    ]);
+
+  it("walks depth-first, so a flipped card follows the one it came from", () => {
+    expect(flattenChainCards(board(), "TH").map((e) => e.card.id)).toEqual([
+      "H1",
+      "F1",
+      "H2",
+      "F2",
+    ]);
+  });
+
+  it("reports what each card was flipped from, and null for one written on the theme", () => {
+    const byId = new Map(flattenChainCards(board(), "TH").map((e) => [e.card.id, e]));
+    expect(byId.get("H1")!.flippedFrom).toBeNull();
+    expect(byId.get("F2")!.flippedFrom).toBeNull();
+    expect(byId.get("F1")!.flippedFrom?.id).toBe("H1");
+    expect(byId.get("H2")!.flippedFrom?.id).toBe("F1");
+  });
+
+  it("carries chain depth, and leaves assumptions out — they are not chain cards", () => {
+    const entries = flattenChainCards(board(), "TH");
+    expect(entries.map((e) => e.depth)).toEqual([1, 2, 3, 1]);
+    expect(entries.map((e) => e.card.id)).not.toContain("A1");
+  });
+
+  it("returns nothing for a theme with no hopes or fears", () => {
+    expect(flattenChainCards(indexSynthesisBoard([theme("TH", 1)]), "TH")).toEqual([]);
   });
 });

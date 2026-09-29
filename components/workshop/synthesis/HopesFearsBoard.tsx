@@ -1,18 +1,26 @@
 "use client";
 
 import type { RippleCard } from "@/lib/ripples-types";
-import type { HopeFear, SynthesisBoard, Week2Lineage } from "@/lib/synthesis-shape";
-import { HopeFearChain } from "@/components/workshop/synthesis/HopeFearChain";
+import {
+  flattenChainCards,
+  type HopeFear,
+  type SynthesisBoard,
+  type Week2Lineage,
+} from "@/lib/synthesis-shape";
+import { HopeFearGallery } from "@/components/workshop/synthesis/HopeFearGallery";
+import { HopeFearFocus } from "@/components/workshop/synthesis/HopeFearFocus";
 import { HopeFearPicker } from "@/components/workshop/synthesis/HopeFearPicker";
 import { ThemeWorkspace } from "@/components/workshop/synthesis/ThemeWorkspace";
-import { MAX_TREE_DEPTH, childOrderOf } from "@/lib/ripples-types";
 
 // STEP 3 — hopes & fears, one theme at a time.
 //
 // Step 2 worked out what is at stake. This step asks the different question: why does that
-// matter to us, what value does it touch, and what are we assuming. The theme header above
-// carries the implications it was built from, for the context that keeps a hope about
-// something real.
+// matter to us, what value does it touch, and what are we assuming.
+//
+// Three zones: the theme above, everything written on it in the middle, and one card in
+// focus below with room to actually write. An empty theme skips the middle entirely and
+// shows the two large cards instead — the moment the step is hardest to start is not the
+// moment to show an empty grid.
 
 export function HopesFearsBoard({
   board,
@@ -20,7 +28,9 @@ export function HopesFearsBoard({
   editable,
   busy,
   themeId,
+  focusId,
   onPickTheme,
+  onFocus,
   onAdd,
   onAddAssumption,
   onEdit,
@@ -33,7 +43,9 @@ export function HopesFearsBoard({
   editable: boolean;
   busy: boolean;
   themeId: string | null;
+  focusId: string | null;
   onPickTheme: (id: string) => void;
+  onFocus: (id: string | null) => void;
   onAdd: (parent: RippleCard, kind: HopeFear, text: string) => void;
   onAddAssumption: (parent: RippleCard, text: string) => void;
   onEdit: (card: RippleCard, text: string) => void;
@@ -49,42 +61,58 @@ export function HopesFearsBoard({
       busy={busy}
       themeId={themeId}
       onPickTheme={onPickTheme}
-      countFor={(t) => (board.chains.get(t.id) ?? []).length}
+      countFor={(t) => flattenChainCards(board, t.id).length}
       emptyBlurb="Hopes and fears are written onto themes, so the group needs to cluster its implications first."
       onEditTheme={onEdit}
       onDescribeTheme={onDescribe}
       onGoToCluster={onGoToCluster}
     >
-      {(active) => (
-        <>
-          <HopeFearChain
-            key={active.id}
-            theme={active}
-            board={board}
-            editable={editable}
-            busy={busy}
-            onAdd={onAdd}
-            onAddAssumption={onAddAssumption}
-            onEdit={onEdit}
-            onDescribe={onDescribe}
-            onDelete={onDelete}
-          />
+      {(active) => {
+        const entries = flattenChainCards(board, active.id);
+        // Derived, not synced: a card deleted by a teammate, or a theme switch, falls back
+        // to the first card here rather than stranding the panel on something gone.
+        const focused = entries.find((e) => e.card.id === focusId)?.card ?? entries[0]?.card ?? null;
 
-          {editable && (
+        if (entries.length === 0) {
+          return (
             <div className="mt-2 border-t border-[var(--rule)] pt-6">
               <HopeFearPicker
                 busy={busy}
-                // Nothing can hang off the theme once the ladder has bottomed out.
-                disabled={
-                  !childOrderOf(active.order) ||
-                  (board.chainDepth.get(active.id) ?? 0) >= MAX_TREE_DEPTH
-                }
+                disabled={!editable}
                 onAdd={(kind, text) => onAdd(active, kind, text)}
               />
             </div>
-          )}
-        </>
-      )}
+          );
+        }
+
+        return (
+          <div className="flex flex-col gap-6">
+            <HopeFearGallery
+              entries={entries}
+              selectedId={focused?.id ?? null}
+              editable={editable}
+              busy={busy}
+              onSelect={(c) => onFocus(c.id)}
+              onQuickAdd={(kind, text) => onAdd(active, kind, text)}
+            />
+
+            {focused && (
+              <HopeFearFocus
+                key={focused.id}
+                card={focused}
+                board={board}
+                editable={editable}
+                busy={busy}
+                onEdit={onEdit}
+                onDescribe={onDescribe}
+                onAddAssumption={onAddAssumption}
+                onFlip={onAdd}
+                onDelete={onDelete}
+              />
+            )}
+          </div>
+        );
+      }}
     </ThemeWorkspace>
   );
 }

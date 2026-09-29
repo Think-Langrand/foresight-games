@@ -117,6 +117,9 @@ export function SynthesisTeamView({
   // Hoisted beside `step` for the same hook-order reason, and shared by steps 2 and 3 so
   // moving between them keeps you on the theme you were working on.
   const [themeId, setThemeId] = useState<string | null>(null);
+  // Which hope or fear step 3 has open. Hoisted for the same hook-order reason; a newly
+  // written card focuses itself, because the next thing you do is say why it matters.
+  const [focusId, setFocusId] = useState<string | null>(null);
 
   const run = useCallback(async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -401,6 +404,25 @@ export function SynthesisTeamView({
     );
   };
 
+  // Writing a hope or fear opens it: the next question — why does this matter — is the
+  // point of the step, and it lives in the focus panel.
+  const addChainCardFocused = (parent: RippleCard, kind: CardKind, text: string) =>
+    run(async () => {
+      const order = childOrderOf(parent.order);
+      if (!order) throw new Error("That chain is already as deep as it goes.");
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: order,
+        parentCardId: parent.id,
+        cardKind: kind,
+        text,
+      });
+      const created = res?.card as RippleCard | undefined;
+      if (!created) return;
+      addLocal(created);
+      setFocusId(created.id);
+    });
+
   const shortlist = (card: RippleCard, shortlisted: boolean) => {
     shortlistLocal(card.id, shortlisted);
     run(async () => {
@@ -602,8 +624,10 @@ export function SynthesisTeamView({
           editable={editable}
           busy={busy}
           themeId={themeId}
+          focusId={focusId}
           onPickTheme={setThemeId}
-          onAdd={addChildCard}
+          onFocus={setFocusId}
+          onAdd={addChainCardFocused}
           onAddAssumption={(parent, text) => addChildCard(parent, "assumption", text)}
           onEdit={editCard}
           onDescribe={describeCard}
