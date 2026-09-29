@@ -23,6 +23,7 @@ export function ThemeLineagePanel({
   busy,
   onEditTheme,
   onDescribeTheme,
+  children,
 }: {
   theme: RippleCard;
   implications: RippleCard[];
@@ -31,9 +32,13 @@ export function ThemeLineagePanel({
   busy: boolean;
   onEditTheme: (text: string) => void;
   onDescribeTheme: (description: string) => void;
+  // Rendered INSIDE the card. Step 2 puts its prompts here so the theme and everything
+  // being worked out about it read as one sheet rather than a header and a form.
+  children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[4px] border-2 border-ink bg-[rgba(196,255,103,0.16)] px-5 py-4">
+    <div className="overflow-hidden rounded-[4px] border-2 border-ink bg-[rgba(196,255,103,0.16)]">
+      <div className="px-5 py-4">
       <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">Theme</div>
 
       <h2 className="mt-1 text-[20px] font-extrabold uppercase leading-[1.1] tracking-tight">
@@ -84,6 +89,9 @@ export function ThemeLineagePanel({
           </ul>
         </details>
       )}
+      </div>
+
+      {children}
     </div>
   );
 }

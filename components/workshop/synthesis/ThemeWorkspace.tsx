@@ -23,6 +23,9 @@ export function ThemeWorkspace({
   onEditTheme,
   onDescribeTheme,
   onGoToCluster,
+  // Render the step's body INSIDE the theme card rather than below it — step 2 fills the
+  // theme in like a dossier, step 3 works on cards beneath it.
+  bodyInPanel = false,
   children,
 }: {
   board: SynthesisBoard;
@@ -36,6 +39,7 @@ export function ThemeWorkspace({
   onEditTheme: (theme: RippleCard, text: string) => void;
   onDescribeTheme: (theme: RippleCard, description: string) => void;
   onGoToCluster: () => void;
+  bodyInPanel?: boolean;
   children: (theme: RippleCard) => React.ReactNode;
 }) {
   // Derived, not synced: falling back to the first theme means the view never strands on a
@@ -96,8 +100,10 @@ export function ThemeWorkspace({
             busy={busy}
             onEditTheme={(text) => onEditTheme(active, text)}
             onDescribeTheme={(description) => onDescribeTheme(active, description)}
-          />
-          {children(active)}
+          >
+            {bodyInPanel ? children(active) : null}
+          </ThemeLineagePanel>
+          {bodyInPanel ? null : children(active)}
         </>
       )}
     </div>

@@ -10,7 +10,12 @@ import {
   InlineText,
 } from "@/components/workshop/synthesis/SynthesisCard";
 
-// STEP 2 — what's at stake, one theme at a time.
+// STEP 2 — what's at stake, filled in ON the theme card.
+//
+// The three prompts live inside the theme's own card, as fields of one sheet, because
+// they are all answering the same question about the same theme. Splitting them into
+// separate blocks underneath made them read as three unrelated exercises that happened to
+// share a page.
 //
 // The analytical step, and the reason the week works: without it, hopes and fears end up
 // carrying the analysis and the group just restates its observations in warmer language.
@@ -87,26 +92,27 @@ export function StakeBoard({
     ).get(theme.id) ?? [];
 
   return (
-    <div className="flex flex-col gap-5">
+    <div>
       {LISTS.map((list) => {
         const cards = cardsFor(list.kind);
         return (
-          <section key={list.kind}>
+          // A field of the dossier, divided the way the playing card's fields are.
+          <section key={list.kind} className="border-t-2 border-dashed border-black/15 px-5 py-4">
             <div className="flex flex-wrap items-baseline gap-2">
-              <h3 className="text-[13px] font-bold uppercase tracking-[0.08em]">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
                 {list.title}
-                {cards.length > 0 && <span className="ml-1.5 text-muted">({cards.length})</span>}
+                {cards.length > 0 && <span className="ml-1.5">({cards.length})</span>}
               </h3>
               {editable && (
                 <button
                   onClick={() => setAdding(adding === list.kind ? null : list.kind)}
-                  className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+                  className="text-[10px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
                 >
                   ＋ Add
                 </button>
               )}
             </div>
-            <p className="mt-0.5 max-w-[72ch] text-[12px] leading-[1.45] text-muted">
+            <p className="mt-0.5 max-w-[72ch] text-[11.5px] leading-[1.45] text-muted">
               {list.blurb}
             </p>
 

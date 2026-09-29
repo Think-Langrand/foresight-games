@@ -601,6 +601,7 @@ export function SynthesisTeamView({
             (board.tensions.get(t.id)?.length ?? 0)
           }
           emptyBlurb="What's at stake is worked out theme by theme, so the group needs to cluster its implications first."
+          bodyInPanel
           onEditTheme={editCard}
           onDescribeTheme={describeCard}
           onGoToCluster={() => setStep("cluster")}
