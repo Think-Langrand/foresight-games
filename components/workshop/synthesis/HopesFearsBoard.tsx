@@ -14,6 +14,7 @@ import { HopeFearGallery } from "@/components/workshop/synthesis/HopeFearGallery
 import { HopeFearPair } from "@/components/workshop/synthesis/HopeFearPair";
 import { HopeFearPicker } from "@/components/workshop/synthesis/HopeFearPicker";
 import { ThemeWorkspace } from "@/components/workshop/synthesis/ThemeWorkspace";
+import { StakeBoard } from "@/components/workshop/synthesis/StakeBoard";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
 // STEP 3 — hopes & fears, one theme at a time.
@@ -80,6 +81,22 @@ export function HopesFearsBoard({
       onEditTheme={onEdit}
       onDescribeTheme={onDescribe}
       onGoToCluster={onGoToCluster}
+      // The theme card carries the same dossier the last step filled in — a hope is meant
+      // to say why one of THOSE possibilities matters, so they belong in front of you
+      // while you write. Read-only: editing them is step 2's job.
+      renderThemeExtra={(active) => (
+        <StakeBoard
+          theme={active}
+          board={board}
+          editable={editable}
+          busy={busy}
+          readOnly
+          onAdd={() => {}}
+          onEdit={() => {}}
+          onDescribe={() => {}}
+          onDelete={() => {}}
+        />
+      )}
     >
       {(active) => {
         const entries = flattenChainCards(board, active.id);

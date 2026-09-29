@@ -67,6 +67,9 @@ export function StakeBoard({
   board,
   editable,
   busy,
+  // Step 3 shows the same fields for context while hopes and fears are written, but the
+  // work there is a different question — so the dossier reads rather than invites.
+  readOnly = false,
   onAdd,
   onEdit,
   onDescribe,
@@ -76,12 +79,14 @@ export function StakeBoard({
   board: SynthesisBoard;
   editable: boolean;
   busy: boolean;
+  readOnly?: boolean;
   onAdd: (parent: RippleCard, kind: StakeKind, text: string) => void;
   onEdit: (card: RippleCard, text: string) => void;
   onDescribe: (card: RippleCard, description: string) => void;
   onDelete: (card: RippleCard) => void;
 }) {
   const [adding, setAdding] = useState<StakeKind | null>(null);
+  const canEdit = editable && !readOnly;
 
   const cardsFor = (kind: StakeKind) =>
     (kind === "risk"
@@ -103,7 +108,7 @@ export function StakeBoard({
                 {list.title}
                 {cards.length > 0 && <span className="ml-1.5">({cards.length})</span>}
               </h3>
-              {editable && (
+              {canEdit && (
                 <button
                   onClick={() => setAdding(adding === list.kind ? null : list.kind)}
                   className="text-[10px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
@@ -112,9 +117,11 @@ export function StakeBoard({
                 </button>
               )}
             </div>
-            <p className="mt-0.5 max-w-[72ch] text-[11.5px] leading-[1.45] text-muted">
-              {list.blurb}
-            </p>
+            {!readOnly && (
+              <p className="mt-0.5 max-w-[72ch] text-[11.5px] leading-[1.45] text-muted">
+                {list.blurb}
+              </p>
+            )}
 
             <div className="mt-2 flex flex-col gap-2">
               {cards.map((c) => (
@@ -129,12 +136,12 @@ export function StakeBoard({
                     <div className="min-w-0 flex-1 text-[13px] leading-[1.45]">
                       <InlineText
                         text={c.text}
-                        editable={editable}
+                        editable={canEdit}
                         busy={busy}
                         onSave={(t) => onEdit(c, t)}
                       />
                     </div>
-                    {editable && (
+                    {canEdit && (
                       <CardMenu>
                         {(close) => (
                           <CardMenuItem
@@ -154,11 +161,11 @@ export function StakeBoard({
                   {/* The mechanism. A risk without one is just a worry — this is the line
                       that makes it explainable to a committee. Tensions have no mechanism
                       to give, so they do not offer the field. */}
-                  {list.mechanism && (
+                  {list.mechanism && (c.description || canEdit) && (
                     <div className="mt-1 text-[11.5px] leading-[1.4] text-muted">
                       <InlineText
                         text={c.description ?? ""}
-                        editable={editable}
+                        editable={canEdit}
                         busy={busy}
                         emptyLabel="＋ Through what mechanism, and for whom?"
                         placeholder={list.mechanism}
