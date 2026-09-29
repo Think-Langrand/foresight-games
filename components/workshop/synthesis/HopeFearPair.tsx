@@ -17,16 +17,23 @@ import { HopeFearFocus } from "@/components/workshop/synthesis/HopeFearFocus";
 // filled in, and its own other side appears beside it — so a chain is walked one pair at a
 // time instead of drawn all at once.
 
-const FACE: Record<HopeFear, { chip: string; tint: string; mark: string; ask: string }> = {
+const FACE: Record<
+  HopeFear,
+  { chip: string; tint: string; backFill: string; backEdge: string; mark: string; ask: string }
+> = {
   hope: {
     chip: "bg-lime text-ink",
     tint: "bg-lime/25",
+    backFill: "rgba(196, 255, 103, 0.22)",
+    backEdge: "border-[var(--lime-deep)]/70",
     mark: "☀",
     ask: "What's the hope on the other side of this?",
   },
   fear: {
     chip: "bg-coral text-white",
-    tint: "bg-coral/15",
+    tint: "bg-coral/20",
+    backFill: "rgba(255, 100, 78, 0.16)",
+    backEdge: "border-coral/60",
     mark: "☂",
     ask: "What's the fear on the other side of this?",
   },
@@ -68,8 +75,11 @@ export function HopeFearPair({
   const canWrite = editable && Boolean(childOrderOf(card.order));
 
   return (
-    <div className="flex flex-wrap items-start justify-center gap-5">
-      <div className="w-full max-w-[34rem] flex-1 basis-[30rem]">
+    // Two cards of the same size, because they are the same kind of thing. The divider
+    // between them carries the instruction, so the pairing is stated where the pairing
+    // happens rather than on a button somewhere.
+    <div className="flex flex-col items-stretch gap-4 lg:flex-row lg:gap-0">
+      <div className="flex min-w-0 flex-1 basis-0">
         <HopeFearFocus
           card={card}
           board={board}
@@ -82,43 +92,58 @@ export function HopeFearPair({
         />
       </div>
 
-      <div className="w-full max-w-[21rem] flex-1 basis-[17rem]">
-        <div className="mb-1.5 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
-          The other side
-        </div>
+      {/* The seam. Vertical when the pair sits side by side, horizontal once it stacks. */}
+      <div className="relative flex shrink-0 items-center justify-center lg:w-[9.5rem]">
+        <span
+          aria-hidden
+          className="absolute border-black/20 max-lg:left-0 max-lg:right-0 max-lg:top-1/2 max-lg:border-t-2 max-lg:border-dashed lg:bottom-3 lg:top-3 lg:border-l-2 lg:border-dashed"
+        />
+        <span className="relative z-10 max-w-[8rem] bg-paper px-2 py-1 text-center text-[10px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-muted">
+          Flip your {kind} into a {other}
+        </span>
+      </div>
 
+      <div className="flex min-w-0 flex-1 basis-0">
         {opposite ? (
           <button
             onClick={() => onFocus(opposite.id)}
             className={
-              "flex min-h-[15rem] w-full flex-col gap-2 rounded-[10px] border-2 border-ink p-4 text-left shadow-[3px_5px_0_rgba(36,36,34,0.16)] transition-all hover:-translate-y-1 hover:shadow-[4px_7px_0_rgba(36,36,34,0.20)] " +
+              "group flex w-full flex-col gap-2.5 rounded-[10px] border-2 border-ink p-5 text-left shadow-[4px_6px_0_rgba(36,36,34,0.18)] transition-all hover:-translate-y-1 hover:shadow-[5px_8px_0_rgba(36,36,34,0.22)] " +
               otherFace.tint
             }
           >
             <div className="flex items-center justify-between">
               <span
                 className={
-                  "rounded-[2px] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.08em] " +
+                  "rounded-[2px] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] " +
                   otherFace.chip
                 }
               >
                 {other}
               </span>
-              <span aria-hidden className="text-[16px] leading-none opacity-35">
+              <span aria-hidden className="text-[20px] leading-none opacity-30">
                 {otherFace.mark}
               </span>
             </div>
-            <div className="text-[14px] font-bold leading-[1.35]">{opposite.text}</div>
-            <div className="mt-auto flex flex-col gap-1">
+
+            <div className="text-[20px] font-extrabold leading-[1.25]">{opposite.text}</div>
+
+            {opposite.description && (
+              <div className="line-clamp-3 text-[13px] leading-[1.5] text-muted">
+                {opposite.description}
+              </div>
+            )}
+
+            <div className="mt-auto flex flex-col gap-1 pt-2">
               <span
                 className={
-                  "text-[9.5px] font-bold uppercase tracking-[0.06em] " +
+                  "text-[10px] font-bold uppercase tracking-[0.06em] " +
                   (opposite.description ? "text-muted" : "text-coral")
                 }
               >
                 {opposite.description ? "✓ Why it matters" : "Needs a why"}
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.05em] text-blue">
+              <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-blue group-hover:underline">
                 Open this one →
               </span>
             </div>
@@ -126,7 +151,8 @@ export function HopeFearPair({
         ) : writing ? (
           <div
             className={
-              "min-h-[15rem] w-full rounded-[10px] border-2 border-ink p-4 " + otherFace.tint
+              "flex w-full flex-col justify-center rounded-[10px] border-2 border-ink p-5 " +
+              otherFace.tint
             }
           >
             <AddCardForm
@@ -141,28 +167,30 @@ export function HopeFearPair({
             />
           </div>
         ) : (
-          // Face down. A gap you can see is a gap you might fill; an absent card is just
-          // an absence.
+          // Face down, but in ITS OWN colour — a fear waiting to be written should look
+          // like a fear, not like a blank. A gap you can see is a gap you might fill.
           <button
             onClick={() => canWrite && setWriting(true)}
             disabled={!canWrite}
             className={
-              "flex min-h-[15rem] w-full flex-col items-center justify-center gap-3 rounded-[10px] border-2 border-dashed border-black/30 p-4 text-center transition-all " +
-              (canWrite ? "hover:-translate-y-1 hover:border-ink hover:bg-paper/60" : "opacity-60")
+              "flex min-h-[16rem] w-full flex-col items-center justify-center gap-3 rounded-[10px] border-2 border-dashed p-5 text-center transition-all " +
+              otherFace.backEdge +
+              (canWrite ? " hover:-translate-y-1 hover:border-ink" : " opacity-60")
             }
             style={{
-              // A card back: a quiet diagonal weave, so it reads face-down rather than empty.
+              backgroundColor: otherFace.backFill,
+              // A card back: a quiet diagonal weave over the card's own colour.
               backgroundImage:
-                "repeating-linear-gradient(45deg, rgba(36,36,34,0.05) 0 6px, transparent 6px 12px)",
+                "repeating-linear-gradient(45deg, rgba(36,36,34,0.06) 0 6px, transparent 6px 12px)",
             }}
           >
-            <span aria-hidden className="text-[30px] leading-none opacity-25">
+            <span aria-hidden className="text-[34px] leading-none opacity-30">
               {otherFace.mark}
             </span>
-            <span className="text-[12px] font-extrabold uppercase tracking-[0.06em] text-muted">
+            <span className="text-[13px] font-extrabold uppercase tracking-[0.06em] text-ink/70">
               {canWrite ? `＋ Write the ${other}` : `No ${other} yet`}
             </span>
-            <span className="max-w-[22ch] text-[11px] italic leading-[1.4] text-muted">
+            <span className="max-w-[24ch] text-[11.5px] italic leading-[1.4] text-muted">
               {otherFace.ask}
             </span>
           </button>

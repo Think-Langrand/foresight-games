@@ -22,14 +22,14 @@ import {
 const FACE: Record<HopeFear, { chip: string; tint: string; rule: string; mark: string; flip: string }> = {
   hope: {
     chip: "bg-lime text-ink",
-    tint: "bg-lime/20",
+    tint: "bg-lime/25",
     rule: "border-[var(--lime-deep)]",
     mark: "☀",
     flip: "What's the fear on the other side of this?",
   },
   fear: {
     chip: "bg-coral text-white",
-    tint: "bg-coral/12",
+    tint: "bg-coral/20",
     rule: "border-coral",
     mark: "☂",
     flip: "What's the hope on the other side of this?",
@@ -86,7 +86,7 @@ export function HopeFearFocus({
     // rather than like a settings panel. The pair around it decides the width.
     <div
       className={
-        "relative w-full overflow-hidden rounded-[10px] border-2 border-ink shadow-[4px_6px_0_rgba(36,36,34,0.18)] " +
+        "relative flex w-full flex-col overflow-hidden rounded-[10px] border-2 border-ink shadow-[4px_6px_0_rgba(36,36,34,0.18)] " +
         face.tint
       }
     >
