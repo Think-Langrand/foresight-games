@@ -79,7 +79,7 @@ export function HopeFearPair({
     // between them carries the instruction, so the pairing is stated where the pairing
     // happens rather than on a button somewhere.
     <div className="flex flex-col items-stretch gap-4 lg:flex-row lg:gap-0">
-      <div className="flex min-w-0 flex-1 basis-0">
+      <div className="flex min-h-[26rem] min-w-0 flex-1 basis-0">
         <HopeFearFocus
           card={card}
           board={board}
@@ -103,7 +103,7 @@ export function HopeFearPair({
         </span>
       </div>
 
-      <div className="flex min-w-0 flex-1 basis-0">
+      <div className="flex min-h-[26rem] min-w-0 flex-1 basis-0">
         {opposite ? (
           <button
             onClick={() => onFocus(opposite.id)}
@@ -173,7 +173,7 @@ export function HopeFearPair({
             onClick={() => canWrite && setWriting(true)}
             disabled={!canWrite}
             className={
-              "flex min-h-[16rem] w-full flex-col items-center justify-center gap-3 rounded-[10px] border-2 border-dashed p-5 text-center transition-all " +
+              "flex w-full flex-col items-center justify-center gap-3 rounded-[10px] border-2 border-dashed p-5 text-center transition-all " +
               otherFace.backEdge +
               (canWrite ? " hover:-translate-y-1 hover:border-ink" : " opacity-60")
             }
