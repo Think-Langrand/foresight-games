@@ -222,8 +222,11 @@ export function CardMenu({
         draggable={false}
         onDragStart={(e) => e.preventDefault()}
         className={
-          "rounded-[2px] px-1.5 py-0.5 text-[14px] font-bold leading-none text-muted transition-opacity hover:bg-black/10 hover:text-ink " +
-          (open ? "bg-black/10 text-ink opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100")
+          // Always visible, just quiet. It used to appear on group-hover, which meant a
+          // card with no `group` ancestor only revealed it on click — and revealed it to
+          // nobody at all on a touch screen, where there is no hover.
+          "rounded-[2px] px-1.5 py-0.5 text-[14px] font-bold leading-none transition-all hover:bg-black/10 hover:text-ink " +
+          (open ? "bg-black/10 text-ink" : "text-muted/70 hover:text-ink")
         }
       >
         ⋯
