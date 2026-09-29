@@ -8,6 +8,9 @@ import {
   insertionPoint,
   placementError,
   planReorder,
+  childrenOf,
+  stakeLedger,
+  shortlistCounts,
 } from "./synthesis-shape";
 
 function card(
@@ -36,6 +39,7 @@ function card(
     cardKind: null,
     parked: false,
     description: null,
+    shortlisted: false,
     createdTime: `2026-01-01T00:00:${String(seq).padStart(2, "0")}Z`,
     ...extra,
   };
@@ -256,8 +260,6 @@ describe("placementError", () => {
   });
 
   it("refuses a hope or fear that would float free of every theme", () => {
-    // A root hope, or one hung off an implication, is unreachable from any theme — so it
-    // would be drawn by no view at all.
     no("hope", undefined);
     no("fear", undefined);
     no("hope", null);
@@ -270,6 +272,29 @@ describe("placementError", () => {
     ok(null, null); // under another implication is how Week 2's maps already read
     no(null, "hope");
     no(null, "fear");
+  });
+
+  // --- Week 3 step 2: what's at stake ---------------------------------------
+  it("puts risks, opportunities and tensions on a theme and nowhere else", () => {
+    for (const kind of ["risk", "opportunity", "tension"] as const) {
+      ok(kind, "theme");
+      no(kind, undefined); // never a root
+      no(kind, null); // not under an implication
+      no(kind, "hope");
+      no(kind, "fear");
+      no(kind, "risk"); // stake cards do not nest
+    }
+  });
+
+  // --- Week 3 step 3: assumptions -------------------------------------------
+  it("hangs an assumption off a hope or a fear only", () => {
+    ok("assumption", "hope");
+    ok("assumption", "fear");
+    no("assumption", undefined);
+    no("assumption", null);
+    no("assumption", "theme"); // an assumption belongs to a hope or fear, not a theme
+    no("assumption", "risk");
+    no("assumption", "assumption");
   });
 });
 
@@ -389,5 +414,214 @@ describe("insertionPoint", () => {
 
   it("drops at the end when the anchor has vanished", () => {
     expect(insertionPoint(list("A", "B"), "GONE", false, "X")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Week 3 step 2 & 3 kinds, and the partition guarantee
+// ---------------------------------------------------------------------------
+describe("indexSynthesisBoard — stake cards and assumptions", () => {
+  const stakeBoard = () => [
+    theme("TH", 1),
+    card("I1", "SECOND", "TH", 2),
+    card("R1", "SECOND", "TH", 3, { cardKind: "risk" }),
+    card("R2", "SECOND", "TH", 4, { cardKind: "risk" }),
+    card("O1", "SECOND", "TH", 5, { cardKind: "opportunity" }),
+    card("T1", "SECOND", "TH", 6, { cardKind: "tension" }),
+    card("H1", "SECOND", "TH", 7, { cardKind: "hope" }),
+    card("A1", "TERMINAL", "H1", 8, { cardKind: "assumption" }),
+  ];
+
+  it("buckets each stake kind under its theme, keeping implications separate", () => {
+    const b = indexSynthesisBoard(stakeBoard());
+    expect(b.risks.get("TH")?.map((c) => c.id)).toEqual(["R1", "R2"]);
+    expect(b.opportunities.get("TH")?.map((c) => c.id)).toEqual(["O1"]);
+    expect(b.tensions.get("TH")?.map((c) => c.id)).toEqual(["T1"]);
+    // The old fall-through would have swept all of these into the theme's cluster.
+    expect(b.clusters.get("TH")?.map((c) => c.id)).toEqual(["I1"]);
+  });
+
+  it("hangs assumptions off their hope or fear, and keeps them OFF the chain", () => {
+    const b = indexSynthesisBoard(stakeBoard());
+    expect(b.assumptions.get("H1")?.map((c) => c.id)).toEqual(["A1"]);
+    // Deliberately absent: an assumption is not a chain step, and the chain renderer
+    // filters on hope/fear so it will never try to draw one.
+    expect(b.chainDepth.has("A1")).toBe(false);
+    expect(b.chainDepth.get("H1")).toBe(1);
+  });
+
+  it("orders stake lists by sort then creation time, like every other list", () => {
+    const b = indexSynthesisBoard([
+      theme("TH", 1),
+      card("R2", "SECOND", "TH", 2, { cardKind: "risk", sort: 2000 }),
+      card("R1", "SECOND", "TH", 3, { cardKind: "risk", sort: 1000 }),
+    ]);
+    expect(b.risks.get("TH")?.map((c) => c.id)).toEqual(["R1", "R2"]);
+  });
+});
+
+describe("indexSynthesisBoard — orphans", () => {
+  it("surfaces a parentless hope instead of silently discarding it", () => {
+    // This used to vanish: the bucketing hit `if (c.parentId)` and fell off the end.
+    const b = indexSynthesisBoard([theme("TH", 1), card("H", "FIRST", null, 2, { cardKind: "hope" })]);
+    expect(b.orphans.map((c) => c.id)).toEqual(["H"]);
+    expect(b.chainDepth.has("H")).toBe(false);
+  });
+
+  it("surfaces a hope hung off a clustered implication", () => {
+    const b = indexSynthesisBoard([
+      theme("TH", 1),
+      card("I1", "SECOND", "TH", 2),
+      card("GHOST", "TERMINAL", "I1", 3, { cardKind: "hope" }),
+    ]);
+    expect(b.orphans.map((c) => c.id)).toEqual(["GHOST"]);
+  });
+
+  it("surfaces a stake card hung off anything but a live theme", () => {
+    const b = indexSynthesisBoard([
+      theme("TH", 1),
+      card("I1", "SECOND", "TH", 2),
+      card("R", "TERMINAL", "I1", 3, { cardKind: "risk" }),
+      card("O", "FIRST", null, 4, { cardKind: "opportunity" }),
+    ]);
+    expect(b.orphans.map((c) => c.id).sort()).toEqual(["O", "R"]);
+  });
+
+  it("surfaces an assumption whose parent is not on a chain", () => {
+    const b = indexSynthesisBoard([
+      theme("TH", 1),
+      card("A", "SECOND", "TH", 2, { cardKind: "assumption" }),
+    ]);
+    expect(b.orphans.map((c) => c.id)).toEqual(["A"]);
+  });
+
+  it("leaves orphans empty for a well-formed board", () => {
+    const b = indexSynthesisBoard([
+      theme("TH", 1),
+      card("I1", "SECOND", "TH", 2),
+      card("R1", "SECOND", "TH", 3, { cardKind: "risk" }),
+      card("H1", "SECOND", "TH", 4, { cardKind: "hope" }),
+      card("F1", "TERMINAL", "H1", 5, { cardKind: "fear" }),
+      card("A1", "TERMINAL", "H1", 6, { cardKind: "assumption" }),
+    ]);
+    expect(b.orphans).toEqual([]);
+  });
+});
+
+describe("indexSynthesisBoard — partition property", () => {
+  // The invariant that retires the invisibility trap: every non-STICKY card lands in
+  // exactly ONE bucket. Two earlier bugs on this feature were cards falling through the
+  // bucketing into nowhere, which TypeScript cannot catch.
+  const bucketsOf = (b: ReturnType<typeof indexSynthesisBoard>) => [
+    ...b.themes,
+    ...b.unclustered,
+    ...b.parked,
+    ...b.orphans,
+    ...[...b.clusters.values()].flat(),
+    ...[...b.risks.values()].flat(),
+    ...[...b.opportunities.values()].flat(),
+    ...[...b.tensions.values()].flat(),
+    ...[...b.chains.values()].flat(),
+    ...[...b.assumptions.values()].flat(),
+  ];
+
+  const messyBoard = () => [
+    theme("TH1", 1),
+    theme("TH2", 2, { parked: true }), // parked theme
+    theme("NOTROOT", 3, { cardKind: "theme" }),
+    card("I1", "SECOND", "TH1", 4),
+    card("I2", "FIRST", null, 5),
+    card("IP", "FIRST", null, 6, { parked: true }),
+    card("R1", "SECOND", "TH1", 7, { cardKind: "risk" }),
+    card("O1", "SECOND", "TH1", 8, { cardKind: "opportunity" }),
+    card("T1", "SECOND", "TH1", 9, { cardKind: "tension" }),
+    card("H1", "SECOND", "TH1", 10, { cardKind: "hope" }),
+    card("F1", "TERMINAL", "H1", 11, { cardKind: "fear" }),
+    card("A1", "TERMINAL", "H1", 12, { cardKind: "assumption" }),
+    card("LOOSEHOPE", "FIRST", null, 13, { cardKind: "hope" }),
+    card("LOOSERISK", "FIRST", null, 14, { cardKind: "risk" }),
+    card("LOOSEASSUME", "SECOND", "TH1", 15, { cardKind: "assumption" }),
+    card("GHOSTPARENT", "SECOND", "missing", 16),
+    card("N1", "STICKY", null, 17, { section: "synthesis-sandbox" }),
+  ];
+
+  it("places every non-STICKY card in exactly one bucket", () => {
+    const cards = messyBoard();
+    const placed = bucketsOf(indexSynthesisBoard(cards));
+    const ids = placed.map((c) => c.id);
+
+    expect(new Set(ids).size).toBe(ids.length); // no card in two buckets
+
+    const expected = cards.filter((c) => c.order !== "STICKY").map((c) => c.id);
+    expect([...ids].sort()).toEqual([...expected].sort()); // none missing, none invented
+  });
+
+  it("keeps stickies out of the board index entirely", () => {
+    const ids = bucketsOf(indexSynthesisBoard(messyBoard())).map((c) => c.id);
+    expect(ids).not.toContain("N1");
+  });
+
+  it("holds the partition for an empty board", () => {
+    expect(bucketsOf(indexSynthesisBoard([]))).toEqual([]);
+  });
+});
+
+describe("childrenOf", () => {
+  const board = () =>
+    indexSynthesisBoard([
+      theme("TH", 1),
+      card("I1", "SECOND", "TH", 2),
+      card("R1", "SECOND", "TH", 3, { cardKind: "risk" }),
+      card("O1", "SECOND", "TH", 4, { cardKind: "opportunity" }),
+      card("T1", "SECOND", "TH", 5, { cardKind: "tension" }),
+      card("H1", "SECOND", "TH", 6, { cardKind: "hope" }),
+      card("A1", "TERMINAL", "H1", 7, { cardKind: "assumption" }),
+      card("F1", "TERMINAL", "H1", 8, { cardKind: "fear" }),
+    ]);
+
+  it("unions every bucket, so a theme's true child count is one call", () => {
+    expect(childrenOf(board(), "TH").map((c) => c.id).sort()).toEqual(
+      ["H1", "I1", "O1", "R1", "T1"].sort()
+    );
+  });
+
+  it("includes a hope's assumptions alongside its chained flip side", () => {
+    expect(childrenOf(board(), "H1").map((c) => c.id).sort()).toEqual(["A1", "F1"]);
+  });
+
+  it("returns nothing for a leaf", () => {
+    expect(childrenOf(board(), "I1")).toEqual([]);
+  });
+});
+
+describe("stakeLedger + shortlistCounts", () => {
+  const board = () =>
+    indexSynthesisBoard([
+      theme("TH1", 1, { sort: 1000 }),
+      theme("TH2", 2, { sort: 2000 }),
+      card("R1", "SECOND", "TH1", 3, { cardKind: "risk", shortlisted: true }),
+      card("R2", "SECOND", "TH1", 4, { cardKind: "risk" }),
+      card("R3", "SECOND", "TH2", 5, { cardKind: "risk", shortlisted: true }),
+      card("O1", "SECOND", "TH1", 6, { cardKind: "opportunity", shortlisted: true }),
+      card("T1", "SECOND", "TH1", 7, { cardKind: "tension" }),
+    ]);
+
+  it("reads theme-first, in the order the group arranged its themes", () => {
+    const ledger = stakeLedger(board());
+    expect(ledger.map((l) => l.theme.id)).toEqual(["TH1", "TH2"]);
+    expect(ledger[0].risks.map((c) => c.id)).toEqual(["R1", "R2"]);
+    expect(ledger[0].tensions.map((c) => c.id)).toEqual(["T1"]);
+    expect(ledger[1].risks.map((c) => c.id)).toEqual(["R3"]);
+  });
+
+  it("counts the shortlist across every theme", () => {
+    expect(shortlistCounts(board())).toEqual({ risks: 2, opportunities: 1 });
+  });
+
+  it("counts nothing on an untouched board", () => {
+    expect(shortlistCounts(indexSynthesisBoard([theme("TH", 1)]))).toEqual({
+      risks: 0,
+      opportunities: 0,
+    });
   });
 });

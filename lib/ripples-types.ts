@@ -149,7 +149,7 @@ export const CARD_DESCRIPTION_MAX = 1000;
 // A Week 3 theme carries implication children AND hope/fear children at the SAME depth,
 // so this column is the only thing separating the two. Plain text with no CHECK
 // constraint (see the card_order note above) — THIS list is the source of truth.
-export const CARD_KINDS = ["theme", "hope", "fear"] as const;
+export const CARD_KINDS = ["theme", "hope", "fear", "risk", "opportunity", "tension", "assumption"] as const;
 export type CardKind = (typeof CARD_KINDS)[number];
 
 const CARD_KIND_SET = new Set<string>(CARD_KINDS);
@@ -318,9 +318,13 @@ export interface RippleCard {
   // Week 3's "set aside without deleting" tray. Deliberately NOT `greyed`, which is the
   // challenge mechanic's flag — see migration 0020.
   parked: boolean;
-  // An optional longer note beside `text` (0021). Themes use it to say what the group
-  // means by the theme; null everywhere else.
+  // An optional longer note beside `text` (0021). A theme uses it for what the group means
+  // by the theme; a risk or opportunity for the mechanism and who it lands on; a hope or
+  // fear for the value it touches.
   description: string | null;
+  // Picked out for the committee in Week 3's final step (0022). Only risks and
+  // opportunities can carry it.
+  shortlisted: boolean;
   createdTime: string;
 }
 

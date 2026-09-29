@@ -55,6 +55,7 @@ function card(
     cardKind: null,
     parked: false,
     description: null,
+    shortlisted: false,
     createdTime: `2026-01-01T00:00:${String(seq).padStart(2, "0")}Z`,
     ...extra,
   };

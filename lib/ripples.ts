@@ -60,6 +60,7 @@ interface CardRow {
   card_kind: string | null;
   parked: boolean | null;
   description: string | null;
+  shortlisted: boolean | null;
   created_at: string;
 }
 interface ChipRow {
@@ -108,6 +109,7 @@ function mapCard(r: CardRow): RippleCard {
     cardKind: isCardKind(r.card_kind) ? r.card_kind : null,
     parked: r.parked === true,
     description: r.description ?? null,
+    shortlisted: r.shortlisted === true,
     sort: r.sort ?? 0,
     section: r.section ?? null,
     sourceCardId: r.source_card_id ?? null,

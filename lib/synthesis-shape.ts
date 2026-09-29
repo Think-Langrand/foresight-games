@@ -22,6 +22,16 @@ import {
 
 export type HopeFear = "hope" | "fear";
 
+// Step 2's three lists. What could be lost or gained and through what mechanism, plus the
+// surprises and disagreements worth preserving — all hanging off a theme.
+export const STAKE_KINDS = ["risk", "opportunity", "tension"] as const;
+export type StakeKind = (typeof STAKE_KINDS)[number];
+const STAKE_SET = new Set<string>(STAKE_KINDS);
+
+export function isStake(kind: CardKind | null): kind is StakeKind {
+  return kind !== null && STAKE_SET.has(kind);
+}
+
 // A hope's flip side is a fear, and the other way round. This drives the ＋ affordance's
 // label and the kind it posts, so the alternation rule lives in exactly one place.
 export function flipOf(kind: HopeFear): HopeFear {
@@ -44,27 +54,58 @@ export function placementError(
   parentKind: CardKind | null | undefined
 ): string | null {
   const root = parentKind === undefined;
-  if (kind === "theme") return root ? null : "A theme is a top-level card.";
-  if (isHopeFear(kind)) {
-    if (root) return "Hopes and fears belong on a theme.";
-    if (parentKind === null) return "Write hopes and fears on a theme.";
-    if (parentKind !== "theme" && kind !== flipOf(parentKind)) {
-      return `A ${parentKind} chains to a ${flipOf(parentKind)}.`;
+  switch (kind) {
+    case "theme":
+      return root ? null : "A theme is a top-level card.";
+
+    case "risk":
+    case "opportunity":
+    case "tension":
+      return parentKind === "theme" ? null : "That belongs on a theme.";
+
+    case "assumption":
+      return isHopeFear(parentKind ?? null)
+        ? null
+        : "An assumption belongs on a hope or a fear.";
+
+    case "hope":
+    case "fear":
+      if (root) return "Hopes and fears belong on a theme.";
+      if (parentKind === "theme") return null;
+      if (!isHopeFear(parentKind ?? null)) return "Write hopes and fears on a theme.";
+      // parentKind is a hope or fear: only its flip side may chain off it.
+      return kind === flipOf(parentKind as HopeFear)
+        ? null
+        : `A ${parentKind} chains to a ${flipOf(parentKind as HopeFear)}.`;
+
+    case null:
+      // A plain implication: a root in the tray, or clustered under a theme. Under another
+      // implication is how Week 2's maps already read, so that stays legal too.
+      if (root || parentKind === null || parentKind === "theme") return null;
+      return "Implications belong under a theme.";
+
+    default: {
+      // Adding a CARD_KIND without deciding where it may live fails to compile here.
+      const exhaustive: never = kind;
+      return `Unknown card kind: ${String(exhaustive)}`;
     }
-    return null;
   }
-  // A plain implication: a root in the tray, or clustered under a theme.
-  if (root || parentKind === null || parentKind === "theme") return null;
-  return "Implications belong under a theme.";
 }
 
 export interface SynthesisBoard {
   themes: RippleCard[]; // kind 'theme', tree roots, not parked
   unclustered: RippleCard[]; // kind null, tree roots, not parked — the tray
   clusters: Map<string, RippleCard[]>; // themeId → its implication children
+  risks: Map<string, RippleCard[]>; // themeId → its risk cards
+  opportunities: Map<string, RippleCard[]>; // themeId → its opportunity cards
+  tensions: Map<string, RippleCard[]>; // themeId → its surprises & disagreements
   chains: Map<string, RippleCard[]>; // parentId → its hope/fear children
+  assumptions: Map<string, RippleCard[]>; // hope/fear id → the assumptions under it
   chainDepth: Map<string, number>; // theme = 0, hope/fear = 1, 2, …
   parked: RippleCard[]; // set aside, non-STICKY
+  // Cards no bucket could legitimately hold: a hope with no theme above it, a risk hung
+  // off an implication. They are surfaced rather than dropped — see the note below.
+  orphans: RippleCard[];
 }
 
 // Index a whole Week 3 board in one pass plus one BFS. Every Week 3 selector reads this,
@@ -78,13 +119,23 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
   const themes: RippleCard[] = [];
   const unclustered: RippleCard[] = [];
   const parked: RippleCard[] = [];
+  const orphans: RippleCard[] = [];
   const clusters = new Map<string, RippleCard[]>();
+  const risks = new Map<string, RippleCard[]>();
+  const opportunities = new Map<string, RippleCard[]>();
+  const tensions = new Map<string, RippleCard[]>();
   const chains = new Map<string, RippleCard[]>();
+  const assumptions = new Map<string, RippleCard[]>();
 
   const push = (map: Map<string, RippleCard[]>, key: string, card: RippleCard) => {
     const arr = map.get(key);
     if (arr) arr.push(card);
     else map.set(key, [card]);
+  };
+  // A stake card belongs to a theme; without a parent it belongs nowhere.
+  const stake = (map: Map<string, RippleCard[]>, c: RippleCard) => {
+    if (c.parentId) push(map, c.parentId, c);
+    else orphans.push(c);
   };
 
   for (const c of cards) {
@@ -93,28 +144,52 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
       parked.push(c);
       continue;
     }
-    if (isHopeFear(c.cardKind)) {
-      if (c.parentId) push(chains, c.parentId, c);
-      continue;
+    // An exhaustive switch, NOT an if-chain: adding a CARD_KIND without deciding where it
+    // lives fails to compile at the `never` below. Two bugs on this feature were cards
+    // falling silently through the old chain into a bucket that was wrong, or into none.
+    switch (c.cardKind) {
+      case "theme":
+        if (isTreeRoot(c)) themes.push(c);
+        else orphans.push(c);
+        break;
+      case "hope":
+      case "fear":
+        if (c.parentId) push(chains, c.parentId, c);
+        else orphans.push(c);
+        break;
+      case "risk":
+        stake(risks, c);
+        break;
+      case "opportunity":
+        stake(opportunities, c);
+        break;
+      case "tension":
+        stake(tensions, c);
+        break;
+      case "assumption":
+        if (c.parentId) push(assumptions, c.parentId, c);
+        else orphans.push(c);
+        break;
+      case null:
+        // A plain implication: in the tray, or clustered under a theme.
+        if (c.parentId === null) unclustered.push(c);
+        else push(clusters, c.parentId, c);
+        break;
+      default: {
+        const exhaustive: never = c.cardKind;
+        orphans.push(exhaustive as RippleCard extends never ? never : RippleCard);
+      }
     }
-    if (c.cardKind === "theme") {
-      if (isTreeRoot(c)) themes.push(c);
-      continue;
-    }
-    // A plain implication: either in the tray or clustered under a theme.
-    if (c.parentId === null) unclustered.push(c);
-    else push(clusters, c.parentId, c);
   }
 
   // `sort` first, creation time as the tiebreak. Every card starts at sort 0, so a board
   // nobody has reordered still reads in creation order; dragging assigns real sort values.
   const byOrder = (a: RippleCard, b: RippleCard) =>
     a.sort - b.sort || a.createdTime.localeCompare(b.createdTime);
-  themes.sort(byOrder);
-  unclustered.sort(byOrder);
-  parked.sort(byOrder);
-  for (const arr of clusters.values()) arr.sort(byOrder);
-  for (const arr of chains.values()) arr.sort(byOrder);
+  for (const arr of [themes, unclustered, parked]) arr.sort(byOrder);
+  for (const map of [clusters, risks, opportunities, tensions, chains, assumptions]) {
+    for (const arr of map.values()) arr.sort(byOrder);
+  }
 
   // Breadth-first from the themes, following ONLY hope/fear children. Cycle-guarded and
   // capped at MAX_TREE_DEPTH, so a malformed board truncates instead of spinning.
@@ -130,7 +205,43 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
     level = next;
   }
 
-  return { themes, unclustered, clusters, chains, chainDepth, parked };
+  // Reachability sweep. Being in a bucket is not the same as being reachable: a hope hung
+  // off a clustered implication sits in `chains` under a parent no view ever walks to.
+  // Anything unreachable moves to `orphans`, so the board can SHOW it rather than losing
+  // it. This is what stops `chainDepth` quietly becoming the visibility contract again —
+  // assumptions are legitimately absent from it, so "absent ⇒ invisible" no longer holds.
+  const liveTheme = new Set(themes.map((t) => t.id));
+  const sweep = (map: Map<string, RippleCard[]>, parentIsLive: (parentId: string) => boolean) => {
+    for (const [parentId, arr] of map) {
+      if (parentIsLive(parentId)) continue;
+      orphans.push(...arr);
+      map.delete(parentId);
+    }
+  };
+  sweep(chains, (id) => chainDepth.has(id));
+  // An assumption hangs off a HOPE OR FEAR, never off a theme — and themes sit in
+  // chainDepth at 0, so reachability alone would wave one through.
+  const liveChainCard = new Set<string>();
+  for (const arr of chains.values()) {
+    for (const c of arr) if (chainDepth.has(c.id)) liveChainCard.add(c.id);
+  }
+  sweep(assumptions, (id) => liveChainCard.has(id));
+  for (const map of [risks, opportunities, tensions]) sweep(map, (id) => liveTheme.has(id));
+  orphans.sort(byOrder);
+
+  return {
+    themes,
+    unclustered,
+    clusters,
+    risks,
+    opportunities,
+    tensions,
+    chains,
+    assumptions,
+    chainDepth,
+    parked,
+    orphans,
+  };
 }
 
 // --- Reordering --------------------------------------------------------------
@@ -190,6 +301,53 @@ export function planReorder(
     if (c.id === cardId || c.sort !== sort) writes.push({ cardId: c.id, sort });
   });
   return writes;
+}
+
+// --- Selectors ---------------------------------------------------------------
+
+// Everything hanging off a card, across every bucket. Callers that ask "does this card
+// have children?" kept forgetting a map — the merge guard, the delete-theme count and the
+// cluster board's card menu each got it wrong independently. One function, so a bucket
+// added later cannot be forgotten by omission.
+export function childrenOf(board: SynthesisBoard, cardId: string): RippleCard[] {
+  return [
+    ...(board.clusters.get(cardId) ?? []),
+    ...(board.risks.get(cardId) ?? []),
+    ...(board.opportunities.get(cardId) ?? []),
+    ...(board.tensions.get(cardId) ?? []),
+    ...(board.chains.get(cardId) ?? []),
+    ...(board.assumptions.get(cardId) ?? []),
+  ];
+}
+
+export interface ThemeStake {
+  theme: RippleCard;
+  risks: RippleCard[];
+  opportunities: RippleCard[];
+  tensions: RippleCard[];
+}
+
+// Step 2 and step 4 both read the board theme-first. In theme order, so the shortlist
+// presents in the order the group arranged its themes.
+export function stakeLedger(board: SynthesisBoard): ThemeStake[] {
+  return board.themes.map((theme) => ({
+    theme,
+    risks: board.risks.get(theme.id) ?? [],
+    opportunities: board.opportunities.get(theme.id) ?? [],
+    tensions: board.tensions.get(theme.id) ?? [],
+  }));
+}
+
+// How many risks and opportunities are picked for the committee. The target is three of
+// each; the UI nudges past it rather than blocking, so this counts rather than caps.
+export function shortlistCounts(board: SynthesisBoard): { risks: number; opportunities: number } {
+  let risks = 0;
+  let opportunities = 0;
+  for (const arr of board.risks.values()) for (const c of arr) if (c.shortlisted) risks += 1;
+  for (const arr of board.opportunities.values()) {
+    for (const c of arr) if (c.shortlisted) opportunities += 1;
+  }
+  return { risks, opportunities };
 }
 
 // --- Week 2 lineage ----------------------------------------------------------
