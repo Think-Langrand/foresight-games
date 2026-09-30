@@ -362,6 +362,38 @@ export function descendantsOf(board: SynthesisBoard, cardId: string): RippleCard
   return out;
 }
 
+// The other side of a pair, looked up in BOTH directions.
+//
+// A flip stores the new card as a CHILD of the one it answers, which gives the pair a
+// direction it does not actually have: the step's claim is that a hope and its fear are
+// one piece of thinking, not a parent and a dependent. A child-only lookup finds the fear
+// from the hope and nothing from the fear — so a flipped fear sat beside an empty card
+// back offering to write the very hope it had come from.
+//
+// A child of the flip kind still wins over the parent, so an existing chain is walked one
+// pair at a time exactly as before; the parent is only consulted when there is no child to
+// show. That makes this strictly additive: nothing that resolved before resolves
+// differently now.
+export function oppositeOf(board: SynthesisBoard, card: RippleCard): RippleCard | null {
+  if (!isHopeFear(card.cardKind)) return null;
+  const other = flipOf(card.cardKind);
+
+  const child = (board.chains.get(card.id) ?? []).find((c) => c.cardKind === other);
+  if (child) return child;
+
+  // Upwards. The board indexes children by parent, so the parent card itself is found as
+  // somebody else's child — cheap at these sizes, and it avoids a second index whose only
+  // job would be this one lookup.
+  if (!card.parentId) return null;
+  for (const siblings of board.chains.values()) {
+    for (const c of siblings) {
+      // A theme parent is not an opposite, and neither is a hope above a hope.
+      if (c.id === card.parentId) return c.cardKind === other ? c : null;
+    }
+  }
+  return null;
+}
+
 // How far a theme has got in a step. The picker is really a checklist — a group works
 // through every theme and needs to see which ones are still owed something — so "done"
 // has to mean something specific per step rather than just "has cards".

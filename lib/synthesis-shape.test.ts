@@ -15,6 +15,7 @@ import {
   flattenChainCards,
   stakeLedger,
   shortlistCounts,
+  oppositeOf,
 } from "./synthesis-shape";
 
 function card(
@@ -705,6 +706,48 @@ describe("descendantsOf", () => {
       card("Y", "ORDER_4", "X", 4, { cardKind: "hope" }),
     ]);
     expect(descendantsOf(cycled, "H").map((c) => c.id)).toEqual(["X", "Y"]);
+  });
+});
+
+describe("oppositeOf", () => {
+  // TH ─ H(hope) ─ F(fear) ─ H2(hope)
+  const theTheme = theme("TH", 1);
+  const hope = card("H", "SECOND", "TH", 2, { cardKind: "hope" });
+  const fear = card("F", "TERMINAL", "H", 3, { cardKind: "fear" });
+  const hope2 = card("H2", "ORDER_4", "F", 4, { cardKind: "hope" });
+
+  it("finds the fear written under a hope", () => {
+    const board = indexSynthesisBoard([theTheme, hope, fear]);
+    expect(oppositeOf(board, hope)?.id).toBe("F");
+  });
+
+  // The bug: the flip is stored downwards, so this direction found nothing and the fear
+  // offered to write the hope it had come from.
+  it("finds the hope a fear was flipped from", () => {
+    const board = indexSynthesisBoard([theTheme, hope, fear]);
+    expect(oppositeOf(board, fear)?.id).toBe("H");
+  });
+
+  it("prefers a child over the parent, so a chain still walks one pair at a time", () => {
+    const board = indexSynthesisBoard([theTheme, hope, fear, hope2]);
+    expect(oppositeOf(board, fear)?.id).toBe("H2");
+    expect(oppositeOf(board, hope2)?.id).toBe("F");
+  });
+
+  it("has no opposite for a card written straight onto a theme", () => {
+    const lone = card("L", "SECOND", "TH", 2, { cardKind: "fear" });
+    expect(oppositeOf(indexSynthesisBoard([theTheme, lone]), lone)).toBeNull();
+  });
+
+  it("does not treat a same-kind parent as an opposite", () => {
+    const under = card("H3", "TERMINAL", "H", 3, { cardKind: "hope" });
+    const board = indexSynthesisBoard([theTheme, hope, under]);
+    expect(oppositeOf(board, under)).toBeNull();
+  });
+
+  it("is null for anything that is not a hope or a fear", () => {
+    const risk = card("R", "SECOND", "TH", 2, { cardKind: "risk" });
+    expect(oppositeOf(indexSynthesisBoard([theTheme, risk]), risk)).toBeNull();
   });
 });
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { childOrderOf, type RippleCard } from "@/lib/ripples-types";
-import { flipOf, isHopeFear, type HopeFear, type SynthesisBoard } from "@/lib/synthesis-shape";
+import { flipOf, oppositeOf, type HopeFear, type SynthesisBoard } from "@/lib/synthesis-shape";
 import { AddCardForm } from "@/components/workshop/synthesis/SynthesisCard";
 import { HopeFearFocus } from "@/components/workshop/synthesis/HopeFearFocus";
 
@@ -71,11 +71,9 @@ export function HopeFearPair({
   const kind = card.cardKind as HopeFear;
   const other = flipOf(kind);
   const otherFace = FACE[other];
-  // The other side, if it has been written. Older boards can carry more than one child;
-  // the rest stay reachable in the gallery above.
-  const opposite =
-    (board.chains.get(card.id) ?? []).find((c) => c.cardKind === other && isHopeFear(c.cardKind)) ??
-    null;
+  // The other side, if it has been written — looked up in both directions, because the
+  // flip is stored downwards while the pair itself has no direction. See oppositeOf.
+  const opposite = oppositeOf(board, card);
   const canWrite = editable && Boolean(childOrderOf(card.order));
 
   return (
@@ -103,8 +101,11 @@ export function HopeFearPair({
           aria-hidden
           className="absolute border-black/20 max-lg:left-0 max-lg:right-0 max-lg:top-1/2 max-lg:border-t-2 max-lg:border-dashed lg:bottom-3 lg:top-3 lg:border-l-2 lg:border-dashed"
         />
+        {/* An instruction while the other side is still blank, a statement once it is
+            written — the seam should not keep asking for a card that is already there,
+            least of all when the card on the right is the one this was flipped from. */}
         <span className="relative z-10 max-w-[8rem] bg-paper px-2 py-1 text-center text-[10px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-muted">
-          Flip your {kind} into a {other}
+          {opposite ? "Two sides of one thing" : `Flip your ${kind} into a ${other}`}
         </span>
       </div>
 
