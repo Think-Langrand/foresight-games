@@ -6,6 +6,7 @@ import type { RippleCard } from "@/lib/ripples-types";
 import {
   descendantsOf,
   flattenChainCards,
+  hopesProgress,
   type HopeFear,
   type SynthesisBoard,
   type Week2Lineage,
@@ -76,7 +77,7 @@ export function HopesFearsBoard({
       busy={busy}
       themeId={themeId}
       onPickTheme={onPickTheme}
-      countFor={(t) => flattenChainCards(board, t.id).length}
+      progressFor={(t) => hopesProgress(board, t.id)}
       emptyBlurb="Hopes and fears are written onto themes, so the group needs to cluster its implications first."
       onEditTheme={onEdit}
       onDescribeTheme={onDescribe}

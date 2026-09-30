@@ -362,6 +362,34 @@ export function descendantsOf(board: SynthesisBoard, cardId: string): RippleCard
   return out;
 }
 
+// How far a theme has got in a step. The picker is really a checklist — a group works
+// through every theme and needs to see which ones are still owed something — so "done"
+// has to mean something specific per step rather than just "has cards".
+export type ThemeProgress = "empty" | "started" | "done";
+
+// Step 2 is done when the theme has both sides of the analysis. Tensions are optional —
+// a theme the group simply agreed on is finished, not deficient.
+export function stakeProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
+  const risks = board.risks.get(themeId)?.length ?? 0;
+  const opportunities = board.opportunities.get(themeId)?.length ?? 0;
+  const tensions = board.tensions.get(themeId)?.length ?? 0;
+  if (risks > 0 && opportunities > 0) return "done";
+  if (risks + opportunities + tensions > 0) return "started";
+  return "empty";
+}
+
+// Step 3 is done when the theme has both a hope and a fear AND every card on it says why
+// it matters. A hope without its value is the exact failure the step exists to prevent,
+// so it does not count as finished.
+export function hopesProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
+  const entries = flattenChainCards(board, themeId);
+  if (entries.length === 0) return "empty";
+  const hasHope = entries.some((e) => e.card.cardKind === "hope");
+  const hasFear = entries.some((e) => e.card.cardKind === "fear");
+  const allExplained = entries.every((e) => Boolean(e.card.description));
+  return hasHope && hasFear && allExplained ? "done" : "started";
+}
+
 export interface ThemeStake {
   theme: RippleCard;
   risks: RippleCard[];

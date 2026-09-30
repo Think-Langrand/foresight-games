@@ -10,6 +10,8 @@ import {
   planReorder,
   childrenOf,
   descendantsOf,
+  stakeProgress,
+  hopesProgress,
   flattenChainCards,
   stakeLedger,
   shortlistCounts,
@@ -703,5 +705,76 @@ describe("descendantsOf", () => {
       card("Y", "ORDER_4", "X", 4, { cardKind: "hope" }),
     ]);
     expect(descendantsOf(cycled, "H").map((c) => c.id)).toEqual(["X", "Y"]);
+  });
+});
+
+describe("stakeProgress", () => {
+  const withCards = (...cards: RippleCard[]) =>
+    stakeProgress(indexSynthesisBoard([theme("TH", 1), ...cards]), "TH");
+
+  it("is empty until something is written", () => {
+    expect(withCards()).toBe("empty");
+  });
+
+  it("is done only once both sides of the analysis exist", () => {
+    expect(withCards(card("R", "SECOND", "TH", 2, { cardKind: "risk" }))).toBe("started");
+    expect(withCards(card("O", "SECOND", "TH", 2, { cardKind: "opportunity" }))).toBe("started");
+    expect(
+      withCards(
+        card("R", "SECOND", "TH", 2, { cardKind: "risk" }),
+        card("O", "SECOND", "TH", 3, { cardKind: "opportunity" })
+      )
+    ).toBe("done");
+  });
+
+  it("does not require a tension — a theme the group agreed on is finished", () => {
+    expect(
+      withCards(
+        card("R", "SECOND", "TH", 2, { cardKind: "risk" }),
+        card("O", "SECOND", "TH", 3, { cardKind: "opportunity" })
+      )
+    ).toBe("done");
+    // …but a tension alone is a start.
+    expect(withCards(card("T", "SECOND", "TH", 2, { cardKind: "tension" }))).toBe("started");
+  });
+});
+
+describe("hopesProgress", () => {
+  const withCards = (...cards: RippleCard[]) =>
+    hopesProgress(indexSynthesisBoard([theme("TH", 1), ...cards]), "TH");
+  const why = { description: "because it matters" };
+
+  it("is empty until something is written", () => {
+    expect(withCards()).toBe("empty");
+  });
+
+  it("needs both a hope and a fear", () => {
+    expect(withCards(card("H", "SECOND", "TH", 2, { cardKind: "hope", ...why }))).toBe("started");
+    expect(
+      withCards(
+        card("H", "SECOND", "TH", 2, { cardKind: "hope", ...why }),
+        card("F", "SECOND", "TH", 3, { cardKind: "fear", ...why })
+      )
+    ).toBe("done");
+  });
+
+  it("is not done while any card is missing its why", () => {
+    // The step exists to get at the value underneath; a hope with no why is the failure
+    // it is meant to prevent, so it does not count as finished.
+    expect(
+      withCards(
+        card("H", "SECOND", "TH", 2, { cardKind: "hope", ...why }),
+        card("F", "SECOND", "TH", 3, { cardKind: "fear" })
+      )
+    ).toBe("started");
+  });
+
+  it("counts a flipped card too, at any depth", () => {
+    expect(
+      withCards(
+        card("H", "SECOND", "TH", 2, { cardKind: "hope", ...why }),
+        card("F", "TERMINAL", "H", 3, { cardKind: "fear", ...why })
+      )
+    ).toBe("done");
   });
 });

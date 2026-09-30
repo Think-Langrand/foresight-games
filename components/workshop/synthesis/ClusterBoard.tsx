@@ -705,7 +705,7 @@ export function ClusterBoard({
                 {addingTheme ? (
                   <div className="w-full" onClick={(e) => e.stopPropagation()}>
                     <AddCardForm
-                      label="Name this theme…"
+                      label="Name this theme — as a statement about change…"
                       busy={busy}
                       autoFocus
                       onAdd={onAddTheme}

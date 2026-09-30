@@ -1,15 +1,20 @@
 "use client";
 
 import type { RippleCard } from "@/lib/ripples-types";
-import type { SynthesisBoard, Week2Lineage } from "@/lib/synthesis-shape";
+import type { SynthesisBoard, ThemeProgress, Week2Lineage } from "@/lib/synthesis-shape";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
 
 // The shell steps 2 and 3 share: pick a theme, then work on it.
 //
-// Both steps are "one theme at a time" exercises over the same set of themes, so the
-// picker, the empty state and the theme header live here and each step supplies only its
-// own body. The badge count is a prop because each step should show how much of ITS OWN
-// work a theme has — a theme heavy with risks may still have no hopes written on it.
+// Both steps are a PASS over every theme rather than browsing, so the picker is built as a
+// checklist: numbered, each carrying how far that theme has got, with the position shown
+// and a hand-off at the foot to the next one still owing work. What "done" means differs
+// per step, so it arrives as a prop.
+//
+// The chips deliberately do not show theme names. Themes are named as statements about
+// change — long sentences — and truncating five of them to a few characters makes them
+// indistinguishable. The card below already carries the full name; the chips only need to
+// say which theme and how far along it is.
 
 export function ThemeWorkspace({
   board,
@@ -18,7 +23,7 @@ export function ThemeWorkspace({
   busy,
   themeId,
   onPickTheme,
-  countFor,
+  progressFor,
   emptyBlurb,
   onEditTheme,
   onDescribeTheme,
@@ -36,7 +41,7 @@ export function ThemeWorkspace({
   busy: boolean;
   themeId: string | null;
   onPickTheme: (id: string) => void;
-  countFor: (theme: RippleCard) => number;
+  progressFor: (theme: RippleCard) => ThemeProgress;
   emptyBlurb: string;
   onEditTheme: (theme: RippleCard, text: string) => void;
   onDescribeTheme: (theme: RippleCard, description: string) => void;
@@ -64,33 +69,53 @@ export function ThemeWorkspace({
     );
   }
 
+  const index = active ? board.themes.findIndex((t) => t.id === active.id) : -1;
+  // The next theme still owing work, wrapping past the end — a pass should not stop at
+  // the last card just because that is where the list happens to finish.
+  const nextUnfinished = active
+    ? board.themes
+        .slice(index + 1)
+        .concat(board.themes.slice(0, index))
+        .find((t) => progressFor(t) !== "done") ?? null
+    : null;
+  const allDone = board.themes.every((t) => progressFor(t) === "done");
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Theme picker. Each entry shows how much has been written on it already, so a group
-          working asynchronously can see what still needs attention. */}
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Themes">
-        {board.themes.map((t) => {
-          const count = countFor(t);
-          const on = active?.id === t.id;
-          return (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={on}
-              onClick={() => onPickTheme(t.id)}
-              className={
-                "max-w-[22ch] truncate rounded-[2px] border px-3 py-1.5 text-[11.5px] font-bold " +
-                (on
-                  ? "border-ink bg-ink text-paper"
-                  : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
-              }
-              title={t.text}
-            >
-              {t.text}
-              {count > 0 && <span className={on ? "text-paper/60" : "text-muted"}> · {count}</span>}
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Themes">
+          {board.themes.map((t, i) => {
+            const state = progressFor(t);
+            const on = active?.id === t.id;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={on}
+                aria-label={`Theme ${i + 1}: ${t.text} — ${STATE_LABEL[state]}`}
+                onClick={() => onPickTheme(t.id)}
+                title={`${t.text} — ${STATE_LABEL[state]}`}
+                className={
+                  "flex items-center gap-1.5 rounded-[2px] border px-2.5 py-1.5 text-[11.5px] font-bold " +
+                  (on
+                    ? "border-ink bg-ink text-paper"
+                    : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
+                }
+              >
+                <span aria-hidden className={STATE_DOT[state] + (on ? " opacity-90" : "")}>
+                  {state === "done" ? "●" : state === "started" ? "◐" : "○"}
+                </span>
+                {i + 1}
+              </button>
+            );
+          })}
+        </div>
+
+        {active && (
+          <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+            Theme {index + 1} of {board.themes.length}
+          </span>
+        )}
       </div>
 
       {active && (
@@ -108,8 +133,46 @@ export function ThemeWorkspace({
             {bodyInPanel ? children(active) : null}
           </ThemeLineagePanel>
           {bodyInPanel ? null : children(active)}
+
+          {/* The hand-off, at the foot of the card — where you actually finish a theme,
+              rather than back up at the picker. */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--rule)] pt-4">
+            <span className="text-[12px] text-muted">
+              {allDone ? (
+                <>
+                  <strong className="text-ink">All {board.themes.length} themes done.</strong> Move
+                  on when the group is happy.
+                </>
+              ) : progressFor(active) === "done" ? (
+                "This theme is done."
+              ) : (
+                "Come back to this one if it still needs work."
+              )}
+            </span>
+            {nextUnfinished && (
+              <button
+                onClick={() => onPickTheme(nextUnfinished.id)}
+                className="max-w-[32ch] truncate rounded-[2px] border border-ink bg-lime px-4 py-2 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep"
+                title={nextUnfinished.text}
+              >
+                Next: {nextUnfinished.text} →
+              </button>
+            )}
+          </div>
         </>
       )}
     </div>
   );
 }
+
+const STATE_LABEL: Record<ThemeProgress, string> = {
+  empty: "nothing yet",
+  started: "in progress",
+  done: "done",
+};
+
+const STATE_DOT: Record<ThemeProgress, string> = {
+  empty: "text-black/25",
+  started: "text-blue",
+  done: "text-[var(--lime-deep)]",
+};

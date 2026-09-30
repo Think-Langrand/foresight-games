@@ -41,6 +41,7 @@ import {
   childrenOf,
   planReorder,
   SORT_STEP,
+  stakeProgress,
   type SortWrite,
   type Week2Lineage,
 } from "@/lib/synthesis-shape";
@@ -595,11 +596,7 @@ export function SynthesisTeamView({
           busy={busy}
           themeId={themeId}
           onPickTheme={setThemeId}
-          countFor={(t) =>
-            (board.risks.get(t.id)?.length ?? 0) +
-            (board.opportunities.get(t.id)?.length ?? 0) +
-            (board.tensions.get(t.id)?.length ?? 0)
-          }
+          progressFor={(t) => stakeProgress(board, t.id)}
           emptyBlurb="What's at stake is worked out theme by theme, so the group needs to cluster its implications first."
           bodyInPanel
           onEditTheme={editCard}
