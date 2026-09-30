@@ -130,20 +130,28 @@ export function HopesFearsBoard({
             />
 
             {focused && (
-              <HopeFearPair
-                key={focused.id}
-                card={focused}
-                board={board}
-                editable={editable}
-                busy={busy}
-                onFocus={onFocus}
-                onEdit={onEdit}
-                onDescribe={onDescribe}
-                onAddAssumption={onAddAssumption}
-                onFlip={onFlip}
-                onRequestDelete={setPendingDelete}
-                onDelete={onDelete}
-              />
+              // Titled and ruled off from the gallery: the pair below is one card out of
+              // the set above, opened up to work on, and the two zones read as one long
+              // scroll without a line to separate them.
+              <div className="border-t border-[var(--rule)] pt-5">
+                <h3 className="mb-3 text-[13px] font-bold uppercase tracking-[0.08em]">
+                  Selected hope / fear
+                </h3>
+                <HopeFearPair
+                  key={focused.id}
+                  card={focused}
+                  board={board}
+                  editable={editable}
+                  busy={busy}
+                  onFocus={onFocus}
+                  onEdit={onEdit}
+                  onDescribe={onDescribe}
+                  onAddAssumption={onAddAssumption}
+                  onFlip={onFlip}
+                  onRequestDelete={setPendingDelete}
+                  onDelete={onDelete}
+                />
+              </div>
             )}
           </div>
         );

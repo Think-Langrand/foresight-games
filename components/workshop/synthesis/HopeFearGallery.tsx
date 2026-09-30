@@ -54,7 +54,7 @@ export function HopeFearGallery({
     <div>
       <div className="mb-2 flex flex-wrap items-baseline gap-2">
         <h3 className="text-[13px] font-bold uppercase tracking-[0.08em]">
-          On this theme
+          This theme&rsquo;s hopes and fears
           {entries.length > 0 && <span className="ml-1.5 text-muted">({entries.length})</span>}
         </h3>
         <p className="text-[12px] italic text-muted">Pick one to work on it below.</p>
