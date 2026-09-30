@@ -143,7 +143,6 @@ export function HopesFearsBoard({
                   board={board}
                   editable={editable}
                   busy={busy}
-                  onFocus={onFocus}
                   onEdit={onEdit}
                   onDescribe={onDescribe}
                   onAddAssumption={onAddAssumption}

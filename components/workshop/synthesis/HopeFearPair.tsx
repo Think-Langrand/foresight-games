@@ -13,9 +13,14 @@ import { HopeFearFocus } from "@/components/workshop/synthesis/HopeFearFocus";
 // pair says it while you write. An unwritten other side is a face-down card, so the gap is
 // visible as a thing to fill rather than absent from the page.
 //
-// The right-hand card is a face, not a second form. Clicking it makes it the card being
-// filled in, and its own other side appears beside it — so a chain is walked one pair at a
-// time instead of drawn all at once.
+// Both sides are the same component and both are live. The right-hand card used to be a
+// summary you clicked to open, which let it report that it still needed a "why" and then
+// stand between you and writing one. Nothing about a pair says one half is editable and
+// the other is a preview.
+//
+// That pivot was also how a longer chain was walked one pair at a time. The gallery above
+// lists every hope and fear on the theme, so selecting there reaches a third card just as
+// well, and it does not cost the common case a click.
 
 const FACE: Record<
   HopeFear,
@@ -44,7 +49,6 @@ export function HopeFearPair({
   board,
   editable,
   busy,
-  onFocus,
   onEdit,
   onDescribe,
   onAddAssumption,
@@ -56,7 +60,6 @@ export function HopeFearPair({
   board: SynthesisBoard;
   editable: boolean;
   busy: boolean;
-  onFocus: (id: string) => void;
   onEdit: (card: RippleCard, text: string) => void;
   onDescribe: (card: RippleCard, description: string) => void;
   onAddAssumption: (parent: RippleCard, text: string) => void;
@@ -111,49 +114,21 @@ export function HopeFearPair({
 
       <div className="flex min-h-[26rem] min-w-0 flex-1 basis-0">
         {opposite ? (
-          <button
-            onClick={() => onFocus(opposite.id)}
-            className={
-              "group flex w-full flex-col gap-2.5 rounded-[10px] border-2 border-ink p-5 text-left shadow-[4px_6px_0_rgba(36,36,34,0.18)] transition-all hover:-translate-y-1 hover:shadow-[5px_8px_0_rgba(36,36,34,0.22)] " +
-              otherFace.tint
-            }
-          >
-            <div className="flex items-center justify-between">
-              <span
-                className={
-                  "rounded-[2px] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] " +
-                  otherFace.chip
-                }
-              >
-                {other}
-              </span>
-              <span aria-hidden className="text-[20px] leading-none opacity-30">
-                {otherFace.mark}
-              </span>
-            </div>
-
-            <div className="text-[20px] font-extrabold leading-[1.25]">{opposite.text}</div>
-
-            {opposite.description && (
-              <div className="line-clamp-3 text-[13px] leading-[1.5] text-muted">
-                {opposite.description}
-              </div>
-            )}
-
-            <div className="mt-auto flex flex-col gap-1 pt-2">
-              <span
-                className={
-                  "text-[10px] font-bold uppercase tracking-[0.06em] " +
-                  (opposite.description ? "text-muted" : "text-coral")
-                }
-              >
-                {opposite.description ? "✓ Why it matters" : "Needs a why"}
-              </span>
-              <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-blue group-hover:underline">
-                Open this one →
-              </span>
-            </div>
-          </button>
+          // The same card as the one on the left, and live. It used to be a summary you
+          // had to open first, which meant a card could tell you it was missing its "why"
+          // and then make you click before you could write one.
+          <HopeFearFocus
+            key={opposite.id}
+            card={opposite}
+            board={board}
+            editable={editable}
+            busy={busy}
+            onEdit={onEdit}
+            onDescribe={onDescribe}
+            onAddAssumption={onAddAssumption}
+            onRequestDelete={onRequestDelete}
+            onDelete={onDelete}
+          />
         ) : writing ? (
           <div
             className={
