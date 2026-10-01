@@ -78,6 +78,9 @@ export function HopesFearsBoard({
       themeId={themeId}
       onPickTheme={onPickTheme}
       progressFor={(t) => hopesProgress(board, t.id)}
+      // The theme and its dossier are reference here, not the work — they go in the
+      // slide-out so the cards being written get the screen.
+      themeInDrawer
       emptyBlurb="Hopes and fears are written onto themes, so the group needs to cluster its implications first."
       onEditTheme={onEdit}
       onDescribeTheme={onDescribe}

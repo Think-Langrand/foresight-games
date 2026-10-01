@@ -394,6 +394,25 @@ export function oppositeOf(board: SynthesisBoard, card: RippleCard): RippleCard 
   return null;
 }
 
+// What a theme has behind it, for the one line that stands in for the whole dossier when
+// it is tucked into a drawer. Naming the counts is what stops the material going silently
+// out of mind: you can see there are three risks without having to open anything.
+export interface DossierCounts {
+  implications: number;
+  risks: number;
+  opportunities: number;
+  tensions: number;
+}
+
+export function themeDossierCounts(board: SynthesisBoard, themeId: string): DossierCounts {
+  return {
+    implications: board.clusters.get(themeId)?.length ?? 0,
+    risks: board.risks.get(themeId)?.length ?? 0,
+    opportunities: board.opportunities.get(themeId)?.length ?? 0,
+    tensions: board.tensions.get(themeId)?.length ?? 0,
+  };
+}
+
 // How far a theme has got in a step. The picker is really a checklist — a group works
 // through every theme and needs to see which ones are still owed something — so "done"
 // has to mean something specific per step rather than just "has cards".

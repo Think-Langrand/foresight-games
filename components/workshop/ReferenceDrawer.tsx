@@ -15,6 +15,11 @@ export interface RefUncertainty {
 type Panel = "uncertainties" | "drivers";
 
 /**
+ * (components/workshop/synthesis/ThemeDrawer.tsx is the same shell with one tab and its
+ * own content. They are deliberately parallel rather than shared: this one is mounted on
+ * two live participant surfaces, and unifying them mid-feature would put that at risk. A
+ * third slide-out is the signal to lift the shell out of both.)
+ *
  * A read-only reference drawer for the live participant screens. Two tab handles
  * hang off the right edge; tapping one slides its panel in from the right. It
  * never navigates, so a participant keeps their exact place in the game — the

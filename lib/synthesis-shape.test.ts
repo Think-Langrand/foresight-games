@@ -16,6 +16,7 @@ import {
   stakeLedger,
   shortlistCounts,
   oppositeOf,
+  themeDossierCounts,
 } from "./synthesis-shape";
 
 function card(
@@ -706,6 +707,63 @@ describe("descendantsOf", () => {
       card("Y", "ORDER_4", "X", 4, { cardKind: "hope" }),
     ]);
     expect(descendantsOf(cycled, "H").map((c) => c.id)).toEqual(["X", "Y"]);
+  });
+});
+
+describe("themeDossierCounts", () => {
+  const theTheme = theme("TH", 1);
+
+  it("counts each list separately", () => {
+    const board = indexSynthesisBoard([
+      theTheme,
+      card("I1", "SECOND", "TH", 2),
+      card("I2", "SECOND", "TH", 3),
+      card("R1", "SECOND", "TH", 4, { cardKind: "risk" }),
+      card("O1", "SECOND", "TH", 5, { cardKind: "opportunity" }),
+      card("O2", "SECOND", "TH", 6, { cardKind: "opportunity" }),
+      card("X1", "SECOND", "TH", 7, { cardKind: "tension" }),
+    ]);
+    expect(themeDossierCounts(board, "TH")).toEqual({
+      implications: 2,
+      risks: 1,
+      opportunities: 2,
+      tensions: 1,
+    });
+  });
+
+  // The empty themes are the reason this exists — the summary line has to read sensibly
+  // rather than as "0 · 0 · 0".
+  it("is all zeroes for a theme with nothing on it", () => {
+    expect(themeDossierCounts(indexSynthesisBoard([theTheme]), "TH")).toEqual({
+      implications: 0,
+      risks: 0,
+      opportunities: 0,
+      tensions: 0,
+    });
+  });
+
+  it("does not count hopes, fears or assumptions as dossier material", () => {
+    const board = indexSynthesisBoard([
+      theTheme,
+      card("H", "SECOND", "TH", 2, { cardKind: "hope" }),
+      card("F", "TERMINAL", "H", 3, { cardKind: "fear" }),
+      card("A", "ORDER_4", "F", 4, { cardKind: "assumption" }),
+    ]);
+    expect(themeDossierCounts(board, "TH")).toEqual({
+      implications: 0,
+      risks: 0,
+      opportunities: 0,
+      tensions: 0,
+    });
+  });
+
+  it("is all zeroes for a theme id that isn't on the board", () => {
+    expect(themeDossierCounts(indexSynthesisBoard([theTheme]), "nope")).toEqual({
+      implications: 0,
+      risks: 0,
+      opportunities: 0,
+      tensions: 0,
+    });
   });
 });
 

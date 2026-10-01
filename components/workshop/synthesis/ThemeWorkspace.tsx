@@ -1,8 +1,17 @@
 "use client";
 
+import { useState } from "react";
+
 import type { RippleCard } from "@/lib/ripples-types";
-import type { SynthesisBoard, ThemeProgress, Week2Lineage } from "@/lib/synthesis-shape";
+import {
+  themeDossierCounts,
+  type DossierCounts,
+  type SynthesisBoard,
+  type ThemeProgress,
+  type Week2Lineage,
+} from "@/lib/synthesis-shape";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
+import { ThemeDrawer } from "@/components/workshop/synthesis/ThemeDrawer";
 
 // The shell steps 2 and 3 share: pick a theme, then work on it.
 //
@@ -31,6 +40,10 @@ export function ThemeWorkspace({
   // Render the step's body INSIDE the theme card rather than below it — step 2 fills the
   // theme in like a dossier, step 3 works on cards beneath it.
   bodyInPanel = false,
+  // Move the theme card into a slide-out and leave a one-line summary in its place. Step 3
+  // only: there the theme is reference and the cards are the work, so it should not be
+  // taking the top of the screen. Step 2 fills the theme card in, so it stays inline.
+  themeInDrawer = false,
   // Extra content inside the theme card, above the step's own body.
   renderThemeExtra,
   children,
@@ -47,9 +60,11 @@ export function ThemeWorkspace({
   onDescribeTheme: (theme: RippleCard, description: string) => void;
   onGoToCluster: () => void;
   bodyInPanel?: boolean;
+  themeInDrawer?: boolean;
   renderThemeExtra?: (theme: RippleCard) => React.ReactNode;
   children: (theme: RippleCard) => React.ReactNode;
 }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
   // Derived, not synced: falling back to the first theme means the view never strands on a
   // theme a teammate just deleted, and there is no state to keep in step.
   const active = board.themes.find((t) => t.id === themeId) ?? board.themes[0] ?? null;
@@ -81,7 +96,20 @@ export function ThemeWorkspace({
   const allDone = board.themes.every((t) => progressFor(t) === "done");
 
   return (
-    <div className="flex flex-col gap-4">
+    <div
+      className={
+        "flex flex-col gap-4 " +
+        // The open drawer overlays the right edge of the page, which on a 1440 screen
+        // covers about 250px of the 1100px content column — including the right-hand card
+        // of the pair. A reference panel that hides the thing you are writing is not a
+        // rail, so the content yields exactly as much room as the panel actually takes:
+        // the drawer's 420px less whatever margin the centred column already had spare.
+        // Below sm the drawer is modal with a backdrop, so there is nothing to make room for.
+        (themeInDrawer && drawerOpen
+          ? "transition-[margin] duration-300 ease-out sm:[margin-right:max(0px,calc(420px-(100vw-1100px)/2))]"
+          : "transition-[margin] duration-300 ease-out")
+      }
+    >
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Themes">
           {board.themes.map((t, i) => {
@@ -120,19 +148,50 @@ export function ThemeWorkspace({
 
       {active && (
         <>
-          <ThemeLineagePanel
-            theme={active}
-            implications={board.clusters.get(active.id) ?? []}
-            lineage={lineage}
-            editable={editable}
-            busy={busy}
-            onEditTheme={(text) => onEditTheme(active, text)}
-            onDescribeTheme={(description) => onDescribeTheme(active, description)}
-          >
-            {renderThemeExtra?.(active)}
-            {bodyInPanel ? children(active) : null}
-          </ThemeLineagePanel>
-          {bodyInPanel ? null : children(active)}
+          {themeInDrawer ? (
+            <ThemeSummary
+              theme={active}
+              counts={themeDossierCounts(board, active.id)}
+              onOpen={() => setDrawerOpen(true)}
+            />
+          ) : (
+            <ThemeLineagePanel
+              theme={active}
+              implications={board.clusters.get(active.id) ?? []}
+              lineage={lineage}
+              editable={editable}
+              busy={busy}
+              onEditTheme={(text) => onEditTheme(active, text)}
+              onDescribeTheme={(description) => onDescribeTheme(active, description)}
+            >
+              {renderThemeExtra?.(active)}
+              {bodyInPanel ? children(active) : null}
+            </ThemeLineagePanel>
+          )}
+          {bodyInPanel && !themeInDrawer ? null : children(active)}
+
+          {themeInDrawer && (
+            <ThemeDrawer
+              open={drawerOpen}
+              onToggle={() => setDrawerOpen((v) => !v)}
+              onClose={() => setDrawerOpen(false)}
+              label={active.text}
+            >
+              {/* The same panel, unchanged and still editable — it has moved, not been
+                  reduced to a summary. */}
+              <ThemeLineagePanel
+                theme={active}
+                implications={board.clusters.get(active.id) ?? []}
+                lineage={lineage}
+                editable={editable}
+                busy={busy}
+                onEditTheme={(text) => onEditTheme(active, text)}
+                onDescribeTheme={(description) => onDescribeTheme(active, description)}
+              >
+                {renderThemeExtra?.(active)}
+              </ThemeLineagePanel>
+            </ThemeDrawer>
+          )}
 
           {/* The hand-off, at the foot of the card — where you actually finish a theme,
               rather than back up at the picker. */}
@@ -161,6 +220,58 @@ export function ThemeWorkspace({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// What stands in for the theme card when it is in the drawer: which theme you are on, and
+// what is waiting behind the handle.
+//
+// The name is plain text, not InlineText. Editing lives in one place — the panel in the
+// drawer — so there is never a second way to rename a theme that behaves slightly
+// differently from the first.
+function ThemeSummary({
+  theme,
+  counts,
+  onOpen,
+}: {
+  theme: RippleCard;
+  counts: DossierCounts;
+  onOpen: () => void;
+}) {
+  const n = (count: number, one: string, many = one + "s") =>
+    `${count} ${count === 1 ? one : many}`;
+  const stakes = [
+    counts.risks > 0 && n(counts.risks, "risk"),
+    counts.opportunities > 0 && n(counts.opportunities, "opportunity", "opportunities"),
+    counts.tensions > 0 && n(counts.tensions, "surprise"),
+  ].filter(Boolean) as string[];
+
+  // Naming the counts is what keeps the dossier from going quietly out of mind. With
+  // nothing in it, say so plainly rather than printing "0 · 0 · 0".
+  const summary =
+    stakes.length > 0
+      ? [counts.implications > 0 && n(counts.implications, "implication"), ...stakes]
+          .filter(Boolean)
+          .join(" · ")
+      : counts.implications > 0
+        ? `${n(counts.implications, "implication")} · nothing at stake written yet`
+        : "Nothing on this theme yet";
+
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-[var(--rule)] pb-3">
+      <div className="min-w-0">
+        <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">Theme</div>
+        <h2 className="mt-1 max-w-[60ch] text-[18px] font-extrabold uppercase leading-[1.15] tracking-tight">
+          {theme.text}
+        </h2>
+      </div>
+      <button
+        onClick={onOpen}
+        className="shrink-0 rounded-[2px] border border-ink bg-paper px-3 py-1.5 text-left text-[11px] font-bold text-muted hover:bg-lime hover:text-ink"
+      >
+        {summary} <span aria-hidden>→</span>
+      </button>
     </div>
   );
 }
