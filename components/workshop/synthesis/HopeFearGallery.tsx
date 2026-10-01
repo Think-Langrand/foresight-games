@@ -146,40 +146,68 @@ export function HopeFearGallery({
           );
         })}
 
+        {/* Both slots stay on the page while you write into one of them. Writing a fear
+            used to replace BOTH placeholders with a single white box, which dropped the
+            hope out of sight at the exact moment the step is asking you to hold the two
+            together — and a colourless box does not look like the card it is about to
+            become. The one you picked turns into itself and the textarea sits inside it. */}
         {editable &&
-          (adding ? (
-            <div className="flex h-[13.5rem] w-[15rem] flex-col justify-center rounded-[6px] border-2 border-ink bg-paper p-3">
-              <AddCardForm
-                label={
-                  adding === "hope"
-                    ? "What would it mean to us if this went well?"
-                    : "What would we hate to lose here?"
-                }
-                busy={busy}
-                autoFocus
-                onAdd={(text) => onQuickAdd(adding, text)}
-                onDone={() => setAdding(null)}
-              />
-            </div>
-          ) : (
-            (["hope", "fear"] as const).map((kind) => (
+          (["hope", "fear"] as const).map((kind) => {
+            const face = FACE[kind];
+            if (adding === kind) {
+              return (
+                <div
+                  key={kind}
+                  className={
+                    "flex h-[13.5rem] w-[15rem] flex-col rounded-[6px] border-2 border-ink p-3 " +
+                    face.tint
+                  }
+                >
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span
+                      className={
+                        "rounded-[2px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] " +
+                        face.chip
+                      }
+                    >
+                      {kind}
+                    </span>
+                    <span aria-hidden className="text-[16px] leading-none opacity-35">
+                      {face.mark}
+                    </span>
+                  </div>
+                  <AddCardForm
+                    label={
+                      kind === "hope"
+                        ? "What would it mean to us if this went well?"
+                        : "What would we hate to lose here?"
+                    }
+                    busy={busy}
+                    autoFocus
+                    onAdd={(text) => onQuickAdd(kind, text)}
+                    onDone={() => setAdding(null)}
+                  />
+                </div>
+              );
+            }
+            return (
               <button
                 key={kind}
                 onClick={() => setAdding(kind)}
                 className={
                   "flex h-[13.5rem] w-[15rem] flex-col items-center justify-center gap-2.5 rounded-[6px] border-2 border-dashed p-4 text-center transition-all hover:-translate-y-1 hover:border-ink " +
-                  FACE[kind].addTint
+                  face.addTint
                 }
               >
                 <span aria-hidden className="text-[30px] leading-none opacity-40">
-                  {FACE[kind].mark}
+                  {face.mark}
                 </span>
                 <span className="text-[13px] font-extrabold uppercase tracking-[0.06em] text-muted">
                   ＋ A {kind}
                 </span>
               </button>
-            ))
-          ))}
+            );
+          })}
       </div>
     </div>
   );

@@ -255,7 +255,7 @@ function dossierSummary(counts: DossierCounts): string {
   const stakes = [
     counts.risks > 0 && n(counts.risks, "risk"),
     counts.opportunities > 0 && n(counts.opportunities, "opportunity", "opportunities"),
-    counts.tensions > 0 && n(counts.tensions, "surprise"),
+    counts.tensions > 0 && n(counts.tensions, "sandbox note"),
   ].filter(Boolean) as string[];
 
   if (stakes.length > 0) {

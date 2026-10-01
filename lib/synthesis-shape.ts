@@ -459,16 +459,47 @@ export function stakeLedger(board: SynthesisBoard): ThemeStake[] {
   }));
 }
 
-// How many risks and opportunities are picked for the committee. The target is three of
-// each; the UI nudges past it rather than blocking, so this counts rather than caps.
-export function shortlistCounts(board: SynthesisBoard): { risks: number; opportunities: number } {
+// An assumption, with what it was written under. On its own "that goodwill is not infinite"
+// says little; the hope it hangs off and the theme that hope belongs to are what make it
+// readable in a list that has left its card behind.
+export interface AssumptionEntry {
+  card: RippleCard;
+  source: RippleCard; // the hope or fear it was written on
+  theme: RippleCard;
+}
+
+// Every assumption on the board, theme by theme. Step 4 asks which of them were challenged
+// in a way that surprised the group, and that question only makes sense across the whole
+// board — an assumption is interesting precisely when it turns up under more than one theme.
+export function assumptionLedger(board: SynthesisBoard): AssumptionEntry[] {
+  const out: AssumptionEntry[] = [];
+  for (const theme of board.themes) {
+    for (const { card: source } of flattenChainCards(board, theme.id)) {
+      for (const card of board.assumptions.get(source.id) ?? []) {
+        out.push({ card, source, theme });
+      }
+    }
+  }
+  return out;
+}
+
+// How many cards are picked for the committee. The target is three of each; the UI nudges
+// past it rather than blocking, so this counts rather than caps.
+export function shortlistCounts(board: SynthesisBoard): {
+  risks: number;
+  opportunities: number;
+  assumptions: number;
+} {
   let risks = 0;
   let opportunities = 0;
   for (const arr of board.risks.values()) for (const c of arr) if (c.shortlisted) risks += 1;
   for (const arr of board.opportunities.values()) {
     for (const c of arr) if (c.shortlisted) opportunities += 1;
   }
-  return { risks, opportunities };
+  // Counted through the ledger rather than the raw map, so an assumption hanging off a
+  // card no view can reach is not counted towards a total nobody can see the parts of.
+  const assumptions = assumptionLedger(board).filter((e) => e.card.shortlisted).length;
+  return { risks, opportunities, assumptions };
 }
 
 // --- Week 2 lineage ----------------------------------------------------------

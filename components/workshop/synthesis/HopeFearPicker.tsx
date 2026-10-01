@@ -40,31 +40,6 @@ export function HopeFearPicker({
 
   if (disabled) return null;
 
-  if (picked) {
-    const face = FACE[picked];
-    return (
-      <div
-        className={"mx-auto w-full max-w-[26rem] rounded-[6px] border-2 p-4 " + face.className}
-      >
-        <div className="mb-2 flex items-baseline justify-between gap-2">
-          <span className="text-[13px] font-extrabold uppercase tracking-[0.08em]">
-            {face.title}
-          </span>
-          <span aria-hidden className="text-[18px] leading-none opacity-40">
-            {face.mark}
-          </span>
-        </div>
-        <AddCardForm
-          label={face.blurb}
-          busy={busy}
-          autoFocus
-          onAdd={(text) => onAdd(picked, text)}
-          onDone={() => setPicked(null)}
-        />
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="mb-3 text-center">
@@ -78,9 +53,39 @@ export function HopeFearPicker({
           does it touch?
         </p>
       </div>
-      <div className="flex flex-wrap justify-center gap-4">
+      {/* Both cards stay up while you write into one. Picking a fear used to replace the
+          pair with a single centred box, which took the hope off the table at the moment
+          the step is asking you to weigh the two against each other. */}
+      <div className="flex flex-wrap items-stretch justify-center gap-4">
         {(["hope", "fear"] as const).map((kind) => {
           const face = FACE[kind];
+          if (picked === kind) {
+            return (
+              <div
+                key={kind}
+                className={
+                  "flex h-[13rem] w-[15rem] flex-col rounded-[6px] border-2 p-4 shadow-[2px_3px_0_rgba(36,36,34,0.14)] " +
+                  face.className
+                }
+              >
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <span className="text-[13px] font-extrabold uppercase tracking-[0.08em]">
+                    {face.title}
+                  </span>
+                  <span aria-hidden className="text-[18px] leading-none opacity-40">
+                    {face.mark}
+                  </span>
+                </div>
+                <AddCardForm
+                  label={face.blurb}
+                  busy={busy}
+                  autoFocus
+                  onAdd={(text) => onAdd(kind, text)}
+                  onDone={() => setPicked(null)}
+                />
+              </div>
+            );
+          }
           return (
             <button
               key={kind}

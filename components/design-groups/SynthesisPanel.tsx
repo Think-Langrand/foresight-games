@@ -87,7 +87,7 @@ function ThemeBlock({ theme, ...opts }: { theme: SynthesisTheme } & PanelOpts) {
 
       <StakeList title="Risks" rows={theme.risks} {...opts} />
       <StakeList title="Opportunities" rows={theme.opportunities} {...opts} />
-      <StakeList title="Surprises & disagreements" rows={theme.tensions} {...opts} />
+      <StakeList title="Sandbox" rows={theme.tensions} {...opts} />
 
       {theme.chain.length > 0 && (
         <div className="mt-3">

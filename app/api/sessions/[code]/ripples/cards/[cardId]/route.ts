@@ -207,6 +207,10 @@ export async function PATCH(
     // Week 3 step 4: pick this out as one of the three to explain to the committee.
     // Only the analytical cards can be shortlisted — a hope is not a finding and a theme
     // is the container. Refused by kind, the same way park refuses a theme.
+    //
+    // Assumptions joined the list because step 4 also asks which of them were challenged
+    // in a way that surprised the group; that is a finding about the group's own thinking,
+    // and the doc names it as a workshop output.
     if (body.action === "shortlist") {
       if (!config.sharedTeam && card.authorPlayerId !== player.id) {
         return NextResponse.json({ error: "You can only change your own card." }, { status: 403 });
@@ -214,9 +218,13 @@ export async function PATCH(
       if (typeof body.shortlisted !== "boolean") {
         return NextResponse.json({ error: "shortlisted must be true or false." }, { status: 400 });
       }
-      if (card.cardKind !== "risk" && card.cardKind !== "opportunity") {
+      if (
+        card.cardKind !== "risk" &&
+        card.cardKind !== "opportunity" &&
+        card.cardKind !== "assumption"
+      ) {
         return NextResponse.json(
-          { error: "Only a risk or an opportunity can go on the shortlist." },
+          { error: "Only a risk, an opportunity or an assumption can go on the shortlist." },
           { status: 400 }
         );
       }

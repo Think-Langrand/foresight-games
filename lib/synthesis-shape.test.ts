@@ -17,6 +17,7 @@ import {
   shortlistCounts,
   oppositeOf,
   themeDossierCounts,
+  assumptionLedger,
 } from "./synthesis-shape";
 
 function card(
@@ -600,6 +601,57 @@ describe("childrenOf", () => {
   });
 });
 
+describe("assumptionLedger", () => {
+  // TH1 ─ H1(hope) ─ A1, A2
+  //              └ F1(fear) ─ A3
+  // TH2 ─ H2(hope) ─ A4
+  const cards = () => [
+    theme("TH1", 1, { sort: 1000 }),
+    theme("TH2", 2, { sort: 2000 }),
+    card("H1", "SECOND", "TH1", 3, { cardKind: "hope" }),
+    card("A1", "TERMINAL", "H1", 4, { cardKind: "assumption" }),
+    card("A2", "TERMINAL", "H1", 5, { cardKind: "assumption" }),
+    card("F1", "TERMINAL", "H1", 6, { cardKind: "fear" }),
+    card("A3", "ORDER_4", "F1", 7, { cardKind: "assumption" }),
+    card("H2", "SECOND", "TH2", 8, { cardKind: "hope" }),
+    card("A4", "TERMINAL", "H2", 9, { cardKind: "assumption" }),
+  ];
+
+  it("gives every assumption the card and the theme it was written under", () => {
+    const got = assumptionLedger(indexSynthesisBoard(cards()));
+    expect(got.map((e) => [e.card.id, e.source.id, e.theme.id])).toEqual([
+      ["A1", "H1", "TH1"],
+      ["A2", "H1", "TH1"],
+      ["A3", "F1", "TH1"],
+      ["A4", "H2", "TH2"],
+    ]);
+  });
+
+  it("is empty when nothing has been assumed", () => {
+    expect(assumptionLedger(indexSynthesisBoard([theme("TH", 1)]))).toEqual([]);
+  });
+
+  // The ledger walks reachable chains, so an assumption nobody can see on step 3 is not
+  // offered on step 4 either — otherwise the shortlist would list a card with no home.
+  it("skips an assumption whose chain is unreachable from any theme", () => {
+    const got = assumptionLedger(
+      indexSynthesisBoard([
+        theme("TH", 1),
+        card("LOOSE", "SECOND", "ghost", 2, { cardKind: "hope" }),
+        card("A", "TERMINAL", "LOOSE", 3, { cardKind: "assumption" }),
+      ])
+    );
+    expect(got).toEqual([]);
+  });
+
+  it("counts a shortlisted assumption", () => {
+    const withPick = cards().map((c) =>
+      c.id === "A3" ? { ...c, shortlisted: true } : c
+    );
+    expect(shortlistCounts(indexSynthesisBoard(withPick)).assumptions).toBe(1);
+  });
+});
+
 describe("stakeLedger + shortlistCounts", () => {
   const board = () =>
     indexSynthesisBoard([
@@ -621,13 +673,14 @@ describe("stakeLedger + shortlistCounts", () => {
   });
 
   it("counts the shortlist across every theme", () => {
-    expect(shortlistCounts(board())).toEqual({ risks: 2, opportunities: 1 });
+    expect(shortlistCounts(board())).toEqual({ risks: 2, opportunities: 1, assumptions: 0 });
   });
 
   it("counts nothing on an untouched board", () => {
     expect(shortlistCounts(indexSynthesisBoard([theme("TH", 1)]))).toEqual({
       risks: 0,
       opportunities: 0,
+      assumptions: 0,
     });
   });
 });

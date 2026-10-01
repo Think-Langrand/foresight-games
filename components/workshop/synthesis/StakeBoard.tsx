@@ -25,6 +25,12 @@ import {
 // "Who could benefit? Who could lose?" are prompts on the composer rather than fields of
 // their own — they are how you arrive at the mechanism note, not separate answers.
 //
+// The third list is a sandbox, not a third exercise. The step is about risks and
+// opportunities; by the time a group reaches the bottom of the sheet it has the vocabulary
+// and mostly needs somewhere to put a thought that does not fit either column. Asking it a
+// third framed question there made the sheet feel longer than the work actually is. The
+// cards are still stored as `tension`, which is what step 4 and the exports read.
+//
 // Park is deliberately NOT offered. A parked card lands in a flat pile with no record of
 // which theme or list it came from; these are cheap to retype, so Delete is the only exit.
 
@@ -54,9 +60,9 @@ const LISTS: {
   },
   {
     kind: "tension",
-    title: "Surprises & disagreements",
-    blurb: "What surprised the group, or where did you not agree? Keep it rather than resolving it.",
-    prompt: "What surprised you, or where did you split…",
+    title: "Sandbox",
+    blurb: "Anything else worth keeping — a surprise, a disagreement, a thought with nowhere else to go.",
+    prompt: "Anything else worth keeping…",
     mechanism: "",
     accent: "border-l-blue",
   },
