@@ -203,11 +203,20 @@ describe("shapeFromView — synthesis weeks", () => {
     expect(out.parked.map((a) => a.id)).toEqual(["PK"]);
   });
 
-  it("falls back to the code template so Sandbox notes stay visible", () => {
-    // An un-customized week stores sections: [] — the raw column would show no blocks.
+  it("has no question blocks — every step of the week is code now", () => {
     const out = shapeFromView(ex("synthesis"), view(board()));
     if (out.kind !== "synthesis") return;
-    expect(out.questions.map((q) => q.key)).toEqual(["synthesis-sandbox"]);
+    expect(out.questions).toEqual([]);
+  });
+
+  // The safety net for every retired key. A note written into the old Sandbox, or into the
+  // Risks/Opportunities boards before those were replaced by cards on a theme, must still
+  // be readable by a facilitator — the admin surfaces pass includeRemoved for exactly this.
+  it("still surfaces a note written under a retired key, as a removed block", () => {
+    const out = shapeFromView(ex("synthesis"), view(board()), { includeRemoved: true });
+    if (out.kind !== "synthesis") return;
+    expect(out.questions).toHaveLength(1);
+    expect(out.questions[0]).toMatchObject({ key: "synthesis-sandbox", removed: true });
     expect(out.questions[0].answers.map((a) => a.id)).toEqual(["N1"]);
   });
 

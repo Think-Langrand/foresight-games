@@ -127,25 +127,18 @@ const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
   },
 ];
 
-// --- Synthesis (Week 3), the Sandbox ------------------------------------------
-// The four steps are code (cluster, what's at stake, hopes & fears, the shortlist). What
-// rides the section substrate is a Sandbox, the same free sticky wall Weeks 1 and 2 both
-// end on, shown beneath the shortlist.
+// --- Synthesis (Week 3) — no sections -----------------------------------------
+// All four steps are code (cluster, what's at stake, hopes & fears, the shortlist), so
+// nothing rides the section substrate. Week 3 is the one week that does not end on a free
+// sticky wall: step 2's own Sandbox list is attached to a theme, which is where a loose
+// thought in this week actually belongs.
 //
-// The retired `synthesis-risks` / `synthesis-opportunities` keys are NOT reused or
-// renamed — a key is the permanent link to every answer card written under it. Risks and
-// opportunities are cards on a theme now (step 2), not loose stickies. Any card still
-// carrying a retired key surfaces in the admin viewer under a "removed block" heading.
-const SYNTHESIS_SECTIONS: WorksheetSection[] = [
-  {
-    key: "synthesis-sandbox",
-    kind: "brainstorm",
-    step: "Sandbox",
-    board: true,
-    label: "Sandbox — good ideas for later",
-    help: "A free space for anything the week shook loose — questions, tangents, things worth coming back to.",
-  },
-];
+// The retired `synthesis-risks`, `synthesis-opportunities` and `synthesis-sandbox` keys
+// are NOT reused or renamed — a key is the permanent link to every answer card ever
+// written under it. Risks and opportunities are cards on a theme now (step 2), not loose
+// stickies. Any card still carrying a retired key surfaces in the admin viewer under a
+// "removed block" heading rather than vanishing.
+const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 
 export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   "scenario-assessment": {

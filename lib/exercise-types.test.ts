@@ -223,17 +223,24 @@ describe("synthesis exercise type", () => {
     expect(supportsSections("synthesis")).toBe(true);
   });
 
-  it("carries a single Sandbox on ONE step, so no tab bar nests inside the four steps", () => {
+  it("carries no sections at all — every step of the week is code", () => {
     const sections = EXERCISE_TYPES.synthesis.sections!;
-    expect(worksheetSteps(sections)).toHaveLength(1);
-    // Risks and opportunities are cards on a theme now (step 2), not loose stickies. The
-    // retired keys are never reused — a key is the permanent link to its answer cards.
-    expect(sections.map((s) => s.key)).toEqual(["synthesis-sandbox"]);
-    expect(sections.every((s) => s.kind === "brainstorm" && s.board)).toBe(true);
+    expect(sections).toEqual([]);
+    expect(worksheetSteps(sections)).toHaveLength(0);
+  });
+
+  it("never reuses a retired synthesis key", () => {
+    // A key is the permanent link to every answer card written under it. Risks and
+    // opportunities are cards on a theme now (step 2), not loose stickies, and the
+    // Sandbox moved onto the theme sheet — so all three keys stay retired.
+    const keys = EXERCISE_TYPES.synthesis.sections!.map((s) => s.key);
+    for (const retired of ["synthesis-risks", "synthesis-opportunities", "synthesis-sandbox"]) {
+      expect(keys).not.toContain(retired);
+    }
   });
 
   it("is session 3 of the default program", () => {
     expect(DEFAULT_PROGRAM[2].type).toBe("synthesis");
-    expect(defaultProgramWeeks()[2].sections).toHaveLength(1);
+    expect(defaultProgramWeeks()[2].sections).toHaveLength(0);
   });
 });
