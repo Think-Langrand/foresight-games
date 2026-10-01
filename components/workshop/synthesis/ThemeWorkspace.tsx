@@ -140,20 +140,42 @@ export function ThemeWorkspace({
         </div>
 
         {active && (
-          <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
-            Theme {index + 1} of {board.themes.length}
-          </span>
+          <div className="flex flex-col items-start gap-1">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+              Theme {index + 1} of {board.themes.length}
+            </span>
+            {/* The drawer's own handle sits out at the screen edge, which is easy to miss
+                and says nothing about what is behind it. This is the same toggle, next to
+                the theme it belongs to, carrying the counts so the dossier stays in mind
+                whether or not it is open. */}
+            {themeInDrawer && (
+              <button
+                onClick={() => setDrawerOpen((v) => !v)}
+                aria-expanded={drawerOpen}
+                className={
+                  "rounded-[2px] border px-2.5 py-1 text-[11px] font-bold transition-colors " +
+                  (drawerOpen
+                    ? "border-ink bg-lime text-ink"
+                    : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
+                }
+              >
+                <span aria-hidden className="mr-1">
+                  {drawerOpen ? "▾" : "▸"}
+                </span>
+                View theme
+                <span className="ml-1.5 font-normal opacity-80">
+                  · {dossierSummary(themeDossierCounts(board, active.id))}
+                </span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 
       {active && (
         <>
           {themeInDrawer ? (
-            <ThemeSummary
-              theme={active}
-              counts={themeDossierCounts(board, active.id)}
-              onOpen={() => setDrawerOpen(true)}
-            />
+            <ThemeSummary theme={active} />
           ) : (
             <ThemeLineagePanel
               theme={active}
@@ -224,21 +246,10 @@ export function ThemeWorkspace({
   );
 }
 
-// What stands in for the theme card when it is in the drawer: which theme you are on, and
-// what is waiting behind the handle.
-//
-// The name is plain text, not InlineText. Editing lives in one place — the panel in the
-// drawer — so there is never a second way to rename a theme that behaves slightly
-// differently from the first.
-function ThemeSummary({
-  theme,
-  counts,
-  onOpen,
-}: {
-  theme: RippleCard;
-  counts: DossierCounts;
-  onOpen: () => void;
-}) {
+// What is waiting behind the handle, in words. Naming the counts is what keeps the dossier
+// from going quietly out of mind once it is no longer on the page; with nothing in it, say
+// so plainly rather than printing "0 · 0 · 0".
+function dossierSummary(counts: DossierCounts): string {
   const n = (count: number, one: string, many = one + "s") =>
     `${count} ${count === 1 ? one : many}`;
   const stakes = [
@@ -247,31 +258,30 @@ function ThemeSummary({
     counts.tensions > 0 && n(counts.tensions, "surprise"),
   ].filter(Boolean) as string[];
 
-  // Naming the counts is what keeps the dossier from going quietly out of mind. With
-  // nothing in it, say so plainly rather than printing "0 · 0 · 0".
-  const summary =
-    stakes.length > 0
-      ? [counts.implications > 0 && n(counts.implications, "implication"), ...stakes]
-          .filter(Boolean)
-          .join(" · ")
-      : counts.implications > 0
-        ? `${n(counts.implications, "implication")} · nothing at stake written yet`
-        : "Nothing on this theme yet";
+  if (stakes.length > 0) {
+    return [counts.implications > 0 && n(counts.implications, "implication"), ...stakes]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return counts.implications > 0
+    ? `${n(counts.implications, "implication")} · nothing at stake yet`
+    : "nothing on this theme yet";
+}
 
+// Which theme you are on, once the card itself has moved into the drawer.
+//
+// The name is plain text, not InlineText. Editing lives in one place — the panel in the
+// drawer — so there is never a second way to rename a theme that behaves slightly
+// differently from the first. Opening the drawer is the toggle up beside "Theme N of M",
+// not a second control down here: two buttons doing one job is the clutter this step was
+// trying to lose.
+function ThemeSummary({ theme }: { theme: RippleCard }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-[var(--rule)] pb-3">
-      <div className="min-w-0">
-        <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">Theme</div>
-        <h2 className="mt-1 max-w-[60ch] text-[18px] font-extrabold uppercase leading-[1.15] tracking-tight">
-          {theme.text}
-        </h2>
-      </div>
-      <button
-        onClick={onOpen}
-        className="shrink-0 rounded-[2px] border border-ink bg-paper px-3 py-1.5 text-left text-[11px] font-bold text-muted hover:bg-lime hover:text-ink"
-      >
-        {summary} <span aria-hidden>→</span>
-      </button>
+    <div className="border-b border-[var(--rule)] pb-3">
+      <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">Theme</div>
+      <h2 className="mt-1 max-w-[60ch] text-[18px] font-extrabold uppercase leading-[1.15] tracking-tight">
+        {theme.text}
+      </h2>
     </div>
   );
 }
