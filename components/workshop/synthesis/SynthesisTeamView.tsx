@@ -271,6 +271,38 @@ export function SynthesisTeamView({
       }
     });
 
+  // Step 1's other gesture: tick several implications in the tray, then make a theme that
+  // holds them. Same destination as dragging them in one by one.
+  //
+  // The theme is created first and the cards moved into it one at a time, because reparent
+  // is per-card. A failure part-way leaves the theme and whatever already moved — which is
+  // recoverable by dragging, where rolling back would mean undoing writes that succeeded.
+  const createThemeFrom = (cardIds: string[]) =>
+    run(async () => {
+      if (cardIds.length === 0) return;
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "FIRST",
+        cardKind: "theme",
+        text: `Theme ${board.themes.length + 1}`,
+        sort: endSort(board.themes),
+      });
+      const created = res?.card as RippleCard | undefined;
+      if (!created) return;
+      addLocal(created);
+
+      const predicted = orderAtDepth(1);
+      for (const id of cardIds) {
+        if (predicted) reparentLocal(id, created.id, predicted);
+        try {
+          await reparentRippleCard(code, id, { participantId: pid, parentCardId: created.id });
+        } catch (e) {
+          dropReparentLocal(id);
+          throw e;
+        }
+      }
+    });
+
   const addChildCard = (parent: RippleCard, kind: CardKind, text: string) =>
     run(async () => {
       const order = childOrderOf(parent.order);
@@ -613,6 +645,7 @@ export function SynthesisTeamView({
           onDeleteTheme={deleteTheme}
           onMerge={merge}
           onCopyToTheme={copyToTheme}
+          onCreateThemeFrom={createThemeFrom}
         />
       )}
 

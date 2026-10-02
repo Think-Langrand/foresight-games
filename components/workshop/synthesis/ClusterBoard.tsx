@@ -77,6 +77,7 @@ export function ClusterBoard({
   onDeleteTheme,
   onMerge,
   onCopyToTheme,
+  onCreateThemeFrom,
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -100,6 +101,8 @@ export function ClusterBoard({
   // Put this implication in ANOTHER theme as well, keeping the one it is already in.
   // Clustering is not a partition — see migration 0023.
   onCopyToTheme: (card: RippleCard, themeId: string) => void;
+  // Make a theme and move these tray implications into it, in one go.
+  onCreateThemeFrom: (cardIds: string[]) => void;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
@@ -108,6 +111,17 @@ export function ClusterBoard({
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
   // The card whose "also add to…" picker is open. Null when none is.
   const [copyFrom, setCopyFrom] = useState<RippleCard | null>(null);
+  // Tray cards ticked for "create theme from selected". Drag still works and is untouched;
+  // this is the other way round the same job, for a group that would rather read the whole
+  // tray and tick than pick cards up one at a time.
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const togglePicked = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const [showParked, setShowParked] = useState(false);
   // The theme awaiting a delete decision. Nothing is written until the modal is answered,
   // so a theme never vanishes and then reappears when the route refuses.
@@ -274,6 +288,19 @@ export function ClusterBoard({
         }
       >
         <div className="flex items-start gap-1.5">
+          {editable && zone === "tray" && (
+            <input
+              type="checkbox"
+              checked={picked.has(card.id)}
+              onChange={() => togglePicked(card.id)}
+              // The card itself is draggable; without this a mousedown on the box starts a
+              // drag instead of ticking it — the same trap the lineage disclosure hit.
+              onDragStart={(e) => e.preventDefault()}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Select: ${card.text.slice(0, 60)}`}
+              className="mt-[3px] shrink-0 cursor-pointer"
+            />
+          )}
           {/* The implication is the card. Everything else is secondary to it. */}
           <div className="min-w-0 flex-1 text-[13.5px] leading-[1.45]">
             <InlineText
@@ -457,6 +484,24 @@ export function ClusterBoard({
         </div>
       )}
 
+      {/* What a good theme IS. Step 1 used to say only "name a theme"; a group with no
+          shared idea of what they are looking for produces either one theme per
+          implication or one theme for everything, and every later step inherits it. */}
+      <section className="rounded-[3px] border border-[var(--hairline)] bg-card px-4 py-3">
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+          As you group and name themes
+        </h2>
+        <ul className="mt-1.5 flex flex-col gap-1 text-[12.5px] leading-[1.45]">
+          <li>What connected change do these implications describe?</li>
+          <li>What is changing — and for whom?</li>
+          <li>Which implications support or complicate that reading?</li>
+        </ul>
+        <p className="mt-1.5 text-[11.5px] italic leading-[1.4] text-muted">
+          If a theme is too broad, split it. If it repeats one note, look for related
+          implications.
+        </p>
+      </section>
+
       {/* ---- the tray ---- */}
       <section>
         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -470,6 +515,33 @@ export function ClusterBoard({
             >
               ＋ Add an implication
             </button>
+          )}
+          {editable && board.unclustered.length > 0 && (
+            <span className="ml-auto flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+                {picked.size} selected
+              </span>
+              {picked.size > 0 && (
+                <>
+                  <button
+                    onClick={() => {
+                      onCreateThemeFrom([...picked]);
+                      setPicked(new Set());
+                    }}
+                    disabled={busy}
+                    className="rounded-[2px] border border-ink bg-lime px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep disabled:opacity-40"
+                  >
+                    Create theme from selected
+                  </button>
+                  <button
+                    onClick={() => setPicked(new Set())}
+                    className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
+                  >
+                    Clear
+                  </button>
+                </>
+              )}
+            </span>
           )}
         </div>
         <div

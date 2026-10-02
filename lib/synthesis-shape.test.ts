@@ -793,9 +793,11 @@ describe("themeDossierCounts", () => {
       card("O1", "SECOND", "TH", 5, { cardKind: "opportunity" }),
       card("O2", "SECOND", "TH", 6, { cardKind: "opportunity" }),
       card("X1", "SECOND", "TH", 7, { cardKind: "tension" }),
+      card("RD", "SECOND", "TH", 8, { cardKind: "reading" }),
     ]);
     expect(themeDossierCounts(board, "TH")).toEqual({
       implications: 2,
+      readings: 1,
       risks: 1,
       opportunities: 2,
       tensions: 1,
@@ -807,6 +809,7 @@ describe("themeDossierCounts", () => {
   it("is all zeroes for a theme with nothing on it", () => {
     expect(themeDossierCounts(indexSynthesisBoard([theTheme]), "TH")).toEqual({
       implications: 0,
+      readings: 0,
       risks: 0,
       opportunities: 0,
       tensions: 0,
@@ -822,6 +825,7 @@ describe("themeDossierCounts", () => {
     ]);
     expect(themeDossierCounts(board, "TH")).toEqual({
       implications: 0,
+      readings: 0,
       risks: 0,
       opportunities: 0,
       tensions: 0,
@@ -831,6 +835,7 @@ describe("themeDossierCounts", () => {
   it("is all zeroes for a theme id that isn't on the board", () => {
     expect(themeDossierCounts(indexSynthesisBoard([theTheme]), "nope")).toEqual({
       implications: 0,
+      readings: 0,
       risks: 0,
       opportunities: 0,
       tensions: 0,

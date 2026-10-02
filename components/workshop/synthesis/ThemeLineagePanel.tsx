@@ -39,7 +39,11 @@ export function ThemeLineagePanel({
   return (
     <div className="overflow-hidden rounded-[4px] border-2 border-ink bg-[rgba(196,255,103,0.16)]">
       <div className="px-5 py-4">
-      <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">Theme</div>
+      {/* Named for what a theme IS — a statement about change — so the label does the
+          teaching every time the card is seen, not only in step 1's composer. */}
+      <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
+        The change we see
+      </div>
 
       <h2 className="mt-1 text-[20px] font-extrabold uppercase leading-[1.1] tracking-tight">
         <InlineText

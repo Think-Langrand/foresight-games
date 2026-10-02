@@ -450,6 +450,7 @@ export function oppositeOf(board: SynthesisBoard, card: RippleCard): RippleCard 
 // out of mind: you can see there are three risks without having to open anything.
 export interface DossierCounts {
   implications: number;
+  readings: number;
   risks: number;
   opportunities: number;
   tensions: number;
@@ -458,6 +459,7 @@ export interface DossierCounts {
 export function themeDossierCounts(board: SynthesisBoard, themeId: string): DossierCounts {
   return {
     implications: board.clusters.get(themeId)?.length ?? 0,
+    readings: board.readings.get(themeId)?.length ?? 0,
     risks: board.risks.get(themeId)?.length ?? 0,
     opportunities: board.opportunities.get(themeId)?.length ?? 0,
     tensions: board.tensions.get(themeId)?.length ?? 0,

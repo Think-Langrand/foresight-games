@@ -252,7 +252,10 @@ export function ThemeWorkspace({
 function dossierSummary(counts: DossierCounts): string {
   const n = (count: number, one: string, many = one + "s") =>
     `${count} ${count === 1 ? one : many}`;
+  // Readings are step 2's work now. Risks and opportunities are still counted because
+  // boards worked before the rework still carry them and should still say so.
   const stakes = [
+    counts.readings > 0 && n(counts.readings, "reading"),
     counts.risks > 0 && n(counts.risks, "risk"),
     counts.opportunities > 0 && n(counts.opportunities, "opportunity", "opportunities"),
     counts.tensions > 0 && n(counts.tensions, "sandbox note"),
@@ -264,7 +267,7 @@ function dossierSummary(counts: DossierCounts): string {
       .join(" · ");
   }
   return counts.implications > 0
-    ? `${n(counts.implications, "implication")} · nothing at stake yet`
+    ? `${n(counts.implications, "implication")} · not explored yet`
     : "nothing on this theme yet";
 }
 
@@ -278,7 +281,11 @@ function dossierSummary(counts: DossierCounts): string {
 function ThemeSummary({ theme }: { theme: RippleCard }) {
   return (
     <div className="border-b border-[var(--rule)] pb-3">
-      <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">Theme</div>
+      {/* Named for what a theme IS — a statement about change — so the label does the
+          teaching every time the card is seen, not only in step 1's composer. */}
+      <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
+        The change we see
+      </div>
       <h2 className="mt-1 max-w-[60ch] text-[18px] font-extrabold uppercase leading-[1.15] tracking-tight">
         {theme.text}
       </h2>
