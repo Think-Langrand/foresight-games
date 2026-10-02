@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   GROUPING_PRESETS,
+  membershipCounts,
   type ClusterMethod,
   type ImplicationClusterResponse,
 } from "@/lib/analysis/implication-cluster-shape";
@@ -86,6 +87,9 @@ export function ImplicationClusterPanel({
   }
 
   const byId = new Map((result?.items ?? []).map((i) => [i.id, i]));
+  // An implication in more than one theme is usually the interesting one in the room, so
+  // it is marked rather than left to be spotted by reading every list.
+  const inThemes = membershipCounts(result?.themes ?? []);
 
   return (
     <details className="rounded-[3px] border border-[var(--hairline)] bg-card p-3" open={false}>
@@ -95,7 +99,8 @@ export function ImplicationClusterPanel({
 
       <p className="mt-2 max-w-[70ch] text-[12.5px] leading-[1.5] text-muted">
         Propose how this group&rsquo;s implications could cluster, to offer as starter ideas.
-        Nothing is written to the Week 3 board — this only shows you a grouping.
+        An implication can land in more than one theme, and one that fits nowhere is left as
+        an outlier. Nothing is written to the Week 3 board — this only shows you a grouping.
       </p>
 
       <div className="mt-3 flex flex-col gap-3">
@@ -213,6 +218,11 @@ export function ImplicationClusterPanel({
             <span>
               {result.method === "llm" ? "asked the model" : `by similarity · ${result.minSimilarity}`}
             </span>
+            {[...inThemes.values()].filter((n) => n > 1).length > 0 && (
+              <span>
+                {[...inThemes.values()].filter((n) => n > 1).length} in more than one
+              </span>
+            )}
             <span>{result.model}</span>
           </div>
 
@@ -247,8 +257,19 @@ export function ImplicationClusterPanel({
                   {t.memberIds.map((id) => {
                     const item = byId.get(id);
                     return (
-                      <li key={id} className="border-l-2 border-black/15 pl-2.5">
+                      <li
+                        key={id}
+                        className={
+                          "border-l-2 pl-2.5 " +
+                          ((inThemes.get(id) ?? 0) > 1 ? "border-blue" : "border-black/15")
+                        }
+                      >
                         <span className="text-[12.5px] leading-[1.45]">{item?.text ?? id}</span>
+                        {(inThemes.get(id) ?? 0) > 1 && (
+                          <span className="ml-1.5 whitespace-nowrap rounded-[2px] bg-blue/15 px-1 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-blue">
+                            in {inThemes.get(id)} themes
+                          </span>
+                        )}
                         {item && (
                           <span className="mt-0.5 block text-[10.5px] uppercase tracking-[0.05em] text-muted">
                             from: {item.keyChange}
@@ -265,7 +286,7 @@ export function ImplicationClusterPanel({
           {result.ungrouped.length > 0 && (
             <details className="mt-2.5 rounded-[3px] border border-dashed border-black/25 p-2.5">
               <summary className="cursor-pointer list-none text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
-                ▸ Not in any theme ({result.ungrouped.length})
+                ▸ Outliers — in no theme ({result.ungrouped.length})
               </summary>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {result.ungrouped.map((id) => (

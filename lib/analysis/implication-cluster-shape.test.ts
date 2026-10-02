@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   reconcileLlmGroups,
+  membershipCounts,
+  secondaryMemberships,
   isClusterMethod,
   GROUPING_PRESETS,
   type ImplicationItem,
@@ -39,32 +41,36 @@ describe("reconcileLlmGroups", () => {
     expect(got.notes.join(" ")).toMatch(/Ignored 1 id .* not on this board/);
   });
 
-  it("keeps the first claim when two groups want the same implication", () => {
+  // The point of the change: an implication that speaks to two themes belongs in both.
+  it("lets one implication sit in several themes, without complaint", () => {
     const got = reconcileLlmGroups(items("a", "b", "c"), [
       group("First", "a", "b"),
       group("Second", "b", "c"),
     ]);
     expect(got.themes[0].memberIds).toEqual(["a", "b"]);
-    expect(got.themes[1].memberIds).toEqual(["c"]);
-    expect(got.notes.join(" ")).toMatch(/listed in more than one group/);
+    expect(got.themes[1].memberIds).toEqual(["b", "c"]);
+    expect(got.ungrouped).toEqual([]);
+    expect(got.notes).toEqual([]);
   });
 
-  it("de-duplicates an id repeated inside one group", () => {
+  it("still de-duplicates an id repeated inside ONE theme", () => {
     const got = reconcileLlmGroups(items("a", "b"), [group("Power", "a", "a", "b")]);
     expect(got.themes[0].memberIds).toEqual(["a", "b"]);
-    expect(got.notes.join(" ")).toMatch(/more than one group/);
+    expect(got.notes.join(" ")).toMatch(/Removed 1 repeat/);
   });
 
-  it("reports the implications the model never placed", () => {
+  // Outliers are a legitimate result, not a failure — the Week 3 tray holds unclustered
+  // cards indefinitely, so the suggestion tool must not be stricter than the board.
+  it("leaves outliers out without treating it as a correction", () => {
     const got = reconcileLlmGroups(items("a", "b", "c"), [group("Power", "a")]);
     expect(got.ungrouped).toEqual(["b", "c"]);
-    expect(got.notes.join(" ")).toMatch(/2 implications were not placed/);
+    expect(got.notes).toEqual([]);
   });
 
   it("drops a group left empty after cleaning", () => {
     const got = reconcileLlmGroups(items("a"), [group("Real", "a"), group("Hollow", "ghost")]);
     expect(got.themes.map((t) => t.label)).toEqual(["Real"]);
-    expect(got.notes.join(" ")).toMatch(/Dropped 1 group/);
+    expect(got.notes.join(" ")).toMatch(/Dropped 1 theme/);
   });
 
   it("names a group the model left unlabelled rather than rendering a blank heading", () => {
@@ -101,10 +107,9 @@ describe("reconcileLlmGroups", () => {
     expect(got.themes[0].summary).toHaveLength(240);
   });
 
-  // The guarantee the whole module exists for. An implication that silently disappears
-  // between the board and the facilitator's screen is the one outcome that must be
-  // impossible, whatever the model returns.
-  it("PROPERTY: every candidate lands in exactly one bucket, and nothing else does", () => {
+  // The guarantee that survives multi-membership: an implication may be in many themes or
+  // none, but it can never disappear, and nothing that is not on the board can appear.
+  it("PROPERTY: themes ∪ ungrouped always covers the board, and only the board", () => {
     const candidates = items("a", "b", "c", "d", "e", "f");
     const hostile: RawGroup[][] = [
       [],
@@ -119,13 +124,68 @@ describe("reconcileLlmGroups", () => {
 
     for (const rawGroups of hostile) {
       const got = reconcileLlmGroups(candidates, rawGroups);
-      const placed = [...got.themes.flatMap((t) => t.memberIds), ...got.ungrouped];
-      // Exactly once, each.
-      expect([...placed].sort()).toEqual(candidates.map((c) => c.id).sort());
-      expect(new Set(placed).size).toBe(placed.length);
-      // No group survives empty.
+      const all = candidates.map((c) => c.id).sort();
+      const covered = [
+        ...new Set([...got.themes.flatMap((t) => t.memberIds), ...got.ungrouped]),
+      ].sort();
+      // Nothing lost, nothing invented.
+      expect(covered).toEqual(all);
+      // No theme lists the same implication twice.
+      for (const t of got.themes) expect(new Set(t.memberIds).size).toBe(t.memberIds.length);
+      // ungrouped is exactly what no theme claimed — never overlaps a theme.
+      const inATheme = new Set(got.themes.flatMap((t) => t.memberIds));
+      expect(got.ungrouped.some((id) => inATheme.has(id))).toBe(false);
+      // No theme survives empty.
       expect(got.themes.every((t) => t.memberIds.length > 0)).toBe(true);
     }
+  });
+});
+
+describe("membershipCounts", () => {
+  it("counts how many themes each implication bridges", () => {
+    const { themes } = reconcileLlmGroups(items("a", "b", "c"), [
+      group("one", "a", "b"),
+      group("two", "b", "c"),
+      group("three", "b"),
+    ]);
+    const counts = membershipCounts(themes);
+    expect(counts.get("b")).toBe(3);
+    expect(counts.get("a")).toBe(1);
+    // An outlier is absent rather than zero — callers use `?? 0`.
+    expect(counts.get("nobody")).toBeUndefined();
+  });
+});
+
+describe("secondaryMemberships", () => {
+  // Two tight poles plus a bridge sitting between them.
+  const vec = (x: number, y: number) => [x, y];
+  const points = [
+    { id: "n1", vector: vec(1, 0) },
+    { id: "n2", vector: vec(0.99, 0.1) },
+    { id: "s1", vector: vec(0, 1) },
+    { id: "s2", vector: vec(0.1, 0.99) },
+    { id: "bridge", vector: vec(0.72, 0.69) },
+  ];
+  const clusters = [{ ids: ["n1", "n2"] }, { ids: ["s1", "s2"] }];
+
+  it("adds a bridging implication to the other theme too", () => {
+    const extra = secondaryMemberships(clusters, points, 0.7);
+    expect(extra[0]).toContain("bridge");
+    expect(extra[1]).toContain("bridge");
+  });
+
+  it("never re-lists an implication the theme already has", () => {
+    const extra = secondaryMemberships(clusters, points, -1);
+    expect(extra[0]).not.toContain("n1");
+    expect(extra[1]).not.toContain("s1");
+  });
+
+  it("adds nothing when the bar is above everything", () => {
+    expect(secondaryMemberships(clusters, points, 0.999)).toEqual([[], []]);
+  });
+
+  it("returns no extras for a cluster whose vectors are missing", () => {
+    expect(secondaryMemberships([{ ids: ["ghost"] }], points, -1)).toEqual([[]]);
   });
 });
 

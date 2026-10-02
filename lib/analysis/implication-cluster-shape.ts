@@ -1,3 +1,5 @@
+import { cosineSimilarity } from "./cluster";
+
 // Client-safe shaping for implication clustering. No server imports — safe in client
 // components, route handlers, and tests. The server side (embeddings + LLM calls) lives in
 // lib/analysis/implication-cluster.ts.
@@ -55,43 +57,52 @@ export function isClusterMethod(v: unknown): v is ClusterMethod {
 
 // Reconcile what the model said against what is actually on the board.
 //
-// This is the one genuinely unreliable step in the feature: everything else is arithmetic,
-// but a model asked to echo fifty ids can invent one, repeat one, or quietly forget one.
-// None of those may reach the caller, because each would mean an implication silently
-// vanishing from a facilitator's view of their own group's work.
+// Two things are deliberately ALLOWED, because a real group's material works this way:
 //
-// The guarantee, asserted as a property test: every candidate id appears EXACTLY ONCE
-// across themes ∪ ungrouped, and no id appears that was not a candidate. Corrections are
-// recorded in `notes` rather than made silently — if the model is dropping a third of the
-// board, the facilitator should be told, not shown a tidy result.
+//   • One implication in several themes. "Ten-year plans lock in the preferences of
+//     whoever was in the room in year one" is both a legitimacy theme and a planning
+//     theme. Forcing a single home throws that away and invents an arbitrary tie-break.
+//   • An implication in no theme at all. Outliers are real, and the Week 3 tray already
+//     lets a card sit unclustered indefinitely — the suggestion tool should not be
+//     stricter than the board it feeds.
+//
+// What is still corrected, because it is model error rather than intent: an id that is
+// not on this board, the same id twice inside ONE theme, and a theme left empty.
+//
+// The guarantee, asserted as a property test: every id appearing in any theme is a real
+// candidate, no theme lists the same id twice, and `ungrouped` is exactly the candidates
+// no theme claimed — so themes ∪ ungrouped always covers the whole board. An implication
+// can never silently vanish from a facilitator's view of their own group's work, which is
+// the one outcome that must stay impossible whatever the model returns.
 export function reconcileLlmGroups(
   candidates: ImplicationItem[],
   rawGroups: RawGroup[]
 ): { themes: SuggestedTheme[]; ungrouped: string[]; notes: string[] } {
   const known = new Set(candidates.map((c) => c.id));
-  const claimed = new Set<string>();
+  const claimedAnywhere = new Set<string>();
   const notes: string[] = [];
   let unknownCount = 0;
-  let duplicateCount = 0;
+  let repeatedInGroup = 0;
   let emptyGroups = 0;
 
   const themes: SuggestedTheme[] = [];
   for (const raw of rawGroups) {
     const ids = Array.isArray(raw.member_ids) ? raw.member_ids : [];
     const memberIds: string[] = [];
+    const seenHere = new Set<string>();
     for (const id of ids) {
       if (typeof id !== "string") continue;
       if (!known.has(id)) {
         unknownCount += 1;
         continue;
       }
-      // First group to claim an id keeps it — including against itself, which covers the
-      // same id listed twice inside one group.
-      if (claimed.has(id)) {
-        duplicateCount += 1;
+      // Only within THIS theme. Across themes is a legitimate answer, not a mistake.
+      if (seenHere.has(id)) {
+        repeatedInGroup += 1;
         continue;
       }
-      claimed.add(id);
+      seenHere.add(id);
+      claimedAnywhere.add(id);
       memberIds.push(id);
     }
 
@@ -109,28 +120,74 @@ export function reconcileLlmGroups(
     });
   }
 
-  const ungrouped = candidates.filter((c) => !claimed.has(c.id)).map((c) => c.id);
+  const ungrouped = candidates.filter((c) => !claimedAnywhere.has(c.id)).map((c) => c.id);
 
   if (unknownCount > 0) {
     notes.push(
       `Ignored ${unknownCount} id${unknownCount === 1 ? "" : "s"} the model returned that are not on this board.`
     );
   }
-  if (duplicateCount > 0) {
+  if (repeatedInGroup > 0) {
     notes.push(
-      `${duplicateCount} implication${duplicateCount === 1 ? " was" : "s were"} listed in more than one group; kept the first.`
+      `Removed ${repeatedInGroup} repeat${repeatedInGroup === 1 ? "" : "s"} of the same implication inside one theme.`
     );
   }
   if (emptyGroups > 0) {
-    notes.push(`Dropped ${emptyGroups} group${emptyGroups === 1 ? "" : "s"} with no implications left in it.`);
-  }
-  if (ungrouped.length > 0) {
-    notes.push(
-      `${ungrouped.length} implication${ungrouped.length === 1 ? "" : "s"} were not placed in any group.`
-    );
+    notes.push(`Dropped ${emptyGroups} theme${emptyGroups === 1 ? "" : "s"} with no implications in it.`);
   }
 
   return { themes, ungrouped, notes };
+}
+
+// How many themes each implication ended up in, so the panel can mark the ones that
+// bridge. A bridging implication is usually the interesting one in the room.
+export function membershipCounts(themes: SuggestedTheme[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const t of themes) {
+    for (const id of t.memberIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+// Agglomerative clustering is strictly partitional — clusterVectors puts every id in
+// exactly one cluster, by construction. That is the right answer for "which cluster does
+// this belong to most" and the wrong one for "which themes does this speak to", so this
+// adds a second pass: an implication also joins any OTHER theme whose centroid it sits at
+// least as close to as the threshold that built the themes in the first place.
+//
+// Without this the two methods would not be comparable — one could bridge and the other
+// could not, and the facilitator would read that as a difference in the material.
+//
+// `points` must be the SAME vectors the clustering saw (centered, if it centered), or the
+// centroids are computed in a different space from the one the threshold was tuned for.
+export function secondaryMemberships(
+  clusters: { ids: string[] }[],
+  points: { id: string; vector: number[] }[],
+  minSimilarity: number
+): string[][] {
+  const byId = new Map(points.map((p) => [p.id, p.vector]));
+
+  const centroids = clusters.map((c) => {
+    const vecs = c.ids.map((id) => byId.get(id)).filter((v): v is number[] => Boolean(v));
+    if (vecs.length === 0) return null;
+    const dim = vecs[0].length;
+    const mean = new Array<number>(dim).fill(0);
+    for (const v of vecs) for (let i = 0; i < dim; i++) mean[i] += v[i];
+    for (let i = 0; i < dim; i++) mean[i] /= vecs.length;
+    return mean;
+  });
+
+  return clusters.map((c, k) => {
+    const centroid = centroids[k];
+    if (!centroid) return [];
+    const already = new Set(c.ids);
+    const extra: string[] = [];
+    for (const p of points) {
+      if (already.has(p.id)) continue;
+      if (cosineSimilarity(p.vector, centroid) >= minSimilarity) extra.push(p.id);
+    }
+    return extra;
+  });
 }
 
 // The presets the panel offers for the embedding method. Centered cosine on a topical

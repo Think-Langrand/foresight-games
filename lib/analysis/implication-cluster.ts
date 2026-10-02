@@ -1,10 +1,12 @@
 import "server-only";
 
 import OpenAI from "openai";
-import { clusterVectors, type LabeledVector } from "./cluster";
+import { centerVectors, clusterVectors, type LabeledVector } from "./cluster";
 import { mapPool } from "./suggest";
 import {
+  GROUPING_PRESETS,
   reconcileLlmGroups,
+  secondaryMemberships,
   type ImplicationClusterResponse,
   type ImplicationItem,
   type RawGroup,
@@ -70,7 +72,8 @@ const GROUPS_SCHEMA = {
   properties: {
     groups: {
       type: "array",
-      description: "The themes. Every implication should appear in exactly one.",
+      description:
+        "The themes. An implication may appear in several, or in none if it is an outlier.",
       items: {
         type: "object",
         additionalProperties: false,
@@ -84,7 +87,9 @@ const GROUPS_SCHEMA = {
           summary: { type: "string", description: "One sentence on what these share." },
           member_ids: {
             type: "array",
-            description: "The ids of the implications in this theme, exactly as given.",
+            description:
+              "The ids of the implications in this theme, exactly as given. The same id may " +
+              "also appear in another theme if it genuinely belongs to both.",
             items: { type: "string" },
           },
         },
@@ -122,10 +127,14 @@ export async function clusterByLlm(
             "could be clustered into themes, so the group has somewhere to start rather than a " +
             "blank board.\n\n" +
             "Name each theme as a STATEMENT ABOUT CHANGE — 'Responsibility moves to communities " +
-            "faster than resources do', not 'Community capacity'. Put every implication in " +
-            "exactly one theme, and use the ids exactly as given. Aim for 3-6 themes unless the " +
-            "facilitator's criteria say otherwise. These are suggestions a group will argue " +
-            "with, so prefer a cut that is interesting and arguable over one that is safe.",
+            "faster than resources do', not 'Community capacity'. Use the ids exactly as given. " +
+            "Aim for 3-6 themes unless the facilitator's criteria say otherwise. These are " +
+            "suggestions a group will argue with, so prefer a cut that is interesting and " +
+            "arguable over one that is safe.\n\n" +
+            "An implication MAY belong to more than one theme — put it in every theme it " +
+            "genuinely speaks to, and do not force a choice where it bridges two. Equally, an " +
+            "implication that fits nothing well should be left out of every theme rather than " +
+            "pushed into the nearest one; outliers are useful to see.",
         },
         {
           role: "user",
@@ -261,11 +270,26 @@ export async function clusterByEmbedding(
     if (vectors.length < items.length) {
       notes.push(`${items.length - vectors.length} implications could not be embedded.`);
     }
-    const clusters = clusterVectors(vectors, { center: true, minSimilarity: opts.minSimilarity });
+    // Matches what the panel's "Balanced" preset sends, so an unset value behaves as the
+    // default the facilitator would otherwise have picked.
+    const minSim =
+      opts.minSimilarity ??
+      (GROUPING_PRESETS.find((p) => p.key === "balanced")?.minSimilarity ?? 0.1);
+    const clusters = clusterVectors(vectors, { center: true, minSimilarity: minSim });
 
     // Singletons get no LLM call — naming a cluster of one is just restating it, and it
     // would be one request per loose card.
     const multi = clusters.filter((c) => c.size > 1);
+
+    // Agglomerative clustering is partitional, so on its own it can never put an
+    // implication in two themes. Centered, because that is the space the threshold was
+    // tuned in and the space clusterVectors just worked in.
+    const centered = centerVectors(vectors);
+    const extras = secondaryMemberships(multi, centered, minSim);
+    const bridged = extras.reduce((n, e) => n + e.length, 0);
+    if (bridged > 0) {
+      notes.push(`${bridged} implication placement${bridged === 1 ? "" : "s"} are cards that also fit a second theme.`);
+    }
     const labels = await mapPool(multi, 3, (c) =>
       labelImplicationCluster(
         c.ids.map((id) => byId.get(id)).filter((x): x is ImplicationItem => Boolean(x)),
@@ -278,18 +302,17 @@ export async function clusterByEmbedding(
     const themes: SuggestedTheme[] = multi.map((c, i) => ({
       label: labels[i]?.label ?? "Unnamed group",
       summary: labels[i]?.summary ?? null,
-      memberIds: c.ids,
+      // Core members first, then the ones that also fit — so a theme still reads as the
+      // thing the clustering actually found.
+      memberIds: [...c.ids, ...extras[i]],
+      // Cohesion describes the core cluster, which is what it was computed from.
       cohesion: c.cohesion,
     }));
 
-    // Every id clusterVectors returned as a singleton, plus anything that failed to embed.
+    // Outliers: everything no theme took, which is a legitimate answer rather than a
+    // failure — a loose implication is worth seeing as loose.
     const placed = new Set(themes.flatMap((t) => t.memberIds));
     const ungrouped = items.filter((i) => !placed.has(i.id)).map((i) => i.id);
-    if (ungrouped.length > 0) {
-      notes.push(
-        `${ungrouped.length} implication${ungrouped.length === 1 ? "" : "s"} did not join a group at this setting.`
-      );
-    }
 
     return {
       ...base("embedding", items, criteria, `${EMBED_MODEL} + ${CHAT_MODEL}`),
