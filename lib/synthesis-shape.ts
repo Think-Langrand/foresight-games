@@ -666,6 +666,19 @@ export function implicationOrder(lineage: Week2Lineage | undefined): number | nu
   return lineage.chain.length - 1;
 }
 
+// A key change is a whole sentence — "DECENTRALIZATION: Public health is hyperlocal,
+// posing limits to coordination and state and national strategizing." — and a filter chip
+// has room for a few words. Week 2's key changes are conventionally written with a
+// SHOUTED topic before a colon, so that prefix is the label the group already uses for it.
+// Where there is no colon, or the prefix is itself a sentence, fall back to a truncation
+// rather than inventing a name the group would not recognise.
+export function keyChangeLabel(text: string, max = 28): string {
+  const t = (text ?? "").trim();
+  const colon = t.indexOf(":");
+  if (colon > 0 && colon <= max) return t.slice(0, colon).trim();
+  return t.length <= max ? t : t.slice(0, max - 1).trimEnd() + "…";
+}
+
 export function ordinal(n: number): string {
   const rem100 = n % 100;
   if (rem100 >= 11 && rem100 <= 13) return `${n}th`;

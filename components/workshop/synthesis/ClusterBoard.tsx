@@ -7,6 +7,7 @@ import {
   implicationKey,
   implicationOrder,
   insertionPoint,
+  keyChangeLabel,
   ordinal,
   twinIndex,
   type SynthesisBoard,
@@ -27,6 +28,17 @@ import {
 // than as text printed on it — the theme box is lime, its well is near-white, and a card
 // needs to be neither.
 const CARD_BG = "#efeade";
+
+// One fill per order, so the distance from the key change is a colour rather than a number
+// you have to read. Tinted rather than solid: the card's own text has to stay the loudest
+// thing on it, and these sit on the near-white card ground.
+const ORDER_TINT: Record<number | "deep", string> = {
+  1: "bg-lime",
+  2: "bg-blue/25",
+  3: "bg-coral/30",
+  4: "bg-black/12",
+  deep: "bg-black/12",
+};
 
 // STEP 1 — cluster Week 2's implications into themes.
 //
@@ -119,6 +131,9 @@ export function ClusterBoard({
   const [picked, setPicked] = useState<Set<string>>(new Set());
   // Show only implications this many steps out from their key change. null = all.
   const [orderFilter, setOrderFilter] = useState<number | null>(null);
+  // Show only implications from one key change. Independent of the order filter; both
+  // narrow the TRAY and neither touches what is already in a theme.
+  const [keyFilter, setKeyFilter] = useState<string | null>(null);
   const togglePicked = (id: string) =>
     setPicked((prev) => {
       const next = new Set(prev);
@@ -266,18 +281,34 @@ export function ClusterBoard({
   // The tray by order, so the filter can be built and labelled from one pass. A card typed
   // here by hand has no Week 2 ancestry and so no order; it is always shown, because
   // hiding something a filter cannot describe is worse than a slightly longer list.
-  const orderOf = (c: RippleCard) =>
-    implicationOrder(lineage[c.sourceCardId ?? twins.get(implicationKey(c))?.sourceCardId ?? ""]);
+  const lineageOf = (c: RippleCard) =>
+    lineage[c.sourceCardId ?? twins.get(implicationKey(c))?.sourceCardId ?? ""];
+  const orderOf = (c: RippleCard) => implicationOrder(lineageOf(c));
+  const keyOf = (c: RippleCard) => lineageOf(c)?.keyChange ?? null;
+
+  // Each filter's counts are taken with the OTHER filter already applied, so a chip's
+  // number is what you would actually get by pressing it. Counting both against the whole
+  // tray would show "3rd 68" next to a key change that has four.
+  const matchesOrder = (c: RippleCard) => orderFilter === null || orderOf(c) === orderFilter;
+  const matchesKey = (c: RippleCard) => keyFilter === null || keyOf(c) === keyFilter;
+
   const orderCounts = new Map<number, number>();
-  for (const c of board.unclustered) {
+  for (const c of board.unclustered.filter(matchesKey)) {
     const o = orderOf(c);
     if (o !== null) orderCounts.set(o, (orderCounts.get(o) ?? 0) + 1);
   }
   const orders = [...orderCounts.keys()].sort((a, b) => a - b);
-  const tray =
-    orderFilter === null
-      ? board.unclustered
-      : board.unclustered.filter((c) => orderOf(c) === orderFilter);
+
+  const keyCounts = new Map<string, number>();
+  for (const c of board.unclustered.filter(matchesOrder)) {
+    const k = keyOf(c);
+    if (k) keyCounts.set(k, (keyCounts.get(k) ?? 0) + 1);
+  }
+  // Only key changes the group actually mapped under. On the real Group 1 board three of
+  // the six have no implications at all, and a chip reading "0" is just noise.
+  const keyChanges = [...keyCounts.keys()].sort();
+
+  const tray = board.unclustered.filter((c) => matchesOrder(c) && matchesKey(c));
 
   const renderCard = (
     card: RippleCard,
@@ -332,24 +363,6 @@ export function ClusterBoard({
             />
           </div>
 
-          {/* How far from the key change this sits. First-order is a direct consequence
-              and reads strongest; the further out, the quieter — a group should be able to
-              see at a glance that a theme is built mostly from speculation. */}
-          {order !== null && (
-            <span
-              title={`${ordinal(order)}-order implication — ${order} step${order === 1 ? "" : "s"} from its key change`}
-              className={
-                "shrink-0 rounded-[2px] px-1 py-px text-[9px] font-bold uppercase tracking-[0.06em] " +
-                (order === 1
-                  ? "bg-ink text-paper"
-                  : order === 2
-                    ? "bg-black/15 text-ink"
-                    : "border border-black/20 text-muted")
-              }
-            >
-              {ordinal(order)}
-            </span>
-          )}
           {editable &&
             (merging ? (
               <button
@@ -438,6 +451,22 @@ export function ClusterBoard({
             <span aria-hidden>⧉</span>
             Also in {inThemes - 1} other theme{inThemes === 2 ? "" : "s"}
           </div>
+        )}
+
+        {/* How far from the key change this sits, parked in the corner so it reads as a
+            stamp on the card rather than another thing to read. Each order gets its own
+            fill: a group should be able to see from across the room that a theme is built
+            mostly from third-order speculation. */}
+        {order !== null && (
+          <span
+            title={`${ordinal(order)}-order implication — ${order} step${order === 1 ? "" : "s"} from its key change`}
+            className={
+              "pointer-events-none absolute bottom-1 right-1 rounded-[2px] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-ink " +
+              (ORDER_TINT[order] ?? ORDER_TINT.deep)
+            }
+          >
+            {ordinal(order)}
+          </span>
         )}
 
         {/* Where it came from, folded away. Absent for a card typed here by hand, for a
@@ -581,6 +610,32 @@ export function ClusterBoard({
                     }
                   >
                     {o === null ? "All" : ordinal(o)} {n}
+                  </button>
+                );
+              })}
+            </span>
+          )}
+          {keyChanges.length > 1 && (
+            <span className="flex flex-wrap items-center gap-1">
+              {[null, ...keyChanges].map((k) => {
+                const on = keyFilter === k;
+                const n = k === null ? board.unclustered.filter(matchesOrder).length : (keyCounts.get(k) ?? 0);
+                return (
+                  <button
+                    key={k ?? "all-keys"}
+                    onClick={() => setKeyFilter(k)}
+                    aria-pressed={on}
+                    title={k ?? "Every key change"}
+                    className={
+                      // No truncation here: keyChangeLabel already caps the label, and
+                      // clipping it also clipped the count, which is the half worth reading.
+                      "whitespace-nowrap rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
+                      (on
+                        ? "border-blue bg-blue text-white"
+                        : "border-[var(--rule)] bg-paper text-muted hover:border-blue hover:text-ink")
+                    }
+                  >
+                    {k === null ? "Any key change" : keyChangeLabel(k)} {n}
                   </button>
                 );
               })}

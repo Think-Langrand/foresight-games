@@ -26,6 +26,7 @@ import {
   readingProgress,
   implicationOrder,
   ordinal,
+  keyChangeLabel,
 } from "./synthesis-shape";
 
 function card(
@@ -1117,5 +1118,36 @@ describe("implicationOrder / ordinal", () => {
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23].map(ordinal)).toEqual([
       "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd",
     ]);
+  });
+});
+
+describe("keyChangeLabel", () => {
+  it("uses the shouted topic before the colon, which is what the group calls it", () => {
+    expect(
+      keyChangeLabel("DECENTRALIZATION: Public health is hyperlocal, posing limits to coordination.")
+    ).toBe("DECENTRALIZATION");
+    expect(keyChangeLabel("FUNDING and BUDGET: Key local services are protected.")).toBe(
+      "FUNDING and BUDGET"
+    );
+  });
+
+  it("truncates when there is no colon to use", () => {
+    // 19 characters plus the ellipsis, so the chip width is predictable.
+    expect(keyChangeLabel("Power moves to community members over a long period", 20)).toBe(
+      "Power moves to comm…"
+    );
+  });
+
+  it("ignores a colon that arrives too late to be a label", () => {
+    const late = "A very long preamble indeed before any colon: and then the rest";
+    expect(keyChangeLabel(late, 20)).toBe("A very long preambl…");
+  });
+
+  it("leaves a short key change alone", () => {
+    expect(keyChangeLabel("Funding is stable")).toBe("Funding is stable");
+  });
+
+  it("survives empty text", () => {
+    expect(keyChangeLabel("")).toBe("");
   });
 });
