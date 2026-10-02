@@ -21,6 +21,9 @@ import {
   implicationKey,
   twinIndex,
   themeCountFor,
+  READING_FIELDS,
+  readingsFor,
+  readingProgress,
 } from "./synthesis-shape";
 
 function card(
@@ -534,6 +537,8 @@ describe("indexSynthesisBoard — partition property", () => {
     ...[...b.tensions.values()].flat(),
     ...[...b.chains.values()].flat(),
     ...[...b.assumptions.values()].flat(),
+    ...[...b.readings.values()].flat(),
+    ...[...b.readingFields.values()].flat(),
   ];
 
   const messyBoard = () => [
@@ -553,6 +558,15 @@ describe("indexSynthesisBoard — partition property", () => {
     card("LOOSERISK", "FIRST", null, 14, { cardKind: "risk" }),
     card("LOOSEASSUME", "SECOND", "TH1", 15, { cardKind: "assumption" }),
     card("GHOSTPARENT", "SECOND", "missing", 16),
+    // Step 2's readings, including the ones that must end up orphaned: a field whose
+    // reading hangs off nothing, and a reading hung off an implication.
+    card("RD1", "SECOND", "TH1", 18, { cardKind: "reading" }),
+    card("RF1", "TERMINAL", "RD1", 19, { cardKind: "experience" }),
+    card("RF2", "TERMINAL", "RD1", 20, { cardKind: "mechanism" }),
+    card("LOOSEREADING", "FIRST", null, 21, { cardKind: "reading" }),
+    card("READINGONIMPL", "TERMINAL", "I1", 22, { cardKind: "reading" }),
+    card("ORPHANFIELD", "TERMINAL", "READINGONIMPL", 23, { cardKind: "question" }),
+    card("LOOSEFIELD", "SECOND", "TH1", 24, { cardKind: "assumed_role" }),
     card("N1", "STICKY", null, 17, { section: "synthesis-sandbox" }),
   ];
 
@@ -992,5 +1006,78 @@ describe("twinIndex / implicationKey / themeCountFor", () => {
 
   it("returns an empty index for an empty board", () => {
     expect(twinIndex(indexSynthesisBoard([])).size).toBe(0);
+  });
+});
+
+describe("step 2 readings — placement, shaping and progress", () => {
+  const full = (seq = 0) => [
+    theme("TH", 1 + seq),
+    card("RD", "SECOND", "TH", 2, { cardKind: "reading", text: "A team considers a commitment" }),
+    card("EX", "TERMINAL", "RD", 3, { cardKind: "experience", text: "Teams could sustain prevention" }),
+    card("ME", "TERMINAL", "RD", 4, { cardKind: "mechanism", text: "Stable funding creates room" }),
+    card("AR", "TERMINAL", "RD", 5, { cardKind: "assumed_role", text: "We imagine a steward" }),
+    card("QU", "TERMINAL", "RD", 6, { cardKind: "question", text: "How would we justify priorities" }),
+  ];
+
+  it("puts a reading on a theme and its fields on the reading", () => {
+    expect(placementError("reading", "theme")).toBeNull();
+    for (const f of READING_FIELDS) expect(placementError(f, "reading")).toBeNull();
+  });
+
+  it("refuses a reading anywhere but a theme", () => {
+    expect(placementError("reading", undefined)).toMatch(/belongs on a theme/);
+    expect(placementError("reading", null)).toMatch(/belongs on a theme/);
+    expect(placementError("reading", "hope")).toMatch(/belongs on a theme/);
+  });
+
+  it("refuses a field anywhere but a reading", () => {
+    for (const f of READING_FIELDS) {
+      expect(placementError(f, "theme")).toMatch(/belongs on a reading/);
+      expect(placementError(f, undefined)).toMatch(/belongs on a reading/);
+    }
+  });
+
+  it("keys a reading's fields by kind, with the example on the reading itself", () => {
+    const got = readingsFor(indexSynthesisBoard(full()), "TH");
+    expect(got).toHaveLength(1);
+    expect(got[0].card.text).toBe("A team considers a commitment");
+    expect(got[0].fields.experience?.id).toBe("EX");
+    expect(got[0].fields.question?.id).toBe("QU");
+  });
+
+  it("keeps the first card when a kind somehow appears twice", () => {
+    const got = readingsFor(
+      indexSynthesisBoard([
+        ...full(),
+        card("EX2", "TERMINAL", "RD", 7, { cardKind: "experience", text: "later" }),
+      ]),
+      "TH"
+    );
+    expect(got[0].fields.experience?.id).toBe("EX");
+  });
+
+  it("is done only once a reading has its example and all four answers", () => {
+    expect(readingProgress(indexSynthesisBoard(full()), "TH")).toBe("done");
+  });
+
+  it("is started while a reading is part-written", () => {
+    const partial = full().filter((c) => c.id !== "QU");
+    expect(readingProgress(indexSynthesisBoard(partial), "TH")).toBe("started");
+  });
+
+  it("is started when the four answers exist but the example is blank", () => {
+    const blank = full().map((c) => (c.id === "RD" ? { ...c, text: "   " } : c));
+    expect(readingProgress(indexSynthesisBoard(blank), "TH")).toBe("started");
+  });
+
+  it("is empty with no readings at all", () => {
+    expect(readingProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
+  });
+
+  // A theme worked twice: one abandoned reading, one finished. The step is done.
+  it("is done when any one reading is complete", () => {
+    const two = [...full(), card("RD2", "SECOND", "TH", 8, { cardKind: "reading", text: "another" })];
+    expect(readingProgress(indexSynthesisBoard(two), "TH")).toBe("done");
+    expect(readingsFor(indexSynthesisBoard(two), "TH")).toHaveLength(2);
   });
 });

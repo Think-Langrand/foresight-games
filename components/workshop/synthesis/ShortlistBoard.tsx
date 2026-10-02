@@ -72,7 +72,7 @@ export function ShortlistBoard({
           onClick={onGoToStakes}
           className="mt-3 rounded-[2px] border border-ink bg-lime px-4 py-2 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep"
         >
-          ← Go to What&rsquo;s at Stake
+          ← Go to Explore themes
         </button>
       </div>
     );

@@ -149,7 +149,25 @@ export const CARD_DESCRIPTION_MAX = 1000;
 // A Week 3 theme carries implication children AND hope/fear children at the SAME depth,
 // so this column is the only thing separating the two. Plain text with no CHECK
 // constraint (see the card_order note above) — THIS list is the source of truth.
-export const CARD_KINDS = ["theme", "hope", "fear", "risk", "opportunity", "tension", "assumption"] as const;
+// `reading` and its four fields are Week 3 step 2: one way of reading a theme — a concrete
+// example (the reading's own text) and the four questions asked of it. A theme can carry
+// several readings. `risk`/`opportunity`/`tension` are step 2's previous shape; they are no
+// longer offered but every kind stays here, because a kind is the permanent link to every
+// card ever written under it.
+export const CARD_KINDS = [
+  "theme",
+  "hope",
+  "fear",
+  "risk",
+  "opportunity",
+  "tension",
+  "assumption",
+  "reading",
+  "experience",
+  "mechanism",
+  "assumed_role",
+  "question",
+] as const;
 export type CardKind = (typeof CARD_KINDS)[number];
 
 const CARD_KIND_SET = new Set<string>(CARD_KINDS);

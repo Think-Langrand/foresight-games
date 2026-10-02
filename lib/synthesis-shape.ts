@@ -32,6 +32,17 @@ export function isStake(kind: CardKind | null): kind is StakeKind {
   return kind !== null && STAKE_SET.has(kind);
 }
 
+// Step 2's four questions about one reading of a theme. The reading's own `text` carries
+// the concrete example they are all asked about, which is why the example is not a kind of
+// its own — it IS the reading.
+export const READING_FIELDS = ["experience", "mechanism", "assumed_role", "question"] as const;
+export type ReadingField = (typeof READING_FIELDS)[number];
+const READING_FIELD_SET = new Set<string>(READING_FIELDS);
+
+export function isReadingField(kind: CardKind | null): kind is ReadingField {
+  return kind !== null && READING_FIELD_SET.has(kind);
+}
+
 // A hope's flip side is a fear, and the other way round. This drives the ＋ affordance's
 // label and the kind it posts, so the alternation rule lives in exactly one place.
 export function flipOf(kind: HopeFear): HopeFear {
@@ -68,6 +79,15 @@ export function placementError(
         ? null
         : "An assumption belongs on a hope or a fear.";
 
+    case "reading":
+      return parentKind === "theme" ? null : "A reading belongs on a theme.";
+
+    case "experience":
+    case "mechanism":
+    case "assumed_role":
+    case "question":
+      return parentKind === "reading" ? null : "That belongs on a reading.";
+
     case "hope":
     case "fear":
       if (root) return "Hopes and fears belong on a theme.";
@@ -99,6 +119,8 @@ export interface SynthesisBoard {
   risks: Map<string, RippleCard[]>; // themeId → its risk cards
   opportunities: Map<string, RippleCard[]>; // themeId → its opportunity cards
   tensions: Map<string, RippleCard[]>; // themeId → its surprises & disagreements
+  readings: Map<string, RippleCard[]>; // themeId → its readings (step 2)
+  readingFields: Map<string, RippleCard[]>; // readingId → its four field cards
   chains: Map<string, RippleCard[]>; // parentId → its hope/fear children
   assumptions: Map<string, RippleCard[]>; // hope/fear id → the assumptions under it
   chainDepth: Map<string, number>; // theme = 0, hope/fear = 1, 2, …
@@ -124,6 +146,8 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
   const risks = new Map<string, RippleCard[]>();
   const opportunities = new Map<string, RippleCard[]>();
   const tensions = new Map<string, RippleCard[]>();
+  const readings = new Map<string, RippleCard[]>();
+  const readingFields = new Map<string, RippleCard[]>();
   const chains = new Map<string, RippleCard[]>();
   const assumptions = new Map<string, RippleCard[]>();
 
@@ -170,6 +194,17 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
         if (c.parentId) push(assumptions, c.parentId, c);
         else orphans.push(c);
         break;
+      case "reading":
+        // A reading reads one theme; parentless it reads nothing.
+        stake(readings, c);
+        break;
+      case "experience":
+      case "mechanism":
+      case "assumed_role":
+      case "question":
+        if (c.parentId) push(readingFields, c.parentId, c);
+        else orphans.push(c);
+        break;
       case null:
         // A plain implication: in the tray, or clustered under a theme.
         if (c.parentId === null) unclustered.push(c);
@@ -187,7 +222,16 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
   const byOrder = (a: RippleCard, b: RippleCard) =>
     a.sort - b.sort || a.createdTime.localeCompare(b.createdTime);
   for (const arr of [themes, unclustered, parked]) arr.sort(byOrder);
-  for (const map of [clusters, risks, opportunities, tensions, chains, assumptions]) {
+  for (const map of [
+    clusters,
+    risks,
+    opportunities,
+    tensions,
+    readings,
+    readingFields,
+    chains,
+    assumptions,
+  ]) {
     for (const arr of map.values()) arr.sort(byOrder);
   }
 
@@ -226,7 +270,12 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
     for (const c of arr) if (chainDepth.has(c.id)) liveChainCard.add(c.id);
   }
   sweep(assumptions, (id) => liveChainCard.has(id));
-  for (const map of [risks, opportunities, tensions]) sweep(map, (id) => liveTheme.has(id));
+  for (const map of [risks, opportunities, tensions, readings]) sweep(map, (id) => liveTheme.has(id));
+  // A field hangs off a READING, never off a theme. Readings have just been swept, so this
+  // has to run after them — a field under a reading that was itself orphaned is orphaned.
+  const liveReading = new Set<string>();
+  for (const arr of readings.values()) for (const c of arr) liveReading.add(c.id);
+  sweep(readingFields, (id) => liveReading.has(id));
   orphans.sort(byOrder);
 
   return {
@@ -236,6 +285,8 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
     risks,
     opportunities,
     tensions,
+    readings,
+    readingFields,
     chains,
     assumptions,
     chainDepth,
@@ -427,6 +478,41 @@ export function stakeProgress(board: SynthesisBoard, themeId: string): ThemeProg
   if (risks > 0 && opportunities > 0) return "done";
   if (risks + opportunities + tensions > 0) return "started";
   return "empty";
+}
+
+// One reading of a theme: the concrete example (the reading card's own text) and whichever
+// of the four questions have been answered, keyed by kind so no caller has to go hunting
+// through the children for the one it wants.
+export interface ThemeReading {
+  card: RippleCard; // its `text` is the concrete example
+  fields: Partial<Record<ReadingField, RippleCard>>;
+}
+
+export function readingsFor(board: SynthesisBoard, themeId: string): ThemeReading[] {
+  return (board.readings.get(themeId) ?? []).map((card) => {
+    const fields: Partial<Record<ReadingField, RippleCard>> = {};
+    for (const f of board.readingFields.get(card.id) ?? []) {
+      // First wins. A second card of one kind is a duplicate the UI never creates; keeping
+      // the earlier one means a stray never displaces what the group actually wrote.
+      if (isReadingField(f.cardKind) && !fields[f.cardKind]) fields[f.cardKind] = f;
+    }
+    return { card, fields };
+  });
+}
+
+// Step 2 is done when the theme has at least one reading that is actually filled in: a
+// concrete example AND all four questions answered. A half-written reading is "started" —
+// the step exists to make a group work a theme all the way through, so three of four is
+// not finished.
+export function readingProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
+  const readings = readingsFor(board, themeId);
+  if (readings.length === 0) return "empty";
+  const complete = readings.some(
+    (r) =>
+      r.card.text.trim().length > 0 &&
+      READING_FIELDS.every((f) => (r.fields[f]?.text ?? "").trim().length > 0)
+  );
+  return complete ? "done" : "started";
 }
 
 // Step 3 is done when the theme has both a hope and a fear AND every card on it says why
