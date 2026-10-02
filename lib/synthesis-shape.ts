@@ -502,6 +502,58 @@ export function shortlistCounts(board: SynthesisBoard): {
   return { risks, opportunities, assumptions };
 }
 
+// --- One implication in several themes (0023) --------------------------------
+//
+// Clustering is not a partition: an implication can genuinely belong to more than one
+// theme, and a group forced to pick one loses that reading. A copy is an ordinary card
+// parented to its theme; copies of one implication share a `twinKey`.
+//
+// `twinKey ?? id` means a card that has never been copied is simply its own group of one,
+// so nothing had to be backfilled and every call site can treat identity uniformly.
+export function implicationKey(card: RippleCard): string {
+  return card.twinKey ?? card.id;
+}
+
+export interface TwinInfo {
+  key: string;
+  cards: RippleCard[]; // every copy, tray and themed
+  themeIds: string[]; // the themes it sits in, in board order; empty while it is in the tray
+  // Only the seeded original carries the Week 2 link — a copy is written with a null
+  // sourceCardId so it stays out of 0018's unique constraint. The lineage disclosure
+  // follows the twin to whichever copy does hold it, so every copy can still say where it
+  // came from.
+  sourceCardId: string | null;
+}
+
+// Every implication on the board, by identity. One pass; callers index into it per card
+// while rendering rather than re-scanning.
+export function twinIndex(board: SynthesisBoard): Map<string, TwinInfo> {
+  const out = new Map<string, TwinInfo>();
+  const add = (card: RippleCard, themeId: string | null) => {
+    const key = implicationKey(card);
+    const found = out.get(key);
+    const info = found ?? { key, cards: [], themeIds: [], sourceCardId: null };
+    if (!found) out.set(key, info);
+    info.cards.push(card);
+    if (themeId && !info.themeIds.includes(themeId)) info.themeIds.push(themeId);
+    if (!info.sourceCardId && card.sourceCardId) info.sourceCardId = card.sourceCardId;
+  };
+
+  for (const c of board.unclustered) add(c, null);
+  // Theme order, so "in 3 themes" lists them the way the board reads.
+  for (const theme of board.themes) {
+    for (const c of board.clusters.get(theme.id) ?? []) add(c, theme.id);
+  }
+  return out;
+}
+
+// How many themes hold a copy of this card's implication. 1 is the ordinary case; 0 means
+// it is still in the tray. The UI marks anything above 1 — the group should be able to see
+// where it has doubled up without reading every column.
+export function themeCountFor(index: Map<string, TwinInfo>, card: RippleCard): number {
+  return index.get(implicationKey(card))?.themeIds.length ?? 0;
+}
+
 // --- Week 2 lineage ----------------------------------------------------------
 // What the hopes & fears drill-in shows beside each clustered implication: the chain it
 // was part of back in Week 2, and the key change at the head of it.

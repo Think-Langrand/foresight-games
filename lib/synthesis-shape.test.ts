@@ -18,6 +18,9 @@ import {
   oppositeOf,
   themeDossierCounts,
   assumptionLedger,
+  implicationKey,
+  twinIndex,
+  themeCountFor,
 } from "./synthesis-shape";
 
 function card(
@@ -47,6 +50,7 @@ function card(
     parked: false,
     description: null,
     shortlisted: false,
+    twinKey: null,
     createdTime: `2026-01-01T00:00:${String(seq).padStart(2, "0")}Z`,
     ...extra,
   };
@@ -930,5 +934,63 @@ describe("hopesProgress", () => {
         card("F", "TERMINAL", "H", 3, { cardKind: "fear", ...why })
       )
     ).toBe("done");
+  });
+});
+
+describe("twinIndex / implicationKey / themeCountFor", () => {
+  // TH1 and TH2 each hold a copy of one implication (twin "T"); I2 sits only in TH1;
+  // I3 is still in the tray.
+  const cards = () => [
+    theme("TH1", 1, { sort: 1000 }),
+    theme("TH2", 2, { sort: 2000 }),
+    card("C1", "SECOND", "TH1", 3, { twinKey: "T", sourceCardId: "W2-CARD" }),
+    card("C2", "SECOND", "TH2", 4, { twinKey: "T" }),
+    card("I2", "SECOND", "TH1", 5),
+    card("I3", "FIRST", null, 6),
+  ];
+
+  it("treats a card with no twin as its own group of one", () => {
+    const b = indexSynthesisBoard(cards());
+    const idx = twinIndex(b);
+    expect(implicationKey(b.clusters.get("TH1")!.find((c) => c.id === "I2")!)).toBe("I2");
+    expect(idx.get("I2")?.themeIds).toEqual(["TH1"]);
+  });
+
+  it("gathers copies of one implication under a single key, in board order", () => {
+    const idx = twinIndex(indexSynthesisBoard(cards()));
+    const info = idx.get("T");
+    expect(info?.cards.map((c) => c.id).sort()).toEqual(["C1", "C2"]);
+    expect(info?.themeIds).toEqual(["TH1", "TH2"]);
+  });
+
+  // A copy is written with a null sourceCardId so it stays out of 0018's unique
+  // constraint; it still has to be able to say where it came from.
+  it("carries the Week 2 link from whichever copy holds it", () => {
+    const idx = twinIndex(indexSynthesisBoard(cards()));
+    expect(idx.get("T")?.sourceCardId).toBe("W2-CARD");
+  });
+
+  it("counts the themes a card's implication appears in", () => {
+    const b = indexSynthesisBoard(cards());
+    const idx = twinIndex(b);
+    const c1 = b.clusters.get("TH1")!.find((c) => c.id === "C1")!;
+    const i2 = b.clusters.get("TH1")!.find((c) => c.id === "I2")!;
+    expect(themeCountFor(idx, c1)).toBe(2);
+    expect(themeCountFor(idx, i2)).toBe(1);
+    // Still in the tray: in no theme at all.
+    expect(themeCountFor(idx, b.unclustered[0])).toBe(0);
+  });
+
+  it("does not double-count two copies that ended up in the same theme", () => {
+    const b = indexSynthesisBoard([
+      theme("TH1", 1),
+      card("C1", "SECOND", "TH1", 2, { twinKey: "T" }),
+      card("C2", "SECOND", "TH1", 3, { twinKey: "T" }),
+    ]);
+    expect(twinIndex(b).get("T")?.themeIds).toEqual(["TH1"]);
+  });
+
+  it("returns an empty index for an empty board", () => {
+    expect(twinIndex(indexSynthesisBoard([])).size).toBe(0);
   });
 });

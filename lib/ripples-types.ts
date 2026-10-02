@@ -325,6 +325,9 @@ export interface RippleCard {
   // Picked out for the committee in Week 3's final step (0022). Only risks and
   // opportunities can carry it.
   shortlisted: boolean;
+  // Groups copies of one implication living in several themes (0023). The implication's
+  // identity is `twinKey ?? id`, so a card with no twin is its own group of one.
+  twinKey: string | null;
   createdTime: string;
 }
 

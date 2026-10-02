@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
-import { addCard, getPlayerByParticipant, getRippleCard } from "@/lib/ripples";
+import {
+  addCard,
+  getPlayerByParticipant,
+  getRippleCard,
+  listBoardCards,
+  setCardTwinKey,
+} from "@/lib/ripples";
 import {
   CARD_DESCRIPTION_MAX,
   CARD_TEXT_MAX,
@@ -35,6 +41,9 @@ export async function POST(
     section?: string | null; // worksheet area key (STICKY only); null = default board
     cardKind?: string | null; // Week 3: theme / hope / fear / risk / opportunity / …
     description?: string | null; // optional longer note, set at creation
+    // Week 3: put an implication that is already on this board into ANOTHER theme too.
+    // Its text is read from the original, never from the client.
+    copyOfCardId?: string | null;
   } = {};
   try {
     body = await req.json();
@@ -89,8 +98,14 @@ export async function POST(
       );
     }
 
+    // A copy carries no text of its own — it is read from the original below, so that two
+    // cards showing one implication can never drift apart by being typed twice.
+    const copyOfId =
+      typeof body.copyOfCardId === "string" && body.copyOfCardId.length > 0
+        ? body.copyOfCardId
+        : null;
     const text = (body.text ?? "").trim();
-    if (text.length < 1 || text.length > CARD_TEXT_MAX) {
+    if ((!copyOfId && text.length < 1) || text.length > CARD_TEXT_MAX) {
       return NextResponse.json(
         { error: `Card text must be 1–${CARD_TEXT_MAX} characters.` },
         { status: 400 }
@@ -158,6 +173,49 @@ export async function POST(
     const misplaced = placementError(kind, parentKind);
     if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });
 
+    // --- an implication in a second theme (0023) ---------------------------------
+    //
+    // Clustering is not a partition. A copy is an ordinary card parented to its theme;
+    // what ties it to its siblings is the shared twin key. It is written with a NULL
+    // source_card_id on purpose, so it stays out of 0018's unique (code, source_card_id)
+    // and admin seeding keeps working exactly as it does today — the lineage disclosure
+    // follows the twin to whichever copy holds the Week 2 link.
+    let twinKey: string | null = null;
+    let copyText: string | null = null;
+    if (copyOfId) {
+      const original = await getRippleCard(session.code, copyOfId);
+      if (!original || original.teamId !== player.teamId) {
+        return NextResponse.json({ error: "That card isn't on this board." }, { status: 400 });
+      }
+      // Only plain implications travel. A theme is the container, and a hope or fear is
+      // written about one theme in particular — neither is the same thing in two places.
+      if (original.cardKind !== null) {
+        return NextResponse.json(
+          { error: "Only an implication can be in more than one theme." },
+          { status: 400 }
+        );
+      }
+      if (parentKind !== "theme") {
+        return NextResponse.json({ error: "Copy it into a theme." }, { status: 400 });
+      }
+      const key = original.twinKey ?? original.id;
+      const siblings = (await listBoardCards(session.code)).filter(
+        (c) => (c.twinKey ?? c.id) === key
+      );
+      // Guard the accident the group would otherwise have to spot by eye.
+      if (siblings.some((c) => c.parentId === parentId)) {
+        return NextResponse.json(
+          { error: "That implication is already in this theme." },
+          { status: 409 }
+        );
+      }
+      // The original carries no key until it is first copied, so stamp it once. Doing it
+      // before the insert means a failure here leaves no half-linked pair behind.
+      if (!original.twinKey) await setCardTwinKey(session.code, original.id, key);
+      twinKey = key;
+      copyText = original.text;
+    }
+
     const card = await addCard({
       sessionId: session.id,
       code: session.code,
@@ -165,12 +223,13 @@ export async function POST(
       authorPlayerId: player.id,
       order,
       parentId,
-      text,
+      text: copyText ?? text,
       sort: typeof body.sort === "number" ? body.sort : 0,
       // A worksheet buckets sticky cards into named areas; tree cards have no section.
       section: order === "STICKY" && typeof body.section === "string" ? body.section : null,
       cardKind: kind,
       description,
+      twinKey,
     });
     return NextResponse.json({ card });
   } catch (err) {

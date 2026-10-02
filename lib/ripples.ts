@@ -61,6 +61,7 @@ interface CardRow {
   parked: boolean | null;
   description: string | null;
   shortlisted: boolean | null;
+  twin_key: string | null;
   created_at: string;
 }
 interface ChipRow {
@@ -110,6 +111,7 @@ function mapCard(r: CardRow): RippleCard {
     parked: r.parked === true,
     description: r.description ?? null,
     shortlisted: r.shortlisted === true,
+    twinKey: r.twin_key ?? null,
     sort: r.sort ?? 0,
     section: r.section ?? null,
     sourceCardId: r.source_card_id ?? null,
@@ -486,6 +488,8 @@ export async function addCard(input: {
   section?: string | null; // worksheet area key (STICKY only)
   cardKind?: CardKind | null; // Week 3: theme / hope / fear. null = a plain implication.
   description?: string | null;
+  // Groups copies of one implication living in several themes (0023).
+  twinKey?: string | null;
 }): Promise<RippleCard> {
   const row = await withRetry(async () => {
     const { data, error } = await supabaseAdmin()
@@ -502,6 +506,7 @@ export async function addCard(input: {
         section: input.section ?? null,
         card_kind: input.cardKind ?? null,
         description: input.description || null,
+        twin_key: input.twinKey ?? null,
       })
       .select("*")
       .single();
@@ -622,6 +627,19 @@ export async function setCardShortlisted(
 
 // Week 3's Parked tray: set a card aside without deleting it. Unlike flagCard this toggles
 // BOTH ways — nothing is destroyed, so a parked card can always be dragged back out.
+// Stamp a card with the twin key that groups it with its copies. Called once, on the
+// original, the first time it is copied — after that every copy is created carrying it.
+export async function setCardTwinKey(code: string, cardId: string, twinKey: string): Promise<void> {
+  await withRetry(async () => {
+    const { error } = await supabaseAdmin()
+      .from("ripple_cards")
+      .update({ twin_key: twinKey })
+      .eq("code", up(code))
+      .eq("id", cardId);
+    if (error) throw error;
+  });
+}
+
 export async function setCardParked(code: string, cardId: string, parked: boolean): Promise<void> {
   const { error } = await supabaseAdmin()
     .from("ripple_cards")

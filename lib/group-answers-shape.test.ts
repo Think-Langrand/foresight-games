@@ -39,6 +39,7 @@ function card(
     parked: opts.parked ?? false,
     description: opts.description ?? null,
     shortlisted: opts.shortlisted ?? false,
+    twinKey: null,
     createdTime: `2026-01-01T00:00:${String(opts.seq ?? 0).padStart(2, "0")}Z`,
   };
 }
