@@ -2,7 +2,13 @@
 
 import { useRef, useState } from "react";
 import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
-import { childrenOf, insertionPoint, type SynthesisBoard } from "@/lib/synthesis-shape";
+import {
+  childrenOf,
+  implicationKey,
+  insertionPoint,
+  twinIndex,
+  type SynthesisBoard,
+} from "@/lib/synthesis-shape";
 import {
   AddCardForm,
   CardMenu,
@@ -70,6 +76,7 @@ export function ClusterBoard({
   onDeleteCard,
   onDeleteTheme,
   onMerge,
+  onCopyToTheme,
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -90,12 +97,17 @@ export function ClusterBoard({
   // Deleting a theme also decides the fate of what it holds — see DeleteThemeModal.
   onDeleteTheme: (theme: RippleCard, mode: DeleteThemeMode) => void;
   onMerge: (survivor: RippleCard, absorbed: RippleCard) => void;
+  // Put this implication in ANOTHER theme as well, keeping the one it is already in.
+  // Clustering is not a partition — see migration 0023.
+  onCopyToTheme: (card: RippleCard, themeId: string) => void;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
   const [addingTheme, setAddingTheme] = useState(false);
   const [addingTo, setAddingTo] = useState<string | null>(null); // theme id, or "tray"
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
+  // The card whose "also add to…" picker is open. Null when none is.
+  const [copyFrom, setCopyFrom] = useState<RippleCard | null>(null);
   const [showParked, setShowParked] = useState(false);
   // The theme awaiting a delete decision. Nothing is written until the modal is answered,
   // so a theme never vanishes and then reappears when the route refuses.
@@ -228,6 +240,11 @@ export function ClusterBoard({
   // gives it a fresh identity on every render, so React unmounts and remounts it — which
   // would throw away a half-typed inline edit whenever the realtime refetch lands.
   // (ImplicationTree.tsx documents the same rule for the same reason.)
+  // Where every implication on this board lives. One pass, read per card below, so a
+  // doubled-up implication is visible wherever it appears rather than only where it was
+  // copied from.
+  const twins = twinIndex(board);
+
   const renderCard = (
     card: RippleCard,
     zone: string,
@@ -238,7 +255,12 @@ export function ClusterBoard({
     const dragging = drag?.id === card.id;
     const merging = mergeFrom !== null && mergeFrom.id !== card.id;
     const hasChildren = childrenOf(board, card.id).length > 0;
-    const from = card.sourceCardId ? lineage[card.sourceCardId] : undefined;
+    const info = twins.get(implicationKey(card));
+    const inThemes = info?.themeIds.length ?? 0;
+    // A copy carries no sourceCardId of its own (it stays out of 0018's unique
+    // constraint), so the trail is read from whichever copy does hold the Week 2 link.
+    const sourceId = card.sourceCardId ?? info?.sourceCardId ?? null;
+    const from = sourceId ? lineage[sourceId] : undefined;
     return (
       <div
         {...dragProps(card.id, "card")}
@@ -248,7 +270,7 @@ export function ClusterBoard({
           "group relative w-full rounded-[3px] border p-2.5 shadow-[1px_2px_0_rgba(36,36,34,0.10)] " +
           (editable ? "cursor-grab active:cursor-grabbing " : "") +
           (dragging ? "rotate-1 opacity-40 " : "") +
-          (merging ? "border-blue " : "border-black/15 ")
+          (merging ? "border-blue " : inThemes > 1 ? "border-blue/60 " : "border-black/15 ")
         }
       >
         <div className="flex items-start gap-1.5">
@@ -295,6 +317,18 @@ export function ClusterBoard({
                     >
                       {card.parked ? "Restore from parked" : "Park"}
                     </CardMenuItem>
+                    {/* Copying is deliberately easy — the care goes into showing where a
+                        group HAS doubled up, not into making it hard to do. */}
+                    {card.cardKind === null && !card.parked && board.themes.length > 1 && (
+                      <CardMenuItem
+                        onClick={() => {
+                          close();
+                          setCopyFrom(card);
+                        }}
+                      >
+                        Also add to another theme…
+                      </CardMenuItem>
+                    )}
                     {!hasChildren && (
                       <CardMenuItem
                         onClick={() => {
@@ -305,6 +339,10 @@ export function ClusterBoard({
                         Merge into…
                       </CardMenuItem>
                     )}
+                    {/* Deleting one copy removes it from THIS theme and leaves the
+                        others alone, so the wording has to say which it is. No confirm on
+                        either path: a single-copy delete never had one, and adding a
+                        dialog to the common action to serve the rare one is a bad trade. */}
                     <CardMenuItem
                       danger
                       onClick={() => {
@@ -312,13 +350,29 @@ export function ClusterBoard({
                         onDeleteCard(card);
                       }}
                     >
-                      Delete
+                      {inThemes > 1 ? "Remove from this theme" : "Delete"}
                     </CardMenuItem>
                   </>
                 )}
               </CardMenu>
             ))}
         </div>
+
+        {/* The thing the group asked to be able to see: this implication is also sitting
+            in another column. Named rather than hinted, because the whole point is that
+            nobody discovers it by accident halfway through the exercise. */}
+        {inThemes > 1 && (
+          <div
+            className="mt-1.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.05em] text-blue"
+            title={info?.themeIds
+              .map((id) => board.themes.find((t) => t.id === id)?.text ?? "")
+              .filter(Boolean)
+              .join("  ·  ")}
+          >
+            <span aria-hidden>⧉</span>
+            Also in {inThemes - 1} other theme{inThemes === 2 ? "" : "s"}
+          </div>
+        )}
 
         {/* Where it came from, folded away. Absent for a card typed here by hand, for a
             seed whose Week 2 source was deleted, and for a group whose Week 2 is still a
@@ -785,6 +839,70 @@ export function ClusterBoard({
           </div>
         )}
       </section>
+
+      {/* Which other theme should this implication ALSO sit in. Themes it is already in
+          are listed and disabled rather than hidden, so the picker doubles as the answer
+          to "where is this already?". */}
+      {copyFrom && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Also add to another theme"
+          onClick={() => setCopyFrom(null)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[520px] rounded-[4px] border border-ink bg-card p-5 shadow-[4px_6px_0_rgba(36,36,34,0.18)]"
+          >
+            <h2 className="text-[16px] font-extrabold uppercase tracking-tight">
+              Also add to another theme
+            </h2>
+            <p className="mt-2 text-[13px] leading-[1.5] text-muted">
+              It stays where it is. One implication can belong to more than one theme.
+            </p>
+            <p className="mt-2 rounded-[2px] border border-black/15 bg-paper p-2 text-[13px] leading-[1.45]">
+              {copyFrom.text}
+            </p>
+
+            <div className="mt-4 flex flex-col gap-1.5">
+              {board.themes.map((t) => {
+                const already = (twins.get(implicationKey(copyFrom))?.themeIds ?? []).includes(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    disabled={already || busy}
+                    onClick={() => {
+                      onCopyToTheme(copyFrom, t.id);
+                      setCopyFrom(null);
+                    }}
+                    className={
+                      "rounded-[2px] border px-3 py-2 text-left text-[13px] leading-[1.4] " +
+                      (already
+                        ? "border-black/15 bg-paper text-muted"
+                        : "border-ink bg-paper hover:bg-lime")
+                    }
+                  >
+                    {t.text}
+                    {already && (
+                      <span className="ml-2 text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue">
+                        already here
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setCopyFrom(null)}
+              className="mt-4 rounded-[2px] border border-ink bg-paper px-4 py-2 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-[var(--hairline)]"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <DeleteThemeModal
         open={pendingDelete !== null}

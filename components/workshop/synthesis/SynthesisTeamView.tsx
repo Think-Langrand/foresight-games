@@ -213,6 +213,21 @@ export function SynthesisTeamView({
       if (res?.card) addLocal(res.card as RippleCard);
     });
 
+  // Put an implication in a SECOND theme, keeping the one it is already in. The text is
+  // not sent: the route reads it from the original, so two cards showing one implication
+  // cannot drift apart by being typed twice. See migration 0023.
+  const copyToTheme = (card: RippleCard, themeId: string) =>
+    run(async () => {
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "SECOND",
+        parentCardId: themeId,
+        copyOfCardId: card.id,
+        sort: endSort(board.clusters.get(themeId) ?? []),
+      });
+      if (res?.card) addLocal(res.card as RippleCard);
+    });
+
   // Dropped onto empty theme space: mint a theme and put the card straight into it, so
   // grouping never has to start with naming something.
   const startThemeWith = (card: RippleCard) =>
@@ -585,6 +600,7 @@ export function SynthesisTeamView({
           onDeleteCard={removeCard}
           onDeleteTheme={deleteTheme}
           onMerge={merge}
+          onCopyToTheme={copyToTheme}
         />
       )}
 

@@ -482,11 +482,14 @@ export async function postRippleCard(
     participantId: string;
     cardOrder: string;
     parentCardId?: string | null;
-    text: string;
+    // Omitted when copying — the route reads the text from the original (0023).
+    text?: string;
     sort?: number;
     section?: string | null;
     cardKind?: CardKind | null; // Week 3: theme / hope / fear. Omit for an implication.
     description?: string | null;
+    // Week 3: put an implication that is already on this board into another theme too.
+    copyOfCardId?: string;
   }
 ) {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/cards`, {
