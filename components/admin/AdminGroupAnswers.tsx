@@ -16,6 +16,7 @@ import {
 import { enumerateChains } from "@/lib/ripples-types";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
 import { implicationSeedCandidates } from "@/lib/synthesis-shape";
+import { ImplicationClusterPanel } from "@/components/admin/ImplicationClusterPanel";
 import { synthesisCsvRows } from "@/lib/group-answers-csv";
 
 // Admin view of a design group's answers, one tab per exercise (week). Each tab renders in
@@ -163,6 +164,20 @@ export function AdminGroupAnswers({
       },
     }));
   });
+  // The same weeks the seed picker draws from, counted rather than flattened — the
+  // clustering tool takes a whole week at once, not a hand-picked subset.
+  const clusterSources = exercises.flatMap((ex) =>
+    ex.exerciseId === active?.exerciseId || ex.kind !== "implications"
+      ? []
+      : [
+          {
+            exerciseId: ex.exerciseId,
+            title: ex.title,
+            count: implicationSeedCandidates(ex.cards).length,
+          },
+        ]
+  );
+
   // Put whichever source IS the canonical seed for this target first, and leave the rest
   // in week order below it.
   const seedSources: SeedSource[] = (
@@ -359,18 +374,28 @@ export function AdminGroupAnswers({
               ex={active}
               onDelete={onDeleteAnswer}
               seed={
-                <SeedKeyChangesPanel
-                  key={active.exerciseId}
-                  title="Seed implications"
-                  blurb="Pick last session's implications to drop into this week's clustering tray."
-                  sources={seedSources}
-                  seededIds={new Set(active.cards.map((c) => c.sourceCardId).filter((x): x is string => !!x))}
-                  // Open while the tray is still empty of seeded material.
-                  defaultOpen={!active.cards.some((c) => c.sourceCardId)}
-                  busy={seeding}
-                  message={seedMsg}
-                  onSeed={runSeed}
-                />
+                <div className="flex flex-col gap-2">
+                  <SeedKeyChangesPanel
+                    key={active.exerciseId}
+                    title="Seed implications"
+                    blurb="Pick last session's implications to drop into this week's clustering tray."
+                    sources={seedSources}
+                    seededIds={new Set(active.cards.map((c) => c.sourceCardId).filter((x): x is string => !!x))}
+                    // Open while the tray is still empty of seeded material.
+                    defaultOpen={!active.cards.some((c) => c.sourceCardId)}
+                    busy={seeding}
+                    message={seedMsg}
+                    onSeed={runSeed}
+                  />
+                  {/* Beside the seed picker because it answers the question the facilitator
+                      has while standing there: not just which implications to send over, but
+                      how they might group once they arrive. Read-only — writes nothing. */}
+                  <ImplicationClusterPanel
+                    projectId={projectId}
+                    groupId={groupId}
+                    sources={clusterSources}
+                  />
+                </div>
               }
             />
           )}
