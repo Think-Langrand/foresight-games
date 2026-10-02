@@ -651,6 +651,27 @@ export interface Week2Lineage {
   chain: string[]; // root text first, this card's own text last
 }
 
+// How many steps out from the key change this implication sits: 1 = a direct consequence,
+// 3 = a consequence of a consequence of a consequence.
+//
+// The chain INCLUDES the key change at [0] and the card itself at the end, so the order is
+// its length minus one. A card the group typed by hand here has no Week 2 ancestry and no
+// order — null rather than 0, because "not from the map" is not the same as "zero steps".
+//
+// This matters more than it looks on a real board: Group 1's production map is 23 first
+// order, 53 second, 68 third, 2 fourth. A group clustering that blind weighs a speculative
+// third-order knock-on exactly like a direct consequence, and the themes inherit it.
+export function implicationOrder(lineage: Week2Lineage | undefined): number | null {
+  if (!lineage || lineage.chain.length < 2) return null;
+  return lineage.chain.length - 1;
+}
+
+export function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+}
+
 // cardId → its Week 2 ANCESTOR path. Keyed by the Week 2 card id, which a seeded Week 3
 // card points at via source_card_id.
 //

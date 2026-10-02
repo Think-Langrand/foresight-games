@@ -5,7 +5,9 @@ import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
 import {
   childrenOf,
   implicationKey,
+  implicationOrder,
   insertionPoint,
+  ordinal,
   twinIndex,
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
@@ -115,6 +117,8 @@ export function ClusterBoard({
   // this is the other way round the same job, for a group that would rather read the whole
   // tray and tick than pick cards up one at a time.
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  // Show only implications this many steps out from their key change. null = all.
+  const [orderFilter, setOrderFilter] = useState<number | null>(null);
   const togglePicked = (id: string) =>
     setPicked((prev) => {
       const next = new Set(prev);
@@ -259,6 +263,22 @@ export function ClusterBoard({
   // copied from.
   const twins = twinIndex(board);
 
+  // The tray by order, so the filter can be built and labelled from one pass. A card typed
+  // here by hand has no Week 2 ancestry and so no order; it is always shown, because
+  // hiding something a filter cannot describe is worse than a slightly longer list.
+  const orderOf = (c: RippleCard) =>
+    implicationOrder(lineage[c.sourceCardId ?? twins.get(implicationKey(c))?.sourceCardId ?? ""]);
+  const orderCounts = new Map<number, number>();
+  for (const c of board.unclustered) {
+    const o = orderOf(c);
+    if (o !== null) orderCounts.set(o, (orderCounts.get(o) ?? 0) + 1);
+  }
+  const orders = [...orderCounts.keys()].sort((a, b) => a - b);
+  const tray =
+    orderFilter === null
+      ? board.unclustered
+      : board.unclustered.filter((c) => orderOf(c) === orderFilter);
+
   const renderCard = (
     card: RippleCard,
     zone: string,
@@ -275,6 +295,7 @@ export function ClusterBoard({
     // constraint), so the trail is read from whichever copy does hold the Week 2 link.
     const sourceId = card.sourceCardId ?? info?.sourceCardId ?? null;
     const from = sourceId ? lineage[sourceId] : undefined;
+    const order = implicationOrder(from);
     return (
       <div
         {...dragProps(card.id, "card")}
@@ -311,6 +332,24 @@ export function ClusterBoard({
             />
           </div>
 
+          {/* How far from the key change this sits. First-order is a direct consequence
+              and reads strongest; the further out, the quieter — a group should be able to
+              see at a glance that a theme is built mostly from speculation. */}
+          {order !== null && (
+            <span
+              title={`${ordinal(order)}-order implication — ${order} step${order === 1 ? "" : "s"} from its key change`}
+              className={
+                "shrink-0 rounded-[2px] px-1 py-px text-[9px] font-bold uppercase tracking-[0.06em] " +
+                (order === 1
+                  ? "bg-ink text-paper"
+                  : order === 2
+                    ? "bg-black/15 text-ink"
+                    : "border border-black/20 text-muted")
+              }
+            >
+              {ordinal(order)}
+            </span>
+          )}
           {editable &&
             (merging ? (
               <button
@@ -516,6 +555,37 @@ export function ClusterBoard({
               ＋ Add an implication
             </button>
           )}
+          {/* Nearly half a real board is third-order — two steps removed from any key
+              change — so a group that wants to cluster the direct consequences first needs
+              a way to see only those. It also makes a 146-card tray navigable at all. */}
+          {orders.length > 1 && (
+            <span className="flex flex-wrap items-center gap-1">
+              {[null, ...orders].map((o) => {
+                const on = orderFilter === o;
+                const n = o === null ? board.unclustered.length : (orderCounts.get(o) ?? 0);
+                return (
+                  <button
+                    key={o ?? "all"}
+                    onClick={() => setOrderFilter(o)}
+                    aria-pressed={on}
+                    title={
+                      o === null
+                        ? "Every implication in the tray"
+                        : `${ordinal(o)}-order — ${o} step${o === 1 ? "" : "s"} from its key change`
+                    }
+                    className={
+                      "rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
+                      (on
+                        ? "border-ink bg-ink text-paper"
+                        : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
+                    }
+                  >
+                    {o === null ? "All" : ordinal(o)} {n}
+                  </button>
+                );
+              })}
+            </span>
+          )}
           {editable && board.unclustered.length > 0 && (
             <span className="ml-auto flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
@@ -562,14 +632,16 @@ export function ClusterBoard({
               />
             </div>
           )}
-          {board.unclustered.length === 0 && addingTo !== "tray" && (
+          {tray.length === 0 && addingTo !== "tray" && (
             <p className="m-auto py-4 text-[12px] italic text-muted">
-              {board.themes.length > 0
-                ? "Everything has been sorted into a theme."
-                : "A facilitator seeds last session's implications here."}
+              {orderFilter !== null
+                ? `Nothing ${ordinal(orderFilter)}-order left in the tray.`
+                : board.themes.length > 0
+                  ? "Everything has been sorted into a theme."
+                  : "A facilitator seeds last session's implications here."}
             </p>
           )}
-          {board.unclustered.map((c) => renderSlot(c, "tray", null, "x", board.unclustered, "w-56"))}
+          {tray.map((c) => renderSlot(c, "tray", null, "x", tray, "w-56"))}
         </div>
       </section>
 

@@ -24,6 +24,8 @@ import {
   READING_FIELDS,
   readingsFor,
   readingProgress,
+  implicationOrder,
+  ordinal,
 } from "./synthesis-shape";
 
 function card(
@@ -1084,5 +1086,36 @@ describe("step 2 readings — placement, shaping and progress", () => {
     const two = [...full(), card("RD2", "SECOND", "TH", 8, { cardKind: "reading", text: "another" })];
     expect(readingProgress(indexSynthesisBoard(two), "TH")).toBe("done");
     expect(readingsFor(indexSynthesisBoard(two), "TH")).toHaveLength(2);
+  });
+});
+
+describe("implicationOrder / ordinal", () => {
+  // lineageByCardId puts the key change first and the card itself last, so a direct child
+  // of a key change has a chain of two.
+  const week2 = () => [
+    card("K1", "FIRST", null, 1),
+    card("A", "SECOND", "K1", 2),
+    card("B", "TERMINAL", "A", 3),
+    card("C", "ORDER_4", "B", 4),
+  ];
+
+  it("counts steps out from the key change, not chain length", () => {
+    const l = lineageByCardId(week2());
+    expect(implicationOrder(l.A)).toBe(1);
+    expect(implicationOrder(l.B)).toBe(2);
+    expect(implicationOrder(l.C)).toBe(3);
+  });
+
+  // A key change is not an implication of anything, and a hand-typed card has no ancestry.
+  it("has no order for a key change or a card with no lineage", () => {
+    const l = lineageByCardId(week2());
+    expect(implicationOrder(l.K1)).toBeNull();
+    expect(implicationOrder(undefined)).toBeNull();
+  });
+
+  it("numbers ordinals the way English does, including the teens", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23].map(ordinal)).toEqual([
+      "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd",
+    ]);
   });
 });
