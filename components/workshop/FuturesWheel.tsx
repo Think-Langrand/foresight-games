@@ -156,7 +156,8 @@ export function FuturesWheel({
   variant = "map",
   nodeProps,
   nodeExtra,
-  fit = true,
+  zoom = "fit",
+  onFitScale,
 }: {
   cards: RippleCard[];
   centerLabel: string;
@@ -176,11 +177,12 @@ export function FuturesWheel({
   nodeProps?: (cardId: string) => React.HTMLAttributes<HTMLDivElement> & { draggable?: boolean };
   // A marker drawn under a circle — "in Theme 2", "not on this board".
   nodeExtra?: (cardId: string) => React.ReactNode;
-  // Scale the whole wheel down to fit its container. On by default, and deliberately OFF
-  // for the interactive map: nothing in this codebase has ever dragged inside a
-  // `transform: scale()` container, and a scrollable 1:1 wheel costs a little panning
-  // rather than a class of bug that would only show up in a live session.
-  fit?: boolean;
+  // "fit" shrinks the wheel to its container; a number is an explicit zoom. Dragging out
+  // of a scaled container is fine — the browser hit-tests transformed geometry, which is
+  // the same machinery native drag uses to decide what is under the pointer.
+  zoom?: number | "fit";
+  // Reports what "fit" resolved to, so a caller can zoom relative to what is on screen.
+  onFitScale?: (scale: number) => void;
 }) {
   const { nodes, links, size } = useMemo(() => layout(cards), [cards]);
   const cx = size / 2;
@@ -192,20 +194,30 @@ export function FuturesWheel({
   // empty space. Scale the whole thing to whatever room there is instead; the circles stay
   // equal to each other, which is the thing that matters.
   const boxRef = useRef<HTMLDivElement | null>(null);
+  // Held in a ref so a caller passing an inline arrow does not re-run the observer effect.
+  // Assigned in an effect, not during render.
+  const onFitScaleRef = useRef(onFitScale);
+  useEffect(() => {
+    onFitScaleRef.current = onFitScale;
+  }, [onFitScale]);
   const innerRef = useRef<HTMLDivElement | null>(null);
   const [fitScale, setFitScale] = useState(1);
-  // Derived, not stored: with fit off there is nothing to measure and nothing to set.
-  const scale = fit ? fitScale : 1;
+  // Derived, not stored: an explicit zoom needs nothing measured.
+  const scale = zoom === "fit" ? fitScale : zoom;
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
-    if (!fit) return;
-    const apply = () => setFitScale(Math.min(1, (el.clientWidth || size) / size));
+    if (zoom !== "fit") return;
+    const apply = () => {
+      const next = Math.min(1, (el.clientWidth || size) / size);
+      setFitScale(next);
+      onFitScaleRef.current?.(next);
+    };
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [size, fit]);
+  }, [size, zoom]);
 
   // Open on the chain, not on the top-left corner. The chain runs radially from the hub to
   // the selected circle, so its middle is the midpoint of the two; put that at the centre

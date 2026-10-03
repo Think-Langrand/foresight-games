@@ -182,6 +182,12 @@ export function ClusterBoard({
   // The Week 2 card the map was opened ON, if it was opened from a card. Highlights its
   // path and scrolls to it; cleared as soon as you change branch.
   const [focusNode, setFocusNode] = useState<string | null>(null);
+  // Map zoom. "fit" shows the whole branch; a number is an explicit level, so you can get
+  // close enough to read a circle and still drag it out to a theme.
+  const [zoom, setZoom] = useState<number | "fit">("fit");
+  // What "fit" currently works out to, reported by the wheel. Pressing + from Fit then
+  // steps up from what you are actually looking at instead of jumping to 125%.
+  const fitScaleRef = useRef(1);
   // The theme opened in the body instead of the board — from a rail square or a column's
   // menu. Null = the board. Resolved against the live list below, so a theme someone else
   // deletes while it is open falls back to the board rather than to a blank page.
@@ -668,11 +674,13 @@ export function ClusterBoard({
         <p className="mt-1 text-[11px] italic leading-[1.35] text-muted">
           {picked.size > 0
             ? `Click one to add ${picked.size}.`
-            : "Click a theme to open it. Drag cards in, or tick and click."}
+            : focus
+              ? "Click the lit theme again to go back to the board."
+              : "Click a theme to open it. Drag cards in, or tick and click."}
         </p>
 
         <div className="mt-3 flex flex-col gap-2.5">
-          {board.themes.map((t) => {
+          {board.themes.map((t, i) => {
             const n = board.clusters.get(t.id)?.length ?? 0;
             const lit = zoneLit(`theme:${t.id}`);
             return (
@@ -683,7 +691,11 @@ export function ClusterBoard({
                   // With nothing ticked, a square opens its theme; with a selection it
                   // is the drop target it always was.
                   if (picked.size === 0) {
-                    setFocusId(t.id);
+                    // The square stays lit while its theme is open, so clicking it again
+                    // reads as "turn this off" — and the rail is where your pointer
+                    // already is. Going back should not mean finding the one button at
+                    // the top of the body.
+                    setFocusId((cur) => (cur === t.id ? null : t.id));
                     return;
                   }
                   onMoveManyToTheme([...picked], t.id);
@@ -709,14 +721,16 @@ export function ClusterBoard({
                 }
               >
                 <span className="flex items-baseline justify-between gap-1.5">
-                  {/* The heading is the theme's own name once it has one. An unnamed theme
-                      still reads "Theme 3" from its text, so printing both said it twice. */}
+                  {/* The number is shown as well as the name, because the map labels a
+                      clustered node "Theme 3" — and once a group renames a theme, a number
+                      that appears nowhere on the theme itself refers to nothing. */}
+                  <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] font-bold text-paper">
+                    {i + 1}
+                  </span>
                   <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.08em]">
                     {t.text}
                   </span>
-                  <span className="shrink-0 rounded-[2px] bg-ink px-1.5 py-px text-[10px] font-bold text-paper">
-                    {n}
-                  </span>
+                  <span className="shrink-0 text-[9.5px] font-bold text-muted">{n}</span>
                 </span>
                 {/* What is actually in it, a line each. The square is the whole budget, so
                     anything past it is cut rather than stretching the rail. */}
@@ -943,7 +957,14 @@ export function ClusterBoard({
         return (
           <section className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center gap-3">
-              <button onClick={() => setFocusId(null)} className={navBtn}>
+              {/* Deliberately NOT navBtn. Opening a theme replaces the whole board, which
+                  is the most disorienting thing this step does; the way out has to look
+                  like the way out rather than like a third sibling of Prev and Next. The
+                  rail square for this theme toggles too, so there are two. */}
+              <button
+                onClick={() => setFocusId(null)}
+                className="rounded-[2px] border-2 border-ink bg-lime px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.05em] shadow-[2px_2px_0_rgba(36,36,34,0.22)] transition-all hover:bg-lime-deep active:translate-y-[1px] active:shadow-none"
+              >
                 ← Back to the board
               </button>
               <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
@@ -1220,6 +1241,46 @@ export function ClusterBoard({
           // a little panning is a cheaper price than a drag that misses in a live session.
           <div className="rounded-[3px] border border-dashed border-black/15 p-3">
             {mapBranch ? (
+              <>
+              <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
+                  Zoom
+                </span>
+                {([
+                  ["−", "out"],
+                  ["+", "in"],
+                ] as const).map(([glyph, dir]) => (
+                  <button
+                    key={dir}
+                    onClick={() =>
+                      setZoom((z) => {
+                        const from = typeof z === "number" ? z : (fitScaleRef.current || 1);
+                        const next = dir === "in" ? from * 1.25 : from / 1.25;
+                        return Math.min(2, Math.max(0.25, Number(next.toFixed(3))));
+                      })
+                    }
+                    aria-label={dir === "in" ? "Zoom in" : "Zoom out"}
+                    className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[12px] font-bold leading-none text-muted hover:border-ink hover:text-ink"
+                  >
+                    {glyph}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setZoom("fit")}
+                  aria-pressed={zoom === "fit"}
+                  className={
+                    "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
+                    (zoom === "fit"
+                      ? "border-ink bg-ink text-paper"
+                      : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
+                  }
+                >
+                  Fit
+                </button>
+                {typeof zoom === "number" && (
+                  <span className="text-[10px] font-bold text-muted">{Math.round(zoom * 100)}%</span>
+                )}
+              </div>
               <div className="max-h-[70vh] overflow-auto">
                 <FuturesWheel
                   key={mapBranch.root.id}
@@ -1228,7 +1289,8 @@ export function ClusterBoard({
                     .map((c) => (c.parentId === mapBranch.root.id ? { ...c, parentId: null } : c))}
                   centerLabel={mapBranch.root.text}
                   variant="branch"
-                  fit={false}
+                  zoom={zoom}
+                  onFitScale={(v) => (fitScaleRef.current = v)}
                   selectedId={focusNode ?? undefined}
                   highlightIds={focusNode ? mapBranch.pathIds : undefined}
                   nodeProps={(w2id) => {
@@ -1266,6 +1328,7 @@ export function ClusterBoard({
                   }}
                 />
               </div>
+              </>
             ) : (
               <p className="py-10 text-center text-[12.5px] italic text-muted">
                 No key change with implications to map.
@@ -1454,6 +1517,12 @@ export function ClusterBoard({
                           ⠿⠿
                         </span>
                       )}
+                      <span
+                        title={`Theme ${board.themes.indexOf(theme) + 1}`}
+                        className="mt-[1px] shrink-0 rounded-[2px] bg-ink px-1.5 py-px text-[10px] font-bold leading-none text-paper"
+                      >
+                        {board.themes.indexOf(theme) + 1}
+                      </span>
                       <div className="min-w-0 flex-1">
                         <div className="text-[13.5px] font-bold">
                           <InlineText
