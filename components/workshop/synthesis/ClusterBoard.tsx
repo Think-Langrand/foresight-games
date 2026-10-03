@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
 import {
   childrenOf,
@@ -134,6 +134,16 @@ export function ClusterBoard({
   const [rawPicked, setPicked] = useState<Set<string>>(new Set());
   // Show only implications this many steps out from their key change. null = all.
   const [orderFilter, setOrderFilter] = useState<number | null>(null);
+
+  // Tell the page a rail is on the left, so the header and the board both yield to it.
+  // A DOM side effect in an effect is exactly what effects are for; the alternative was
+  // threading a step-1-only flag through SessionTabs, which every other week also uses.
+  useEffect(() => {
+    document.body.dataset.themeRail = "1";
+    return () => {
+      delete document.body.dataset.themeRail;
+    };
+  }, []);
   // Show only implications from one key change. Independent of the order filter; both
   // narrow the TRAY and neither touches what is already in a theme.
   const [keyFilter, setKeyFilter] = useState<string | null>(null);
@@ -548,16 +558,24 @@ export function ClusterBoard({
   };
 
   return (
-    <div className="lg:grid lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-5">
-      {/* The drop rail. With 146 implications the themes were six screens below the tray,
-          so the targets scrolled away from the cards. Sticky, and `self-start` so the grid
-          item does not stretch to the row height (which would defeat sticky). Hidden below
-          lg, where there is no room for a column and the stacked layout still works. */}
-      <aside className="sticky top-4 hidden self-start lg:block">
+    <>
+      {/* The drop rail: a fixed panel at the SCREEN edge, outside the 1100px column, so the
+          board reads as a board you pull cards into rather than a page you scroll. With 146
+          implications the themes sat six screens below the tray and the targets scrolled
+          away from the cards entirely.
+          
+          It scrolls itself, because three big targets plus a group's real themes will
+          outgrow a short viewport. Hidden below lg, where there is no gutter to live in and
+          the stacked layout still reads. */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15rem] overflow-y-auto border-r border-ink bg-card px-3 py-4 lg:block">
         <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
-          Drop into a theme
+          Themes
         </h2>
-        <div className="mt-2 flex flex-col gap-1.5">
+        <p className="mt-1 text-[11px] italic leading-[1.35] text-muted">
+          {picked.size > 0 ? `Click one to add ${picked.size}.` : "Drag cards in, or tick and click."}
+        </p>
+
+        <div className="mt-3 flex flex-col gap-2.5">
           {board.themes.map((t, i) => {
             const n = board.clusters.get(t.id)?.length ?? 0;
             const lit = zoneLit(`theme:${t.id}`);
@@ -572,23 +590,27 @@ export function ClusterBoard({
                 }}
                 title={t.text}
                 className={
-                  "rounded-[3px] border p-2 text-left transition-colors " +
-                  (lit ? "border-ink bg-lime " : "border-black/15 bg-card hover:border-ink ") +
+                  "flex aspect-square w-full flex-col rounded-[6px] border-2 p-2.5 text-left transition-all " +
+                  (lit
+                    ? "scale-[1.02] border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)] "
+                    : "border-ink bg-[rgba(196,255,103,0.16)] hover:bg-lime/40 ") +
                   (picked.size > 0 ? "cursor-copy" : "")
                 }
               >
                 <span className="flex items-baseline justify-between gap-1.5">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-muted">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
                     Theme {i + 1}
                   </span>
-                  <span className="text-[9px] font-bold text-muted">{n}</span>
+                  <span className="rounded-[2px] bg-ink px-1.5 py-px text-[10px] font-bold text-paper">
+                    {n}
+                  </span>
                 </span>
-                <span className="mt-0.5 line-clamp-3 block text-[11.5px] font-bold leading-[1.3]">
+                <span className="mt-1.5 line-clamp-5 text-[12px] font-bold leading-[1.3]">
                   {t.text}
                 </span>
                 {picked.size > 0 && (
-                  <span className="mt-1 block text-[9.5px] font-bold uppercase tracking-[0.05em] text-blue">
-                    ＋ Add {picked.size} selected
+                  <span className="mt-auto pt-1 text-[9.5px] font-bold uppercase tracking-[0.05em] text-blue">
+                    ＋ Add {picked.size}
                   </span>
                 )}
               </button>
@@ -597,20 +619,25 @@ export function ClusterBoard({
 
           {/* Empty slots, never pre-created themes. A real blank theme would exist on the
               board from the moment anyone opened it: three "nothing yet" chips on steps 2
-              and 3, and three to delete if the group wants two. A slot mints its theme on
-              the first drop, which onStartTheme already does. */}
+              and 3, three to delete if the group wants two, and a race to make three per
+              person. A slot mints its theme on first drop — onStartTheme already did. */}
           {Array.from({ length: Math.max(0, 3 - board.themes.length) }).map((_, i) => (
             <div
               key={`slot-${i}`}
               {...zoneProps("newtheme")}
               className={
-                "rounded-[3px] border border-dashed p-3 text-center text-[10.5px] font-bold uppercase tracking-[0.05em] " +
+                "flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-[6px] border-2 border-dashed p-3 text-center transition-all " +
                 (zoneLit("newtheme")
-                  ? "border-ink bg-lime text-ink"
-                  : "border-black/25 text-muted")
+                  ? "scale-[1.02] border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)]"
+                  : "border-black/25 hover:border-ink")
               }
             >
-              Drop to start a theme
+              <span aria-hidden className="text-[26px] leading-none opacity-25">
+                ⊕
+              </span>
+              <span className="text-[10.5px] font-bold uppercase leading-[1.3] tracking-[0.05em] text-muted">
+                Drop to start a theme
+              </span>
             </div>
           ))}
 
@@ -623,7 +650,7 @@ export function ClusterBoard({
                 } else setAddingTheme(true);
               }}
               disabled={busy}
-              className="rounded-[2px] border border-ink bg-paper px-2 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-40"
+              className="rounded-[2px] border border-ink bg-paper px-2 py-2 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-40"
             >
               {picked.size > 0 ? `＋ New theme from ${picked.size}` : "＋ New theme"}
             </button>
@@ -631,6 +658,10 @@ export function ClusterBoard({
         </div>
       </aside>
 
+      {/* The rail is fixed at the screen edge, so it eats the left gutter. Yield exactly
+          what it actually takes: its width less whatever margin the centred 1100px column
+          already had spare. On a wide screen the gutter swallows it and nothing moves. */}
+      <div>
       <div className="flex min-w-0 flex-col gap-6">
       {mergeFrom && (
         <div className="flex items-center gap-3 rounded-[3px] border border-blue bg-card px-4 py-2 text-[12.5px]">
@@ -1211,6 +1242,7 @@ export function ClusterBoard({
         }}
       />
       </div>
-    </div>
+      </div>
+    </>
   );
 }

@@ -265,3 +265,15 @@ textarea:focus-visible {
     opacity: 1;
   }
 }
+
+/* Week 3 step 1 puts a fixed theme rail at the left screen edge, outside the 1100px
+   column. Padding the BODY rather than shifting each container is what makes this work:
+   the centred `mx-auto` columns then re-centre themselves inside the space that is left,
+   instead of being pinned to a fixed offset and still overlapping the rail. Driven by a
+   data attribute ClusterBoard sets while it is mounted, so it is inert everywhere else. */
+@media (min-width: 1024px) {
+  body[data-theme-rail] {
+    padding-left: 16rem;
+    transition: padding-left 200ms ease-out;
+  }
+}
