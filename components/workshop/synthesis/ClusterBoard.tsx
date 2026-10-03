@@ -202,6 +202,14 @@ export function ClusterBoard({
   const [rawPicked, setPicked] = useState<Set<string>>(new Set());
   // Show only implications this many steps out from their key change. null = all.
   const [orderFilter, setOrderFilter] = useState<number | null>(null);
+  // The map node whose full text the right rail is reading out. See peekCard below.
+  const [peek, setPeek] = useState<string | null>(null);
+  // Which branch the map draws. Deliberately NOT keyFilter, which also filters the tray:
+  // stepping through the maps would then narrow the card list as a side effect, and
+  // landing on a key change whose implications are all clustered would leave the tray
+  // empty with no lit chip to explain why — the chips are counted off the tray, so that
+  // key change has no chip at all. Picking a chip still sets both; cycling sets only this.
+  const [mapKey, setMapKey] = useState<string | null>(null);
 
   // Tell the page a rail is on the left, so the header and the board both yield to it.
   // A DOM side effect in an effect is exactly what effects are for; the alternative was
@@ -425,16 +433,29 @@ export function ClusterBoard({
   // Which branch is drawn. The key-change chips already in the header pick it; with none
   // picked the map falls back to the first that has implications, because "every key
   // change" is the 2217px whole map and does not belong in this column.
-  const keyChangeIdFor = (text: string | null) => {
-    if (!text) return null;
-    for (const c of board.unclustered.concat([...board.clusters.values()].flat())) {
+  // The branches the map can show. NOT `keyChanges`, which counts the tray: once a group
+  // has clustered everything under one key change it drops out of the chips, and that
+  // branch's map would become unreachable at exactly the point the group is reviewing its
+  // work. This is every key change with an implication anywhere on the board.
+  const mapKeyChanges = (() => {
+    const seen = new Map<string, string>(); // text → keyChangeId
+    for (const c of board.unclustered
+      .concat([...board.clusters.values()].flat())
+      .concat(board.parked)) {
       const l = lineageOf(c);
-      if (l?.keyChange === text) return l.keyChangeId;
+      if (l?.keyChange && l.keyChangeId && !seen.has(l.keyChange)) {
+        seen.set(l.keyChange, l.keyChangeId);
+      }
     }
-    return null;
-  };
-  const mapRootId = keyChangeIdFor(keyFilter) ?? keyChangeIdFor(keyChanges[0] ?? null);
+    return [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  })();
+  const mapAt = Math.max(
+    0,
+    mapKeyChanges.findIndex(([text]) => text === (mapKey ?? keyFilter))
+  );
+  const mapRootId = mapKeyChanges[mapAt]?.[1] ?? null;
   const mapBranch = mapRootId ? branchOf(week2Cards, mapRootId) : null;
+
 
   // Every Week 2 id that has a Week 3 card, and where that card currently sits. The map
   // draws Week 2 cards but themes hold Week 3 ones, so this is the only way a node can
@@ -448,6 +469,18 @@ export function ClusterBoard({
   // fallback ThemeWorkspace uses for a deleted theme and HopesFearsBoard for a deleted card.
   const trayIds = new Set(board.unclustered.map((c) => c.id));
   const picked = new Set([...rawPicked].filter((id) => trayIds.has(id)));
+
+  // --- the rail's read-out on the map -----------------------------------------
+  // A node clips its label to fit its circle, and on a real board most of them clip. The
+  // right rail has the width to show one in full, so hovering a node fills it: no overlay
+  // to get between the pointer and a drag, and no click to spend — clicking a node already
+  // means "add this to the selection".
+  //
+  // Sticky rather than cleared on mouse-out. Clearing it would empty the panel as soon as
+  // you moved toward the thing you were trying to read.
+  const peekCard = peek ? (week2Cards.find((c) => c.id === peek) ?? null) : null;
+  const peekSeeded = peek ? (seeded.get(peek) ?? null) : null;
+  const peekLineage = peek ? lineage[peek] : undefined;
 
   const renderCard = (
     card: RippleCard,
@@ -616,8 +649,9 @@ export function ClusterBoard({
           <button
             onClick={() => {
               const l = lineage[sourceId];
-              if (l) setKeyFilter(l.keyChange);
+              if (l) setMapKey(l.keyChange); // the branch to draw; the tray filter is left alone
               setFocusNode(sourceId);
+              setPeek(sourceId); // and read it out in the rail, since it is why you came
               setView("map");
               // Cards inside an open theme have this button too, and the map is the BOARD.
               // Without this, pressing it in there switched a board you could not see and
@@ -886,6 +920,75 @@ export function ClusterBoard({
             Hide ›
           </button>
         </div>
+        {/* ---- the hovered node, in full ----
+            Only on the map, where the question exists: a circle clips its label to fit, so
+            the rail is where the whole implication can actually be read. It also says the
+            things the node has no room for — how far out it is, which key change it hangs
+            off, and whether it is already in a theme. */}
+        {view === "map" && !focus && (
+          <div className="mb-4 border-b border-[var(--rule)] pb-4">
+            <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+              Selected implication
+            </h2>
+            {peekCard ? (
+              <>
+                <p className="mt-1.5 text-[13px] font-bold leading-[1.4]">{peekCard.text}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {peekLineage && implicationOrder(peekLineage) !== null && (
+                    <span
+                      className={
+                        "rounded-[2px] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-ink " +
+                        (ORDER_TINT[implicationOrder(peekLineage)!] ?? ORDER_TINT.deep)
+                      }
+                    >
+                      {ordinal(implicationOrder(peekLineage)!)}
+                    </span>
+                  )}
+                  {peekSeeded === null ? (
+                    <span className="rounded-[2px] bg-black/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
+                      Not on this board
+                    </span>
+                  ) : peekSeeded.themeId !== null ? (
+                    <span className="rounded-[2px] bg-ink px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-paper">
+                      Theme {board.themes.findIndex((t) => t.id === peekSeeded.themeId) + 1}
+                    </span>
+                  ) : (
+                    <span className="rounded-[2px] border border-[var(--rule)] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
+                      Not in a theme
+                    </span>
+                  )}
+                </div>
+                {/* The whole trail back to the key change, which is the thing a node's
+                    position only hints at. */}
+                {peekLineage && peekLineage.chain.length > 1 && (
+                  <ol className="mt-2.5 flex flex-col gap-1 border-t border-[var(--hairline)] pt-2">
+                    {peekLineage.chain.map((step, i) => (
+                      <li
+                        key={i}
+                        // Indent by hand, not `pl-${i}`: Tailwind generates CSS by reading
+                        // the source, and a class name it never sees written out does not
+                        // exist at runtime.
+                        style={i > 0 ? { paddingLeft: `${Math.min(i, 3) * 0.5}rem` } : undefined}
+                        className={
+                          "text-[11px] leading-[1.35] " +
+                          (i === 0 ? "font-bold text-ink" : "text-muted")
+                        }
+                      >
+                        {i > 0 && <span aria-hidden className="mr-1 text-muted/60">↳</span>}
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </>
+            ) : (
+              <p className="mt-1.5 text-[12px] italic leading-[1.4] text-muted">
+                Hover a circle on the map to read it in full.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* A facilitator's clustering tool, above the prompts: example groupings to read
             beside the real tray. Members never see this — `admin` is decided on the server. */}
         {admin && (
@@ -1226,6 +1329,9 @@ export function ClusterBoard({
                     key={k ?? "all-keys"}
                     onClick={() => {
                       setKeyFilter(k);
+                      // A chip means both: filter the tray AND take the map there. Without
+                      // this the map would stay wherever the cycler last left it.
+                      setMapKey(k);
                       setFocusNode(null);
                     }}
                     aria-pressed={on}
@@ -1318,6 +1424,46 @@ export function ClusterBoard({
                 {typeof zoom === "number" && (
                   <span className="text-[10px] font-bold text-muted">{Math.round(zoom * 100)}%</span>
                 )}
+
+                {/* Which branch, and the way through all of them. The key-change chips in
+                    the tray header can pick one, but they are counted off the TRAY — a key
+                    change whose implications have all been clustered drops out of them, and
+                    its map with it. Stepping through happens here, off the full list, so
+                    every map stays reachable however far the clustering has got. */}
+                {mapKeyChanges.length > 1 && (
+                  <span className="ml-auto flex min-w-0 items-center gap-1.5">
+                    <span
+                      className="min-w-0 max-w-[20rem] truncate text-[10.5px] font-bold uppercase tracking-[0.05em]"
+                      title={mapKeyChanges[mapAt]?.[0]}
+                    >
+                      {mapKeyChanges[mapAt]?.[0]}
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-muted">
+                      {mapAt + 1}/{mapKeyChanges.length}
+                    </span>
+                    {([
+                      ["‹", -1, "Previous key change"],
+                      ["›", 1, "Next key change"],
+                    ] as const).map(([glyph, step, label]) => (
+                      <button
+                        key={step}
+                        onClick={() => {
+                          // Wraps, so you can walk the whole set in one direction.
+                          const n = mapKeyChanges.length;
+                          const next = mapKeyChanges[(mapAt + step + n) % n];
+                          setMapKey(next[0]); // the map only — the tray keeps its filter
+                          setFocusNode(null);
+                          setZoom("fit"); // branches differ in size; a held zoom misleads
+                        }}
+                        aria-label={label}
+                        title={label}
+                        className="shrink-0 rounded-[2px] border border-ink bg-paper px-2 py-0.5 text-[12px] font-bold leading-none hover:bg-lime"
+                      >
+                        {glyph}
+                      </button>
+                    ))}
+                  </span>
+                )}
               </div>
               <div className="max-h-[70vh] overflow-auto">
                 <FuturesWheel
@@ -1333,11 +1479,16 @@ export function ClusterBoard({
                   highlightIds={focusNode ? mapBranch.pathIds : undefined}
                   nodeProps={(w2id) => {
                     const hit = seeded.get(w2id);
+                    // Hovering reads the node out in full in the right rail — on every
+                    // node, including one with no Week 3 card, because "what does this
+                    // one say" is the question whether or not you can act on it.
+                    const read = { onMouseEnter: () => setPeek(w2id) };
                     // Never seeded into this week: there is no row to move.
-                    if (!hit) return { style: { cursor: "not-allowed", opacity: 0.45 } };
+                    if (!hit) return { ...read, style: { cursor: "not-allowed", opacity: 0.45 } };
                     const inTheme = hit.themeId !== null;
                     return {
                       ...(editable && !inTheme ? dragProps(hit.card.id, "card") : {}),
+                      ...read,
                       onClick: () => {
                         if (!editable || inTheme) return;
                         togglePicked(hit.card.id);
