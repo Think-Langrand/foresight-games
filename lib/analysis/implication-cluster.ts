@@ -5,11 +5,15 @@ import { centerVectors, clusterVectors, type LabeledVector } from "./cluster";
 import { mapPool } from "./suggest";
 import {
   GROUPING_PRESETS,
+  SUGGESTED_LABEL_MAX,
+  SUGGESTED_SUMMARY_MAX,
+  rankByCentroid,
   reconcileLlmGroups,
   secondaryMemberships,
   type ImplicationClusterResponse,
   type ImplicationItem,
   type RawGroup,
+  type SimilarResponse,
   type SuggestedTheme,
 } from "./implication-cluster-shape";
 
@@ -182,7 +186,7 @@ export async function clusterByLlm(
 // implications cannot ride it without a migration, and a design group is tens of short
 // sentences — one request, well under a second. Worth caching only if this gets used on
 // something much larger.
-async function embedImplications(items: ImplicationItem[]): Promise<LabeledVector[]> {
+export async function embedImplications(items: ImplicationItem[]): Promise<LabeledVector[]> {
   const client = new OpenAI();
   const out: LabeledVector[] = [];
   for (let i = 0; i < items.length; i += EMBED_BATCH) {
@@ -247,9 +251,9 @@ async function labelImplicationCluster(
       label?: string;
       summary?: string;
     };
-    const label = (parsed.label ?? "").trim().slice(0, 80);
+    const label = (parsed.label ?? "").trim().slice(0, SUGGESTED_LABEL_MAX);
     if (!label) return null;
-    return { label, summary: (parsed.summary ?? "").trim().slice(0, 240) };
+    return { label, summary: (parsed.summary ?? "").trim().slice(0, SUGGESTED_SUMMARY_MAX) };
   } catch (err) {
     console.error("[labelImplicationCluster]", err);
     return null;
@@ -323,6 +327,34 @@ export async function clusterByEmbedding(
     };
   } catch (err) {
     console.error("[clusterByEmbedding]", err);
+    return null;
+  }
+}
+
+// --- "what else could join this theme?" ------------------------------------------
+
+// Rank the rest of a board against one theme's members. Embeds the WHOLE board rather than
+// only the ids asked about, so the centering happens in the same space the clustering
+// presets were tuned in (see cluster.ts on anisotropy); a board is tens of short sentences,
+// so that is still one request. Members and candidates the board does not have, or that
+// did not come back embedded, are reported as skipped rather than silently dropped.
+export async function rankSimilarImplications(
+  items: ImplicationItem[],
+  memberIds: string[],
+  candidateIds: string[]
+): Promise<SimilarResponse | null> {
+  if (!process.env.OPENAI_API_KEY || items.length === 0) return null;
+  try {
+    const centered = centerVectors(await embedImplications(items));
+    const byId = new Map(centered.map((v) => [v.id, v]));
+    const pick = (ids: string[]) =>
+      ids.map((id) => byId.get(id)).filter((v): v is LabeledVector => Boolean(v));
+    const members = pick(memberIds);
+    const candidates = pick(candidateIds);
+    const skipped = [...memberIds, ...candidateIds].filter((id) => !byId.has(id));
+    return { ranked: rankByCentroid(members, candidates), skipped, model: EMBED_MODEL };
+  } catch (err) {
+    console.error("[rankSimilarImplications]", err);
     return null;
   }
 }

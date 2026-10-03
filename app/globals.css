@@ -277,4 +277,8 @@ textarea:focus-visible {
     padding-right: 16rem;
     transition: padding 200ms ease-out;
   }
+  /* A facilitator's rail also carries suggested groupings, which need reading room. */
+  body[data-theme-rail="wide"] {
+    padding-right: 22rem;
+  }
 }

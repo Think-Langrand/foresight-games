@@ -7,6 +7,9 @@ import {
   GROUPING_PRESETS,
   type ImplicationItem,
   type RawGroup,
+  rankByCentroid,
+  SUGGESTED_LABEL_MAX,
+  SUGGESTED_SUMMARY_MAX,
 } from "./implication-cluster-shape";
 
 const items = (...ids: string[]): ImplicationItem[] =>
@@ -99,12 +102,17 @@ describe("reconcileLlmGroups", () => {
     expect(got).toEqual({ themes: [], ungrouped: [], notes: [] });
   });
 
-  it("truncates an over-long label and summary", () => {
+  it("keeps a long statement-shaped label whole, and caps only at the card's own limit", () => {
+    const sentence =
+      "Responsibility for prevention moves to communities faster than the resources, " +
+      "authority and evidence they would need to carry it well";
     const got = reconcileLlmGroups(items("a"), [
-      { label: "x".repeat(200), summary: "y".repeat(500), member_ids: ["a"] },
+      { label: sentence, summary: "y".repeat(2000), member_ids: ["a"] },
+      { label: "x".repeat(SUGGESTED_LABEL_MAX + 100), summary: "s", member_ids: ["a"] },
     ]);
-    expect(got.themes[0].label).toHaveLength(80);
-    expect(got.themes[0].summary).toHaveLength(240);
+    expect(got.themes[0].label).toBe(sentence);
+    expect(got.themes[0].summary).toHaveLength(SUGGESTED_SUMMARY_MAX);
+    expect(got.themes[1].label).toHaveLength(SUGGESTED_LABEL_MAX);
   });
 
   // The guarantee that survives multi-membership: an implication may be in many themes or
@@ -186,6 +194,38 @@ describe("secondaryMemberships", () => {
 
   it("returns no extras for a cluster whose vectors are missing", () => {
     expect(secondaryMemberships([{ ids: ["ghost"] }], points, -1)).toEqual([[]]);
+  });
+});
+
+describe("rankByCentroid", () => {
+  const vec = (x: number, y: number) => [x, y];
+  const members = [
+    { id: "m1", vector: vec(1, 0) },
+    { id: "m2", vector: vec(0.9, 0.1) },
+  ];
+  const candidates = [
+    { id: "far", vector: vec(0, 1) },
+    { id: "near", vector: vec(0.95, 0.05) },
+    { id: "mid", vector: vec(0.7, 0.7) },
+    { id: "m1", vector: vec(1, 0) }, // also a member
+  ];
+
+  it("ranks closest to the members' centroid first", () => {
+    expect(rankByCentroid(members, candidates).map((r) => r.id)).toEqual(["near", "mid", "far"]);
+  });
+
+  it("never returns a member as a candidate", () => {
+    expect(rankByCentroid(members, candidates).some((r) => r.id === "m1")).toBe(false);
+  });
+
+  it("returns nothing for a theme with no embedded members", () => {
+    expect(rankByCentroid([], candidates)).toEqual([]);
+  });
+
+  it("scores are cosines, so they sit in [-1, 1] and descend", () => {
+    const scores = rankByCentroid(members, candidates).map((r) => r.score);
+    expect(scores).toEqual([...scores].sort((a, b) => b - a));
+    for (const s of scores) expect(Math.abs(s)).toBeLessThanOrEqual(1 + 1e-9);
   });
 });
 

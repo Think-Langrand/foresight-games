@@ -47,6 +47,7 @@ import {
   type Week2Lineage,
 } from "@/lib/synthesis-shape";
 import type { WorksheetSection } from "@/lib/exercise-types";
+import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 
 // WEEK 3 — Synthesis. Three steps on one shared board:
 //   1 · Cluster            — drag Week 2's implications into themes
@@ -84,6 +85,7 @@ export function SynthesisTeamView({
   sections = [],
   lineage = {},
   week2Cards = [],
+  admin,
   title,
 }: {
   code: string;
@@ -98,6 +100,9 @@ export function SynthesisTeamView({
   // Week 2's whole map, so step 1 can draw an implication's own branch of it rather than
   // only its ancestor text. Read-only here; the live board is this week's.
   week2Cards?: RippleCard[];
+  // Present only for a signed-in facilitator: what step 1 needs to run the clustering tool
+  // from the board. Decided server-side on the page; see AdminTools.
+  admin?: AdminTools;
   title?: string;
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
@@ -281,14 +286,17 @@ export function SynthesisTeamView({
   // The theme is created first and the cards moved into it one at a time, because reparent
   // is per-card. A failure part-way leaves the theme and whatever already moved — which is
   // recoverable by dragging, where rolling back would mean undoing writes that succeeded.
-  const createThemeFrom = (cardIds: string[]) =>
+  //
+  // `text` is optional: a suggested theme from the admin's clustering tool arrives with a
+  // name, a ticked set does not and gets "Theme N" like a dropped card would.
+  const createThemeFrom = (cardIds: string[], text?: string) =>
     run(async () => {
       if (cardIds.length === 0) return;
       const res = await postRippleCard(code, {
         participantId: pid,
         cardOrder: "FIRST",
         cardKind: "theme",
-        text: `Theme ${board.themes.length + 1}`,
+        text: text?.trim().slice(0, CARD_TEXT_MAX) || `Theme ${board.themes.length + 1}`,
         sort: endSort(board.themes),
       });
       const created = res?.card as RippleCard | undefined;
@@ -669,6 +677,7 @@ export function SynthesisTeamView({
           onCreateThemeFrom={createThemeFrom}
           onMoveManyToTheme={moveManyToTheme}
           week2Cards={week2Cards}
+          admin={admin}
         />
       )}
 

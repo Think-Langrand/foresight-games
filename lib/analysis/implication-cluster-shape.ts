@@ -1,4 +1,5 @@
 import { cosineSimilarity } from "./cluster";
+import { CARD_TEXT_MAX } from "@/lib/ripples-types";
 
 // Client-safe shaping for implication clustering. No server imports — safe in client
 // components, route handlers, and tests. The server side (embeddings + LLM calls) lives in
@@ -13,6 +14,14 @@ import { cosineSimilarity } from "./cluster";
 // criteria were ignored.
 
 export type ClusterMethod = "llm" | "embedding";
+
+// A suggested theme is named as a statement about change, which is a whole sentence —
+// "Responsibility moves to communities faster than resources do" — and "Use this" writes
+// it straight into a theme card's text. So the cap is the card's own, not a chip's: a name
+// the model wrote in full should arrive in full. The summary is one sentence of prose and
+// gets room to be one.
+export const SUGGESTED_LABEL_MAX = CARD_TEXT_MAX;
+export const SUGGESTED_SUMMARY_MAX = 600;
 
 export interface ImplicationItem {
   id: string;
@@ -110,8 +119,9 @@ export function reconcileLlmGroups(
       emptyGroups += 1;
       continue;
     }
-    const label = typeof raw.label === "string" ? raw.label.trim().slice(0, 80) : "";
-    const summary = typeof raw.summary === "string" ? raw.summary.trim().slice(0, 240) : "";
+    const label = typeof raw.label === "string" ? raw.label.trim().slice(0, SUGGESTED_LABEL_MAX) : "";
+    const summary =
+      typeof raw.summary === "string" ? raw.summary.trim().slice(0, SUGGESTED_SUMMARY_MAX) : "";
     themes.push({
       label: label || "Untitled group",
       summary: summary || null,
@@ -198,3 +208,54 @@ export const GROUPING_PRESETS: { key: string; label: string; minSimilarity: numb
   { key: "balanced", label: "Balanced", minSimilarity: 0.1 },
   { key: "tight", label: "Tight — more, sharper themes", minSimilarity: 0.18 },
 ];
+
+// --- "what else could join this theme?" ------------------------------------------
+
+export interface RankedCandidate {
+  id: string;
+  score: number;
+}
+
+export interface SimilarResponse {
+  ranked: RankedCandidate[]; // closest first
+  // Ids the caller asked about that were not on the board or could not be embedded.
+  skipped: string[];
+  model: string;
+}
+
+// Every candidate ranked by cosine to the centroid of a theme's members, closest first.
+// Same centroid arithmetic as secondaryMemberships, but a RANKING rather than a threshold:
+// the person reading it decides where to stop, which is the right call for "find me more"
+// where a threshold tuned for clustering would often return nothing at all.
+//
+// `members` and `candidates` should be in the same (centered) space — see the note on
+// secondaryMemberships. A candidate that is also a member is skipped rather than returned
+// with a flattering score.
+export function rankByCentroid(
+  members: { id: string; vector: number[] }[],
+  candidates: { id: string; vector: number[] }[]
+): RankedCandidate[] {
+  if (members.length === 0) return [];
+  const dim = members[0].vector.length;
+  const centroid = new Array<number>(dim).fill(0);
+  for (const m of members) for (let i = 0; i < dim; i++) centroid[i] += m.vector[i];
+  for (let i = 0; i < dim; i++) centroid[i] /= members.length;
+
+  const already = new Set(members.map((m) => m.id));
+  return candidates
+    .filter((c) => !already.has(c.id))
+    .map((c) => ({ id: c.id, score: cosineSimilarity(c.vector, centroid) }))
+    .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+}
+
+// --- the board's admin tools (step 1) --------------------------------------------
+// What a signed-in facilitator needs to run the clustering tool from the live board: the
+// ids the admin routes are keyed on and the implications weeks they can read. Built on the
+// server page, where the session is known, and absent for members. The client cannot tell
+// an admin from a member on its own (the auth cookie is httpOnly), so this object's
+// presence IS the flag — and every route it points at re-checks the session anyway.
+export interface AdminTools {
+  projectId: string;
+  groupId: string;
+  clusterSources: { exerciseId: string; title: string; count: number }[];
+}

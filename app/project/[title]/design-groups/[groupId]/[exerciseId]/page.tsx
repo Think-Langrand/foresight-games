@@ -13,7 +13,8 @@ import { SynthesisTeamView } from "@/components/workshop/synthesis/SynthesisTeam
 import { WorksheetView } from "@/components/workshop/WorksheetView";
 import { SessionTabs } from "@/components/design-groups/SessionTabs";
 import type { ExerciseAnswers } from "@/components/design-groups/AnswerPanels";
-import { lineageByCardId, type Week2Lineage } from "@/lib/synthesis-shape";
+import { implicationSeedCandidates, lineageByCardId, type Week2Lineage } from "@/lib/synthesis-shape";
+import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 
 export const dynamic = "force-dynamic";
 
@@ -125,6 +126,21 @@ export default async function DesignGroupExercisePage({
     const week2Cards = pastWeeks
       .filter((w) => w.kind === "implications")
       .flatMap((w) => w.cards);
+    // A signed-in facilitator gets the clustering tool on the board itself. The client
+    // cannot tell an admin from a member (the auth cookie is httpOnly), so the page decides
+    // here and sends the ids the admin routes are keyed on — or nothing. Same source list
+    // the admin answers page builds, counted the same way.
+    const admin: AdminTools | undefined = isAdmin
+      ? {
+          projectId: project.id,
+          groupId,
+          clusterSources: pastWeeks.flatMap((w) =>
+            w.kind === "implications"
+              ? [{ exerciseId: w.exerciseId, title: w.title, count: implicationSeedCandidates(w.cards).length }]
+              : []
+          ),
+        }
+      : undefined;
     return (
       <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>
         <SynthesisTeamView
@@ -136,6 +152,7 @@ export default async function DesignGroupExercisePage({
           sections={resolveEffectiveSections(exercise.type, exercise.sections)}
           lineage={lineage}
           week2Cards={week2Cards}
+          admin={admin}
           title={exercise.title}
         />
       </SessionTabs>

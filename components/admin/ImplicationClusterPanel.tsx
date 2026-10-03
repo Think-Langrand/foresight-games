@@ -8,6 +8,7 @@ import {
   type ImplicationClusterResponse,
 } from "@/lib/analysis/implication-cluster-shape";
 import { download } from "@/components/admin/exportUtils";
+import { requestClustering } from "@/lib/analysis/implication-cluster-client";
 
 // Facilitator tool: propose how a group's Week 2 implications could be clustered, so
 // Session 3 does not start on a blank board.
@@ -60,25 +61,17 @@ export function ImplicationClusterPanel({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/admin/projects/${projectId}/design-groups/${groupId}/cluster`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sourceExerciseId: sourceId,
-            method,
-            criteria: criteria.trim() || undefined,
-            minSimilarity:
-              method === "embedding"
-                ? GROUPING_PRESETS.find((p) => p.key === preset)?.minSimilarity
-                : undefined,
-          }),
-        }
+      setResult(
+        await requestClustering(projectId, groupId, {
+          sourceExerciseId: sourceId,
+          method,
+          criteria: criteria.trim() || undefined,
+          minSimilarity:
+            method === "embedding"
+              ? GROUPING_PRESETS.find((p) => p.key === preset)?.minSimilarity
+              : undefined,
+        })
       );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `Clustering failed (${res.status}).`);
-      setResult(data as ImplicationClusterResponse);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Clustering failed.");
     } finally {

@@ -21,6 +21,9 @@ import {
 } from "@/components/workshop/synthesis/SynthesisCard";
 import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
+import { SuggestThemesRail } from "@/components/workshop/synthesis/SuggestThemesRail";
+import { ThemeJoinSearch } from "@/components/workshop/synthesis/ThemeJoinSearch";
+import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 import {
   DeleteThemeModal,
   type DeleteThemeMode,
@@ -96,6 +99,7 @@ export function ClusterBoard({
   onCreateThemeFrom,
   onMoveManyToTheme,
   week2Cards = [],
+  admin,
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -119,12 +123,15 @@ export function ClusterBoard({
   // Put this implication in ANOTHER theme as well, keeping the one it is already in.
   // Clustering is not a partition — see migration 0023.
   onCopyToTheme: (card: RippleCard, themeId: string) => void;
-  // Make a theme and move these tray implications into it, in one go.
-  onCreateThemeFrom: (cardIds: string[]) => void;
+  // Make a theme and move these tray implications into it, in one go. `text` names it;
+  // without one it is "Theme N".
+  onCreateThemeFrom: (cardIds: string[], text?: string) => void;
   // Move several tray implications into an EXISTING theme at once — the rail's click.
   onMoveManyToTheme: (cardIds: string[], themeId: string) => void;
   // Week 2's map, so the drill-in can show an implication inside its own branch.
   week2Cards?: RippleCard[];
+  // Present for a signed-in facilitator only: the clustering tool rides the right rail.
+  admin?: AdminTools;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
@@ -135,6 +142,10 @@ export function ClusterBoard({
   const [copyFrom, setCopyFrom] = useState<RippleCard | null>(null);
   // The Week 2 card id whose branch is open in the lightbox. Null = closed.
   const [tracing, setTracing] = useState<string | null>(null);
+  // The theme opened in the body instead of the board — from a rail square or a column's
+  // menu. Null = the board. Resolved against the live list below, so a theme someone else
+  // deletes while it is open falls back to the board rather than to a blank page.
+  const [focusId, setFocusId] = useState<string | null>(null);
   // Tray cards ticked for "create theme from selected". Drag still works and is untouched;
   // this is the other way round the same job, for a group that would rather read the whole
   // tray and tick than pick cards up one at a time.
@@ -145,12 +156,13 @@ export function ClusterBoard({
   // Tell the page a rail is on the left, so the header and the board both yield to it.
   // A DOM side effect in an effect is exactly what effects are for; the alternative was
   // threading a step-1-only flag through SessionTabs, which every other week also uses.
+  // "wide" when the facilitator's suggestions share the right rail, which needs reading room.
   useEffect(() => {
-    document.body.dataset.themeRail = "1";
+    document.body.dataset.themeRail = admin ? "wide" : "1";
     return () => {
       delete document.body.dataset.themeRail;
     };
-  }, []);
+  }, [admin]);
   // Show only implications from one key change. Independent of the order filter; both
   // narrow the TRAY and neither touches what is already in a theme.
   const [keyFilter, setKeyFilter] = useState<string | null>(null);
@@ -165,6 +177,23 @@ export function ClusterBoard({
   // The theme awaiting a delete decision. Nothing is written until the modal is answered,
   // so a theme never vanishes and then reappears when the route refuses.
   const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
+
+  const focus = board.themes.find((t) => t.id === focusId) ?? null;
+
+  // Escape leaves the theme view — unless something that owns Escape is open on top of
+  // it (a modal, the drill-in, a field being typed in).
+  useEffect(() => {
+    if (!focus) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (tracing || copyFrom || mergeFrom || pendingDelete) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.isContentEditable)) return;
+      setFocusId(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [focus, tracing, copyFrom, mergeFrom, pendingDelete]);
   const columnRefs = useRef(new Map<string, HTMLDivElement | null>());
 
   const byId = new Map<string, RippleCard>();
@@ -556,7 +585,9 @@ export function ClusterBoard({
           Themes
         </h2>
         <p className="mt-1 text-[11px] italic leading-[1.35] text-muted">
-          {picked.size > 0 ? `Click one to add ${picked.size}.` : "Drag cards in, or tick and click."}
+          {picked.size > 0
+            ? `Click one to add ${picked.size}.`
+            : "Click a theme to open it. Drag cards in, or tick and click."}
         </p>
 
         <div className="mt-3 flex flex-col gap-2.5">
@@ -568,16 +599,24 @@ export function ClusterBoard({
                 key={t.id}
                 {...zoneProps(`theme:${t.id}`)}
                 onClick={() => {
-                  if (picked.size === 0) return;
+                  // With nothing ticked, a square opens its theme; with a selection it
+                  // is the drop target it always was.
+                  if (picked.size === 0) {
+                    setFocusId(t.id);
+                    return;
+                  }
                   onMoveManyToTheme([...picked], t.id);
                   setPicked(new Set());
                 }}
+                aria-pressed={focus?.id === t.id}
                 title={t.text}
                 className={
                   "flex aspect-square w-full flex-col rounded-[6px] border-2 p-2.5 text-left transition-all " +
                   (lit
                     ? "scale-[1.02] border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)] "
-                    : "border-ink bg-[rgba(196,255,103,0.16)] hover:bg-lime/40 ") +
+                    : focus?.id === t.id
+                      ? "border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)] "
+                      : "border-ink bg-[rgba(196,255,103,0.16)] hover:bg-lime/40 ") +
                   (picked.size > 0 ? "cursor-copy" : "")
                 }
               >
@@ -638,13 +677,17 @@ export function ClusterBoard({
             </div>
           ))}
 
+          {/* The rail button mints a theme straight away, named the way a dropped card
+              or a ticked set would name it — "Theme N". Naming can wait until the group
+              knows what the pile is about; the form in the body is still there for when
+              it does. */}
           {editable && (
             <button
               onClick={() => {
                 if (picked.size > 0) {
                   onCreateThemeFrom([...picked]);
                   setPicked(new Set());
-                } else setAddingTheme(true);
+                } else onAddTheme(`Theme ${board.themes.length + 1}`);
               }}
               disabled={busy}
               className="rounded-[2px] border border-ink bg-paper px-2 py-2 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-40"
@@ -660,7 +703,25 @@ export function ClusterBoard({
           produces either one theme per implication or one theme for everything, and every
           later step inherits it. Up here it stays readable while you work, instead of
           scrolling away above 146 cards. */}
-      <aside className="fixed inset-y-0 right-0 z-30 hidden w-[15rem] overflow-y-auto border-l border-ink bg-card px-3 py-4 lg:block">
+      <aside
+        className={
+          "fixed inset-y-0 right-0 z-30 hidden overflow-y-auto border-l border-ink bg-card px-3 py-4 lg:block " +
+          (admin ? "w-[21rem]" : "w-[15rem]")
+        }
+      >
+        {/* A facilitator's clustering tool, above the prompts: example groupings to read
+            beside the real tray. Members never see this — `admin` is decided on the server. */}
+        {admin && (
+          <div className="mb-4 border-b border-[var(--rule)] pb-4">
+            <SuggestThemesRail
+              admin={admin}
+              board={board}
+              editable={editable}
+              busy={busy}
+              onCreateThemeFrom={onCreateThemeFrom}
+            />
+          </div>
+        )}
         <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
           As you group and name themes
         </h2>
@@ -697,6 +758,181 @@ export function ClusterBoard({
         </div>
       )}
 
+      {/* ---- one theme, opened from the rail ----
+           The columns show every theme at once, which is right for sorting and wrong for
+           writing: a statement about change wants room, and "what else belongs here" wants
+           a search, not a scan of 146 cards. Same card machinery as the columns — a card
+           keeps its menu, its order stamp and its drill-in — so nothing learned on the board
+           is lost in here. */}
+      {focus && (() => {
+        const theme = focus;
+        const zone = `theme:${theme.id}`;
+        const held = board.clusters.get(theme.id) ?? [];
+        const at = board.themes.findIndex((t) => t.id === theme.id);
+        const prev = board.themes[at - 1];
+        const next = board.themes[at + 1];
+        // What is in another theme and NOT already here (by implication identity, so a
+        // copy of something this theme holds is not offered back to it).
+        const heldKeys = new Set(held.map(implicationKey));
+        const elsewhere = board.themes
+          .filter((t) => t.id !== theme.id)
+          .flatMap((t) =>
+            (board.clusters.get(t.id) ?? [])
+              .filter((c) => !heldKeys.has(implicationKey(c)))
+              .map((card) => ({ card, themeText: t.text }))
+          );
+        const sourceIdOf = (c: RippleCard) =>
+          c.sourceCardId ?? twins.get(implicationKey(c))?.sourceCardId ?? null;
+        const navBtn =
+          "rounded-[2px] border border-ink bg-paper px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-30";
+        return (
+          <section className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <button onClick={() => setFocusId(null)} className={navBtn}>
+                ← Back to the board
+              </button>
+              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                Theme {at + 1} of {board.themes.length}
+              </span>
+              <span className="ml-auto flex gap-1">
+                <button disabled={!prev} onClick={() => prev && setFocusId(prev.id)} className={navBtn}>
+                  ← Prev
+                </button>
+                <button disabled={!next} onClick={() => next && setFocusId(next.id)} className={navBtn}>
+                  Next →
+                </button>
+              </span>
+            </div>
+
+            {/* The statement. Same head card as steps 2 and 3 (ThemeLineagePanel), so the
+                theme looks like one thing all the way through the week. */}
+            <div className="rounded-[4px] border-2 border-ink bg-[rgba(196,255,103,0.16)] px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
+                    The change we see
+                  </div>
+                  <h2 className="mt-1 text-[20px] font-extrabold uppercase leading-[1.1] tracking-tight">
+                    <InlineText
+                      text={theme.text}
+                      editable={editable}
+                      busy={busy}
+                      placeholder="Name this theme as a statement about change…"
+                      onSave={(next) => onEditCard(theme, next)}
+                    />
+                  </h2>
+                  <div className="mt-1.5 max-w-[70ch] text-[13.5px] leading-[1.5] text-ink/80">
+                    <InlineText
+                      text={theme.description ?? ""}
+                      editable={editable}
+                      busy={busy}
+                      emptyLabel="＋ Describe this theme"
+                      placeholder="What does this theme mean?"
+                      maxLength={CARD_DESCRIPTION_MAX}
+                      rows={3}
+                      onSave={(next) => onDescribeCard(theme, next)}
+                    />
+                  </div>
+                </div>
+                {editable && (
+                  <CardMenu label="Theme actions">
+                    {(close) => (
+                      <CardMenuItem
+                        danger
+                        onClick={() => {
+                          close();
+                          setPendingDelete(theme);
+                        }}
+                      >
+                        Delete theme…
+                      </CardMenuItem>
+                    )}
+                  </CardMenu>
+                )}
+              </div>
+              {editable && (
+                <p className="mt-3 border-t border-black/10 pt-2.5 text-[11.5px] italic leading-[1.4] text-muted">
+                  Double-click the statement to edit it. Name a theme as a statement about
+                  change — &ldquo;Responsibility moves to communities faster than resources
+                  do&rdquo; rather than &ldquo;Community capacity&rdquo;.
+                </p>
+              )}
+            </div>
+
+            {/* Everything in it, as full cards. The whole block is the drop zone, like a
+                column, so a card dragged off a rail square still lands. */}
+            <div
+              {...zoneProps(zone)}
+              className={
+                "rounded-[4px] border-2 p-3 transition-colors " +
+                (zoneLit(zone) ? "border-ink " : "border-[var(--rule)] ") +
+                "bg-[rgba(196,255,103,0.16)]"
+              }
+            >
+              <div className="mb-2 flex flex-wrap items-center gap-3">
+                <h3 className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
+                  In this theme ({held.length})
+                </h3>
+                {editable && addingTo !== theme.id && (
+                  <button
+                    onClick={() => setAddingTo(theme.id)}
+                    className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+                  >
+                    ＋ Add an implication
+                  </button>
+                )}
+              </div>
+              {editable && addingTo === theme.id && (
+                <div className="mb-3 max-w-[32rem]">
+                  <AddCardForm
+                    label="A new implication…"
+                    busy={busy}
+                    autoFocus
+                    onAdd={(t) => onAddImplication(t, theme.id)}
+                    onDone={() => setAddingTo(null)}
+                  />
+                </div>
+              )}
+              <div
+                className={
+                  "grid gap-2 rounded-[3px] border-2 border-dashed p-2 sm:grid-cols-2 xl:grid-cols-3 " +
+                  (zoneLit(zone) ? "border-ink bg-lime/60 " : "border-black/20 bg-[rgba(255,255,255,0.6)] ")
+                }
+              >
+                {held.map((c) => renderSlot(c, zone, theme.id, "y", held))}
+                {held.length === 0 && (
+                  <div className="col-span-full flex flex-col items-center gap-1 py-6 text-center">
+                    <span aria-hidden className="text-[20px] leading-none text-black/25">
+                      ⤓
+                    </span>
+                    <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">
+                      Nothing in it yet — drop implications here, or search below
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <ThemeJoinSearch
+              key={theme.id}
+              members={held}
+              tray={board.unclustered}
+              elsewhere={elsewhere}
+              orderOf={orderOf}
+              keyOf={keyOf}
+              sourceIdOf={sourceIdOf}
+              editable={editable}
+              busy={busy}
+              onMoveIn={(c) => onMoveCard(c, theme.id, null)}
+              onCopyIn={(c) => onCopyToTheme(c, theme.id)}
+              admin={admin}
+            />
+          </section>
+        );
+      })()}
+
+      {!focus && (
+      <>
       {/* ---- the tray ---- */}
       <section>
         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -1002,15 +1238,25 @@ export function ClusterBoard({
                       {editable && (
                         <CardMenu label="Theme actions">
                           {(close) => (
-                            <CardMenuItem
-                              danger
-                              onClick={() => {
-                                close();
-                                setPendingDelete(theme);
-                              }}
-                            >
-                              Delete theme…
-                            </CardMenuItem>
+                            <>
+                              <CardMenuItem
+                                onClick={() => {
+                                  close();
+                                  setFocusId(theme.id);
+                                }}
+                              >
+                                Open theme
+                              </CardMenuItem>
+                              <CardMenuItem
+                                danger
+                                onClick={() => {
+                                  close();
+                                  setPendingDelete(theme);
+                                }}
+                              >
+                                Delete theme…
+                              </CardMenuItem>
+                            </>
                           )}
                         </CardMenu>
                       )}
@@ -1107,6 +1353,8 @@ export function ClusterBoard({
           </div>
         )}
       </section>
+      </>
+      )}
 
       {/* ---- unplaceable ----
            A card the board could not attach to anything: a hope with no theme above it,
@@ -1284,6 +1532,7 @@ export function ClusterBoard({
                   centerLabel={branch.root.text}
                   highlightIds={branch.pathIds}
                   selectedId={tracing}
+                  variant="branch"
                 />
               </div>
             </div>
