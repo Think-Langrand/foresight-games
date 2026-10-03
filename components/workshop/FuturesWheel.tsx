@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildChildrenMap, depthByCard, type RippleCard } from "@/lib/ripples-types";
 import { sortRootsByRank } from "@/lib/ripples-scoring";
 import { rippleDepthColor } from "@/components/workshop/RippleCard";
@@ -26,27 +26,28 @@ interface WheelLink {
 }
 
 const HUB_R = 64; // the scenario hub
-const FIRST_RING = 130; // hub centre → the key-change ring
-const RING_GAP = 106; // …and between each ring after that
-const MIN_RING_GAP = 74; // rings tighten as the map deepens, but not past this
+const NODE_R = 38; // EVERY content node, whatever ring it sits on
+const NODE_GAP = 12; // minimum air between two nodes on the same ring
+const RING_PAD = 26; // minimum air between one ring and the next
+const FIRST_RING = 150; // hub centre → the key-change ring, when it is not crowded
 const PAD = 16; // breathing room outside the last ring
 
-// Ring gap shrinks as the map deepens, so a ten-level wheel stays roughly a screen
-// wide instead of growing past 2000px. At three rings this reproduces the original
-// fixed layout exactly.
-function ringGap(rings: number): number {
-  return Math.max(MIN_RING_GAP, RING_GAP - Math.max(0, rings - 3) * 8);
-}
-
-// Distance from the hub to ring `depth` (0-based).
-function radiusOf(depth: number, rings: number): number {
-  return FIRST_RING + depth * ringGap(rings);
-}
-
-// Nodes shrink with depth — the outer rings hold the most cards — but floor out so
-// the text stays legible. 64/50/39/30 for the first few, matching the old wheel.
-function nodeRadius(depth: number): number {
-  return Math.max(18, Math.round(HUB_R * Math.pow(0.78, depth + 1)));
+// Every content circle is the SAME SIZE. It used to shrink by depth (50/39/30/24…),
+// which read as "this one matters less" when all it meant was "this one is further out" —
+// and a third-order implication carries exactly as much text as a first-order one.
+//
+// Equal circles cost circumference, so the rings have to earn their radius instead: a ring
+// is pushed out until its nodes actually fit around it. A wide map therefore grows rather
+// than squashing, which is the honest trade — the container already scrolls.
+function ringRadii(countByDepth: number[]): number[] {
+  const radii: number[] = [];
+  for (let d = 0; d < countByDepth.length; d++) {
+    const floor = d === 0 ? FIRST_RING : radii[d - 1] + 2 * NODE_R + RING_PAD;
+    // What this ring needs to seat `count` circles of NODE_R without them touching.
+    const needed = (countByDepth[d] * (2 * NODE_R + NODE_GAP)) / (2 * Math.PI);
+    radii.push(Math.max(floor, needed));
+  }
+  return radii;
 }
 
 function layout(cards: RippleCard[]): { nodes: WheelNode[]; links: WheelLink[]; size: number } {
@@ -55,7 +56,10 @@ function layout(cards: RippleCard[]): { nodes: WheelNode[]; links: WheelLink[]; 
   // Same rank order as the tree, so the three views never disagree about the key changes.
   const roots = sortRootsByRank((childrenMap.get(null) ?? []).filter((c) => c.order !== "STICKY"));
   const rings = depths.size ? Math.max(...depths.values()) + 1 : 1;
-  const size = 2 * (radiusOf(rings - 1, rings) + nodeRadius(rings - 1) + PAD);
+  const countByDepth = Array.from({ length: rings }, () => 0);
+  for (const d of depths.values()) if (d < rings) countByDepth[d] += 1;
+  const radii = ringRadii(countByDepth);
+  const size = 2 * ((radii[rings - 1] ?? FIRST_RING) + NODE_R + PAD);
   const cx = size / 2;
   const cy = size / 2;
   const nodes: WheelNode[] = [];
@@ -81,7 +85,7 @@ function layout(cards: RippleCard[]): { nodes: WheelNode[]; links: WheelLink[]; 
     const depth = depths.get(card.id);
     if (depth === undefined) return;
     const mid = (a0 + a1) / 2;
-    const r = radiusOf(depth, rings);
+    const r = radii[depth] ?? FIRST_RING;
     const x = cx + r * Math.cos(mid);
     const y = cy + r * Math.sin(mid);
     nodes.push({ id: card.id, text: card.text, depth, x, y });
@@ -110,18 +114,54 @@ function layout(cards: RippleCard[]): { nodes: WheelNode[]; links: WheelLink[]; 
   return { nodes, links, size };
 }
 
-export function FuturesWheel({ cards, centerLabel }: { cards: RippleCard[]; centerLabel: string }) {
+export function FuturesWheel({
+  cards,
+  centerLabel,
+  // Circle ids to pick out, and what to dim everything else to. Used by the drill-in,
+  // where the point is one implication's path rather than the whole map.
+  highlightIds,
+}: {
+  cards: RippleCard[];
+  centerLabel: string;
+  highlightIds?: Set<string>;
+}) {
   const { nodes, links, size } = useMemo(() => layout(cards), [cards]);
   const cx = size / 2;
   const cy = size / 2;
+
+  // Equal-sized circles mean a wide map earns a big radius — Group 1's 146-node map comes
+  // out at 2217px, which is unreadable inside a 1100px column and opens on a corner of
+  // empty space. Scale the whole thing to whatever room there is instead; the circles stay
+  // equal to each other, which is the thing that matters.
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const fit = () => setScale(Math.min(1, (el.clientWidth || size) / size));
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [size]);
 
   if (nodes.length === 0) {
     return <p className="text-[13px] italic text-muted">No implications on the map yet.</p>;
   }
 
   return (
-    <div className="overflow-auto pb-2">
-      <div className="relative mx-auto" style={{ width: size, height: size }}>
+    <div ref={boxRef} className="pb-2">
+      <div
+        className="relative mx-auto"
+        style={{
+          width: size * scale,
+          height: size * scale,
+        }}
+      >
+      <div
+        className="relative"
+        style={{ width: size, height: size, transform: `scale(${scale})`, transformOrigin: "top left" }}
+      >
         <svg width={size} height={size} className="absolute inset-0" style={{ pointerEvents: "none" }}>
           {links.map((l, i) => (
             <line
@@ -142,12 +182,14 @@ export function FuturesWheel({ cards, centerLabel }: { cards: RippleCard[]; cent
             key={n.id}
             x={n.x}
             y={n.y}
-            r={nodeRadius(n.depth)}
+            r={NODE_R}
             bg="var(--card)"
             border={rippleDepthColor(n.depth)}
             label={n.text}
+            dim={highlightIds ? !highlightIds.has(n.id) : false}
           />
         ))}
+      </div>
       </div>
     </div>
   );
@@ -161,6 +203,7 @@ function WheelCircle({
   border,
   label,
   hub,
+  dim,
 }: {
   x: number;
   y: number;
@@ -169,11 +212,15 @@ function WheelCircle({
   border: string;
   label: string;
   hub?: boolean;
+  dim?: boolean;
 }) {
   return (
     <div
       title={label}
-      className="absolute flex items-center justify-center rounded-full text-center shadow-[0_1px_0_rgba(36,36,34,0.08)]"
+      className={
+        "absolute flex items-center justify-center rounded-full text-center shadow-[0_1px_0_rgba(36,36,34,0.08)] " +
+        (dim ? "opacity-20" : "")
+      }
       style={{
         left: x - r,
         top: y - r,
