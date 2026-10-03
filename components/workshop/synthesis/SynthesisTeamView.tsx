@@ -83,6 +83,7 @@ export function SynthesisTeamView({
   hiddenSections,
   sections = [],
   lineage = {},
+  week2Cards = [],
   title,
 }: {
   code: string;
@@ -94,6 +95,9 @@ export function SynthesisTeamView({
   // Week 2 ancestry for the step-2 drill-in, keyed by Week 2 card id. Shaped server-side
   // from the earlier-week answers the page already loads.
   lineage?: Record<string, Week2Lineage>;
+  // Week 2's whole map, so step 1 can draw an implication's own branch of it rather than
+  // only its ancestor text. Read-only here; the live board is this week's.
+  week2Cards?: RippleCard[];
   title?: string;
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
@@ -664,6 +668,7 @@ export function SynthesisTeamView({
           onCopyToTheme={copyToTheme}
           onCreateThemeFrom={createThemeFrom}
           onMoveManyToTheme={moveManyToTheme}
+          week2Cards={week2Cards}
         />
       )}
 

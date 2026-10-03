@@ -119,6 +119,12 @@ export default async function DesignGroupExercisePage({
       {},
       ...pastWeeks.filter((w) => w.kind === "implications").map((w) => lineageByCardId(w.cards))
     );
+    // The Week 2 cards themselves, so step 1 can draw an implication's own branch of the
+    // map rather than only its ancestor text. Same payload the lineage above was shaped
+    // from — no extra query.
+    const week2Cards = pastWeeks
+      .filter((w) => w.kind === "implications")
+      .flatMap((w) => w.cards);
     return (
       <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>
         <SynthesisTeamView
@@ -129,6 +135,7 @@ export default async function DesignGroupExercisePage({
           hiddenSections={project.homeConfig.hiddenScenarioSections}
           sections={resolveEffectiveSections(exercise.type, exercise.sections)}
           lineage={lineage}
+          week2Cards={week2Cards}
           title={exercise.title}
         />
       </SessionTabs>

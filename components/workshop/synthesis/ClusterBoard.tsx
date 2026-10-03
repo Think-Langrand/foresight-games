@@ -5,6 +5,7 @@ import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
 import {
   childrenOf,
   implicationKey,
+  branchOf,
   implicationOrder,
   insertionPoint,
   keyChangeLabel,
@@ -19,6 +20,7 @@ import {
   InlineText,
 } from "@/components/workshop/synthesis/SynthesisCard";
 import type { Week2Lineage } from "@/lib/synthesis-shape";
+import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import {
   DeleteThemeModal,
   type DeleteThemeMode,
@@ -93,6 +95,7 @@ export function ClusterBoard({
   onCopyToTheme,
   onCreateThemeFrom,
   onMoveManyToTheme,
+  week2Cards = [],
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -120,6 +123,8 @@ export function ClusterBoard({
   onCreateThemeFrom: (cardIds: string[]) => void;
   // Move several tray implications into an EXISTING theme at once — the rail's click.
   onMoveManyToTheme: (cardIds: string[], themeId: string) => void;
+  // Week 2's map, so the drill-in can show an implication inside its own branch.
+  week2Cards?: RippleCard[];
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
@@ -128,6 +133,8 @@ export function ClusterBoard({
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
   // The card whose "also add to…" picker is open. Null when none is.
   const [copyFrom, setCopyFrom] = useState<RippleCard | null>(null);
+  // The Week 2 card id whose branch is open in the lightbox. Null = closed.
+  const [tracing, setTracing] = useState<string | null>(null);
   // Tray cards ticked for "create theme from selected". Drag still works and is untouched;
   // this is the other way round the same job, for a group that would rather read the whole
   // tray and tick than pick cards up one at a time.
@@ -490,41 +497,18 @@ export function ClusterBoard({
           </span>
         )}
 
-        {/* Where it came from, folded away. Absent for a card typed here by hand, for a
-            seed whose Week 2 source was deleted, and for a group whose Week 2 is still a
-            placeholder — each simply shows no trail rather than an empty disclosure. */}
-        {from && (
-          <details
-            className="mt-1.5"
-            // The card is draggable, so a mousedown on the summary would otherwise start a
-            // drag instead of toggling the disclosure.
+        {/* Where it came from. A fold-out list of ancestor text told you the names but
+            not the shape — which branch this sits on, how much else hangs off the same key
+            change, how far out it is. The lightbox shows that branch as the wheel the
+            group drew in Week 2, with this implication picked out of it. */}
+        {sourceId && (
+          <button
+            onClick={() => setTracing(sourceId)}
             onDragStart={(e) => e.preventDefault()}
+            className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-blue hover:underline"
           >
-            <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-[0.06em] text-muted hover:text-ink">
-              ▸ Where this came from
-            </summary>
-            <div className="mt-1.5 border-l-2 border-black/15 pl-2">
-              <div className="text-[9px] font-bold uppercase tracking-[0.08em] text-muted">
-                Key change
-              </div>
-              <div className="mt-0.5 text-[11.5px] font-bold leading-[1.35]">
-                {from.keyChange}
-              </div>
-              {from.chain.length > 1 && (
-                <ol className="mt-1.5 flex flex-col gap-0.5">
-                  {from.chain.slice(1).map((step, i) => (
-                    <li
-                      key={i}
-                      className="text-[11px] leading-[1.35] text-muted"
-                      style={{ paddingLeft: `${i * 10}px` }}
-                    >
-                      ↳ {step}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          </details>
+            ◎ Where this came from
+          </button>
         )}
       </div>
     );
@@ -576,7 +560,7 @@ export function ClusterBoard({
         </p>
 
         <div className="mt-3 flex flex-col gap-2.5">
-          {board.themes.map((t, i) => {
+          {board.themes.map((t) => {
             const n = board.clusters.get(t.id)?.length ?? 0;
             const lit = zoneLit(`theme:${t.id}`);
             return (
@@ -598,15 +582,28 @@ export function ClusterBoard({
                 }
               >
                 <span className="flex items-baseline justify-between gap-1.5">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
-                    Theme {i + 1}
+                  {/* The heading is the theme's own name once it has one. An unnamed theme
+                      still reads "Theme 3" from its text, so printing both said it twice. */}
+                  <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.08em]">
+                    {t.text}
                   </span>
-                  <span className="rounded-[2px] bg-ink px-1.5 py-px text-[10px] font-bold text-paper">
+                  <span className="shrink-0 rounded-[2px] bg-ink px-1.5 py-px text-[10px] font-bold text-paper">
                     {n}
                   </span>
                 </span>
-                <span className="mt-1.5 line-clamp-5 text-[12px] font-bold leading-[1.3]">
-                  {t.text}
+                {/* What is actually in it, a line each. The square is the whole budget, so
+                    anything past it is cut rather than stretching the rail. */}
+                <span className="mt-1.5 flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
+                  {(board.clusters.get(t.id) ?? []).map((c) => (
+                    <span key={c.id} className="truncate text-[10.5px] leading-[1.35] text-ink/80">
+                      {c.text}
+                    </span>
+                  ))}
+                  {n === 0 && (
+                    <span className="text-[10.5px] italic leading-[1.35] text-muted">
+                      Nothing in it yet.
+                    </span>
+                  )}
                 </span>
                 {picked.size > 0 && (
                   <span className="mt-auto pt-1 text-[9.5px] font-bold uppercase tracking-[0.05em] text-blue">
@@ -1232,6 +1229,67 @@ export function ClusterBoard({
           </div>
         </div>
       )}
+
+      {/* The drill-in. Covers the screen because the thing being shown is a map, and a map
+          in a 240px card is a diagram of nothing. */}
+      {tracing && (() => {
+        const branch = branchOf(week2Cards, tracing);
+        if (!branch) return null;
+        const self = branch.subtree.find((c) => c.id === tracing);
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Where this came from"
+            onClick={() => setTracing(null)}
+            className="fixed inset-0 z-[100] flex flex-col bg-[rgba(20,20,18,0.72)] p-4 sm:p-8"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="mx-auto flex h-full w-full max-w-[1200px] flex-col overflow-hidden rounded-[6px] border-2 border-ink bg-paper"
+            >
+              <div className="flex items-start justify-between gap-4 border-b border-[var(--rule)] px-5 py-3">
+                <div className="min-w-0">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
+                    Key change
+                  </div>
+                  <div className="mt-0.5 text-[14px] font-extrabold leading-[1.25]">
+                    {branch.root.text}
+                  </div>
+                  {self && (
+                    <div className="mt-1.5 text-[12.5px] leading-[1.4]">
+                      <span className="rounded-[2px] bg-lime px-1.5 py-px text-[10px] font-bold uppercase tracking-[0.06em]">
+                        This card
+                      </span>{" "}
+                      {self.text}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setTracing(null)}
+                  className="shrink-0 rounded-[2px] border border-ink bg-paper px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime"
+                >
+                  Close ✕
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto p-4">
+                {/* The key change is the HUB, so it must not also be a node — drawn both
+                    ways it read as two different cards saying the same thing. Its direct
+                    children become the first ring, exactly as key changes do on the full
+                    map where the scenario is the hub. */}
+                <FuturesWheel
+                  cards={branch.subtree
+                    .filter((c) => c.id !== branch.root.id)
+                    .map((c) => (c.parentId === branch.root.id ? { ...c, parentId: null } : c))}
+                  centerLabel={branch.root.text}
+                  highlightIds={branch.pathIds}
+                  selectedId={tracing}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <DeleteThemeModal
         open={pendingDelete !== null}

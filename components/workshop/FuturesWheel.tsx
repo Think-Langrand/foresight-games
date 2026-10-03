@@ -120,10 +120,14 @@ export function FuturesWheel({
   // Circle ids to pick out, and what to dim everything else to. Used by the drill-in,
   // where the point is one implication's path rather than the whole map.
   highlightIds,
+  selectedId,
 }: {
   cards: RippleCard[];
   centerLabel: string;
   highlightIds?: Set<string>;
+  // The one circle the drill-in was opened for. Drawn lime so it is findable at a glance
+  // in a branch that may hold fifty others.
+  selectedId?: string;
 }) {
   const { nodes, links, size } = useMemo(() => layout(cards), [cards]);
   const cx = size / 2;
@@ -183,10 +187,11 @@ export function FuturesWheel({
             x={n.x}
             y={n.y}
             r={NODE_R}
-            bg="var(--card)"
-            border={rippleDepthColor(n.depth)}
+            bg={n.id === selectedId ? "var(--lime)" : "var(--card)"}
+            border={n.id === selectedId ? "var(--ink)" : rippleDepthColor(n.depth)}
             label={n.text}
             dim={highlightIds ? !highlightIds.has(n.id) : false}
+            emphasis={n.id === selectedId}
           />
         ))}
       </div>
@@ -204,6 +209,7 @@ function WheelCircle({
   label,
   hub,
   dim,
+  emphasis,
 }: {
   x: number;
   y: number;
@@ -213,13 +219,15 @@ function WheelCircle({
   label: string;
   hub?: boolean;
   dim?: boolean;
+  emphasis?: boolean;
 }) {
   return (
     <div
       title={label}
       className={
         "absolute flex items-center justify-center rounded-full text-center shadow-[0_1px_0_rgba(36,36,34,0.08)] " +
-        (dim ? "opacity-20" : "")
+        (dim ? "opacity-20 " : "") +
+        (emphasis ? "z-10 shadow-[0_0_0_6px_rgba(196,255,103,0.45)] " : "")
       }
       style={{
         left: x - r,
@@ -227,7 +235,7 @@ function WheelCircle({
         width: r * 2,
         height: r * 2,
         background: bg,
-        border: `${hub ? 3 : 2}px solid ${border}`,
+        border: `${hub || emphasis ? 3 : 2}px solid ${border}`,
       }}
     >
       <span

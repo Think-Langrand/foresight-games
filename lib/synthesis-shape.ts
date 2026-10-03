@@ -661,6 +661,50 @@ export interface Week2Lineage {
 // This matters more than it looks on a real board: Group 1's production map is 23 first
 // order, 53 second, 68 third, 2 fourth. A group clustering that blind weighs a speculative
 // third-order knock-on exactly like a direct consequence, and the themes inherit it.
+// One implication's branch of the Week 2 map: the key change it hangs under, every card
+// on that branch, and the path of ids from the root down to this card. The drill-in draws
+// the branch and picks the path out of it — a list of ancestor text named the steps but
+// never showed the shape they sit in.
+export interface Week2Branch {
+  root: RippleCard;
+  subtree: RippleCard[]; // the root and everything under it
+  pathIds: Set<string>; // root → … → the card asked about
+}
+
+export function branchOf(cards: RippleCard[], cardId: string): Week2Branch | null {
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const start = byId.get(cardId);
+  if (!start) return null;
+
+  // Up to the root, cycle-guarded — a malformed map must not hang the UI.
+  const pathIds = new Set<string>([start.id]);
+  let root = start;
+  while (root.parentId) {
+    const next = byId.get(root.parentId);
+    if (!next || pathIds.has(next.id)) break;
+    pathIds.add(next.id);
+    root = next;
+  }
+
+  const kids = new Map<string, RippleCard[]>();
+  for (const c of cards) {
+    if (!c.parentId) continue;
+    const arr = kids.get(c.parentId);
+    if (arr) arr.push(c);
+    else kids.set(c.parentId, [c]);
+  }
+  const subtree: RippleCard[] = [];
+  const seen = new Set<string>();
+  const walk = (c: RippleCard) => {
+    if (seen.has(c.id)) return;
+    seen.add(c.id);
+    subtree.push(c);
+    for (const k of kids.get(c.id) ?? []) walk(k);
+  };
+  walk(root);
+  return { root, subtree, pathIds };
+}
+
 export function implicationOrder(lineage: Week2Lineage | undefined): number | null {
   if (!lineage || lineage.chain.length < 2) return null;
   return lineage.chain.length - 1;

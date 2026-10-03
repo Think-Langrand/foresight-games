@@ -27,6 +27,7 @@ import {
   implicationOrder,
   ordinal,
   keyChangeLabel,
+  branchOf,
 } from "./synthesis-shape";
 
 function card(
@@ -1149,5 +1150,52 @@ describe("keyChangeLabel", () => {
 
   it("survives empty text", () => {
     expect(keyChangeLabel("")).toBe("");
+  });
+});
+
+describe("branchOf", () => {
+  // K1 ─ A ─ B ─ C, and K1 ─ D. K2 is a separate key change entirely.
+  const week2 = () => [
+    card("K1", "FIRST", null, 1),
+    card("A", "SECOND", "K1", 2),
+    card("B", "TERMINAL", "A", 3),
+    card("C", "ORDER_4", "B", 4),
+    card("D", "SECOND", "K1", 5),
+    card("K2", "FIRST", null, 6),
+    card("E", "SECOND", "K2", 7),
+  ];
+
+  it("returns the key change, its whole branch, and the path down to the card", () => {
+    const got = branchOf(week2(), "B");
+    expect(got?.root.id).toBe("K1");
+    expect(got?.subtree.map((c) => c.id).sort()).toEqual(["A", "B", "C", "D", "K1"]);
+    expect([...(got?.pathIds ?? [])].sort()).toEqual(["A", "B", "K1"]);
+  });
+
+  // The whole point is to show ONE branch, not the six-key-change map.
+  it("leaves the other key changes out", () => {
+    const ids = branchOf(week2(), "B")?.subtree.map((c) => c.id) ?? [];
+    expect(ids).not.toContain("K2");
+    expect(ids).not.toContain("E");
+  });
+
+  it("handles a key change asked about directly", () => {
+    const got = branchOf(week2(), "K1");
+    expect(got?.root.id).toBe("K1");
+    expect([...(got?.pathIds ?? [])]).toEqual(["K1"]);
+  });
+
+  it("is null for a card that is not on the map", () => {
+    expect(branchOf(week2(), "ghost")).toBeNull();
+  });
+
+  it("does not hang on a parent cycle", () => {
+    const cycled = [
+      card("X", "SECOND", "Y", 1),
+      card("Y", "TERMINAL", "X", 2),
+    ];
+    const got = branchOf(cycled, "X");
+    expect(got).not.toBeNull();
+    expect(got!.subtree.length).toBeLessThanOrEqual(2);
   });
 });
