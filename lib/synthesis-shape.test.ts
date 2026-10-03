@@ -28,6 +28,7 @@ import {
   ordinal,
   keyChangeLabel,
   branchOf,
+  seededIndex,
 } from "./synthesis-shape";
 
 function card(
@@ -194,12 +195,20 @@ describe("lineageByCardId", () => {
 
   it("gives each card its ancestor path, root text first and its own text last", () => {
     const l = lineageByCardId(week2());
-    expect(l.A).toEqual({ keyChange: "K1-text", chain: ["K1-text", "A-text"] });
-    expect(l.B).toEqual({ keyChange: "K1-text", chain: ["K1-text", "A-text", "B-text"] });
+    expect(l.A).toEqual({ keyChange: "K1-text", keyChangeId: "K1", chain: ["K1-text", "A-text"] });
+    expect(l.B).toEqual({
+      keyChange: "K1-text",
+      keyChangeId: "K1",
+      chain: ["K1-text", "A-text", "B-text"],
+    });
   });
 
   it("gives a root itself as its own key change", () => {
-    expect(lineageByCardId(week2()).K1).toEqual({ keyChange: "K1-text", chain: ["K1-text"] });
+    expect(lineageByCardId(week2()).K1).toEqual({
+      keyChange: "K1-text",
+      keyChangeId: "K1",
+      chain: ["K1-text"],
+    });
   });
 
   it("gives each branch its own path, never a merged one", () => {
@@ -1197,5 +1206,84 @@ describe("branchOf", () => {
     const got = branchOf(cycled, "X");
     expect(got).not.toBeNull();
     expect(got!.subtree.length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("lineageByCardId — keyChangeId", () => {
+  it("carries the root's id down every branch, not just its text", () => {
+    const l = lineageByCardId([
+      card("K1", "FIRST", null, 1),
+      card("A", "SECOND", "K1", 2),
+      card("B", "TERMINAL", "A", 3),
+      card("K2", "FIRST", null, 4),
+      card("C", "SECOND", "K2", 5),
+    ]);
+    expect(l.A.keyChangeId).toBe("K1");
+    expect(l.B.keyChangeId).toBe("K1");
+    expect(l.C.keyChangeId).toBe("K2");
+  });
+
+  // Two key changes can read alike; the id is what makes the map pick the right branch.
+  it("tells apart two key changes with identical text", () => {
+    const same = [
+      { ...card("K1", "FIRST", null, 1), text: "Same wording" },
+      { ...card("A", "SECOND", "K1", 2), text: "under one" },
+      { ...card("K2", "FIRST", null, 3), text: "Same wording" },
+      { ...card("B", "SECOND", "K2", 4), text: "under the other" },
+    ];
+    const l = lineageByCardId(same);
+    expect(l.A.keyChange).toBe(l.B.keyChange);
+    expect(l.A.keyChangeId).not.toBe(l.B.keyChangeId);
+  });
+});
+
+describe("seededIndex", () => {
+  const board = () =>
+    indexSynthesisBoard([
+      theme("TH", 1),
+      card("W3A", "SECOND", "TH", 2, { sourceCardId: "W2A" }),
+      card("W3B", "FIRST", null, 3, { sourceCardId: "W2B" }),
+      card("W3C", "FIRST", null, 4, { sourceCardId: "W2C", parked: true }),
+      card("TYPED", "FIRST", null, 5), // typed here by hand — no Week 2 origin
+    ]);
+
+  it("maps a Week 2 id to the Week 3 card and the theme it sits in", () => {
+    const idx = seededIndex(board());
+    expect(idx.get("W2A")?.card.id).toBe("W3A");
+    expect(idx.get("W2A")?.themeId).toBe("TH");
+  });
+
+  it("reports a tray card as being in no theme", () => {
+    const idx = seededIndex(board());
+    expect(idx.get("W2B")?.themeId).toBeNull();
+    expect(idx.get("W2B")?.parked).toBe(false);
+  });
+
+  it("tells a parked card apart from a tray one", () => {
+    expect(seededIndex(board()).get("W2C")?.parked).toBe(true);
+  });
+
+  // The case the map has to render rather than hide: nothing on this board came from it.
+  it("is absent for a Week 2 card that was never seeded", () => {
+    expect(seededIndex(board()).get("W2-NEVER-SEEDED")).toBeUndefined();
+  });
+
+  it("skips a card typed here by hand", () => {
+    const vals = [...seededIndex(board()).values()].map((v) => v.card.id);
+    expect(vals).not.toContain("TYPED");
+  });
+
+  // A twin copy carries a null sourceCardId, so one Week 2 card maps to one original.
+  it("maps a duplicated implication to its original only", () => {
+    const idx = seededIndex(
+      indexSynthesisBoard([
+        theme("T1", 1, { sort: 1000 }),
+        theme("T2", 2, { sort: 2000 }),
+        card("ORIG", "SECOND", "T1", 3, { sourceCardId: "W2X", twinKey: "K" }),
+        card("COPY", "SECOND", "T2", 4, { twinKey: "K" }),
+      ])
+    );
+    expect(idx.size).toBe(1);
+    expect(idx.get("W2X")?.card.id).toBe("ORIG");
   });
 });

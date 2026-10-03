@@ -154,6 +154,9 @@ export function FuturesWheel({
   highlightIds,
   selectedId,
   variant = "map",
+  nodeProps,
+  nodeExtra,
+  fit = true,
 }: {
   cards: RippleCard[];
   centerLabel: string;
@@ -167,6 +170,17 @@ export function FuturesWheel({
   // order tints would otherwise spend on the first ring — and the rings go neutral, so the
   // only accent left is the card the view was opened for.
   variant?: "map" | "branch";
+  // Props spread onto each circle — drag wiring, click handlers, cursor. Returning nothing
+  // leaves the circle inert, which is what the three read-only consumers get. The drag
+  // vocabulary stays in ClusterBoard next to the drop zones rather than leaking in here.
+  nodeProps?: (cardId: string) => React.HTMLAttributes<HTMLDivElement> & { draggable?: boolean };
+  // A marker drawn under a circle — "in Theme 2", "not on this board".
+  nodeExtra?: (cardId: string) => React.ReactNode;
+  // Scale the whole wheel down to fit its container. On by default, and deliberately OFF
+  // for the interactive map: nothing in this codebase has ever dragged inside a
+  // `transform: scale()` container, and a scrollable 1:1 wheel costs a little panning
+  // rather than a class of bug that would only show up in a live session.
+  fit?: boolean;
 }) {
   const { nodes, links, size } = useMemo(() => layout(cards), [cards]);
   const cx = size / 2;
@@ -179,16 +193,19 @@ export function FuturesWheel({
   // equal to each other, which is the thing that matters.
   const boxRef = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLDivElement | null>(null);
-  const [scale, setScale] = useState(1);
+  const [fitScale, setFitScale] = useState(1);
+  // Derived, not stored: with fit off there is nothing to measure and nothing to set.
+  const scale = fit ? fitScale : 1;
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
-    const fit = () => setScale(Math.min(1, (el.clientWidth || size) / size));
-    fit();
-    const ro = new ResizeObserver(fit);
+    if (!fit) return;
+    const apply = () => setFitScale(Math.min(1, (el.clientWidth || size) / size));
+    apply();
+    const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [size]);
+  }, [size, fit]);
 
   // Open on the chain, not on the top-left corner. The chain runs radially from the hub to
   // the selected circle, so its middle is the midpoint of the two; put that at the centre
@@ -284,6 +301,8 @@ export function FuturesWheel({
               label={n.text}
               dim={highlightIds ? !highlightIds.has(n.id) : false}
               emphasis={selected}
+              extra={nodeExtra?.(n.id)}
+              {...(nodeProps?.(n.id) ?? {})}
             />
           );
         })}
@@ -304,6 +323,8 @@ function WheelCircle({
   hub,
   dim,
   emphasis,
+  extra,
+  ...rest
 }: {
   x: number;
   y: number;
@@ -315,18 +336,21 @@ function WheelCircle({
   hub?: boolean;
   dim?: boolean;
   emphasis?: boolean;
-}) {
+  extra?: React.ReactNode;
+} & React.HTMLAttributes<HTMLDivElement>) {
   // Dimming is done in colour, not opacity. A translucent circle lets the line behind it
   // show through, which read as the lines being drawn on top of the map.
   const background = dim ? "var(--paper)" : bg;
   const color = dim ? "color-mix(in srgb, var(--ink) 40%, var(--paper))" : fg;
   const edge = dim ? "var(--hairline)" : border;
+  const { className: extraClass = "", style: extraStyle, ...handlers } = rest;
   return (
     <div
       title={label}
       className={
         "absolute flex items-center justify-center rounded-full text-center shadow-[0_1px_0_rgba(36,36,34,0.08)] " +
-        (emphasis ? "z-10 shadow-[0_0_0_6px_rgba(196,255,103,0.45)] " : "")
+        (emphasis ? "z-10 shadow-[0_0_0_6px_rgba(196,255,103,0.45)] " : "") +
+        extraClass
       }
       style={{
         left: x - r,
@@ -336,7 +360,9 @@ function WheelCircle({
         background,
         color,
         border: edge ? `${hub || emphasis ? 3 : 2}px solid ${edge}` : "none",
+        ...extraStyle,
       }}
+      {...handlers}
     >
       <span
         className={"px-2 " + (hub ? "text-[12px] font-extrabold uppercase leading-[1.05]" : "text-[10px] leading-[1.12]")}
@@ -349,6 +375,12 @@ function WheelCircle({
       >
         {label}
       </span>
+      {/* Sits under the circle, outside it, so it never eats the text. */}
+      {extra && (
+        <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-0.5 -translate-x-1/2 whitespace-nowrap">
+          {extra}
+        </span>
+      )}
     </div>
   );
 }

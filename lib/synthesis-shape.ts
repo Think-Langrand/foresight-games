@@ -642,12 +642,42 @@ export function themeCountFor(index: Map<string, TwinInfo>, card: RippleCard): n
   return index.get(implicationKey(card))?.themeIds.length ?? 0;
 }
 
+// Which Week 3 card came from which Week 2 one, and where it currently sits.
+//
+// The map draws WEEK 2 cards; themes hold WEEK 3 cards. A node is therefore a reference to
+// a card, not a card — every interaction on the map has to come back through here to find
+// the row it is actually allowed to move. A Week 2 id that is absent was never seeded, and
+// nothing on the map can be done with it.
+//
+// Twin copies carry a null sourceCardId on purpose (migration 0023), so each Week 2 card
+// maps to exactly one Week 3 ORIGINAL. Compose with twinIndex where a node needs to say it
+// is in more than one theme.
+export interface SeededCard {
+  card: RippleCard;
+  themeId: string | null; // null = still in the tray, or parked
+  parked: boolean;
+}
+
+export function seededIndex(board: SynthesisBoard): Map<string, SeededCard> {
+  const out = new Map<string, SeededCard>();
+  const add = (card: RippleCard, themeId: string | null, parked: boolean) => {
+    if (card.sourceCardId) out.set(card.sourceCardId, { card, themeId, parked });
+  };
+  for (const c of board.unclustered) add(c, null, false);
+  for (const theme of board.themes) {
+    for (const c of board.clusters.get(theme.id) ?? []) add(c, theme.id, false);
+  }
+  for (const c of board.parked) add(c, null, true);
+  return out;
+}
+
 // --- Week 2 lineage ----------------------------------------------------------
 // What the hopes & fears drill-in shows beside each clustered implication: the chain it
 // was part of back in Week 2, and the key change at the head of it.
 
 export interface Week2Lineage {
   keyChange: string; // the root card's text
+  keyChangeId: string; // …and its id, so a caller can find the card and draw its branch
   chain: string[]; // root text first, this card's own text last
 }
 
@@ -740,16 +770,16 @@ export function lineageByCardId(week2Cards: RippleCard[]): Record<string, Week2L
   const children = buildChildrenMap(week2Cards);
   const out: Record<string, Week2Lineage> = {};
 
-  const walk = (card: RippleCard, trail: string[]) => {
+  const walk = (card: RippleCard, trail: string[], rootId: string) => {
     const chain = [...trail, card.text];
-    out[card.id] = { keyChange: chain[0], chain };
+    out[card.id] = { keyChange: chain[0], keyChangeId: rootId, chain };
     for (const kid of children.get(card.id) ?? []) {
-      if (depths.has(kid.id) && !out[kid.id]) walk(kid, chain);
+      if (depths.has(kid.id) && !out[kid.id]) walk(kid, chain, rootId);
     }
   };
 
   for (const root of week2Cards.filter(isTreeRoot)) {
-    if (depths.has(root.id)) walk(root, []);
+    if (depths.has(root.id)) walk(root, [], root.id);
   }
   return out;
 }

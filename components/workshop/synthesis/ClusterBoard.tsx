@@ -7,6 +7,7 @@ import {
   implicationKey,
   branchOf,
   implicationOrder,
+  seededIndex,
   insertionPoint,
   keyChangeLabel,
   ordinal,
@@ -174,8 +175,13 @@ export function ClusterBoard({
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
   // The card whose "also add to…" picker is open. Null when none is.
   const [copyFrom, setCopyFrom] = useState<RippleCard | null>(null);
-  // The Week 2 card id whose branch is open in the lightbox. Null = closed.
-  const [tracing, setTracing] = useState<string | null>(null);
+  // Cards or the Week 2 map, in the same place. The map is a second way to cluster: a
+  // branch is usually already a theme, so grabbing one beats picking its members out of a
+  // list of 146.
+  const [view, setView] = useState<"cards" | "map">("cards");
+  // The Week 2 card the map was opened ON, if it was opened from a card. Highlights its
+  // path and scrolls to it; cleared as soon as you change branch.
+  const [focusNode, setFocusNode] = useState<string | null>(null);
   // The theme opened in the body instead of the board — from a rail square or a column's
   // menu. Null = the board. Resolved against the live list below, so a theme someone else
   // deletes while it is open falls back to the board rather than to a blank page.
@@ -236,14 +242,14 @@ export function ClusterBoard({
     if (!focus) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (tracing || copyFrom || mergeFrom || pendingDelete) return;
+      if (copyFrom || mergeFrom || pendingDelete) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.isContentEditable)) return;
       setFocusId(null);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [focus, tracing, copyFrom, mergeFrom, pendingDelete]);
+  }, [focus, copyFrom, mergeFrom, pendingDelete]);
   const columnRefs = useRef(new Map<string, HTMLDivElement | null>());
 
   const byId = new Map<string, RippleCard>();
@@ -408,6 +414,26 @@ export function ClusterBoard({
   const keyChanges = [...keyCounts.keys()].sort();
 
   const tray = board.unclustered.filter((c) => matchesOrder(c) && matchesKey(c));
+
+  // --- the map ----------------------------------------------------------------
+  // Which branch is drawn. The key-change chips already in the header pick it; with none
+  // picked the map falls back to the first that has implications, because "every key
+  // change" is the 2217px whole map and does not belong in this column.
+  const keyChangeIdFor = (text: string | null) => {
+    if (!text) return null;
+    for (const c of board.unclustered.concat([...board.clusters.values()].flat())) {
+      const l = lineageOf(c);
+      if (l?.keyChange === text) return l.keyChangeId;
+    }
+    return null;
+  };
+  const mapRootId = keyChangeIdFor(keyFilter) ?? keyChangeIdFor(keyChanges[0] ?? null);
+  const mapBranch = mapRootId ? branchOf(week2Cards, mapRootId) : null;
+
+  // Every Week 2 id that has a Week 3 card, and where that card currently sits. The map
+  // draws Week 2 cards but themes hold Week 3 ones, so this is the only way a node can
+  // find the row it is allowed to move. Absent = never seeded = nothing to do with it.
+  const seeded = seededIndex(board);
 
   // DERIVED, not synced. Several people cluster this board at once, so a card you ticked
   // can be dragged into someone else's theme, or deleted, between the tick and the click.
@@ -578,11 +604,16 @@ export function ClusterBoard({
 
         {/* Where it came from. A fold-out list of ancestor text told you the names but
             not the shape — which branch this sits on, how much else hangs off the same key
-            change, how far out it is. The lightbox shows that branch as the wheel the
-            group drew in Week 2, with this implication picked out of it. */}
+            change, how far out it is. This switches the middle of the page to that branch
+            as the group drew it in Week 2, with this implication picked out of it. */}
         {sourceId && (
           <button
-            onClick={() => setTracing(sourceId)}
+            onClick={() => {
+              const l = lineage[sourceId];
+              if (l) setKeyFilter(l.keyChange);
+              setFocusNode(sourceId);
+              setView("map");
+            }}
             onDragStart={(e) => e.preventDefault()}
             className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-blue hover:underline"
           >
@@ -1071,6 +1102,30 @@ export function ClusterBoard({
               ＋ Add an implication
             </button>
           )}
+          {/* The same implications, two ways to work on them. The map is worth its own
+              view because a branch is usually already a theme. */}
+          {week2Cards.length > 0 && (
+            <span className="flex items-center gap-1">
+              {(["cards", "map"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    setView(v);
+                    if (v === "cards") setFocusNode(null);
+                  }}
+                  aria-pressed={view === v}
+                  className={
+                    "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
+                    (view === v
+                      ? "border-ink bg-ink text-paper"
+                      : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
+                  }
+                >
+                  {v === "cards" ? "Cards" : "Map"}
+                </button>
+              ))}
+            </span>
+          )}
           {/* Nearly half a real board is third-order — two steps removed from any key
               change — so a group that wants to cluster the direct consequences first needs
               a way to see only those. It also makes a 146-card tray navigable at all. */}
@@ -1110,7 +1165,10 @@ export function ClusterBoard({
                 return (
                   <button
                     key={k ?? "all-keys"}
-                    onClick={() => setKeyFilter(k)}
+                    onClick={() => {
+                      setKeyFilter(k);
+                      setFocusNode(null);
+                    }}
                     aria-pressed={on}
                     title={k ?? "Every key change"}
                     className={
@@ -1156,6 +1214,65 @@ export function ClusterBoard({
             </span>
           )}
         </div>
+        {view === "map" ? (
+          // The Week 2 branch, in place of the list. Rendered 1:1 and scrolled rather than
+          // scaled: dragging out of a `transform: scale()` container is untested here, and
+          // a little panning is a cheaper price than a drag that misses in a live session.
+          <div className="rounded-[3px] border border-dashed border-black/15 p-3">
+            {mapBranch ? (
+              <div className="max-h-[70vh] overflow-auto">
+                <FuturesWheel
+                  key={mapBranch.root.id}
+                  cards={mapBranch.subtree
+                    .filter((c) => c.id !== mapBranch.root.id)
+                    .map((c) => (c.parentId === mapBranch.root.id ? { ...c, parentId: null } : c))}
+                  centerLabel={mapBranch.root.text}
+                  variant="branch"
+                  fit={false}
+                  selectedId={focusNode ?? undefined}
+                  highlightIds={focusNode ? mapBranch.pathIds : undefined}
+                  nodeProps={(w2id) => {
+                    const hit = seeded.get(w2id);
+                    // Never seeded into this week: there is no row to move.
+                    if (!hit) return { style: { cursor: "not-allowed", opacity: 0.45 } };
+                    const inTheme = hit.themeId !== null;
+                    return {
+                      ...(editable && !inTheme ? dragProps(hit.card.id, "card") : {}),
+                      onClick: () => {
+                        if (!editable || inTheme) return;
+                        togglePicked(hit.card.id);
+                      },
+                      className: picked.has(hit.card.id) ? "ring-[3px] ring-blue" : "",
+                      style: {
+                        cursor: !editable || inTheme ? "default" : "grab",
+                        ...(inTheme ? { background: "var(--lime)" } : {}),
+                      },
+                    };
+                  }}
+                  nodeExtra={(w2id) => {
+                    const hit = seeded.get(w2id);
+                    if (!hit) return (
+                      <span className="rounded-[2px] bg-black/10 px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-muted">
+                        not on this board
+                      </span>
+                    );
+                    if (hit.themeId === null) return null;
+                    const n = board.themes.findIndex((t) => t.id === hit.themeId) + 1;
+                    return (
+                      <span className="rounded-[2px] bg-ink px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-paper">
+                        Theme {n}
+                      </span>
+                    );
+                  }}
+                />
+              </div>
+            ) : (
+              <p className="py-10 text-center text-[12.5px] italic text-muted">
+                No key change with implications to map.
+              </p>
+            )}
+          </div>
+        ) : (
         <div
           {...zoneProps("tray")}
           className={
@@ -1185,6 +1302,7 @@ export function ClusterBoard({
           )}
           {tray.map((c) => renderSlot(c, "tray", null, "x", tray, "w-56"))}
         </div>
+        )}
       </section>
 
       {/* ---- the themes ---- */}
@@ -1601,68 +1719,6 @@ export function ClusterBoard({
           </div>
         </div>
       )}
-
-      {/* The drill-in. Covers the screen because the thing being shown is a map, and a map
-          in a 240px card is a diagram of nothing. */}
-      {tracing && (() => {
-        const branch = branchOf(week2Cards, tracing);
-        if (!branch) return null;
-        const self = branch.subtree.find((c) => c.id === tracing);
-        return (
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Where this came from"
-            onClick={() => setTracing(null)}
-            className="fixed inset-0 z-[100] flex flex-col bg-[rgba(20,20,18,0.72)] p-4 sm:p-8"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="mx-auto flex h-full w-full max-w-[1200px] flex-col overflow-hidden rounded-[6px] border-2 border-ink bg-paper"
-            >
-              <div className="flex items-start justify-between gap-4 border-b border-[var(--rule)] px-5 py-3">
-                <div className="min-w-0">
-                  <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
-                    Key change
-                  </div>
-                  <div className="mt-0.5 text-[14px] font-extrabold leading-[1.25]">
-                    {branch.root.text}
-                  </div>
-                  {self && (
-                    <div className="mt-1.5 text-[12.5px] leading-[1.4]">
-                      <span className="rounded-[2px] bg-lime px-1.5 py-px text-[10px] font-bold uppercase tracking-[0.06em]">
-                        This card
-                      </span>{" "}
-                      {self.text}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setTracing(null)}
-                  className="shrink-0 rounded-[2px] border border-ink bg-paper px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime"
-                >
-                  Close ✕
-                </button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-auto p-4">
-                {/* The key change is the HUB, so it must not also be a node — drawn both
-                    ways it read as two different cards saying the same thing. Its direct
-                    children become the first ring, exactly as key changes do on the full
-                    map where the scenario is the hub. */}
-                <FuturesWheel
-                  cards={branch.subtree
-                    .filter((c) => c.id !== branch.root.id)
-                    .map((c) => (c.parentId === branch.root.id ? { ...c, parentId: null } : c))}
-                  centerLabel={branch.root.text}
-                  highlightIds={branch.pathIds}
-                  selectedId={tracing}
-                  variant="branch"
-                />
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       <DeleteThemeModal
         open={pendingDelete !== null}
