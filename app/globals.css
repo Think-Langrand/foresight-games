@@ -274,6 +274,7 @@ textarea:focus-visible {
 @media (min-width: 1024px) {
   body[data-theme-rail] {
     padding-left: 16rem;
-    transition: padding-left 200ms ease-out;
+    padding-right: 16rem;
+    transition: padding 200ms ease-out;
   }
 }

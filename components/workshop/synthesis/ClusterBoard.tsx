@@ -658,7 +658,30 @@ export function ClusterBoard({
         </div>
       </aside>
 
-      {/* The rail is fixed at the screen edge, so it eats the left gutter. Yield exactly
+      {/* The instructions, mirroring the theme rail on the other side. Step 1 used to say
+          only "name a theme"; a group with no shared idea of what it is looking for
+          produces either one theme per implication or one theme for everything, and every
+          later step inherits it. Up here it stays readable while you work, instead of
+          scrolling away above 146 cards. */}
+      <aside className="fixed inset-y-0 right-0 z-30 hidden w-[15rem] overflow-y-auto border-l border-ink bg-card px-3 py-4 lg:block">
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+          As you group and name themes
+        </h2>
+        <ul className="mt-2 flex flex-col gap-2 text-[12px] leading-[1.4]">
+          <li>What connected change do these implications describe?</li>
+          <li>What is changing — and for whom?</li>
+          <li>Which implications support or complicate that reading?</li>
+        </ul>
+        <p className="mt-3 border-t border-[var(--hairline)] pt-2.5 text-[11.5px] italic leading-[1.4] text-muted">
+          If a theme is too broad, split it. If it repeats one note, look for related
+          implications.
+        </p>
+        <p className="mt-2 text-[11.5px] italic leading-[1.4] text-muted">
+          Aim for 3–5 themes. An implication can sit in more than one.
+        </p>
+      </aside>
+
+      {/* The rails are fixed at the screen edges, so they eat both gutters. Yield exactly
           what it actually takes: its width less whatever margin the centred 1100px column
           already had spare. On a wide screen the gutter swallows it and nothing moves. */}
       <div>
@@ -676,24 +699,6 @@ export function ClusterBoard({
           </button>
         </div>
       )}
-
-      {/* What a good theme IS. Step 1 used to say only "name a theme"; a group with no
-          shared idea of what they are looking for produces either one theme per
-          implication or one theme for everything, and every later step inherits it. */}
-      <section className="rounded-[3px] border border-[var(--hairline)] bg-card px-4 py-3">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
-          As you group and name themes
-        </h2>
-        <ul className="mt-1.5 flex flex-col gap-1 text-[12.5px] leading-[1.45]">
-          <li>What connected change do these implications describe?</li>
-          <li>What is changing — and for whom?</li>
-          <li>Which implications support or complicate that reading?</li>
-        </ul>
-        <p className="mt-1.5 text-[11.5px] italic leading-[1.4] text-muted">
-          If a theme is too broad, split it. If it repeats one note, look for related
-          implications.
-        </p>
-      </section>
 
       {/* ---- the tray ---- */}
       <section>
