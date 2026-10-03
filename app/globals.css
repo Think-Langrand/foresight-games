@@ -281,4 +281,9 @@ textarea:focus-visible {
   body[data-theme-rail="wide"] {
     padding-right: 22rem;
   }
+  /* Folded away: only the strip with its "show" control remains. Last, so it wins over
+     both widths above. */
+  body[data-theme-rail][data-right-rail="closed"] {
+    padding-right: 3.5rem;
+  }
 }

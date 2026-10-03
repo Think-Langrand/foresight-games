@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
 import {
   childrenOf,
@@ -68,6 +68,40 @@ const ORDER_TINT: Record<number | "deep", string> = {
 // Ordering is a `sort` value per card, renumbered by planReorder — see lib/synthesis-shape.
 
 type Drag = { id: string; kind: "card" | "theme" };
+
+// Per-browser memory of whether the right rail is folded away. Read through
+// useSyncExternalStore so the server and the first client paint both say "open" and the
+// stored preference lands in the hydration pass, with no setState-in-effect. A copy is
+// kept in memory so the toggle still works where storage is blocked.
+const RIGHT_RAIL_KEY = "synthesis.rightRail";
+type RailState = "open" | "closed";
+let railMemory: RailState | null = null;
+const railListeners = new Set<() => void>();
+function readRightRail(): RailState {
+  if (railMemory) return railMemory;
+  try {
+    return window.localStorage.getItem(RIGHT_RAIL_KEY) === "closed" ? "closed" : "open";
+  } catch {
+    return "open";
+  }
+}
+function subscribeRightRail(cb: () => void) {
+  railListeners.add(cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    railListeners.delete(cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+function writeRightRail(v: RailState) {
+  railMemory = v;
+  try {
+    window.localStorage.setItem(RIGHT_RAIL_KEY, v);
+  } catch {
+    // Not remembered past this page, still toggled.
+  }
+  for (const l of railListeners) l();
+}
 // Which card the pointer is over and which side of it — `after` is the far side along the
 // list's axis (right in a wrapping row, below in a column). `anchorId` null = past the end.
 type Over = { zone: string; anchorId: string | null; after: boolean };
@@ -146,6 +180,10 @@ export function ClusterBoard({
   // menu. Null = the board. Resolved against the live list below, so a theme someone else
   // deletes while it is open falls back to the board rather than to a blank page.
   const [focusId, setFocusId] = useState<string | null>(null);
+  // The rail square under the pointer, and where to draw its full contents. The squares
+  // truncate every line to fit; the popover is the same theme with nothing cut. Fixed to
+  // the viewport rather than inside the rail, which scrolls and would clip it.
+  const [hoverTheme, setHoverTheme] = useState<{ id: string; top: number } | null>(null);
   // Tray cards ticked for "create theme from selected". Drag still works and is untouched;
   // this is the other way round the same job, for a group that would rather read the whole
   // tray and tick than pick cards up one at a time.
@@ -163,6 +201,18 @@ export function ClusterBoard({
       delete document.body.dataset.themeRail;
     };
   }, [admin]);
+
+  // The right rail can be folded away: once the prompts have been read, and especially once
+  // a facilitator's suggestions have been used, it is width the board could be using. The
+  // choice is remembered per browser (see RIGHT_RAIL_KEY).
+  const rightRailOpen = useSyncExternalStore(subscribeRightRail, readRightRail, () => "open") === "open";
+  useEffect(() => {
+    document.body.dataset.rightRail = rightRailOpen ? "open" : "closed";
+    return () => {
+      delete document.body.dataset.rightRail;
+    };
+  }, [rightRailOpen]);
+  const toggleRightRail = () => writeRightRail(rightRailOpen ? "closed" : "open");
   // Show only implications from one key change. Independent of the order filter; both
   // narrow the TRAY and neither touches what is already in a theme.
   const [keyFilter, setKeyFilter] = useState<string | null>(null);
@@ -609,7 +659,14 @@ export function ClusterBoard({
                   setPicked(new Set());
                 }}
                 aria-pressed={focus?.id === t.id}
-                title={t.text}
+                onMouseEnter={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  // Keep the popover on screen: anchor to the square's top, but never so
+                  // low that a long list runs off the bottom.
+                  const top = Math.max(8, Math.min(r.top, window.innerHeight - 380));
+                  setHoverTheme({ id: t.id, top });
+                }}
+                onMouseLeave={() => setHoverTheme(null)}
                 className={
                   "flex aspect-square w-full flex-col rounded-[6px] border-2 p-2.5 text-left transition-all " +
                   (lit
@@ -698,6 +755,44 @@ export function ClusterBoard({
         </div>
       </aside>
 
+      {/* The hovered square, in full. Read-only and ignores the pointer, so it never gets
+          between the cursor and the square that opened it, or a card being dragged. */}
+      {hoverTheme && !drag && (() => {
+        const t = board.themes.find((x) => x.id === hoverTheme.id);
+        if (!t) return null;
+        const n = board.themes.indexOf(t) + 1;
+        const held = board.clusters.get(t.id) ?? [];
+        return (
+          <div
+            role="tooltip"
+            className="pointer-events-none fixed left-[15.5rem] z-40 hidden w-[24rem] overflow-y-auto rounded-[4px] border-2 border-ink bg-card p-3.5 shadow-[4px_5px_0_rgba(36,36,34,0.2)] lg:block"
+            style={{ top: hoverTheme.top, maxHeight: `calc(100vh - ${hoverTheme.top + 8}px)` }}
+          >
+            <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
+              Theme {n} · {held.length} implication{held.length === 1 ? "" : "s"}
+            </div>
+            <div className="mt-1 text-[14px] font-extrabold leading-[1.25]">{t.text}</div>
+            {t.description && (
+              <p className="mt-1.5 text-[12px] leading-[1.45] text-ink/80">{t.description}</p>
+            )}
+            {held.length > 0 ? (
+              <ul className="mt-2.5 flex flex-col gap-1.5 border-t border-black/10 pt-2.5">
+                {held.map((c) => (
+                  <li key={c.id} className="border-l-2 border-black/15 pl-2.5 text-[12px] leading-[1.4]">
+                    {c.text}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-[12px] italic text-muted">Nothing in it yet.</p>
+            )}
+            <p className="mt-2.5 text-[10px] font-bold uppercase tracking-[0.05em] text-blue">
+              Click to open
+            </p>
+          </div>
+        );
+      })()}
+
       {/* The instructions, mirroring the theme rail on the other side. Step 1 used to say
           only "name a theme"; a group with no shared idea of what it is looking for
           produces either one theme per implication or one theme for everything, and every
@@ -705,10 +800,37 @@ export function ClusterBoard({
           scrolling away above 146 cards. */}
       <aside
         className={
-          "fixed inset-y-0 right-0 z-30 hidden overflow-y-auto border-l border-ink bg-card px-3 py-4 lg:block " +
-          (admin ? "w-[21rem]" : "w-[15rem]")
+          "fixed inset-y-0 right-0 z-30 hidden overflow-y-auto border-l border-ink bg-card py-4 lg:block " +
+          (!rightRailOpen ? "w-[2.75rem] px-0" : admin ? "w-[21rem] px-3" : "w-[15rem] px-3")
         }
       >
+        {/* Folded: a thin strip with one control, so the rail is still findable. */}
+        {!rightRailOpen ? (
+          <button
+            onClick={toggleRightRail}
+            aria-expanded={false}
+            title="Show the prompts"
+            className="mx-auto flex h-full w-full flex-col items-center gap-2 pt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-muted hover:bg-lime/40 hover:text-ink"
+          >
+            <span aria-hidden className="text-[13px] leading-none">
+              ‹
+            </span>
+            <span className="[writing-mode:vertical-rl]">{admin ? "Prompts & suggestions" : "Prompts"}</span>
+          </button>
+        ) : (
+          <>
+        {/* In flow rather than floated over the heading, so it never sits on top of
+            whatever is first in the rail. */}
+        <div className="-mt-1 mb-2 flex justify-end">
+          <button
+            onClick={toggleRightRail}
+            aria-expanded={true}
+            title="Hide this panel"
+            className="rounded-[2px] border border-[var(--hairline)] bg-paper px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-muted hover:border-ink hover:text-ink"
+          >
+            Hide ›
+          </button>
+        </div>
         {/* A facilitator's clustering tool, above the prompts: example groupings to read
             beside the real tray. Members never see this — `admin` is decided on the server. */}
         {admin && (
@@ -737,6 +859,8 @@ export function ClusterBoard({
         <p className="mt-2 text-[11.5px] italic leading-[1.4] text-muted">
           Aim for 3–5 themes. An implication can sit in more than one.
         </p>
+          </>
+        )}
       </aside>
 
       {/* The rails are fixed at the screen edges, so they eat both gutters. Yield exactly
