@@ -619,6 +619,10 @@ export function ClusterBoard({
               if (l) setKeyFilter(l.keyChange);
               setFocusNode(sourceId);
               setView("map");
+              // Cards inside an open theme have this button too, and the map is the BOARD.
+              // Without this, pressing it in there switched a board you could not see and
+              // nothing appeared to happen.
+              setFocusId(null);
             }}
             onDragStart={(e) => e.preventDefault()}
             className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-blue hover:underline"
@@ -805,6 +809,12 @@ export function ClusterBoard({
       {hoverTheme && !drag && (() => {
         const t = board.themes.find((x) => x.id === hoverTheme.id);
         if (!t) return null;
+        // Never for the theme that is already open. The popover answers "what is in this
+        // one without opening it", which that theme has already answered in full — and it
+        // is drawn over the top-left of the body, where the "Working in" bar lives. Since
+        // your pointer is still on the square you just clicked, it would cover the way
+        // back out at the one moment you are most likely to want it.
+        if (focus?.id === t.id) return null;
         const n = board.themes.indexOf(t) + 1;
         const held = board.clusters.get(t.id) ?? [];
         return (
@@ -927,6 +937,61 @@ export function ClusterBoard({
         </div>
       )}
 
+      {/* ---- where the body is, in one place that never moves ----
+           Cards↔Map and board↔theme were two independent pieces of state sharing a single
+           exit, and the Cards|Map toggle only existed in the tray. So from inside a theme
+           there was no way to ask for the OTHER board, and "← Back to the board" could not
+           say which one it meant — it just returned you to whichever you had left.
+
+           There are three places the body can be, so this is one control with three
+           segments rather than a toggle plus a back button. Where you are is a label; the
+           other two are the ways out, always in the same spot. */}
+      {(week2Cards.length > 0 || focus) && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--rule)] pb-2.5">
+          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+            Working in
+          </span>
+          <span className="flex min-w-0 flex-wrap items-center gap-1">
+            {(["cards", "map"] as const).map((v) => {
+              if (v === "map" && week2Cards.length === 0) return null;
+              const on = !focus && view === v;
+              return (
+                <button
+                  key={v}
+                  onClick={() => {
+                    setView(v);
+                    if (v === "cards") setFocusNode(null);
+                    setFocusId(null); // leaving a theme, if one is open
+                  }}
+                  aria-pressed={on}
+                  className={
+                    "rounded-[2px] border px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] transition-colors " +
+                    (on
+                      ? "border-ink bg-ink text-paper"
+                      : "border-ink bg-paper text-ink hover:bg-lime")
+                  }
+                >
+                  {v === "cards" ? "Cards" : "Map"}
+                </button>
+              );
+            })}
+            {/* Not a button. Clicking where you already are should not be one of the
+                options; the theme's own rail square toggles it shut, and Cards and Map
+                are the ways out from here. */}
+            {focus && (
+              <span className="flex min-w-0 max-w-[22rem] items-center gap-1.5 rounded-[2px] border-2 border-ink bg-lime px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] shadow-[2px_2px_0_rgba(36,36,34,0.2)]">
+                <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] text-paper">
+                  {board.themes.findIndex((t) => t.id === focus.id) + 1}
+                </span>
+                <span className="truncate" title={focus.text}>
+                  {focus.text}
+                </span>
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* ---- one theme, opened from the rail ----
            The columns show every theme at once, which is right for sorting and wrong for
            writing: a statement about change wants room, and "what else belongs here" wants
@@ -957,16 +1022,10 @@ export function ClusterBoard({
         return (
           <section className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center gap-3">
-              {/* Deliberately NOT navBtn. Opening a theme replaces the whole board, which
-                  is the most disorienting thing this step does; the way out has to look
-                  like the way out rather than like a third sibling of Prev and Next. The
-                  rail square for this theme toggles too, so there are two. */}
-              <button
-                onClick={() => setFocusId(null)}
-                className="rounded-[2px] border-2 border-ink bg-lime px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.05em] shadow-[2px_2px_0_rgba(36,36,34,0.22)] transition-all hover:bg-lime-deep active:translate-y-[1px] active:shadow-none"
-              >
-                ← Back to the board
-              </button>
+              {/* No back button here. It sat eight pixels under the "Working in" bar
+                  doing the same job worse: it could only return you to whichever board
+                  you came from, and never named it. Up there, Cards and Map are both one
+                  click and both say where they go. The rail square also toggles. */}
               <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
                 Theme {at + 1} of {board.themes.length}
               </span>
@@ -1123,30 +1182,9 @@ export function ClusterBoard({
               ＋ Add an implication
             </button>
           )}
-          {/* The same implications, two ways to work on them. The map is worth its own
-              view because a branch is usually already a theme. */}
-          {week2Cards.length > 0 && (
-            <span className="flex items-center gap-1">
-              {(["cards", "map"] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => {
-                    setView(v);
-                    if (v === "cards") setFocusNode(null);
-                  }}
-                  aria-pressed={view === v}
-                  className={
-                    "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                    (view === v
-                      ? "border-ink bg-ink text-paper"
-                      : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
-                  }
-                >
-                  {v === "cards" ? "Cards" : "Map"}
-                </button>
-              ))}
-            </span>
-          )}
+          {/* Cards|Map used to live here. It moved up to the "Working in" bar, which is
+              outside this section and therefore still on screen while a theme is open —
+              which is the whole point of it. */}
           {/* Nearly half a real board is third-order — two steps removed from any key
               change — so a group that wants to cluster the direct consequences first needs
               a way to see only those. It also makes a 146-card tray navigable at all. */}
