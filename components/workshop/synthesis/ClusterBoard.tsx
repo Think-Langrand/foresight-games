@@ -92,6 +92,7 @@ export function ClusterBoard({
   onMerge,
   onCopyToTheme,
   onCreateThemeFrom,
+  onMoveManyToTheme,
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -117,6 +118,8 @@ export function ClusterBoard({
   onCopyToTheme: (card: RippleCard, themeId: string) => void;
   // Make a theme and move these tray implications into it, in one go.
   onCreateThemeFrom: (cardIds: string[]) => void;
+  // Move several tray implications into an EXISTING theme at once — the rail's click.
+  onMoveManyToTheme: (cardIds: string[], themeId: string) => void;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
@@ -128,7 +131,7 @@ export function ClusterBoard({
   // Tray cards ticked for "create theme from selected". Drag still works and is untouched;
   // this is the other way round the same job, for a group that would rather read the whole
   // tray and tick than pick cards up one at a time.
-  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [rawPicked, setPicked] = useState<Set<string>>(new Set());
   // Show only implications this many steps out from their key change. null = all.
   const [orderFilter, setOrderFilter] = useState<number | null>(null);
   // Show only implications from one key change. Independent of the order filter; both
@@ -309,6 +312,14 @@ export function ClusterBoard({
   const keyChanges = [...keyCounts.keys()].sort();
 
   const tray = board.unclustered.filter((c) => matchesOrder(c) && matchesKey(c));
+
+  // DERIVED, not synced. Several people cluster this board at once, so a card you ticked
+  // can be dragged into someone else's theme, or deleted, between the tick and the click.
+  // Intersecting with the live tray means it silently drops out of your selection instead
+  // of being yanked back out of their theme by "create theme from selected" — the same
+  // fallback ThemeWorkspace uses for a deleted theme and HopesFearsBoard for a deleted card.
+  const trayIds = new Set(board.unclustered.map((c) => c.id));
+  const picked = new Set([...rawPicked].filter((id) => trayIds.has(id)));
 
   const renderCard = (
     card: RippleCard,
@@ -537,7 +548,90 @@ export function ClusterBoard({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="lg:grid lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-5">
+      {/* The drop rail. With 146 implications the themes were six screens below the tray,
+          so the targets scrolled away from the cards. Sticky, and `self-start` so the grid
+          item does not stretch to the row height (which would defeat sticky). Hidden below
+          lg, where there is no room for a column and the stacked layout still works. */}
+      <aside className="sticky top-4 hidden self-start lg:block">
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+          Drop into a theme
+        </h2>
+        <div className="mt-2 flex flex-col gap-1.5">
+          {board.themes.map((t, i) => {
+            const n = board.clusters.get(t.id)?.length ?? 0;
+            const lit = zoneLit(`theme:${t.id}`);
+            return (
+              <button
+                key={t.id}
+                {...zoneProps(`theme:${t.id}`)}
+                onClick={() => {
+                  if (picked.size === 0) return;
+                  onMoveManyToTheme([...picked], t.id);
+                  setPicked(new Set());
+                }}
+                title={t.text}
+                className={
+                  "rounded-[3px] border p-2 text-left transition-colors " +
+                  (lit ? "border-ink bg-lime " : "border-black/15 bg-card hover:border-ink ") +
+                  (picked.size > 0 ? "cursor-copy" : "")
+                }
+              >
+                <span className="flex items-baseline justify-between gap-1.5">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-muted">
+                    Theme {i + 1}
+                  </span>
+                  <span className="text-[9px] font-bold text-muted">{n}</span>
+                </span>
+                <span className="mt-0.5 line-clamp-3 block text-[11.5px] font-bold leading-[1.3]">
+                  {t.text}
+                </span>
+                {picked.size > 0 && (
+                  <span className="mt-1 block text-[9.5px] font-bold uppercase tracking-[0.05em] text-blue">
+                    ＋ Add {picked.size} selected
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Empty slots, never pre-created themes. A real blank theme would exist on the
+              board from the moment anyone opened it: three "nothing yet" chips on steps 2
+              and 3, and three to delete if the group wants two. A slot mints its theme on
+              the first drop, which onStartTheme already does. */}
+          {Array.from({ length: Math.max(0, 3 - board.themes.length) }).map((_, i) => (
+            <div
+              key={`slot-${i}`}
+              {...zoneProps("newtheme")}
+              className={
+                "rounded-[3px] border border-dashed p-3 text-center text-[10.5px] font-bold uppercase tracking-[0.05em] " +
+                (zoneLit("newtheme")
+                  ? "border-ink bg-lime text-ink"
+                  : "border-black/25 text-muted")
+              }
+            >
+              Drop to start a theme
+            </div>
+          ))}
+
+          {editable && (
+            <button
+              onClick={() => {
+                if (picked.size > 0) {
+                  onCreateThemeFrom([...picked]);
+                  setPicked(new Set());
+                } else setAddingTheme(true);
+              }}
+              disabled={busy}
+              className="rounded-[2px] border border-ink bg-paper px-2 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-40"
+            >
+              {picked.size > 0 ? `＋ New theme from ${picked.size}` : "＋ New theme"}
+            </button>
+          )}
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-col gap-6">
       {mergeFrom && (
         <div className="flex items-center gap-3 rounded-[3px] border border-blue bg-card px-4 py-2 text-[12.5px]">
           <span>
@@ -1116,6 +1210,7 @@ export function ClusterBoard({
           if (theme) onDeleteTheme(theme, mode);
         }}
       />
+      </div>
     </div>
   );
 }

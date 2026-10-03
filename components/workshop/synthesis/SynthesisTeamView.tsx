@@ -303,6 +303,23 @@ export function SynthesisTeamView({
       }
     });
 
+  // The rail's click: drop everything ticked into a theme that already exists. Per-card,
+  // like createThemeFrom, because reparent is per-card; a failure part-way leaves what
+  // already moved, which is recoverable by dragging.
+  const moveManyToTheme = (cardIds: string[], themeId: string) =>
+    run(async () => {
+      const predicted = orderAtDepth(1);
+      for (const id of cardIds) {
+        if (predicted) reparentLocal(id, themeId, predicted);
+        try {
+          await reparentRippleCard(code, id, { participantId: pid, parentCardId: themeId });
+        } catch (e) {
+          dropReparentLocal(id);
+          throw e;
+        }
+      }
+    });
+
   const addChildCard = (parent: RippleCard, kind: CardKind, text: string) =>
     run(async () => {
       const order = childOrderOf(parent.order);
@@ -646,6 +663,7 @@ export function SynthesisTeamView({
           onMerge={merge}
           onCopyToTheme={copyToTheme}
           onCreateThemeFrom={createThemeFrom}
+          onMoveManyToTheme={moveManyToTheme}
         />
       )}
 
