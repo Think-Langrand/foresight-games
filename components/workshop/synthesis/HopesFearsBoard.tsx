@@ -85,9 +85,9 @@ export function HopesFearsBoard({
       onEditTheme={onEdit}
       onDescribeTheme={onDescribe}
       onGoToCluster={onGoToCluster}
-      // The theme card carries the readings the last step worked out — a hope is meant to
+      // The theme card carries the answers the themes step worked out — a hope is meant to
       // say why one of THOSE possibilities matters, so they belong in front of you while
-      // you write. Read-only: editing them is step 2's job.
+      // you write. Read-only: editing them is the themes step's job.
       renderThemeExtra={(active) => (
         <ReadingBoard
           theme={active}
@@ -95,10 +95,9 @@ export function HopesFearsBoard({
           editable={editable}
           busy={busy}
           readOnly
-          onAddReading={() => {}}
+          onAnswer={() => {}}
           onEdit={() => {}}
-          onSetField={() => {}}
-          onDeleteReading={() => {}}
+          onDelete={() => {}}
         />
       )}
     >

@@ -24,6 +24,7 @@ import {
   READING_FIELDS,
   readingsFor,
   readingProgress,
+  themeAnswers,
   implicationOrder,
   ordinal,
   keyChangeLabel,
@@ -615,12 +616,18 @@ describe("childrenOf", () => {
       card("H1", "SECOND", "TH", 6, { cardKind: "hope" }),
       card("A1", "TERMINAL", "H1", 7, { cardKind: "assumption" }),
       card("F1", "TERMINAL", "H1", 8, { cardKind: "fear" }),
+      card("RD1", "SECOND", "TH", 9, { cardKind: "reading" }),
+      card("E1", "TERMINAL", "RD1", 10, { cardKind: "experience" }),
     ]);
 
   it("unions every bucket, so a theme's true child count is one call", () => {
     expect(childrenOf(board(), "TH").map((c) => c.id).sort()).toEqual(
-      ["H1", "I1", "O1", "R1", "T1"].sort()
+      ["H1", "I1", "O1", "R1", "RD1", "T1"].sort()
     );
+  });
+
+  it("includes a reading's answers, so deleting a theme counts the reading work", () => {
+    expect(childrenOf(board(), "RD1").map((c) => c.id)).toEqual(["E1"]);
   });
 
   it("includes a hope's assumptions alongside its chained flip side", () => {
@@ -1027,9 +1034,18 @@ describe("twinIndex / implicationKey / themeCountFor", () => {
   });
 });
 
-describe("step 2 readings — placement, shaping and progress", () => {
-  const full = (seq = 0) => [
-    theme("TH", 1 + seq),
+describe("a theme's four questions — placement, answers and progress", () => {
+  // The four answers, straight on the theme.
+  const full = () => [
+    theme("TH", 1),
+    card("BE", "SECOND", "TH", 2, { cardKind: "benefit", text: "Residents who attend gain a say" }),
+    card("CO", "SECOND", "TH", 3, { cardKind: "cost", text: "Night-shift workers lose access" }),
+    card("EX", "SECOND", "TH", 4, { cardKind: "experience", text: "Small towns feel it as a loss" }),
+    card("ME", "SECOND", "TH", 5, { cardKind: "mechanism", text: "Budget panels that can overrule" }),
+  ];
+  // The older shape: a reading (the concrete example) carrying its answers.
+  const legacy = () => [
+    theme("TH", 1),
     card("RD", "SECOND", "TH", 2, { cardKind: "reading", text: "A team considers a commitment" }),
     card("EX", "TERMINAL", "RD", 3, { cardKind: "experience", text: "Teams could sustain prevention" }),
     card("ME", "TERMINAL", "RD", 4, { cardKind: "mechanism", text: "Stable funding creates room" }),
@@ -1037,66 +1053,89 @@ describe("step 2 readings — placement, shaping and progress", () => {
     card("QU", "TERMINAL", "RD", 6, { cardKind: "question", text: "How would we justify priorities" }),
   ];
 
-  it("puts a reading on a theme and its fields on the reading", () => {
-    expect(placementError("reading", "theme")).toBeNull();
-    for (const f of READING_FIELDS) expect(placementError(f, "reading")).toBeNull();
-  });
-
-  it("refuses a reading anywhere but a theme", () => {
-    expect(placementError("reading", undefined)).toMatch(/belongs on a theme/);
-    expect(placementError("reading", null)).toMatch(/belongs on a theme/);
-    expect(placementError("reading", "hope")).toMatch(/belongs on a theme/);
-  });
-
-  it("refuses a field anywhere but a reading", () => {
+  it("puts an answer on a theme, and still accepts one on a legacy reading", () => {
     for (const f of READING_FIELDS) {
-      expect(placementError(f, "theme")).toMatch(/belongs on a reading/);
-      expect(placementError(f, undefined)).toMatch(/belongs on a reading/);
+      expect(placementError(f, "theme")).toBeNull();
+      expect(placementError(f, "reading")).toBeNull();
+    }
+    expect(placementError("reading", "theme")).toBeNull();
+  });
+
+  it("refuses an answer anywhere else", () => {
+    for (const f of READING_FIELDS) {
+      expect(placementError(f, undefined)).toMatch(/belongs on a theme/);
+      expect(placementError(f, null)).toMatch(/belongs on a theme/);
+      expect(placementError(f, "hope")).toMatch(/belongs on a theme/);
     }
   });
 
-  it("keys a reading's fields by kind, with the example on the reading itself", () => {
-    const got = readingsFor(indexSynthesisBoard(full()), "TH");
+  it("indexes a theme's own answers rather than orphaning them", () => {
+    const b = indexSynthesisBoard(full());
+    expect(b.orphans).toEqual([]);
+    expect((b.readingFields.get("TH") ?? []).map((c) => c.id).sort()).toEqual(["BE", "CO", "EX", "ME"]);
+  });
+
+  it("keys the answers by question", () => {
+    const got = themeAnswers(indexSynthesisBoard(full()), "TH");
+    expect(got.benefit?.id).toBe("BE");
+    expect(got.cost?.id).toBe("CO");
+    expect(got.experience?.id).toBe("EX");
+    expect(got.mechanism?.id).toBe("ME");
+  });
+
+  it("keeps the first card when a question somehow has two answers", () => {
+    const got = themeAnswers(
+      indexSynthesisBoard([...full(), card("EX2", "SECOND", "TH", 7, { cardKind: "experience", text: "later" })]),
+      "TH"
+    );
+    expect(got.experience?.id).toBe("EX");
+  });
+
+  it("lets a legacy reading's answer stand in where the theme has none of its own", () => {
+    const got = themeAnswers(indexSynthesisBoard(legacy()), "TH");
+    expect(got.experience?.id).toBe("EX");
+    expect(got.mechanism?.id).toBe("ME");
+    expect(got.benefit).toBeUndefined();
+  });
+
+  it("prefers the theme's own answer over a legacy reading's", () => {
+    const got = themeAnswers(
+      indexSynthesisBoard([...legacy(), card("EX9", "SECOND", "TH", 9, { cardKind: "experience", text: "newer" })]),
+      "TH"
+    );
+    expect(got.experience?.id).toBe("EX9");
+  });
+
+  it("still shapes a legacy reading, example and all", () => {
+    const got = readingsFor(indexSynthesisBoard(legacy()), "TH");
     expect(got).toHaveLength(1);
     expect(got[0].card.text).toBe("A team considers a commitment");
     expect(got[0].fields.experience?.id).toBe("EX");
-    expect(got[0].fields.question?.id).toBe("QU");
   });
 
-  it("keeps the first card when a kind somehow appears twice", () => {
-    const got = readingsFor(
-      indexSynthesisBoard([
-        ...full(),
-        card("EX2", "TERMINAL", "RD", 7, { cardKind: "experience", text: "later" }),
-      ]),
-      "TH"
-    );
-    expect(got[0].fields.experience?.id).toBe("EX");
-  });
-
-  it("is done only once a reading has its example and all four answers", () => {
+  it("is done only once all four questions are answered", () => {
     expect(readingProgress(indexSynthesisBoard(full()), "TH")).toBe("done");
   });
 
-  it("is started while a reading is part-written", () => {
-    const partial = full().filter((c) => c.id !== "QU");
-    expect(readingProgress(indexSynthesisBoard(partial), "TH")).toBe("started");
+  it("is started with three of four", () => {
+    expect(readingProgress(indexSynthesisBoard(full().filter((c) => c.id !== "ME")), "TH")).toBe("started");
   });
 
-  it("is started when the four answers exist but the example is blank", () => {
-    const blank = full().map((c) => (c.id === "RD" ? { ...c, text: "   " } : c));
+  it("treats a blank answer as unanswered", () => {
+    const blank = full().map((c) => (c.id === "ME" ? { ...c, text: "   " } : c));
     expect(readingProgress(indexSynthesisBoard(blank), "TH")).toBe("started");
   });
 
-  it("is empty with no readings at all", () => {
-    expect(readingProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
+  it("is started, not done, for a fully written legacy reading — two of its questions changed", () => {
+    expect(readingProgress(indexSynthesisBoard(legacy()), "TH")).toBe("started");
   });
 
-  // A theme worked twice: one abandoned reading, one finished. The step is done.
-  it("is done when any one reading is complete", () => {
-    const two = [...full(), card("RD2", "SECOND", "TH", 8, { cardKind: "reading", text: "another" })];
-    expect(readingProgress(indexSynthesisBoard(two), "TH")).toBe("done");
-    expect(readingsFor(indexSynthesisBoard(two), "TH")).toHaveLength(2);
+  it("is started for a legacy reading with no answers at all", () => {
+    expect(readingProgress(indexSynthesisBoard(legacy().slice(0, 2)), "TH")).toBe("started");
+  });
+
+  it("is empty with nothing written", () => {
+    expect(readingProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
   });
 });
 

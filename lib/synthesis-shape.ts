@@ -32,12 +32,19 @@ export function isStake(kind: CardKind | null): kind is StakeKind {
   return kind !== null && STAKE_SET.has(kind);
 }
 
-// Step 2's four questions about one reading of a theme. The reading's own `text` carries
-// the concrete example they are all asked about, which is why the example is not a kind of
-// its own — it IS the reading.
-export const READING_FIELDS = ["experience", "mechanism", "assumed_role", "question"] as const;
+// The four questions a theme is asked, in the order the 2×2 shows them. Each answer is a
+// card of that kind hung straight off the theme.
+//
+// Earlier the questions were asked of a `reading` — a concrete example card under the theme
+// — with two different questions (`assumed_role`, `question`). Those cards stay readable:
+// a field kind is accepted under a theme OR a reading, the legacy kinds still index into
+// the same bucket, and themeAnswers() falls back to a reading's answer where the theme has
+// none of its own.
+export const READING_FIELDS = ["benefit", "cost", "experience", "mechanism"] as const;
 export type ReadingField = (typeof READING_FIELDS)[number];
 const READING_FIELD_SET = new Set<string>(READING_FIELDS);
+const LEGACY_FIELDS = ["assumed_role", "question"] as const;
+const FIELD_LIKE_SET = new Set<string>([...READING_FIELDS, ...LEGACY_FIELDS]);
 
 export function isReadingField(kind: CardKind | null): kind is ReadingField {
   return kind !== null && READING_FIELD_SET.has(kind);
@@ -82,11 +89,17 @@ export function placementError(
     case "reading":
       return parentKind === "theme" ? null : "A reading belongs on a theme.";
 
+    case "benefit":
+    case "cost":
     case "experience":
     case "mechanism":
     case "assumed_role":
     case "question":
-      return parentKind === "reading" ? null : "That belongs on a reading.";
+      // An answer to one of the theme's questions. On the theme now; under a reading on
+      // boards worked before the example was dropped.
+      return parentKind === "theme" || parentKind === "reading"
+        ? null
+        : "That belongs on a theme.";
 
     case "hope":
     case "fear":
@@ -120,7 +133,7 @@ export interface SynthesisBoard {
   opportunities: Map<string, RippleCard[]>; // themeId → its opportunity cards
   tensions: Map<string, RippleCard[]>; // themeId → its surprises & disagreements
   readings: Map<string, RippleCard[]>; // themeId → its readings (step 2)
-  readingFields: Map<string, RippleCard[]>; // readingId → its four field cards
+  readingFields: Map<string, RippleCard[]>; // themeId or readingId → its answer cards
   chains: Map<string, RippleCard[]>; // parentId → its hope/fear children
   assumptions: Map<string, RippleCard[]>; // hope/fear id → the assumptions under it
   chainDepth: Map<string, number>; // theme = 0, hope/fear = 1, 2, …
@@ -198,10 +211,13 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
         // A reading reads one theme; parentless it reads nothing.
         stake(readings, c);
         break;
+      case "benefit":
+      case "cost":
       case "experience":
       case "mechanism":
       case "assumed_role":
       case "question":
+        // Keyed by parent: a theme's own answers, or a legacy reading's.
         if (c.parentId) push(readingFields, c.parentId, c);
         else orphans.push(c);
         break;
@@ -271,11 +287,12 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
   }
   sweep(assumptions, (id) => liveChainCard.has(id));
   for (const map of [risks, opportunities, tensions, readings]) sweep(map, (id) => liveTheme.has(id));
-  // A field hangs off a READING, never off a theme. Readings have just been swept, so this
-  // has to run after them — a field under a reading that was itself orphaned is orphaned.
+  // An answer hangs off a live theme, or off a live reading (the older shape). Readings have
+  // just been swept, so this runs after them — an answer under a reading that was itself
+  // orphaned is orphaned.
   const liveReading = new Set<string>();
   for (const arr of readings.values()) for (const c of arr) liveReading.add(c.id);
-  sweep(readingFields, (id) => liveReading.has(id));
+  sweep(readingFields, (id) => liveTheme.has(id) || liveReading.has(id));
   orphans.sort(byOrder);
 
   return {
@@ -368,6 +385,10 @@ export function childrenOf(board: SynthesisBoard, cardId: string): RippleCard[] 
     ...(board.tensions.get(cardId) ?? []),
     ...(board.chains.get(cardId) ?? []),
     ...(board.assumptions.get(cardId) ?? []),
+    // A theme's readings, and a reading's four answers. Left out when readings were added,
+    // which made the delete-theme count blind to exactly the work step 1 now produces.
+    ...(board.readings.get(cardId) ?? []),
+    ...(board.readingFields.get(cardId) ?? []),
   ];
 }
 
@@ -502,19 +523,35 @@ export function readingsFor(board: SynthesisBoard, themeId: string): ThemeReadin
   });
 }
 
-// Step 2 is done when the theme has at least one reading that is actually filled in: a
-// concrete example AND all four questions answered. A half-written reading is "started" —
-// the step exists to make a group work a theme all the way through, so three of four is
-// not finished.
+// The theme's answers, keyed by question. Its own answers first; where it has none for a
+// question, the first legacy reading's answer of that kind stands in, so a board worked
+// before the example was dropped still shows what it wrote. First card of a kind wins, as
+// in readingsFor.
+export function themeAnswers(
+  board: SynthesisBoard,
+  themeId: string
+): Partial<Record<ReadingField, RippleCard>> {
+  const out: Partial<Record<ReadingField, RippleCard>> = {};
+  for (const f of board.readingFields.get(themeId) ?? []) {
+    if (isReadingField(f.cardKind) && !out[f.cardKind]) out[f.cardKind] = f;
+  }
+  for (const r of readingsFor(board, themeId)) {
+    for (const k of READING_FIELDS) if (!out[k] && r.fields[k]) out[k] = r.fields[k];
+  }
+  return out;
+}
+
+// Done when all four questions have a non-blank answer; started once anything has been
+// written on the theme's questions (including a legacy reading); empty otherwise. Three of
+// four is not finished — the step exists to make a group work a theme all the way through.
 export function readingProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
-  const readings = readingsFor(board, themeId);
-  if (readings.length === 0) return "empty";
-  const complete = readings.some(
-    (r) =>
-      r.card.text.trim().length > 0 &&
-      READING_FIELDS.every((f) => (r.fields[f]?.text ?? "").trim().length > 0)
-  );
-  return complete ? "done" : "started";
+  const answers = themeAnswers(board, themeId);
+  const answered = READING_FIELDS.filter((f) => (answers[f]?.text ?? "").trim().length > 0);
+  if (answered.length === READING_FIELDS.length) return "done";
+  if (answered.length > 0) return "started";
+  const legacy = (board.readings.get(themeId) ?? []).length > 0;
+  const stray = (board.readingFields.get(themeId) ?? []).some((c) => FIELD_LIKE_SET.has(c.cardKind ?? ""));
+  return legacy || stray ? "started" : "empty";
 }
 
 // Step 3 is done when the theme has both a hope and a fear AND every card on it says why

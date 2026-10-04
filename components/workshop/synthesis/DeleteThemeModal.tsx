@@ -22,7 +22,7 @@ export function DeleteThemeModal({
   open: boolean;
   themeText: string;
   implications: number;
-  chainCards: number; // hopes, fears, assumptions, risks, opportunities, tensions
+  chainCards: number; // hopes, fears, assumptions, readings and their answers, risks, opportunities, tensions
   busy: boolean;
   onChoose: (mode: DeleteThemeMode) => void;
   onCancel: () => void;

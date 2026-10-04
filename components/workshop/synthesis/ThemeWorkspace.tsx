@@ -12,6 +12,7 @@ import {
 } from "@/lib/synthesis-shape";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
 import { ThemeDrawer } from "@/components/workshop/synthesis/ThemeDrawer";
+import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
 
 // The shell steps 2 and 3 share: pick a theme, then work on it.
 //
@@ -131,7 +132,7 @@ export function ThemeWorkspace({
                 }
               >
                 <span aria-hidden className={STATE_DOT[state] + (on ? " opacity-90" : "")}>
-                  {state === "done" ? "●" : state === "started" ? "◐" : "○"}
+                  {stateGlyph(state)}
                 </span>
                 {i + 1}
               </button>
@@ -292,15 +293,3 @@ function ThemeSummary({ theme }: { theme: RippleCard }) {
     </div>
   );
 }
-
-const STATE_LABEL: Record<ThemeProgress, string> = {
-  empty: "nothing yet",
-  started: "in progress",
-  done: "done",
-};
-
-const STATE_DOT: Record<ThemeProgress, string> = {
-  empty: "text-black/25",
-  started: "text-blue",
-  done: "text-[var(--lime-deep)]",
-};

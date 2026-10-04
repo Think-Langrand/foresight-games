@@ -7,9 +7,7 @@ import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
 import { ClusterBoard } from "@/components/workshop/synthesis/ClusterBoard";
-import { ReadingBoard } from "@/components/workshop/synthesis/ReadingBoard";
 import { ShortlistBoard } from "@/components/workshop/synthesis/ShortlistBoard";
-import { ThemeWorkspace } from "@/components/workshop/synthesis/ThemeWorkspace";
 import type { DeleteThemeMode } from "@/components/workshop/synthesis/DeleteThemeModal";
 import { HopesFearsBoard } from "@/components/workshop/synthesis/HopesFearsBoard";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
@@ -41,7 +39,6 @@ import {
   childrenOf,
   planReorder,
   SORT_STEP,
-  readingProgress,
   type ReadingField,
   type SortWrite,
   type Week2Lineage,
@@ -62,16 +59,16 @@ import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 // semantics, and a second one would entangle two unrelated flows. The two share their
 // chrome through BoardShell and their card plumbing through hooks.ts.
 
-type SynthStep = "cluster" | "stakes" | "hopes" | "shortlist";
-const SYNTH_STEPS: readonly SynthStep[] = ["cluster", "stakes", "hopes", "shortlist"];
-// Steps 1 and 2 are named for the question they ask, matching the workshop wireframes.
-// Steps 3 and 4 keep their old names until they are reworked — renaming them now would
-// promise a step that has not been built.
+type SynthStep = "cluster" | "hopes" | "shortlist";
+const SYNTH_STEPS: readonly SynthStep[] = ["cluster", "hopes", "shortlist"];
+// "Find themes" and "Explore themes" were two steps on one object — a theme's membership
+// and its reading — and the wireframes called them 1a and 1b of one activity. They are one
+// step now: a theme opened from the rail carries both. Steps 2 and 3 keep their old names
+// until they are reworked — renaming them now would promise a step that has not been built.
 const STEP_LABELS: Record<SynthStep, string> = {
-  cluster: "1 · Find themes",
-  stakes: "2 · Explore themes",
-  hopes: "3 · Hopes & Fears",
-  shortlist: "4 · Top 3 & 3",
+  cluster: "1 · Themes",
+  hopes: "2 · Hopes & Fears",
+  shortlist: "3 · Top 3 & 3",
 };
 
 const NO_CARDS: RippleCard[] = [];
@@ -128,8 +125,9 @@ export function SynthesisTeamView({
   // Declared up here with the other state, NOT inside the build branch below — several
   // early returns sit between the two, and a hook after one of them would break the order.
   const [step, setStep] = useState<SynthStep>("cluster");
-  // Hoisted beside `step` for the same hook-order reason, and shared by steps 2 and 3 so
-  // moving between them keeps you on the theme you were working on.
+  // Hoisted beside `step` for the same hook-order reason, and shared by steps 1 and 2 so
+  // moving between them keeps you on the theme you were working on. In step 1 null means
+  // "the board", in step 2 it falls back to the first theme.
   const [themeId, setThemeId] = useState<string | null>(null);
   // Which hope or fear step 3 has open. Hoisted for the same hook-order reason; a newly
   // written card focuses itself, because the next thing you do is say why it matters.
@@ -226,12 +224,12 @@ export function SynthesisTeamView({
       if (res?.card) addLocal(res.card as RippleCard);
     });
 
-  // Step 2. A field's card does not exist until the group answers that question, so the
-  // first save creates it and every later one edits it — which is why ReadingBoard asks for
-  // onSetField rather than an explicit "add".
-  const setReadingField = (reading: RippleCard, field: ReadingField, text: string) => {
+  // A first answer to one of the theme's four questions. An answer's card does not exist
+  // until the group writes it, so the first save creates it (here) and every later one
+  // edits it (editCard) — which is why ReadingBoard asks for "answer" rather than "add".
+  const answerTheme = (theme: RippleCard, field: ReadingField, text: string) => {
     if (!text.trim()) return;
-    addChildCard(reading, field, text);
+    addChildCard(theme, field, text);
   };
 
   // Put an implication in a SECOND theme, keeping the one it is already in. The text is
@@ -678,38 +676,10 @@ export function SynthesisTeamView({
           onMoveManyToTheme={moveManyToTheme}
           week2Cards={week2Cards}
           admin={admin}
-        />
-      )}
-
-      {step === "stakes" && (
-        <ThemeWorkspace
-          board={board}
-          lineage={lineage}
-          editable={editable}
-          busy={busy}
           themeId={themeId}
           onPickTheme={setThemeId}
-          progressFor={(t) => readingProgress(board, t.id)}
-          emptyBlurb="Themes are explored one at a time, so the group needs to cluster its implications first."
-          bodyInPanel
-          onEditTheme={editCard}
-          onDescribeTheme={describeCard}
-          onGoToCluster={() => setStep("cluster")}
-        >
-          {(active) => (
-            <ReadingBoard
-              key={active.id}
-              theme={active}
-              board={board}
-              editable={editable}
-              busy={busy}
-              onAddReading={(theme, example) => addChildCard(theme, "reading", example)}
-              onEdit={editCard}
-              onSetField={setReadingField}
-              onDeleteReading={removeCard}
-            />
-          )}
-        </ThemeWorkspace>
+          onAnswer={answerTheme}
+        />
       )}
 
       {step === "hopes" && (
@@ -739,7 +709,7 @@ export function SynthesisTeamView({
             editable={editable}
             busy={busy}
             onToggle={shortlist}
-            onGoToStakes={() => setStep("stakes")}
+            onGoToCluster={() => setStep("cluster")}
           />
           {sections.length > 0 && (
             <div className="border-t border-[var(--rule)] pt-6">

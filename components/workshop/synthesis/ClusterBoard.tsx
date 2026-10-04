@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
 import {
   childrenOf,
@@ -11,7 +11,10 @@ import {
   insertionPoint,
   keyChangeLabel,
   ordinal,
+  readingProgress,
+  READING_FIELDS,
   twinIndex,
+  type ReadingField,
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
 import {
@@ -24,6 +27,10 @@ import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { SuggestThemesRail } from "@/components/workshop/synthesis/SuggestThemesRail";
 import { ThemeJoinSearch } from "@/components/workshop/synthesis/ThemeJoinSearch";
+import { PROMPTS, ReadingBoard } from "@/components/workshop/synthesis/ReadingBoard";
+import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
+import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
+import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 import {
   DeleteThemeModal,
@@ -83,39 +90,11 @@ function Dot() {
 
 type Drag = { id: string; kind: "card" | "theme" };
 
-// Per-browser memory of whether the right rail is folded away. Read through
-// useSyncExternalStore so the server and the first client paint both say "open" and the
-// stored preference lands in the hydration pass, with no setState-in-effect. A copy is
-// kept in memory so the toggle still works where storage is blocked.
-const RIGHT_RAIL_KEY = "synthesis.rightRail";
-type RailState = "open" | "closed";
-let railMemory: RailState | null = null;
-const railListeners = new Set<() => void>();
-function readRightRail(): RailState {
-  if (railMemory) return railMemory;
-  try {
-    return window.localStorage.getItem(RIGHT_RAIL_KEY) === "closed" ? "closed" : "open";
-  } catch {
-    return "open";
-  }
-}
-function subscribeRightRail(cb: () => void) {
-  railListeners.add(cb);
-  window.addEventListener("storage", cb);
-  return () => {
-    railListeners.delete(cb);
-    window.removeEventListener("storage", cb);
-  };
-}
-function writeRightRail(v: RailState) {
-  railMemory = v;
-  try {
-    window.localStorage.setItem(RIGHT_RAIL_KEY, v);
-  } catch {
-    // Not remembered past this page, still toggled.
-  }
-  for (const l of railListeners) l();
-}
+// Per-browser memory of two folds: the right rail, and the sheet's "In this theme" block.
+// See prefStore.ts for why these are external stores rather than state read in an effect.
+const FOLD = ["open", "closed"] as const;
+const rightRailPref = makePrefStore("synthesis.rightRail", "open", FOLD);
+const themeCardsPref = makePrefStore("synthesis.themeCards", "open", FOLD);
 // Which card the pointer is over and which side of it — `after` is the far side along the
 // list's axis (right in a wrapping row, below in a column). `anchorId` null = past the end.
 type Over = { zone: string; anchorId: string | null; after: boolean };
@@ -148,6 +127,9 @@ export function ClusterBoard({
   onMoveManyToTheme,
   week2Cards = [],
   admin,
+  themeId,
+  onPickTheme,
+  onAnswer,
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -180,6 +162,13 @@ export function ClusterBoard({
   week2Cards?: RippleCard[];
   // Present for a signed-in facilitator only: the clustering tool rides the right rail.
   admin?: AdminTools;
+  // The theme open in the body (null = the board). Owned by the view and shared with the
+  // hopes & fears step, so moving between steps keeps you on the theme you were working on.
+  themeId: string | null;
+  onPickTheme: (id: string | null) => void;
+  // A first answer to one of the theme's four questions — see ReadingBoard. The answer's
+  // card is created on that first save and edited (onEditCard) after.
+  onAnswer: (theme: RippleCard, field: ReadingField, text: string) => void;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
@@ -201,10 +190,9 @@ export function ClusterBoard({
   // What "fit" currently works out to, reported by the wheel. Pressing + from Fit then
   // steps up from what you are actually looking at instead of jumping to 125%.
   const fitScaleRef = useRef(1);
-  // The theme opened in the body instead of the board — from a rail square or a column's
-  // menu. Null = the board. Resolved against the live list below, so a theme someone else
-  // deletes while it is open falls back to the board rather than to a blank page.
-  const [focusId, setFocusId] = useState<string | null>(null);
+  // Inside an open theme, how "find more" looks: the text search, or the Week 2 map with
+  // this theme's nodes lit. Ephemeral — it is a way of looking, not a preference.
+  const [findMode, setFindMode] = useState<"search" | "map">("search");
   // The rail square under the pointer, and where to draw its full contents. The squares
   // truncate every line to fit; the popover is the same theme with nothing cut. Fixed to
   // the viewport rather than inside the rail, which scrolls and would clip it.
@@ -238,14 +226,17 @@ export function ClusterBoard({
   // The right rail can be folded away: once the prompts have been read, and especially once
   // a facilitator's suggestions have been used, it is width the board could be using. The
   // choice is remembered per browser (see RIGHT_RAIL_KEY).
-  const rightRailOpen = useSyncExternalStore(subscribeRightRail, readRightRail, () => "open") === "open";
+  const rightRailOpen = usePref(rightRailPref) === "open";
+  // Whether the sheet's "In this theme" block is unfolded. Once a theme's membership is
+  // settled and the reading is the work, the cards are height the reading could be using.
+  const cardsOpen = usePref(themeCardsPref) === "open";
   useEffect(() => {
     document.body.dataset.rightRail = rightRailOpen ? "open" : "closed";
     return () => {
       delete document.body.dataset.rightRail;
     };
   }, [rightRailOpen]);
-  const toggleRightRail = () => writeRightRail(rightRailOpen ? "closed" : "open");
+  const toggleRightRail = () => rightRailPref.write(rightRailOpen ? "closed" : "open");
   // Show only implications from one key change. Independent of the order filter; both
   // narrow the TRAY and neither touches what is already in a theme.
   const [keyFilter, setKeyFilter] = useState<string | null>(null);
@@ -261,7 +252,12 @@ export function ClusterBoard({
   // so a theme never vanishes and then reappears when the route refuses.
   const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
 
-  const focus = board.themes.find((t) => t.id === focusId) ?? null;
+  // The theme open in the body. Resolved against the live list, so a theme someone else
+  // deletes while it is open falls back to the board rather than to a blank page.
+  const focus = board.themes.find((t) => t.id === themeId) ?? null;
+  // Is a map on screen — the board's, or the one inside an open theme? The right rail's
+  // read-out only makes sense while one is.
+  const mapVisible = focus ? findMode === "map" : view === "map";
 
   // Escape leaves the theme view — unless something that owns Escape is open on top of
   // it (a modal, the drill-in, a field being typed in).
@@ -272,11 +268,11 @@ export function ClusterBoard({
       if (copyFrom || mergeFrom || pendingDelete) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.isContentEditable)) return;
-      setFocusId(null);
+      onPickTheme(null);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [focus, copyFrom, mergeFrom, pendingDelete]);
+  }, [focus, copyFrom, mergeFrom, pendingDelete, onPickTheme]);
   const columnRefs = useRef(new Map<string, HTMLDivElement | null>());
 
   const byId = new Map<string, RippleCard>();
@@ -288,8 +284,8 @@ export function ClusterBoard({
   ])
     byId.set(c.id, c);
 
-  // Everything that would go with a theme: its hope/fear chains to full depth, plus the
-  // risks, opportunities and tensions written on it. The modal names the damage, so an
+  // Everything that would go with a theme: its hope/fear chains to full depth, plus its
+  // reading, and the risks, opportunities and tensions written on it. The modal names the damage, so an
   // undercount here is the difference between an informed choice and a surprise.
   const chainCountOf = (themeId: string): number => {
     let n = 0;
@@ -696,11 +692,14 @@ export function ClusterBoard({
               if (l) setMapKey(l.keyChange); // the branch to draw; the tray filter is left alone
               setFocusNode(sourceId);
               setPeek(sourceId); // and read it out in the rail, since it is why you came
-              setView("map");
-              // Cards inside an open theme have this button too, and the map is the BOARD.
-              // Without this, pressing it in there switched a board you could not see and
-              // nothing appeared to happen.
-              setFocusId(null);
+              if (focus) {
+                // Inside a theme the sheet has its own map, so stay on the theme and show
+                // it there — unfolding the block if it was tucked away.
+                setFindMode("map");
+                if (!cardsOpen) themeCardsPref.write("open");
+              } else {
+                setView("map");
+              }
             }}
             onDragStart={(e) => e.preventDefault()}
             className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-blue hover:underline"
@@ -711,6 +710,211 @@ export function ClusterBoard({
       </div>
     );
   };
+
+  // The Week 2 branch: zoom, the way through every key change, and the wheel. Drawn on the
+  // board in place of the card list, and inside an open theme as its "find more" map —
+  // where that theme's own nodes are lit and a selection can be added straight into it.
+  const renderMap = (inTheme: RippleCard | null) => (
+    <div className="rounded-[3px] border border-dashed border-black/15 p-3">
+      {mapBranch ? (
+        <>
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
+              Zoom
+            </span>
+            {([
+              ["−", "out"],
+              ["+", "in"],
+            ] as const).map(([glyph, dir]) => (
+              <button
+                key={dir}
+                onClick={() =>
+                  setZoom((z) => {
+                    const from = typeof z === "number" ? z : (fitScaleRef.current || 1);
+                    const next = dir === "in" ? from * 1.25 : from / 1.25;
+                    return Math.min(2, Math.max(0.25, Number(next.toFixed(3))));
+                  })
+                }
+                aria-label={dir === "in" ? "Zoom in" : "Zoom out"}
+                className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[12px] font-bold leading-none text-muted hover:border-ink hover:text-ink"
+              >
+                {glyph}
+              </button>
+            ))}
+            <button
+              onClick={() => setZoom("fit")}
+              aria-pressed={zoom === "fit"}
+              className={
+                "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
+                (zoom === "fit"
+                  ? "border-ink bg-ink text-paper"
+                  : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
+              }
+            >
+              Fit
+            </button>
+            {typeof zoom === "number" && (
+              <span className="text-[10px] font-bold text-muted">{Math.round(zoom * 100)}%</span>
+            )}
+
+            {/* Which branch, and the way through all of them. The key-change chips in the
+                tray header can pick one, but they are counted off the TRAY — a key change
+                whose implications have all been clustered drops out of them, and its map
+                with it. Stepping through happens here, off the full list, so every map
+                stays reachable however far the clustering has got. */}
+            {mapKeyChanges.length > 1 && (
+              <span className="ml-auto flex min-w-0 items-center gap-1.5">
+                <span
+                  className="min-w-0 max-w-[20rem] truncate text-[10.5px] font-bold uppercase tracking-[0.05em]"
+                  title={mapKeyChanges[mapAt]?.[0]}
+                >
+                  {mapKeyChanges[mapAt]?.[0]}
+                </span>
+                <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-muted">
+                  {mapAt + 1}/{mapKeyChanges.length}
+                </span>
+                {([
+                  ["‹", -1, "Previous key change"],
+                  ["›", 1, "Next key change"],
+                ] as const).map(([glyph, step, label]) => (
+                  <button
+                    key={step}
+                    onClick={() => {
+                      // Wraps, so you can walk the whole set in one direction.
+                      const n = mapKeyChanges.length;
+                      const next = mapKeyChanges[(mapAt + step + n) % n];
+                      setMapKey(next[0]); // the map only — the tray keeps its filter
+                      setFocusNode(null);
+                      setZoom("fit"); // branches differ in size; a held zoom misleads
+                    }}
+                    aria-label={label}
+                    title={label}
+                    className="shrink-0 rounded-[2px] border border-ink bg-paper px-2 py-0.5 text-[12px] font-bold leading-none hover:bg-lime"
+                  >
+                    {glyph}
+                  </button>
+                ))}
+              </span>
+            )}
+          </div>
+
+          {/* What to do with the circles you have clicked. On the board the rail squares
+              are also targets; inside a theme the obvious destination is this theme, so it
+              is the first button. */}
+          {editable && picked.size > 0 && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 rounded-[3px] border-2 border-blue bg-[#e4ecfb] px-3 py-2">
+              <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-blue">
+                {picked.size} selected
+              </span>
+              {inTheme && (
+                <button
+                  onClick={() => {
+                    onMoveManyToTheme([...picked], inTheme.id);
+                    setPicked(new Set());
+                  }}
+                  disabled={busy}
+                  className="rounded-[2px] border border-ink bg-lime px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime-deep disabled:opacity-40"
+                >
+                  Add {picked.size} to this theme
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  onCreateThemeFrom([...picked]);
+                  setPicked(new Set());
+                }}
+                disabled={busy}
+                className="rounded-[2px] border border-ink bg-paper px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-40"
+              >
+                New theme from {picked.size}
+              </button>
+              <button
+                onClick={() => setPicked(new Set())}
+                className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
+              >
+                Clear
+              </button>
+              {!inTheme && (
+                <span className="text-[11px] italic text-muted">
+                  Or click a theme on the rail to add them there.
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="max-h-[70vh] overflow-auto">
+            <FuturesWheel
+              key={mapBranch.root.id}
+              cards={mapBranch.subtree
+                .filter((c) => c.id !== mapBranch.root.id)
+                .map((c) => (c.parentId === mapBranch.root.id ? { ...c, parentId: null } : c))}
+              centerLabel={mapBranch.root.text}
+              variant="branch"
+              zoom={zoom}
+              onFitScale={(v) => (fitScaleRef.current = v)}
+              selectedId={focusNode ?? undefined}
+              highlightIds={focusNode ? mapBranch.pathIds : undefined}
+              nodeProps={(w2id) => {
+                const hit = seeded.get(w2id);
+                // Hovering reads the node out in full in the right rail — on every node,
+                // including one with no Week 3 card, because "what does this one say" is
+                // the question whether or not you can act on it.
+                const read = { onMouseEnter: () => setPeek(w2id) };
+                // Never seeded into this week: there is no row to move.
+                if (!hit) return { ...read, style: { cursor: "not-allowed", opacity: 0.45 } };
+                const themed = hit.themeId !== null;
+                const member = inTheme !== null && hit.themeId === inTheme.id;
+                return {
+                  ...(editable && !themed ? dragProps(hit.card.id, "card") : {}),
+                  ...read,
+                  onClick: () => {
+                    if (!editable || themed) return;
+                    togglePicked(hit.card.id);
+                  },
+                  className: picked.has(hit.card.id)
+                    ? "ring-[3px] ring-blue"
+                    : member
+                      ? "ring-[3px] ring-[var(--lime-deep)]"
+                      : "",
+                  style: {
+                    cursor: !editable || themed ? "default" : "grab",
+                    ...(themed ? { background: "var(--lime)" } : {}),
+                    // Inside a theme the OTHER themes' nodes step back, so the lit ones
+                    // read as the shape of this theme on the map.
+                    ...(inTheme && themed && !member ? { opacity: 0.45 } : {}),
+                  },
+                };
+              }}
+              nodeExtra={(w2id) => {
+                const hit = seeded.get(w2id);
+                if (!hit) return (
+                  <span className="rounded-[2px] bg-black/10 px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-muted">
+                    not on this board
+                  </span>
+                );
+                if (hit.themeId === null) return null;
+                if (inTheme && hit.themeId === inTheme.id) return (
+                  <span className="rounded-[2px] bg-[var(--lime-deep)] px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-ink">
+                    this theme
+                  </span>
+                );
+                const n = board.themes.findIndex((t) => t.id === hit.themeId) + 1;
+                return (
+                  <span className="rounded-[2px] bg-ink px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-paper">
+                    Theme {n}
+                  </span>
+                );
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        <p className="py-10 text-center text-[12.5px] italic text-muted">
+          No key change with implications to map.
+        </p>
+      )}
+    </div>
+  );
 
   // A card plus the insertion bar, drawn on whichever edge the drop would land on. `axis`
   // orients it: the tray wraps left-to-right, a theme column stacks top-to-bottom.
@@ -765,6 +969,9 @@ export function ClusterBoard({
           {board.themes.map((t, i) => {
             const n = board.clusters.get(t.id)?.length ?? 0;
             const lit = zoneLit(`theme:${t.id}`);
+            // How far its reading has got — the rail is the picker for both halves of the
+            // step now, so it carries what step 2's chips used to.
+            const state = readingProgress(board, t.id);
             return (
               <button
                 key={t.id}
@@ -777,7 +984,7 @@ export function ClusterBoard({
                     // reads as "turn this off" — and the rail is where your pointer
                     // already is. Going back should not mean finding the one button at
                     // the top of the body.
-                    setFocusId((cur) => (cur === t.id ? null : t.id));
+                    onPickTheme(focus?.id === t.id ? null : t.id);
                     return;
                   }
                   onMoveManyToTheme([...picked], t.id);
@@ -808,6 +1015,13 @@ export function ClusterBoard({
                       that appears nowhere on the theme itself refers to nothing. */}
                   <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] font-bold text-paper">
                     {i + 1}
+                  </span>
+                  <span
+                    aria-label={STATE_LABEL[state]}
+                    title={`Reading: ${STATE_LABEL[state]}`}
+                    className={"shrink-0 text-[10px] leading-none " + STATE_DOT[state]}
+                  >
+                    {stateGlyph(state)}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.08em]">
                     {t.text}
@@ -974,7 +1188,7 @@ export function ClusterBoard({
             the rail is where the whole implication can actually be read. It also says the
             things the node has no room for — how far out it is, which key change it hangs
             off, and whether it is already in a theme. */}
-        {view === "map" && !focus && (
+        {mapVisible && (
           // A solid panel rather than a ruled-off stretch of rail: it is the one part of
           // this column that changes as you move, and it should read as a readout.
           <div className="mb-4 rounded-[4px] border border-blue/30 bg-[#e4ecfb] p-3">
@@ -1095,22 +1309,49 @@ export function ClusterBoard({
         {/* No panel, no fill — these are the questions the group is meant to be holding,
             and they read best as plain text in the margin. Set nearly twice the size they
             were: at 12px they were sized like UI chrome and scanned like it, which is the
-            opposite of what a prompt is for. */}
-        <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
-          As you group and name themes
-        </h2>
-        <ul className="mt-3 flex flex-col gap-3.5 text-[19px] font-medium leading-[1.3] tracking-[-0.01em]">
-          <li>What connected change do these implications describe?</li>
-          <li>What is changing — and for whom?</li>
-          <li>Which implications support or complicate that reading?</li>
-        </ul>
-        <p className="mt-4 border-t border-[var(--hairline)] pt-3 text-[14.5px] italic leading-[1.4] text-muted">
-          If a theme is too broad, split it. If it repeats one note, look for related
-          implications.
-        </p>
-        <p className="mt-2.5 text-[14.5px] italic leading-[1.4] text-muted">
-          Aim for 3–5 themes. An implication can sit in more than one.
-        </p>
+            opposite of what a prompt is for. Which questions depends on where the body is:
+            grouping prompts on the board, the reading's four inside a theme. */}
+        {focus ? (
+          <>
+            <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
+              How does this future work?
+            </h2>
+            <p className="mt-2 text-[14.5px] italic leading-[1.4] text-muted">
+              Four questions about this change. Think of a real person, place or decision
+              inside it as you answer each one.
+            </p>
+            <ul className="mt-3 flex flex-col gap-3.5">
+              {READING_FIELDS.map((f) => (
+                <li key={f}>
+                  <div className="text-[17px] font-medium leading-[1.3] tracking-[-0.01em]">
+                    {PROMPTS[f].question}
+                  </div>
+                  <div className="mt-0.5 text-[12.5px] italic leading-[1.4] text-muted">
+                    {PROMPTS[f].hint}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <>
+            <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
+              As you group and name themes
+            </h2>
+            <ul className="mt-3 flex flex-col gap-3.5 text-[19px] font-medium leading-[1.3] tracking-[-0.01em]">
+              <li>What connected change do these implications describe?</li>
+              <li>What is changing — and for whom?</li>
+              <li>Which implications support or complicate that reading?</li>
+            </ul>
+            <p className="mt-4 border-t border-[var(--hairline)] pt-3 text-[14.5px] italic leading-[1.4] text-muted">
+              If a theme is too broad, split it. If it repeats one note, look for related
+              implications.
+            </p>
+            <p className="mt-2.5 text-[14.5px] italic leading-[1.4] text-muted">
+              Aim for 3–5 themes. An implication can sit in more than one.
+            </p>
+          </>
+        )}
           </>
         )}
       </aside>
@@ -1158,7 +1399,7 @@ export function ClusterBoard({
                   onClick={() => {
                     setView(v);
                     if (v === "cards") setFocusNode(null);
-                    setFocusId(null); // leaving a theme, if one is open
+                    onPickTheme(null); // leaving a theme, if one is open
                   }}
                   aria-pressed={on}
                   className={
@@ -1189,12 +1430,12 @@ export function ClusterBoard({
         </div>
       )}
 
-      {/* ---- one theme, opened from the rail ----
+      {/* ---- one theme, opened from the rail: the sheet ----
            The columns show every theme at once, which is right for sorting and wrong for
-           writing: a statement about change wants room, and "what else belongs here" wants
-           a search, not a scan of 146 cards. Same card machinery as the columns — a card
-           keeps its menu, its order stamp and its drill-in — so nothing learned on the board
-           is lost in here. */}
+           writing. A theme opened here is one sheet: the statement, what is in it (folding
+           away once that is settled), and the reading — "how does this future work?" —
+           which used to be a step of its own with the cards out of sight. Same card
+           machinery as the columns, so nothing learned on the board is lost in here. */}
       {focus && (() => {
         const theme = focus;
         const zone = `theme:${theme.id}`;
@@ -1202,6 +1443,17 @@ export function ClusterBoard({
         const at = board.themes.findIndex((t) => t.id === theme.id);
         const prev = board.themes[at - 1];
         const next = board.themes[at + 1];
+        const state = readingProgress(board, theme.id);
+        // The next theme still owing a reading, wrapping past the end — the hand-off step
+        // 2's chips used to make, so a pass over every theme stays a pass.
+        const nextUnfinished = (() => {
+          const n = board.themes.length;
+          for (let k = 1; k < n; k++) {
+            const t = board.themes[(at + k) % n];
+            if (readingProgress(board, t.id) !== "done") return t;
+          }
+          return null;
+        })();
         // What is in another theme and NOT already here (by implication identity, so a
         // copy of something this theme holds is not offered back to it).
         const heldKeys = new Set(held.map(implicationKey));
@@ -1216,57 +1468,26 @@ export function ClusterBoard({
           c.sourceCardId ?? twins.get(implicationKey(c))?.sourceCardId ?? null;
         const navBtn =
           "rounded-[2px] border border-ink bg-paper px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-30";
+        const segBtn = (on: boolean) =>
+          "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
+          (on
+            ? "border-ink bg-ink text-paper"
+            : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink");
         return (
-          <section className="flex flex-col gap-5">
-            <div className="flex flex-wrap items-center gap-3">
-              {/* No back button here. It sat eight pixels under the "Working in" bar
-                  doing the same job worse: it could only return you to whichever board
-                  you came from, and never named it. Up there, Cards and Map are both one
-                  click and both say where they go. The rail square also toggles. */}
-              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
-                Theme {at + 1} of {board.themes.length}
-              </span>
-              <span className="ml-auto flex gap-1">
-                <button disabled={!prev} onClick={() => prev && setFocusId(prev.id)} className={navBtn}>
-                  ← Prev
-                </button>
-                <button disabled={!next} onClick={() => next && setFocusId(next.id)} className={navBtn}>
-                  Next →
-                </button>
-              </span>
-            </div>
-
-            {/* The statement. Same head card as steps 2 and 3 (ThemeLineagePanel), so the
-                theme looks like one thing all the way through the week. */}
-            <div className="rounded-[4px] border-2 border-ink bg-[rgba(196,255,103,0.16)] px-5 py-4">
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
-                    The change we see
-                  </div>
-                  <h2 className="mt-1 text-[20px] font-extrabold uppercase leading-[1.1] tracking-tight">
-                    <InlineText
-                      text={theme.text}
-                      editable={editable}
-                      busy={busy}
-                      placeholder="Name this theme as a statement about change…"
-                      onSave={(next) => onEditCard(theme, next)}
-                    />
-                  </h2>
-                  <div className="mt-1.5 max-w-[70ch] text-[13.5px] leading-[1.5] text-ink/80">
-                    <InlineText
-                      text={theme.description ?? ""}
-                      editable={editable}
-                      busy={busy}
-                      emptyLabel="＋ Describe this theme"
-                      placeholder="What does this theme mean?"
-                      maxLength={CARD_DESCRIPTION_MAX}
-                      rows={3}
-                      onSave={(next) => onDescribeCard(theme, next)}
-                    />
-                  </div>
-                </div>
-                {editable && (
+          <section className="flex flex-col gap-4">
+            <ThemeLineagePanel
+              theme={theme}
+              implications={held}
+              lineage={lineage}
+              editable={editable}
+              busy={busy}
+              onEditTheme={(t) => onEditCard(theme, t)}
+              onDescribeTheme={(d) => onDescribeCard(theme, d)}
+              namePlaceholder="Name this theme as a statement about change…"
+              showImplications={false}
+              showDescription={false}
+              menu={
+                editable ? (
                   <CardMenu label="Theme actions">
                     {(close) => (
                       <CardMenuItem
@@ -1280,85 +1501,195 @@ export function ClusterBoard({
                       </CardMenuItem>
                     )}
                   </CardMenu>
-                )}
-              </div>
-              {editable && (
-                <p className="mt-3 border-t border-black/10 pt-2.5 text-[11.5px] italic leading-[1.4] text-muted">
-                  Double-click the statement to edit it. Name a theme as a statement about
-                  change — &ldquo;Responsibility moves to communities faster than resources
-                  do&rdquo; rather than &ldquo;Community capacity&rdquo;.
-                </p>
-              )}
-            </div>
-
-            {/* Everything in it, as full cards. The whole block is the drop zone, like a
-                column, so a card dragged off a rail square still lands. */}
-            <div
-              {...zoneProps(zone)}
-              className={
-                "rounded-[4px] border-2 p-3 transition-colors " +
-                (zoneLit(zone) ? "border-ink " : "border-[var(--rule)] ") +
-                "bg-[rgba(196,255,103,0.16)]"
+                ) : undefined
+              }
+              note={
+                editable ? (
+                  <p className="mt-3 border-t border-black/10 pt-2.5 text-[11.5px] italic leading-[1.4] text-muted">
+                    Double-click the statement to edit it. Name a theme as a statement about
+                    change — &ldquo;Responsibility moves to communities faster than resources
+                    do&rdquo; rather than &ldquo;Community capacity&rdquo;.
+                  </p>
+                ) : undefined
               }
             >
-              <div className="mb-2 flex flex-wrap items-center gap-3">
-                <h3 className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
-                  In this theme ({held.length})
-                </h3>
-                {editable && addingTo !== theme.id && (
-                  <button
-                    onClick={() => setAddingTo(theme.id)}
-                    className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
-                  >
-                    ＋ Add an implication
-                  </button>
-                )}
-              </div>
-              {editable && addingTo === theme.id && (
-                <div className="mb-3 max-w-[32rem]">
-                  <AddCardForm
-                    label="A new implication…"
-                    busy={busy}
-                    autoFocus
-                    onAdd={(t) => onAddImplication(t, theme.id)}
-                    onDone={() => setAddingTo(null)}
-                  />
-                </div>
-              )}
+              {/* ---- how does this future work? ----
+                   The four questions, straight under the statement: the sheet is the
+                   statement and these, and everything else on it folds. */}
+              <ReadingBoard
+                theme={theme}
+                board={board}
+                editable={editable}
+                busy={busy}
+                onAnswer={onAnswer}
+                onEdit={onEditCard}
+                onDelete={onDeleteCard}
+              />
+
+              {/* ---- in this theme ----
+                   Everything in it, as full cards, plus the ways to find more. The whole
+                   block is the drop zone, like a column, so a card dragged off a rail
+                   square still lands. Folds away (remembered per browser) once membership
+                   is settled and the questions above are the work. */}
               <div
+                {...zoneProps(zone)}
                 className={
-                  "grid gap-2 rounded-[3px] border-2 border-dashed p-2 sm:grid-cols-2 xl:grid-cols-3 " +
-                  (zoneLit(zone) ? "border-ink bg-lime/60 " : "border-black/20 bg-[rgba(255,255,255,0.6)] ")
+                  "border-t-2 border-dashed px-5 py-4 transition-colors " +
+                  (zoneLit(zone) ? "border-ink bg-lime/40 " : "border-black/15 ")
                 }
               >
-                {held.map((c) => renderSlot(c, zone, theme.id, "y", held))}
-                {held.length === 0 && (
-                  <div className="col-span-full flex flex-col items-center gap-1 py-6 text-center">
-                    <span aria-hidden className="text-[20px] leading-none text-black/25">
-                      ⤓
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => themeCardsPref.write(cardsOpen ? "closed" : "open")}
+                    aria-expanded={cardsOpen}
+                    className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted hover:text-ink"
+                  >
+                    {cardsOpen ? "▾" : "▸"} In this theme ({held.length})
+                  </button>
+                  {!cardsOpen && (
+                    <span className="text-[11px] italic text-muted">
+                      {board.unclustered.length} still in the tray
                     </span>
-                    <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">
-                      Nothing in it yet — drop implications here, or search below
+                  )}
+                  {editable && cardsOpen && addingTo !== theme.id && (
+                    <button
+                      onClick={() => setAddingTo(theme.id)}
+                      className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+                    >
+                      ＋ Add an implication
+                    </button>
+                  )}
+                  {cardsOpen && (
+                    <span className="ml-auto flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
+                        Find more
+                      </span>
+                      <button
+                        onClick={() => setFindMode("search")}
+                        aria-pressed={findMode === "search"}
+                        className={segBtn(findMode === "search")}
+                      >
+                        Search
+                      </button>
+                      {week2Cards.length > 0 && (
+                        <button
+                          onClick={() => {
+                            // Open on the branch most of this theme already comes from,
+                            // not on whichever the cycler last showed — the point is to
+                            // see this theme's shape and what sits next to it.
+                            const tally = new Map<string, number>();
+                            for (const c of held) {
+                              const k = keyOf(c);
+                              if (k) tally.set(k, (tally.get(k) ?? 0) + 1);
+                            }
+                            const best = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+                            if (best) {
+                              setMapKey(best);
+                              setFocusNode(null);
+                              setZoom("fit");
+                            }
+                            setFindMode("map");
+                          }}
+                          aria-pressed={findMode === "map"}
+                          className={segBtn(findMode === "map")}
+                        >
+                          Map
+                        </button>
+                      )}
                     </span>
-                  </div>
+                  )}
+                </div>
+
+                {cardsOpen && (
+                  <>
+                    {editable && addingTo === theme.id && (
+                      <div className="mt-3 max-w-[32rem]">
+                        <AddCardForm
+                          label="A new implication…"
+                          busy={busy}
+                          autoFocus
+                          onAdd={(t) => onAddImplication(t, theme.id)}
+                          onDone={() => setAddingTo(null)}
+                        />
+                      </div>
+                    )}
+                    <div
+                      className={
+                        "mt-3 grid gap-2 rounded-[3px] border-2 border-dashed p-2 sm:grid-cols-2 xl:grid-cols-3 " +
+                        (zoneLit(zone) ? "border-ink bg-lime/60 " : "border-black/20 bg-[rgba(255,255,255,0.6)] ")
+                      }
+                    >
+                      {held.map((c) => renderSlot(c, zone, theme.id, "y", held))}
+                      {held.length === 0 && (
+                        <div className="col-span-full flex flex-col items-center gap-1 py-6 text-center">
+                          <span aria-hidden className="text-[20px] leading-none text-black/25">
+                            ⤓
+                          </span>
+                          <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">
+                            Nothing in it yet — drop implications here, or find them below
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-3">
+                      {findMode === "map" ? (
+                        renderMap(theme)
+                      ) : (
+                        <ThemeJoinSearch
+                          key={theme.id}
+                          members={held}
+                          tray={board.unclustered}
+                          elsewhere={elsewhere}
+                          orderOf={orderOf}
+                          keyOf={keyOf}
+                          sourceIdOf={sourceIdOf}
+                          editable={editable}
+                          busy={busy}
+                          onMoveIn={(c) => onMoveCard(c, theme.id, null)}
+                          onCopyIn={(c) => onCopyToTheme(c, theme.id)}
+                          admin={admin}
+                        />
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
-            </div>
+            </ThemeLineagePanel>
 
-            <ThemeJoinSearch
-              key={theme.id}
-              members={held}
-              tray={board.unclustered}
-              elsewhere={elsewhere}
-              orderOf={orderOf}
-              keyOf={keyOf}
-              sourceIdOf={sourceIdOf}
-              editable={editable}
-              busy={busy}
-              onMoveIn={(c) => onMoveCard(c, theme.id, null)}
-              onCopyIn={(c) => onCopyToTheme(c, theme.id)}
-              admin={admin}
-            />
+            {/* Where you are in the pass, and the way to the next theme — the next one
+                still owing a reading first, since that is what the pass is for. */}
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                Theme {at + 1} of {board.themes.length}
+              </span>
+              <span
+                className={
+                  "flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.06em] " +
+                  STATE_DOT[state]
+                }
+              >
+                <span aria-hidden>{stateGlyph(state)}</span>
+                {STATE_LABEL[state]}
+              </span>
+              <span className="ml-auto flex flex-wrap items-center gap-1">
+                <button disabled={!prev} onClick={() => prev && onPickTheme(prev.id)} className={navBtn}>
+                  ← Prev
+                </button>
+                <button disabled={!next} onClick={() => next && onPickTheme(next.id)} className={navBtn}>
+                  Next →
+                </button>
+                {nextUnfinished && (
+                  <button
+                    onClick={() => onPickTheme(nextUnfinished.id)}
+                    title={nextUnfinished.text}
+                    className={navBtn + " border-ink bg-lime"}
+                  >
+                    Next unfinished: Theme {board.themes.indexOf(nextUnfinished) + 1} →
+                  </button>
+                )}
+              </span>
+            </div>
           </section>
         );
       })()}
@@ -1473,152 +1804,7 @@ export function ClusterBoard({
             </span>
           )}
         </div>
-        {view === "map" ? (
-          // The Week 2 branch, in place of the list. Rendered 1:1 and scrolled rather than
-          // scaled: dragging out of a `transform: scale()` container is untested here, and
-          // a little panning is a cheaper price than a drag that misses in a live session.
-          <div className="rounded-[3px] border border-dashed border-black/15 p-3">
-            {mapBranch ? (
-              <>
-              <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
-                  Zoom
-                </span>
-                {([
-                  ["−", "out"],
-                  ["+", "in"],
-                ] as const).map(([glyph, dir]) => (
-                  <button
-                    key={dir}
-                    onClick={() =>
-                      setZoom((z) => {
-                        const from = typeof z === "number" ? z : (fitScaleRef.current || 1);
-                        const next = dir === "in" ? from * 1.25 : from / 1.25;
-                        return Math.min(2, Math.max(0.25, Number(next.toFixed(3))));
-                      })
-                    }
-                    aria-label={dir === "in" ? "Zoom in" : "Zoom out"}
-                    className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[12px] font-bold leading-none text-muted hover:border-ink hover:text-ink"
-                  >
-                    {glyph}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setZoom("fit")}
-                  aria-pressed={zoom === "fit"}
-                  className={
-                    "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                    (zoom === "fit"
-                      ? "border-ink bg-ink text-paper"
-                      : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
-                  }
-                >
-                  Fit
-                </button>
-                {typeof zoom === "number" && (
-                  <span className="text-[10px] font-bold text-muted">{Math.round(zoom * 100)}%</span>
-                )}
-
-                {/* Which branch, and the way through all of them. The key-change chips in
-                    the tray header can pick one, but they are counted off the TRAY — a key
-                    change whose implications have all been clustered drops out of them, and
-                    its map with it. Stepping through happens here, off the full list, so
-                    every map stays reachable however far the clustering has got. */}
-                {mapKeyChanges.length > 1 && (
-                  <span className="ml-auto flex min-w-0 items-center gap-1.5">
-                    <span
-                      className="min-w-0 max-w-[20rem] truncate text-[10.5px] font-bold uppercase tracking-[0.05em]"
-                      title={mapKeyChanges[mapAt]?.[0]}
-                    >
-                      {mapKeyChanges[mapAt]?.[0]}
-                    </span>
-                    <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-muted">
-                      {mapAt + 1}/{mapKeyChanges.length}
-                    </span>
-                    {([
-                      ["‹", -1, "Previous key change"],
-                      ["›", 1, "Next key change"],
-                    ] as const).map(([glyph, step, label]) => (
-                      <button
-                        key={step}
-                        onClick={() => {
-                          // Wraps, so you can walk the whole set in one direction.
-                          const n = mapKeyChanges.length;
-                          const next = mapKeyChanges[(mapAt + step + n) % n];
-                          setMapKey(next[0]); // the map only — the tray keeps its filter
-                          setFocusNode(null);
-                          setZoom("fit"); // branches differ in size; a held zoom misleads
-                        }}
-                        aria-label={label}
-                        title={label}
-                        className="shrink-0 rounded-[2px] border border-ink bg-paper px-2 py-0.5 text-[12px] font-bold leading-none hover:bg-lime"
-                      >
-                        {glyph}
-                      </button>
-                    ))}
-                  </span>
-                )}
-              </div>
-              <div className="max-h-[70vh] overflow-auto">
-                <FuturesWheel
-                  key={mapBranch.root.id}
-                  cards={mapBranch.subtree
-                    .filter((c) => c.id !== mapBranch.root.id)
-                    .map((c) => (c.parentId === mapBranch.root.id ? { ...c, parentId: null } : c))}
-                  centerLabel={mapBranch.root.text}
-                  variant="branch"
-                  zoom={zoom}
-                  onFitScale={(v) => (fitScaleRef.current = v)}
-                  selectedId={focusNode ?? undefined}
-                  highlightIds={focusNode ? mapBranch.pathIds : undefined}
-                  nodeProps={(w2id) => {
-                    const hit = seeded.get(w2id);
-                    // Hovering reads the node out in full in the right rail — on every
-                    // node, including one with no Week 3 card, because "what does this
-                    // one say" is the question whether or not you can act on it.
-                    const read = { onMouseEnter: () => setPeek(w2id) };
-                    // Never seeded into this week: there is no row to move.
-                    if (!hit) return { ...read, style: { cursor: "not-allowed", opacity: 0.45 } };
-                    const inTheme = hit.themeId !== null;
-                    return {
-                      ...(editable && !inTheme ? dragProps(hit.card.id, "card") : {}),
-                      ...read,
-                      onClick: () => {
-                        if (!editable || inTheme) return;
-                        togglePicked(hit.card.id);
-                      },
-                      className: picked.has(hit.card.id) ? "ring-[3px] ring-blue" : "",
-                      style: {
-                        cursor: !editable || inTheme ? "default" : "grab",
-                        ...(inTheme ? { background: "var(--lime)" } : {}),
-                      },
-                    };
-                  }}
-                  nodeExtra={(w2id) => {
-                    const hit = seeded.get(w2id);
-                    if (!hit) return (
-                      <span className="rounded-[2px] bg-black/10 px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-muted">
-                        not on this board
-                      </span>
-                    );
-                    if (hit.themeId === null) return null;
-                    const n = board.themes.findIndex((t) => t.id === hit.themeId) + 1;
-                    return (
-                      <span className="rounded-[2px] bg-ink px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-paper">
-                        Theme {n}
-                      </span>
-                    );
-                  }}
-                />
-              </div>
-              </>
-            ) : (
-              <p className="py-10 text-center text-[12.5px] italic text-muted">
-                No key change with implications to map.
-              </p>
-            )}
-          </div>
-        ) : (
+        {view === "map" ? renderMap(null) : (
         <div
           {...zoneProps("tray")}
           className={
@@ -1836,7 +2022,7 @@ export function ClusterBoard({
                               <CardMenuItem
                                 onClick={() => {
                                   close();
-                                  setFocusId(theme.id);
+                                  onPickTheme(theme.id);
                                 }}
                               >
                                 Open theme

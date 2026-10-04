@@ -149,11 +149,11 @@ export const CARD_DESCRIPTION_MAX = 1000;
 // A Week 3 theme carries implication children AND hope/fear children at the SAME depth,
 // so this column is the only thing separating the two. Plain text with no CHECK
 // constraint (see the card_order note above) — THIS list is the source of truth.
-// `reading` and its four fields are Week 3 step 2: one way of reading a theme — a concrete
-// example (the reading's own text) and the four questions asked of it. A theme can carry
-// several readings. `risk`/`opportunity`/`tension` are step 2's previous shape; they are no
-// longer offered but every kind stays here, because a kind is the permanent link to every
-// card ever written under it.
+// A theme's four questions — `benefit`, `cost`, `experience`, `mechanism` — hang straight
+// off the theme (see READING_FIELDS in lib/synthesis-shape). `reading`, `assumed_role` and
+// `question` are the step's previous shape (a concrete example with four questions asked of
+// it), as are `risk`/`opportunity`/`tension` before that; none is offered any more but every
+// kind stays here, because a kind is the permanent link to every card ever written under it.
 export const CARD_KINDS = [
   "theme",
   "hope",
@@ -163,6 +163,8 @@ export const CARD_KINDS = [
   "tension",
   "assumption",
   "reading",
+  "benefit",
+  "cost",
   "experience",
   "mechanism",
   "assumed_role",

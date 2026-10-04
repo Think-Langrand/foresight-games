@@ -45,13 +45,13 @@ export function ShortlistBoard({
   editable,
   busy,
   onToggle,
-  onGoToStakes,
+  onGoToCluster,
 }: {
   board: SynthesisBoard;
   editable: boolean;
   busy: boolean;
   onToggle: (card: RippleCard, shortlisted: boolean) => void;
-  onGoToStakes: () => void;
+  onGoToCluster: () => void;
 }) {
   const ledger = stakeLedger(board);
   const counts = shortlistCounts(board);
@@ -69,10 +69,10 @@ export function ShortlistBoard({
           theme, and the assumptions it wrote down beside its hopes and fears.
         </p>
         <button
-          onClick={onGoToStakes}
+          onClick={onGoToCluster}
           className="mt-3 rounded-[2px] border border-ink bg-lime px-4 py-2 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep"
         >
-          ← Go to Explore themes
+          ← Go to Themes
         </button>
       </div>
     );
