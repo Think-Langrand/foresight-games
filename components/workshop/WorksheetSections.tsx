@@ -61,11 +61,13 @@ export function WorksheetSections({
   const tabbed = steps.length >= 2;
   const activeStep = steps[Math.min(activeStepIdx, steps.length - 1)];
   const visibleSections = tabbed ? sections.filter((s) => s.step?.trim() === activeStep) : sections;
-  // A lone brainstorm section flagged `board` (the Sandbox) gets a taller, board-like canvas —
-  // as one tab of a stepped worksheet, or as the only block on the implications board's
-  // Sandbox tab (a single step there, so `tabbed` is false).
+  // A step made up ENTIRELY of brainstorm sections flagged `board` gets a taller,
+  // board-like canvas — the Sandbox (one section), or Week 3's Risks & Opportunities step
+  // (two, sharing one step). Any question block or unflagged section on the step and the
+  // whole thing drops back to ordinary sticky height.
   const tallCanvas =
-    visibleSections.length === 1 && visibleSections[0].kind === "brainstorm" && Boolean(visibleSections[0].board);
+    visibleSections.length > 0 &&
+    visibleSections.every((s) => s.kind === "brainstorm" && Boolean(s.board));
 
   return (
     <>

@@ -1,0 +1,913 @@
+{
+  "groupName": "Group 2 | The Known and Unknown",
+  "scenarioTitle": "The Known and Unknown",
+  "exercises": [
+    {
+      "kind": "worksheet",
+      "exerciseId": "94394dc5-1d10-45dc-8c56-a80ea8dd2787",
+      "title": "Session 1 - Scenario Assessment",
+      "questions": [
+        {
+          "key": "reactions",
+          "label": "First reactions",
+          "kind": "brainstorm",
+          "answers": []
+        },
+        {
+          "key": "assess-important",
+          "label": "What feels most important or distinctive?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "c71a8c68-2a14-4895-9e2e-8397dcb81daa",
+              "text": "Reliable funding",
+              "author": "You",
+              "createdAt": "2026-09-11T19:27:20.564397+00:00"
+            },
+            {
+              "id": "613e4a97-d91f-4695-8f04-305d49bb3bc8",
+              "text": "Partnerships with community partners being central to ph operations (+1)",
+              "author": "You",
+              "createdAt": "2026-09-11T19:27:39.918375+00:00"
+            },
+            {
+              "id": "4163aa57-4648-40bf-a1e0-b8c83a349e83",
+              "text": "Partnerships - community partnerships being central rather than after thought",
+              "author": "You",
+              "createdAt": "2026-09-11T19:27:53.828873+00:00"
+            },
+            {
+              "id": "f6f65558-f413-45e7-8b39-5fb23641840d",
+              "text": "Relation based systems",
+              "author": "You",
+              "createdAt": "2026-09-11T19:28:04.50823+00:00"
+            },
+            {
+              "id": "dfc619d3-70b7-4d99-ab79-fcfa476a6431",
+              "text": "New technology and capabilities",
+              "author": "You",
+              "createdAt": "2026-09-11T19:28:35.990502+00:00"
+            },
+            {
+              "id": "3414ccfc-e44e-4868-9e0b-b5e05e38a0a3",
+              "text": "Bad actors and others/liars taking advantage",
+              "author": "You",
+              "createdAt": "2026-09-11T19:28:59.775979+00:00"
+            },
+            {
+              "id": "7ed3e538-16b0-4c85-bb39-985047c4d6a0",
+              "text": "Tension with those in the scenario, different motivations. Anonymous complaints and deepfakes within messaging systems",
+              "author": "You",
+              "createdAt": "2026-09-11T19:30:33.557167+00:00"
+            },
+            {
+              "id": "6d777837-b9a0-409d-b7c2-cb55f016b248",
+              "text": "\"On the nose\" for probable futures",
+              "author": "You",
+              "createdAt": "2026-09-11T19:31:13.689419+00:00"
+            }
+          ]
+        },
+        {
+          "key": "assess-unclear",
+          "label": "What feels unclear, incomplete, or difficult to understand?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "a2edfee5-5e4f-4cd2-9719-1176e3d6581e",
+              "text": "How is someone defined as a bad actor? Who or what would be the bad actors?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:32:14.328433+00:00"
+            },
+            {
+              "id": "dbc8d9ae-800c-425d-b99e-35aaa300dbf7",
+              "text": "Who is deciding that funding piece",
+              "author": "You",
+              "createdAt": "2026-09-11T19:33:01.380766+00:00"
+            },
+            {
+              "id": "e5a24254-6c9b-45d2-80cb-d117701b6d2e",
+              "text": "How are community members involved",
+              "author": "You",
+              "createdAt": "2026-09-11T19:33:14.582352+00:00"
+            },
+            {
+              "id": "f372f614-ee6b-47af-9566-6f14512da02b",
+              "text": "Tracking (what would be tracked?) and identifying gaps",
+              "author": "You",
+              "createdAt": "2026-09-11T19:34:11.976083+00:00"
+            },
+            {
+              "id": "aaf0b68b-4633-4b98-a7b0-75bef149a38f",
+              "text": "What would happen to people with no network access?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:34:31.376652+00:00"
+            },
+            {
+              "id": "d6123918-fd46-4d1c-9f0a-9e74e9d66ebe",
+              "text": "What does accountability look like when trusted partners/leaders are manipulating",
+              "author": "You",
+              "createdAt": "2026-09-11T19:35:23.54689+00:00"
+            }
+          ]
+        },
+        {
+          "key": "assess-assumptions",
+          "label": "What assumptions does the scenario appear to make?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "55b0fb4a-7028-4e93-9b43-d72ff01cad92",
+              "text": "How people will actually function within these systems",
+              "author": "You",
+              "createdAt": "2026-09-11T19:35:52.885056+00:00"
+            }
+          ]
+        },
+        {
+          "key": "assess-missing",
+          "label": "Is anything important missing that would need to be true for this future to make sense?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "e8f38eda-9b5a-47ef-ad9e-01cdfe1d0179",
+              "text": "Clarity regarding Mara's role",
+              "author": "You",
+              "createdAt": "2026-09-11T19:36:50.917508+00:00"
+            }
+          ]
+        },
+        {
+          "key": "stepping-in",
+          "label": "Stepping into the future — It is now several years into this future. What has become normal that would feel unusual today? ",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "ab0f1b41-9286-4741-8f59-1fdd9ad20efc",
+              "text": "Operations shift to how from detecting disease to more interrelational work to impact work",
+              "author": "You",
+              "createdAt": "2026-09-11T19:54:23.405331+00:00"
+            },
+            {
+              "id": "ac090e47-d73c-4a18-b1eb-d8635adee1d4",
+              "text": "Automatic surveillance systems",
+              "author": "You",
+              "createdAt": "2026-09-11T19:56:34.661258+00:00"
+            },
+            {
+              "id": "d1dc6319-9ee9-45a2-8c48-95310779f111",
+              "text": "the partnerships as ongoing infrastructure",
+              "author": "You",
+              "createdAt": "2026-09-11T20:53:47.179355+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_cf8bc585",
+          "label": "What no longer works?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "1a54e6e4-14e1-4b52-95bd-cc3f70f5bd45",
+              "text": "Public health authority",
+              "author": "You",
+              "createdAt": "2026-09-11T19:59:50.307891+00:00"
+            },
+            {
+              "id": "cf43e6ab-6730-46ae-8c21-816d4b00fdc9",
+              "text": "There's seemingly no central place to look/listen for the public",
+              "author": "You",
+              "createdAt": "2026-09-11T20:54:40.538334+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_3cd8acca",
+          "label": "What has become easier?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "284f4356-911c-480e-8377-c54bef54bd8d",
+              "text": "Core public health services - detection, other services",
+              "author": "You",
+              "createdAt": "2026-09-11T19:54:50.061302+00:00"
+            },
+            {
+              "id": "16dc93c6-8c6b-4b2a-8255-5863797e21f3",
+              "text": "detection is easier.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:54:58.184366+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_91b777eb",
+          "label": "What has become harder?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "638c53b3-0f60-4562-a7bc-7bcbf6dad526",
+              "text": "Combatting misinformation and deepfakes",
+              "author": "You",
+              "createdAt": "2026-09-11T19:55:10.482102+00:00"
+            },
+            {
+              "id": "3a32a8fe-bc59-4c73-a136-483eeb2b297d",
+              "text": "Trying to bring people who are outside the networks into the fold",
+              "author": "You",
+              "createdAt": "2026-09-11T19:57:14.137425+00:00"
+            },
+            {
+              "id": "75452688-a4a6-43d7-8b44-ba68817d93f3",
+              "text": "Relying on human discernment when engaging in public health communication",
+              "author": "You",
+              "createdAt": "2026-09-11T20:01:25.432027+00:00"
+            },
+            {
+              "id": "6792c416-aecd-47b6-b983-7c45e8b6d37b",
+              "text": "reaching the disenfranchised sounds like it would be even more difficult than now",
+              "author": "You",
+              "createdAt": "2026-09-11T20:55:28.626043+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_68b7ae17",
+          "label": "What do people now expect from institutions?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "0be05aff-5e14-4f9b-805f-5e757f5681c1",
+              "text": "Communication and relationship building muscles to strengthen public health",
+              "author": "You",
+              "createdAt": "2026-09-11T19:59:27.353304+00:00"
+            },
+            {
+              "id": "169b8e4c-8b12-4025-a673-831ca6395cbb",
+              "text": "A narrowing of roles/responsibilities, more responsibilities going to the community",
+              "author": "You",
+              "createdAt": "2026-09-11T20:11:13.423555+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_47689a89",
+          "label": "What additional thoughts should be captured that are different about this future?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "a31d3236-2f73-4abd-803a-28a8fa8eea60",
+              "text": "What are the levers for public health and would the field meet the moment",
+              "author": "You",
+              "createdAt": "2026-09-11T20:01:09.810279+00:00"
+            },
+            {
+              "id": "ef1758f6-4bf0-4f1d-8824-8d503cb7198d",
+              "text": "What would outside influences affect the scenario",
+              "author": "You",
+              "createdAt": "2026-09-11T20:03:57.710633+00:00"
+            }
+          ]
+        },
+        {
+          "key": "key-changes",
+          "label": "Key changes — brainstorm",
+          "kind": "brainstorm",
+          "answers": [
+            {
+              "id": "f669c491-f96b-4a22-ab15-9a81558da12a",
+              "text": "Time is not spent in a quest for funding",
+              "author": "You",
+              "createdAt": "2026-09-11T20:15:30.281833+00:00"
+            },
+            {
+              "id": "0cd0a953-d737-4c29-90ba-feec5b14b9b1",
+              "text": "Partnerships receive reliable and sustainable funding from public health agencies",
+              "author": "You",
+              "createdAt": "2026-09-11T20:15:52.26774+00:00"
+            },
+            {
+              "id": "8899b9f3-f910-493c-a56a-2212f705e84e",
+              "text": "surveillance and disease detection isn't considered a public health job - it's automated (but who tends the automation?)",
+              "author": "You",
+              "createdAt": "2026-09-11T20:16:33.117606+00:00"
+            },
+            {
+              "id": "945991aa-5040-4197-ae69-eaca312e4c8c",
+              "text": "\" Evidence moves out through those relationships and \nlocal information moves back in\"...this feels like bi-directional information flow as opposed to an occasional community needs assessment.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:17:12.630652+00:00"
+            },
+            {
+              "id": "1d1efc76-b675-4955-8f45-bf5b8f4aaef8",
+              "text": "funding and support is \"equally\" distributed to those who can discern the best path for public health, those that can't, and those that have other goals",
+              "author": "You",
+              "createdAt": "2026-09-11T20:18:31.945679+00:00"
+            },
+            {
+              "id": "006e434c-921b-4ab2-a90a-40d878cc2944",
+              "text": ". People increasingly struggle to verify claims on their own...can be an even bigger challenge for health education",
+              "author": "You",
+              "createdAt": "2026-09-11T20:19:27.920041+00:00"
+            },
+            {
+              "id": "29902806-845f-45a0-b0dc-0bd7ea140378",
+              "text": "governmental public health has very few levers - more equal partnerships",
+              "author": "You",
+              "createdAt": "2026-09-11T20:20:13.259685+00:00"
+            },
+            {
+              "id": "d4883b56-7bdf-44ac-baad-87559589e9c7",
+              "text": "relationships have been turned into funded infrastructure",
+              "author": "You",
+              "createdAt": "2026-09-11T20:21:58.837423+00:00"
+            },
+            {
+              "id": "ce2a34cb-fa34-411d-9b9a-61ea89b29cc4",
+              "text": "Relationships treated as infrastructure",
+              "author": "You",
+              "createdAt": "2026-09-11T20:22:23.403487+00:00"
+            },
+            {
+              "id": "682a6c1d-2b01-4f08-9ef8-057ca11d87f8",
+              "text": "public health reaching people institutions once missed, while making others, the un-networked, harder to see than ever.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:22:35.432804+00:00"
+            },
+            {
+              "id": "a64ea1cd-12fe-4757-b017-4459d6fb8ae1",
+              "text": "detection has become nearly perfect",
+              "author": "You",
+              "createdAt": "2026-09-11T20:23:53.454785+00:00"
+            },
+            {
+              "id": "01533a9d-54d7-4344-a1b0-40d93d37a69e",
+              "text": "Public health reaching people once missed but finding people harder than ever  (if no network)",
+              "author": "You",
+              "createdAt": "2026-09-11T20:23:58.597971+00:00"
+            },
+            {
+              "id": "e7ae78c0-c824-4cf1-892e-9da0f8c53f30",
+              "text": "Information and reaction to information coming in waves",
+              "author": "You",
+              "createdAt": "2026-09-11T20:24:43.688966+00:00"
+            },
+            {
+              "id": "241fc679-9602-4b6e-ba5a-c4048be3e5ed",
+              "text": "You can't verify anything on your own anymore.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:24:52.694938+00:00"
+            },
+            {
+              "id": "576b0d11-f4b5-40a4-b124-c878591a236c",
+              "text": "information flows bidirectionally as opposed to us in PH pushing it out only",
+              "author": "You",
+              "createdAt": "2026-09-11T20:25:37.503737+00:00"
+            },
+            {
+              "id": "731ace06-6ead-4f50-97a8-62e9a2d430bf",
+              "text": "Bi-directionality in partnerships/information/communication but potential for no input informing movement",
+              "author": "You",
+              "createdAt": "2026-09-11T20:26:05.835618+00:00"
+            },
+            {
+              "id": "3ac3102b-a770-4797-968f-614e827f06af",
+              "text": "Redistribution around how time is spent",
+              "author": "You",
+              "createdAt": "2026-09-11T20:26:32.264628+00:00"
+            },
+            {
+              "id": "694ae269-f89d-4e3d-a0cc-cd751319fbdd",
+              "text": "Whoever masters the information space controls",
+              "author": "You",
+              "createdAt": "2026-09-11T20:26:56.905079+00:00"
+            },
+            {
+              "id": "cd9c2429-63e1-4b39-829d-16be983bf692",
+              "text": "Environment is nosier - many sources and misinformation from everywhere",
+              "author": "You",
+              "createdAt": "2026-09-11T20:27:39.545398+00:00"
+            },
+            {
+              "id": "aa885814-b1bd-447f-8e19-79e5774a3606",
+              "text": "The public no longer trusts the institution directly.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:28:41.984541+00:00"
+            },
+            {
+              "id": "9ff581fb-34c4-46de-92c5-bea17d018aa7",
+              "text": "public health must earn trust - continuously",
+              "author": "You",
+              "createdAt": "2026-09-11T20:30:00.072475+00:00"
+            }
+          ]
+        },
+        {
+          "key": "six-changes",
+          "label": "Our 6 key changes",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "7756fc1b-0aa0-4d69-99f3-3b10f81b9cb5",
+              "text": "Public health information moves continuously and bidirectionally, with evidence and guidance moving outward through trusted community partners and local knowledge flowing back into institutional public health. Community input is part of routine practice rather than periodic.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:33:22.803652+00:00"
+            },
+            {
+              "id": "562b3882-5ce6-4993-bfdf-5f36169cd990",
+              "text": "Core public health functions, resources, and responsibilities are distributed across a broader trusted public health ecosystem that includes institutional public health and community partners",
+              "author": "You",
+              "createdAt": "2026-09-11T20:35:35.5055+00:00"
+            },
+            {
+              "id": "ed3da73b-785d-43ae-b1cf-868b07baf124",
+              "text": "Community relationships are treated as essential infrastructure and receive sustained funding, which allows public health to reach those they previously struggled to reach while creating a new vulnerability: \"un-networked\" individuals and communities",
+              "author": "You",
+              "createdAt": "2026-09-11T20:36:54.521034+00:00"
+            },
+            {
+              "id": "1844635f-2bb4-432e-adfc-44f2836356de",
+              "text": "Trust is placed in people and relationships within networks rather than institutions by default, raising questions around accountability when trust is broken and requiring institutional public health to continually earn and maintain trust and credibility",
+              "author": "You",
+              "createdAt": "2026-09-11T20:37:55.752122+00:00"
+            },
+            {
+              "id": "8060fe36-2da8-413c-add1-1f8f5d9976a0",
+              "text": "The divide in this future, and the inequities that result (much like present times), is about who is connected to networks, who can navigate an increasingly noisy environment, and who has the capacity to quickly assess or verify often competing public health information",
+              "author": "You",
+              "createdAt": "2026-09-11T20:38:45.081369+00:00"
+            },
+            {
+              "id": "8ea8c04c-f8ca-4b71-9b12-f00d0ccc0a46",
+              "text": "Surveillance and disease detection are automated, but since information can come from many different networks and moves quickly alongside misinformation, power and influence comes from being able to verify and share information.",
+              "author": "You",
+              "createdAt": "2026-09-25T13:21:18.681679+00:00"
+            }
+          ]
+        },
+        {
+          "key": "parking-lot",
+          "label": "Sandbox — good ideas for later",
+          "kind": "brainstorm",
+          "answers": [
+            {
+              "id": "d8fd603e-e423-4524-934d-03b21ec51576",
+              "text": "What are \"synthetic officials\"?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:58:19.924237+00:00"
+            },
+            {
+              "id": "7024b25c-b331-4b9b-b9c0-e9a56ec4a61f",
+              "text": "Motivations around the manipulation and impersonation? whats the outside influence?",
+              "author": "You",
+              "createdAt": "2026-09-11T20:03:21.686309+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_236760a8",
+          "label": "How unresolved questions or research needs will be handled?",
+          "kind": "question",
+          "answers": []
+        },
+        {
+          "key": "sec_d6133353",
+          "label": "Who is responsible for recording information, notes, discussion items that may need to live outside of the tool?",
+          "kind": "question",
+          "answers": []
+        },
+        {
+          "key": "sec_cb5789c0",
+          "label": "Any other expectations needed for the group to work effectively?",
+          "kind": "question",
+          "answers": []
+        }
+      ]
+    },
+    {
+      "kind": "implications",
+      "exerciseId": "7eeb28fc-2732-4509-a238-b5e9184b93e1",
+      "title": "Session 2 · Implication Mapping",
+      "scenarioTitle": "The Known and Unknown",
+      "cards": [
+        {
+          "id": "af25caa8-f220-4864-bdf2-e31197834a14",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "Public health information moves continuously and bidirectionally, with evidence and guidance moving outward through trusted community partners and local knowledge flowing back into institutional public health. Community input is part of routine practice rather than periodic.",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "7756fc1b-0aa0-4d69-99f3-3b10f81b9cb5",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 4,
+          "impact": 3,
+          "createdTime": "2026-09-25T13:47:07.601+00:00"
+        },
+        {
+          "id": "356c3e9d-695b-442a-a07b-b923906b20b3",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "Core public health functions, resources, and responsibilities are distributed across a broader trusted public health ecosystem that includes institutional public health and community partners",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "562b3882-5ce6-4993-bfdf-5f36169cd990",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 4,
+          "impact": 4,
+          "createdTime": "2026-09-25T13:47:07.602+00:00"
+        },
+        {
+          "id": "4f9fc619-ee1d-4eb5-8557-f2fb7329b03c",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "Community relationships are treated as essential infrastructure and receive sustained funding, which allows public health to reach those they previously struggled to reach while creating a new vulnerability: \"un-networked\" individuals and communities",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "ed3da73b-785d-43ae-b1cf-868b07baf124",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 2,
+          "impact": 5,
+          "createdTime": "2026-09-25T13:47:07.603+00:00"
+        },
+        {
+          "id": "61883f82-a31f-4085-9e2b-6142edb5eca5",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "Trust is placed in people and relationships within networks rather than institutions by default, raising questions around accountability when trust is broken and requiring institutional public health to continually earn and maintain trust and credibility",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "1844635f-2bb4-432e-adfc-44f2836356de",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 5,
+          "impact": 5,
+          "createdTime": "2026-09-25T13:47:07.604+00:00"
+        },
+        {
+          "id": "837db701-0b69-4390-9426-9326eb274a50",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "The divide in this future, and the inequities that result (much like present times), is about who is connected to networks, who can navigate an increasingly noisy environment, and who has the capacity to quickly assess or verify often competing public health information",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "8060fe36-2da8-413c-add1-1f8f5d9976a0",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T13:47:07.605+00:00"
+        },
+        {
+          "id": "84becb4b-b9a2-42df-81e2-7fba9a0e476b",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "Surveillance and disease detection are automated, but since information can come from many different networks and moves quickly alongside misinformation, power and influence comes from being able to verify and share information.",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "8ea8c04c-f8ca-4b71-9b12-f00d0ccc0a46",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 5,
+          "impact": 5,
+          "createdTime": "2026-09-25T13:47:07.606+00:00"
+        },
+        {
+          "id": "e6842698-b4d0-4451-9f2d-a541505ce2d4",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "b3620032-5a7e-4dc4-be77-7a24a3fb348a",
+          "order": "SECOND",
+          "parentId": "356c3e9d-695b-442a-a07b-b923906b20b3",
+          "text": "Governmental public health agencies have fewer staff",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T14:49:17.413614+00:00"
+        },
+        {
+          "id": "2dd16a85-eef9-4bb7-9587-099a8bb8dced",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "b3620032-5a7e-4dc4-be77-7a24a3fb348a",
+          "order": "TERMINAL",
+          "parentId": "e6842698-b4d0-4451-9f2d-a541505ce2d4",
+          "text": "Less formal public health training programs",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T14:49:41.48429+00:00"
+        },
+        {
+          "id": "d0a1ca4e-e037-4541-9d5a-4ba18362e43d",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "b3620032-5a7e-4dc4-be77-7a24a3fb348a",
+          "order": "ORDER_4",
+          "parentId": "2dd16a85-eef9-4bb7-9587-099a8bb8dced",
+          "text": "the public health workforce has less standardized approaches",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T14:50:05.697038+00:00"
+        },
+        {
+          "id": "1e53fa6b-dc07-4742-bf38-0b203d45b23a",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "b3620032-5a7e-4dc4-be77-7a24a3fb348a",
+          "order": "SECOND",
+          "parentId": "61883f82-a31f-4085-9e2b-6142edb5eca5",
+          "text": "There is greater attention and respect to learned and lived experience",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T19:40:59.934778+00:00"
+        },
+        {
+          "id": "3bf56c68-7fb8-4e9d-8b95-69c0d0c4ea7d",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "TERMINAL",
+          "parentId": "1e53fa6b-dc07-4742-bf38-0b203d45b23a",
+          "text": "the rise of grifters pretending to have experience that they don't to monetize information sharing",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T19:49:24.843231+00:00"
+        },
+        {
+          "id": "4f13a87b-8e9c-4ba0-8bfb-399dbde91eb5",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "ORDER_4",
+          "parentId": "3bf56c68-7fb8-4e9d-8b95-69c0d0c4ea7d",
+          "text": "People give money and resources to bad actors",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:22:00.295775+00:00"
+        },
+        {
+          "id": "63f32421-62ba-41af-84f7-eedc4c2c79cc",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "ORDER_5",
+          "parentId": "4f13a87b-8e9c-4ba0-8bfb-399dbde91eb5",
+          "text": "Communities/people become more desperate for correct information and wealth/knowledge gaps widen",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:22:50.86233+00:00"
+        },
+        {
+          "id": "e9751371-cabf-444f-bcf8-dda8a111da4a",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "ORDER_4",
+          "parentId": "3bf56c68-7fb8-4e9d-8b95-69c0d0c4ea7d",
+          "text": "Backlash of younger people against media platforms/leaders/grifters",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:24:09.451701+00:00"
+        },
+        {
+          "id": "b1c58bd9-7d70-41b9-bbc8-c461424a591a",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "ORDER_5",
+          "parentId": "e9751371-cabf-444f-bcf8-dda8a111da4a",
+          "text": "Creates a population that is difficult to reach over certain mediums by reputable institutions",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:27:04.281215+00:00"
+        },
+        {
+          "id": "838f4698-b3cb-4f01-9201-35eb35748750",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "SECOND",
+          "parentId": "84becb4b-b9a2-42df-81e2-7fba9a0e476b",
+          "text": "Surveillance is no longer a core public health function and considered as valuable",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:32:13.351974+00:00"
+        },
+        {
+          "id": "5c5e40cf-5bbf-44b2-8b5c-436828e8caa3",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "SECOND",
+          "parentId": "84becb4b-b9a2-42df-81e2-7fba9a0e476b",
+          "text": "Because of the automation, disease detection and surveillance data is not shared",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:32:51.024887+00:00"
+        },
+        {
+          "id": "62cb48d5-259f-45fd-a0f7-ccdc4190ae7f",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "SECOND",
+          "parentId": "84becb4b-b9a2-42df-81e2-7fba9a0e476b",
+          "text": "Larger populations drop out of using platforms that use automation",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:33:34.17861+00:00"
+        },
+        {
+          "id": "b8b86668-12c0-4fa1-a271-126cd9b7d667",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "SECOND",
+          "parentId": "84becb4b-b9a2-42df-81e2-7fba9a0e476b",
+          "text": "Third sector is created to verify information",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:35:47.587491+00:00"
+        },
+        {
+          "id": "50429d98-0945-4a70-8f15-3e2aeae372ea",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "TERMINAL",
+          "parentId": "b8b86668-12c0-4fa1-a271-126cd9b7d667",
+          "text": "Corporate (profit) and political incentives to control verification sectors",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:36:32.255328+00:00"
+        },
+        {
+          "id": "58815cdd-20a9-4171-abfd-02f3b1dc4aad",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "ORDER_4",
+          "parentId": "50429d98-0945-4a70-8f15-3e2aeae372ea",
+          "text": "Individualized public health reporting based on personalized metrics and location (to monetize)",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:42:17.311723+00:00"
+        },
+        {
+          "id": "d3da915b-1666-4503-a2d6-fd72b74ba025",
+          "teamId": "ed470002-72b2-46ae-93b2-e02e757124d1",
+          "authorPlayerId": "23c09959-93ab-48cc-a1b6-4f115e4b92b5",
+          "order": "ORDER_5",
+          "parentId": "58815cdd-20a9-4171-abfd-02f3b1dc4aad",
+          "text": "People are further connected to corporate products and individual data is owned by corps",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:45:42.69872+00:00"
+        }
+      ],
+      "brainstorm": [],
+      "questions": [
+        {
+          "key": "implication-sandbox",
+          "label": "Sandbox — good ideas for later",
+          "kind": "brainstorm",
+          "answers": []
+        }
+      ]
+    },
+    {
+      "kind": "worksheet",
+      "exerciseId": "80a29d5f-a123-4816-9f53-8e359b27ef58",
+      "title": "Session 3 · Opportunities, Risks & Challenges",
+      "questions": []
+    },
+    {
+      "kind": "worksheet",
+      "exerciseId": "68f0abaa-7eac-4486-9a5e-6a7bdd77e25b",
+      "title": "Session 4 · Synthesis",
+      "questions": []
+    }
+  ]
+}

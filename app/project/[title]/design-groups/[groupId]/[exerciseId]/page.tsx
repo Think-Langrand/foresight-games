@@ -9,9 +9,12 @@ import { getRippleScenario, getRippleDrivers } from "@/lib/ripples";
 import { exerciseStatus, getExerciseType, isBoardBacked, resolveEffectiveSections } from "@/lib/exercise-types";
 import { shapeExerciseAnswers } from "@/lib/group-answers";
 import { RipplesTeamView } from "@/components/workshop/RipplesTeamView";
+import { SynthesisTeamView } from "@/components/workshop/synthesis/SynthesisTeamView";
 import { WorksheetView } from "@/components/workshop/WorksheetView";
 import { SessionTabs } from "@/components/design-groups/SessionTabs";
 import type { ExerciseAnswers } from "@/components/design-groups/AnswerPanels";
+import { implicationSeedCandidates, lineageByCardId, type Week2Lineage } from "@/lib/synthesis-shape";
+import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +105,59 @@ export default async function DesignGroupExercisePage({
     ),
   ]);
   const render = getExerciseType(exercise.type)?.render ?? "placeholder";
+
+  if (render === "synthesis") {
+    // Week 3's hopes & fears step shows each clustered implication's ORIGINAL Week 2
+    // lineage. Week 2's board is already loaded above (an implications week's shaped
+    // answers carry its whole card array), so this is pure shaping — no extra query.
+    // Merged across every earlier implications week; the keys are card ids, so they
+    // cannot collide.
+    //
+    // It rides the RSC payload and can't be trimmed to the cards actually on the Week 3
+    // board — that board is live client-side and unknown here. A ~100-node Week 2 map is
+    // a few tens of KB.
+    const lineage: Record<string, Week2Lineage> = Object.assign(
+      {},
+      ...pastWeeks.filter((w) => w.kind === "implications").map((w) => lineageByCardId(w.cards))
+    );
+    // The Week 2 cards themselves, so step 1 can draw an implication's own branch of the
+    // map rather than only its ancestor text. Same payload the lineage above was shaped
+    // from — no extra query.
+    const week2Cards = pastWeeks
+      .filter((w) => w.kind === "implications")
+      .flatMap((w) => w.cards);
+    // A signed-in facilitator gets the clustering tool on the board itself. The client
+    // cannot tell an admin from a member (the auth cookie is httpOnly), so the page decides
+    // here and sends the ids the admin routes are keyed on — or nothing. Same source list
+    // the admin answers page builds, counted the same way.
+    const admin: AdminTools | undefined = isAdmin
+      ? {
+          projectId: project.id,
+          groupId,
+          clusterSources: pastWeeks.flatMap((w) =>
+            w.kind === "implications"
+              ? [{ exerciseId: w.exerciseId, title: w.title, count: implicationSeedCandidates(w.cards).length }]
+              : []
+          ),
+        }
+      : undefined;
+    return (
+      <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>
+        <SynthesisTeamView
+          code={session.code}
+          scenario={scenario}
+          drivers={drivers}
+          basePath={`/project/${title}`}
+          hiddenSections={project.homeConfig.hiddenScenarioSections}
+          sections={resolveEffectiveSections(exercise.type, exercise.sections)}
+          lineage={lineage}
+          week2Cards={week2Cards}
+          admin={admin}
+          title={exercise.title}
+        />
+      </SessionTabs>
+    );
+  }
 
   if (render === "implications") {
     return (

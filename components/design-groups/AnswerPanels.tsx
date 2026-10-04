@@ -38,20 +38,62 @@ export interface ImplicationsExercise {
   brainstorm: AnswerRow[]; // the section=null STICKY notes
   questions: QuestionBlock[]; // section-tagged question/brainstorm blocks, if the week carries any
 }
+// A hope or fear in a theme's chain, flattened with its depth so the panel can indent it.
+export interface ChainRow extends AnswerRow {
+  // Deliberately narrow: assumptions hang OFF a chain row rather than becoming a third
+  // kind in it, so the colour maps and the CSV's Kind column stay honest.
+  cardKind: "hope" | "fear";
+  depth: number; // 1 = written straight onto the theme, 2 = its flip side, …
+  value: string | null; // why it matters — the card's description
+  assumptions: AnswerRow[]; // what we're treating as true
+}
+
+// A risk, an opportunity, or a preserved surprise/disagreement.
+export interface StakeRow extends AnswerRow {
+  mechanism: string | null; // through what mechanism, and for whom
+  shortlisted: boolean; // picked out for the committee
+}
+export interface SynthesisTheme {
+  id: string;
+  text: string;
+  description: string | null; // what the group means by this theme
+  implications: AnswerRow[]; // the Week 2 implications clustered into this theme
+  risks: StakeRow[];
+  opportunities: StakeRow[];
+  tensions: StakeRow[]; // surprises and disagreements, preserved rather than resolved
+  chain: ChainRow[]; // its hopes & fears, depth-first so indentation reads as the chain
+}
+export interface SynthesisExercise {
+  kind: "synthesis";
+  exerciseId: string;
+  title: string;
+  cards: RippleCard[]; // the whole shared board (themes, implications, hopes/fears)
+  themes: SynthesisTheme[];
+  unclustered: AnswerRow[]; // implications never sorted into a theme
+  parked: AnswerRow[]; // set aside by the group, kept for the record
+  // Cards the board could not place — a hope with no theme above it. Surfaced so nothing
+  // is ever silently lost; an empty list is the normal case.
+  orphans: AnswerRow[];
+  questions: QuestionBlock[]; // the Sandbox
+}
 export interface PlaceholderExercise {
   kind: "placeholder";
   exerciseId: string;
   title: string;
   unavailable?: boolean; // its board failed to load (vs. simply not built yet)
 }
-export type ExerciseAnswers = WorksheetExercise | ImplicationsExercise | PlaceholderExercise;
+export type ExerciseAnswers =
+  | WorksheetExercise
+  | ImplicationsExercise
+  | SynthesisExercise
+  | PlaceholderExercise;
 
 export const MAP_VIEWS = ["wheel", "tree", "list"] as const;
 export type MapView = (typeof MAP_VIEWS)[number];
 const MAP_LABELS: Record<MapView, string> = { wheel: "Wheel", tree: "Tree", list: "List" };
 
 // `showMeta` = admin chrome: question-kind and "removed question" badges.
-interface PanelOpts {
+export interface PanelOpts {
   onDelete?: (row: AnswerRow) => void;
   showMeta?: boolean;
 }

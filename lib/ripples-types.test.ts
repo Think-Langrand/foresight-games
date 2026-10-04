@@ -9,6 +9,7 @@ import {
   depthByCard,
   depthOfOrder,
   enumerateChains,
+  isCardKind,
   isTreeOrder,
   longestChain,
   maxRenderedDepth,
@@ -16,6 +17,7 @@ import {
   mostChippedCards,
   orderAtDepth,
   orderLabelForDepth,
+  planReparent,
   ordinal,
   prefixForDepth,
   resolveConfig,
@@ -31,7 +33,8 @@ function card(
   order: CardOrder,
   parentId: string | null,
   teamId: string,
-  seq: number
+  seq: number,
+  extra?: Partial<RippleCard>
 ): RippleCard {
   return {
     id,
@@ -49,7 +52,13 @@ function card(
     sourceLabel: null,
     plausibility: null,
     impact: null,
+    cardKind: null,
+    parked: false,
+    description: null,
+    shortlisted: false,
+    twinKey: null,
     createdTime: `2026-01-01T00:00:${String(seq).padStart(2, "0")}Z`,
+    ...extra,
   };
 }
 function chip(id: string, playerId: string, cardId: string, teamId: string): RippleChip {
@@ -388,5 +397,179 @@ describe("deep chains in the derivations", () => {
     const chains = enumerateChains(deepChain, [], "T3");
     expect(chains).toHaveLength(1);
     expect(chains[0].chain).toHaveLength(MAX_TREE_DEPTH + 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Card kind (migration 0020)
+// ---------------------------------------------------------------------------
+describe("isCardKind", () => {
+  it("accepts the three Week 3 kinds", () => {
+    expect(isCardKind("theme")).toBe(true);
+    expect(isCardKind("hope")).toBe(true);
+    expect(isCardKind("fear")).toBe(true);
+  });
+
+  it("rejects anything else, so a junk column reads as a plain implication", () => {
+    for (const v of ["", "THEME", "implication", " theme", null, undefined, 1, {}, []]) {
+      expect(isCardKind(v)).toBe(false);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// planReparent — clustering an implication under a theme, and back out
+// ---------------------------------------------------------------------------
+// Board: THEME(first) and A(first) ─ B(second) ─ C(terminal), all on team T1.
+function clusterBoard(): RippleCard[] {
+  return [
+    card("THEME", "FIRST", null, "T1", 1, { cardKind: "theme" }),
+    card("A", "FIRST", null, "T1", 2),
+    card("B", "SECOND", "A", "T1", 3),
+    card("C", "TERMINAL", "B", "T1", 4),
+  ];
+}
+
+describe("planReparent", () => {
+  it("clusters a leaf root under a theme", () => {
+    const cards = [
+      card("THEME", "FIRST", null, "T1", 1, { cardKind: "theme" }),
+      card("A", "FIRST", null, "T1", 2),
+    ];
+    const plan = planReparent(cards, "A", "THEME");
+    expect(plan).toEqual({ ok: true, moves: [{ cardId: "A", order: "SECOND" }] });
+  });
+
+  it("cascades the shift to every descendant, deepest-last", () => {
+    const plan = planReparent(clusterBoard(), "A", "THEME");
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    // C and B shift down a level; the moved card A comes last so a partial write
+    // leaves it un-moved rather than half-moved.
+    expect(plan.moves).toEqual([
+      { cardId: "C", order: "ORDER_4" },
+      { cardId: "B", order: "TERMINAL" },
+      { cardId: "A", order: "SECOND" },
+    ]);
+  });
+
+  it("un-clusters back to a root", () => {
+    const cards = [
+      card("THEME", "FIRST", null, "T1", 1, { cardKind: "theme" }),
+      card("A", "SECOND", "THEME", "T1", 2),
+    ];
+    expect(planReparent(cards, "A", null)).toEqual({
+      ok: true,
+      moves: [{ cardId: "A", order: "FIRST" }],
+    });
+  });
+
+  it("refuses a move onto itself or into its own descendant", () => {
+    const cards = clusterBoard();
+    expect(planReparent(cards, "A", "A")).toEqual({ ok: false, reason: "CYCLE" });
+    expect(planReparent(cards, "A", "C")).toEqual({ ok: false, reason: "CYCLE" });
+  });
+
+  it("refuses a no-op", () => {
+    expect(planReparent(clusterBoard(), "B", "A")).toEqual({ ok: false, reason: "NO_CHANGE" });
+  });
+
+  it("refuses when the subtree would pass MAX_TREE_DEPTH, but allows landing exactly on it", () => {
+    // A chain already at the cap: P0(0) … P9(MAX_TREE_DEPTH). Plus X(0) ─ Y(1) to move.
+    const deep: RippleCard[] = [card("P0", "FIRST", null, "T1", 1)];
+    for (let d = 1; d <= MAX_TREE_DEPTH; d++) {
+      deep.push(card(`P${d}`, TREE_ORDERS[d], `P${d - 1}`, "T1", 1 + d));
+    }
+    deep.push(card("X", "FIRST", null, "T1", 90));
+    deep.push(card("Y", "SECOND", "X", "T1", 91));
+
+    const deepest = `P${MAX_TREE_DEPTH}`;
+    const oneUp = `P${MAX_TREE_DEPTH - 1}`;
+
+    // A leaf landing exactly on the cap is fine.
+    expect(planReparent(deep, "Y", oneUp).ok).toBe(true);
+    // The moved card itself past the cap is not.
+    expect(planReparent(deep, "Y", deepest)).toEqual({ ok: false, reason: "TOO_DEEP" });
+    // Nor is a move that fits the moved card but pushes its CHILD over.
+    expect(planReparent(deep, "X", oneUp)).toEqual({ ok: false, reason: "TOO_DEEP" });
+  });
+
+  it("refuses a parent that is greyed or parked", () => {
+    const greyed = [
+      card("THEME", "FIRST", null, "T1", 1, { cardKind: "theme", greyed: true }),
+      card("A", "FIRST", null, "T1", 2),
+    ];
+    expect(planReparent(greyed, "A", "THEME")).toEqual({
+      ok: false,
+      reason: "PARENT_UNAVAILABLE",
+    });
+
+    const parked = [
+      card("THEME", "FIRST", null, "T1", 1, { cardKind: "theme", parked: true }),
+      card("A", "FIRST", null, "T1", 2),
+    ];
+    expect(planReparent(parked, "A", "THEME")).toEqual({
+      ok: false,
+      reason: "PARENT_UNAVAILABLE",
+    });
+  });
+
+  it("refuses a STICKY on either end — a note is never in the tree", () => {
+    const cards = [
+      card("THEME", "FIRST", null, "T1", 1, { cardKind: "theme" }),
+      card("N", "STICKY", null, "T1", 2),
+      card("A", "FIRST", null, "T1", 3),
+    ];
+    expect(planReparent(cards, "N", "THEME")).toEqual({ ok: false, reason: "NOT_TREE_CARD" });
+    expect(planReparent(cards, "A", "N")).toEqual({ ok: false, reason: "NOT_TREE_CARD" });
+  });
+
+  it("refuses an unknown card or parent", () => {
+    const cards = clusterBoard();
+    expect(planReparent(cards, "nope", "THEME")).toEqual({ ok: false, reason: "NOT_TREE_CARD" });
+    expect(planReparent(cards, "A", "nope")).toEqual({ ok: false, reason: "PARENT_NOT_FOUND" });
+  });
+
+  it("refuses a parent the tree walk never placed — it is already invisible", () => {
+    // ORPHAN's parent is missing, so depthByCard omits it; hanging a card off it would
+    // make that card invisible too.
+    const cards = [
+      card("A", "FIRST", null, "T1", 1),
+      card("ORPHAN", "SECOND", "ghost", "T1", 2),
+    ];
+    expect(planReparent(cards, "A", "ORPHAN")).toEqual({
+      ok: false,
+      reason: "PARENT_NOT_PLACED",
+    });
+  });
+
+  it("heals stored-order drift: a card sitting at the wrong order is corrected", () => {
+    // B is stored as ORDER_5 but actually sits at depth 1 under A.
+    const cards = [
+      card("THEME", "FIRST", null, "T1", 1, { cardKind: "theme" }),
+      card("A", "FIRST", null, "T1", 2),
+      card("B", "ORDER_5", "A", "T1", 3),
+    ];
+    const plan = planReparent(cards, "A", "THEME");
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.moves).toEqual([
+      { cardId: "B", order: "TERMINAL" },
+      { cardId: "A", order: "SECOND" },
+    ]);
+  });
+
+  it("moves only the card's own subtree, leaving unrelated cycled cards alone", () => {
+    const cards = [
+      card("THEME", "FIRST", null, "T1", 1, { cardKind: "theme" }),
+      card("A", "FIRST", null, "T1", 2),
+      card("B", "SECOND", "A", "T1", 3),
+      card("LOOP1", "TERMINAL", "LOOP2", "T1", 4), // mutual cycle, never placed
+      card("LOOP2", "TERMINAL", "LOOP1", "T1", 5),
+    ];
+    const plan = planReparent(cards, "A", "THEME");
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.moves.map((m) => m.cardId)).toEqual(["B", "A"]);
   });
 });
