@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { ScenarioPanel } from "@/components/workshop/ScenarioPanel";
 import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
+import { SessionHeaderActions, useInSessionTabs } from "@/components/design-groups/SessionHeader";
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
 import { ClusterBoard } from "@/components/workshop/synthesis/ClusterBoard";
@@ -132,6 +133,9 @@ export function SynthesisTeamView({
   // Which hope or fear step 3 has open. Hoisted for the same hook-order reason; a newly
   // written card focuses itself, because the next thing you do is say why it matters.
   const [focusId, setFocusId] = useState<string | null>(null);
+  // Inside a design-group session page the tabs row is the header, and the scenario toggle
+  // goes up into it. Standalone, the board draws its own header as before.
+  const inTabs = useInSessionTabs();
 
   const run = useCallback(async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -177,11 +181,13 @@ export function SynthesisTeamView({
   if (!myPlayer) {
     return (
       <Shell wide>
-        <PhaseHeader
-          phase={phase}
-          title={title || config.scenarioTitle}
-          kindLabel="Synthesis"
-        />
+        {!inTabs && (
+          <PhaseHeader
+            phase={phase}
+            title={title || config.scenarioTitle}
+            kindLabel="Synthesis"
+          />
+        )}
         <Panel>
           <p className="text-[14px] text-muted">Joining your group&rsquo;s board…</p>
         </Panel>
@@ -609,11 +615,13 @@ export function SynthesisTeamView({
     );
     return (
       <Shell wide>
-        <PhaseHeader
-          phase={phase}
-          title={title || config.scenarioTitle}
-          kindLabel="Synthesis"
-        />
+        {!inTabs && (
+          <PhaseHeader
+            phase={phase}
+            title={title || config.scenarioTitle}
+            kindLabel="Synthesis"
+          />
+        )}
         {shaped.kind === "synthesis" ? (
           <SynthesisPanel ex={shaped} showMeta={false} />
         ) : (
@@ -735,21 +743,27 @@ export function SynthesisTeamView({
     </div>
   );
 
+  const toggle = (
+    <ScenarioToggle
+      showingScenario={showScenario}
+      exerciseLabel="Worksheet"
+      onToggle={() => setShowScenario((v) => !v)}
+      disabled={busy}
+    />
+  );
+
   return (
     <Shell wide>
-      <PhaseHeader
-        phase={phase}
-        title={title || config.scenarioTitle}
-        kindLabel="Synthesis"
-        right={
-          <ScenarioToggle
-            showingScenario={showScenario}
-            exerciseLabel="Worksheet"
-            onToggle={() => setShowScenario((v) => !v)}
-            disabled={busy}
-          />
-        }
-      />
+      {inTabs ? (
+        <SessionHeaderActions>{toggle}</SessionHeaderActions>
+      ) : (
+        <PhaseHeader
+          phase={phase}
+          title={title || config.scenarioTitle}
+          kindLabel="Synthesis"
+          right={toggle}
+        />
+      )}
 
       {showScenario ? (
         <ScenarioPanel

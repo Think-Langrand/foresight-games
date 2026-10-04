@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ScenarioTabs } from "@/components/foresight/ScenarioTabs";
 import { ScenarioPanel } from "@/components/workshop/ScenarioPanel";
 import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
+import { SessionHeaderActions, useInSessionTabs } from "@/components/design-groups/SessionHeader";
 import { ImplicationTree } from "@/components/workshop/ImplicationTree";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { ImplicationList } from "@/components/workshop/ImplicationList";
@@ -91,6 +92,9 @@ export function RipplesTeamView({
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
   const { pid, nick, saveNick, playerId, join } = useSharedBoardMembership(code, view, refresh);
+  // Inside a design-group session page the tabs row is the header, and the scenario toggle
+  // goes up into it. Standalone (/workshop), the board draws its own header as before.
+  const inTabs = useInSessionTabs();
   // Instant local mutations layered over the (laggy) realtime board.
   const {
     cards,
@@ -152,7 +156,7 @@ export function RipplesTeamView({
     if (solo || sharedTeam) {
       return (
         <Shell>
-          <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo={solo} />
+          {!inTabs && <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo={solo} />}
           <Panel>
             <p className="text-[14px] text-muted">
               {sharedTeam ? "Joining your group’s board…" : "Setting up your map…"}
@@ -164,7 +168,7 @@ export function RipplesTeamView({
     }
     return (
       <Shell>
-        <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} />
+        {!inTabs && <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} />}
         <JoinPanel
           key={nick}
           teams={teams}
@@ -211,7 +215,9 @@ export function RipplesTeamView({
   if (done) {
     return (
       <Shell wide>
-        <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo={solo} team={solo ? undefined : myTeam.name} teamColor={myTeam.color} />
+        {!inTabs && (
+          <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} solo={solo} team={solo ? undefined : myTeam.name} teamColor={myTeam.color} />
+        )}
         <DoneSummary
           scenario={scenario}
           drivers={drivers}
@@ -233,7 +239,9 @@ export function RipplesTeamView({
   if (phase === "LOBBY") {
     return (
       <Shell>
-        <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} team={myTeam.name} teamColor={myTeam.color} />
+        {!inTabs && (
+          <PhaseHeader phase={phase} title={config.scenarioTitle} art={heroArt} team={myTeam.name} teamColor={myTeam.color} />
+        )}
         <Panel>
           <h2 className="text-[20px] font-extrabold">You&rsquo;re in.</h2>
           <p className="mt-1 text-[13px] text-muted">
@@ -545,26 +553,30 @@ export function RipplesTeamView({
     </div>
   );
 
+  const toggle = canBuild ? (
+    <ScenarioToggle
+      showingScenario={showScenario}
+      exerciseLabel="Worksheet"
+      onToggle={toggleScenario}
+      disabled={busy}
+    />
+  ) : undefined;
+
   return (
     <Shell wide>
-      <PhaseHeader
-        phase={phase}
-        title={config.scenarioTitle}
-        art={heroArt}
-        solo={solo}
-        team={solo ? undefined : myTeam.name}
-        teamColor={myTeam.color}
-        right={
-          canBuild ? (
-            <ScenarioToggle
-              showingScenario={showScenario}
-              exerciseLabel="Worksheet"
-              onToggle={toggleScenario}
-              disabled={busy}
-            />
-          ) : undefined
-        }
-      />
+      {inTabs ? (
+        <SessionHeaderActions>{toggle}</SessionHeaderActions>
+      ) : (
+        <PhaseHeader
+          phase={phase}
+          title={config.scenarioTitle}
+          art={heroArt}
+          solo={solo}
+          team={solo ? undefined : myTeam.name}
+          teamColor={myTeam.color}
+          right={toggle}
+        />
+      )}
 
       {showScenario || !canBuild ? (
         <>

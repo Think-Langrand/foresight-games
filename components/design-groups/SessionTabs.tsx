@@ -8,12 +8,17 @@ import {
   type MapView,
 } from "@/components/design-groups/AnswerPanels";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
+import { SessionHeaderProvider } from "@/components/design-groups/SessionHeader";
 
 // Session tabs on a design group's session page: the current session (the live board,
 // passed as children) plus a read-only tab per earlier week, so a group can glance back at
 // what it already answered without leaving. The live view stays MOUNTED (just hidden)
 // while an earlier week is shown, so its realtime sync and scenario/build state survive.
-// With no earlier weeks this renders the children alone.
+//
+// This row IS the page header. The board underneath used to draw a second one — eyebrow,
+// the same title the active tab shows, a rule — so the row is always drawn, even for a
+// first session with nothing to look back at, and the board hands its header controls up
+// into the right-hand end of it (SessionHeaderActions).
 // "Session 2 · Implication Mapping" → "Session 2". The row has to fit one line, and the
 // number is the only part that distinguishes the tabs at a glance; the active tab shows
 // the whole title, which is the one place it is actually worth the space.
@@ -36,7 +41,9 @@ export function SessionTabs({
 }) {
   const [activeId, setActiveId] = useState<string | null>(null); // null = current session
   const [mapView, setMapView] = useState<MapView>("tree");
-  if (pastWeeks.length === 0) return <>{children}</>;
+  // The right-hand end of the header line, lent to the live board. A callback ref into
+  // state, so the board's portal re-renders once the element exists.
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
 
   const active = pastWeeks.find((w) => w.exerciseId === activeId) ?? null;
   const tab = (id: string | null, label: string) => {
@@ -61,11 +68,17 @@ export function SessionTabs({
   };
 
   return (
-    <>
+    <SessionHeaderProvider value={{ slot }}>
       <nav className="mx-auto max-w-[1100px] px-5 pt-4">
-        <div role="tablist" aria-label="Sessions" className="flex flex-wrap items-center gap-1.5 pb-3">
-          {pastWeeks.map((w) => tab(w.exerciseId, w.title))}
-          {tab(null, currentTitle)}
+        <div className="flex flex-wrap items-center gap-3 border-b border-[var(--rule)] pb-3">
+          <div role="tablist" aria-label="Sessions" className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {pastWeeks.map((w) => tab(w.exerciseId, w.title))}
+            {tab(null, currentTitle)}
+          </div>
+          {/* Stays mounted while an earlier week is shown — a portal into a removed node
+              would draw into nothing — but hidden, since its controls act on the live
+              board you cannot see. */}
+          <div ref={setSlot} hidden={active !== null} className="ml-auto flex items-center gap-2" />
         </div>
       </nav>
 
@@ -99,6 +112,6 @@ export function SessionTabs({
           )}
         </main>
       )}
-    </>
+    </SessionHeaderProvider>
   );
 }

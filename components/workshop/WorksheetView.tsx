@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { ScenarioPanel } from "@/components/workshop/ScenarioPanel";
 import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
+import { SessionHeaderActions, useInSessionTabs } from "@/components/design-groups/SessionHeader";
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import {
   useRipplesView,
@@ -51,6 +52,9 @@ export function WorksheetView({
   const [flash, setFlash] = useState<string | null>(null);
   // Week 1 lands on the scenario; the worksheet opens when they hit "Start worksheet".
   const [showScenario, setShowScenario] = useState(true);
+  // Inside a design-group session page the tabs row is the header; the lock badge and the
+  // scenario toggle go up into it and the program bar below is not drawn.
+  const inTabs = useInSessionTabs();
 
   const run = useCallback(async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -131,31 +135,39 @@ export function WorksheetView({
     });
   };
 
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      {!editable && (
+        <span className="rounded-[2px] bg-blue px-2 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-white">
+          Locked
+        </span>
+      )}
+      <ScenarioToggle
+        showingScenario={showScenario}
+        exerciseLabel="Worksheet"
+        onToggle={() => setShowScenario((v) => !v)}
+      />
+    </div>
+  );
+
   return (
     <main className="mx-auto min-h-screen max-w-[1100px] px-5 py-6">
-      {/* program bar */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--rule)] pb-3">
-        <div className="min-w-0">
-          <Link href={backHref} className="eyebrow blue">
-            ← Program
-          </Link>
-          <h1 className="mt-1 truncate text-[24px] font-extrabold uppercase leading-[1.05] tracking-tight">
-            {title}
-          </h1>
+      {inTabs ? (
+        <SessionHeaderActions>{headerActions}</SessionHeaderActions>
+      ) : (
+        /* program bar */
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--rule)] pb-3">
+          <div className="min-w-0">
+            <Link href={backHref} className="eyebrow blue">
+              ← Program
+            </Link>
+            <h1 className="mt-1 truncate text-[24px] font-extrabold uppercase leading-[1.05] tracking-tight">
+              {title}
+            </h1>
+          </div>
+          {headerActions}
         </div>
-        <div className="flex items-center gap-2">
-          {!editable && (
-            <span className="rounded-[2px] bg-blue px-2 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-white">
-              Locked
-            </span>
-          )}
-          <ScenarioToggle
-            showingScenario={showScenario}
-            exerciseLabel="Worksheet"
-            onToggle={() => setShowScenario((v) => !v)}
-          />
-        </div>
-      </div>
+      )}
 
       {showScenario && (
         <div className="mb-6">
