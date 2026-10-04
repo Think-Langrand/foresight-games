@@ -46,6 +46,19 @@ const ORDER_TINT: Record<number | "deep", string> = {
   deep: "bg-black/12",
 };
 
+// A very small bullet, for the several places this step lists one line per implication: a
+// rail square, the theme popover, the map read-out. Those lines are short, tight and often
+// truncated, and with nothing marking where each begins they read as one paragraph. Takes
+// its colour from the text it sits beside, so it never has to be restyled per list.
+function Dot() {
+  return (
+    <span
+      aria-hidden
+      className="mt-[0.52em] h-[3px] w-[3px] shrink-0 rounded-full bg-current opacity-45"
+    />
+  );
+}
+
 // STEP 1 — cluster Week 2's implications into themes.
 //
 // An unclustered tray at the top, a row of theme columns below it, and a Parked drawer at
@@ -482,6 +495,37 @@ export function ClusterBoard({
   const peekSeeded = peek ? (seeded.get(peek) ?? null) : null;
   const peekLineage = peek ? lineage[peek] : undefined;
 
+  // The trail, as orders: the key change, every step down to the hovered node, and then
+  // everything hanging off it. Stopping at the hovered node made it look like the end of
+  // the branch when most of the time it is the middle — the point of the rail is to place
+  // an implication in its chain, and half a chain places it badly.
+  //
+  // Siblings share a level, because they are the same order and the arrow between levels
+  // IS the order step. Capped at six levels below; the tree allows nine and the rail is
+  // not where you read a whole branch.
+  const peekLevels: { texts: string[]; order: number; here: boolean }[] = (() => {
+    if (!peek || !peekLineage) return [];
+    const kids = new Map<string, RippleCard[]>();
+    for (const c of week2Cards) {
+      if (!c.parentId) continue;
+      const at = kids.get(c.parentId);
+      if (at) at.push(c);
+      else kids.set(c.parentId, [c]);
+    }
+    const last = peekLineage.chain.length - 1;
+    const out = peekLineage.chain.map((text, i) => ({
+      texts: [text],
+      order: i,
+      here: i === last,
+    }));
+    let frontier = kids.get(peek) ?? [];
+    while (frontier.length > 0 && out.length < last + 1 + 6) {
+      out.push({ texts: frontier.map((c) => c.text), order: out.length, here: false });
+      frontier = frontier.flatMap((c) => kids.get(c.id) ?? []);
+    }
+    return out;
+  })();
+
   const renderCard = (
     card: RippleCard,
     zone: string,
@@ -774,8 +818,12 @@ export function ClusterBoard({
                     anything past it is cut rather than stretching the rail. */}
                 <span className="mt-1.5 flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
                   {(board.clusters.get(t.id) ?? []).map((c) => (
-                    <span key={c.id} className="truncate text-[10.5px] leading-[1.35] text-ink/80">
-                      {c.text}
+                    <span
+                      key={c.id}
+                      className="flex min-w-0 items-start gap-1.5 text-[10.5px] leading-[1.35] text-ink/80"
+                    >
+                      <Dot />
+                      <span className="min-w-0 truncate">{c.text}</span>
                     </span>
                   ))}
                   {n === 0 && (
@@ -867,8 +915,9 @@ export function ClusterBoard({
             {held.length > 0 ? (
               <ul className="mt-2.5 flex flex-col gap-1.5 border-t border-black/10 pt-2.5">
                 {held.map((c) => (
-                  <li key={c.id} className="border-l-2 border-black/15 pl-2.5 text-[12px] leading-[1.4]">
-                    {c.text}
+                  <li key={c.id} className="flex items-start gap-2 text-[12px] leading-[1.4]">
+                    <Dot />
+                    <span className="min-w-0">{c.text}</span>
                   </li>
                 ))}
               </ul>
@@ -926,14 +975,15 @@ export function ClusterBoard({
             things the node has no room for — how far out it is, which key change it hangs
             off, and whether it is already in a theme. */}
         {view === "map" && !focus && (
-          <div className="mb-4 border-b border-[var(--rule)] pb-4">
-            <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+          // A solid panel rather than a ruled-off stretch of rail: it is the one part of
+          // this column that changes as you move, and it should read as a readout.
+          <div className="mb-4 rounded-[4px] border border-blue/30 bg-[#e4ecfb] p-3">
+            <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue">
               Selected implication
             </h2>
             {peekCard ? (
               <>
-                <p className="mt-1.5 text-[13px] font-bold leading-[1.4]">{peekCard.text}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {peekLineage && implicationOrder(peekLineage) !== null && (
                     <span
                       className={
@@ -953,36 +1003,76 @@ export function ClusterBoard({
                       Theme {board.themes.findIndex((t) => t.id === peekSeeded.themeId) + 1}
                     </span>
                   ) : (
-                    <span className="rounded-[2px] border border-[var(--rule)] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
+                    <span className="rounded-[2px] border border-ink/30 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
                       Not in a theme
                     </span>
                   )}
                 </div>
-                {/* The whole trail back to the key change, which is the thing a node's
-                    position only hints at. */}
-                {peekLineage && peekLineage.chain.length > 1 && (
-                  <ol className="mt-2.5 flex flex-col gap-1 border-t border-[var(--hairline)] pt-2">
-                    {peekLineage.chain.map((step, i) => (
-                      <li
-                        key={i}
-                        // Indent by hand, not `pl-${i}`: Tailwind generates CSS by reading
-                        // the source, and a class name it never sees written out does not
-                        // exist at runtime.
-                        style={i > 0 ? { paddingLeft: `${Math.min(i, 3) * 0.5}rem` } : undefined}
-                        className={
-                          "text-[11px] leading-[1.35] " +
-                          (i === 0 ? "font-bold text-ink" : "text-muted")
-                        }
-                      >
-                        {i > 0 && <span aria-hidden className="mr-1 text-muted/60">↳</span>}
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                )}
+
+                {/* The branch read top to bottom, one order per step. The hovered node is
+                    the bold one; everything under it keeps going, because a node is almost
+                    always the middle of a chain rather than the end of one. The text is not
+                    repeated above — it is already in here, in its place. */}
+                <ol className="mt-2.5 flex flex-col">
+                  {peekLevels.map((level, i) => (
+                    <li key={i}>
+                      {i === 0 && (
+                        <span className="mb-0.5 block text-[9px] font-bold uppercase tracking-[0.07em] text-blue/70">
+                          Key change
+                        </span>
+                      )}
+                      {i > 0 && (
+                        // An actual arrow, drawn, carrying the order it steps into.
+                        <span className="flex items-center gap-1.5 py-0.5 pl-1.5 text-blue/60">
+                          <svg
+                            width="9"
+                            height="18"
+                            viewBox="0 0 9 18"
+                            aria-hidden
+                            className="shrink-0"
+                          >
+                            <line x1="4.5" y1="0" x2="4.5" y2="12" stroke="currentColor" strokeWidth="1.5" />
+                            <polygon points="4.5,18 1,11.5 8,11.5" fill="currentColor" />
+                          </svg>
+                          <span className="text-[9px] font-bold uppercase tracking-[0.07em]">
+                            {ordinal(level.order)} order
+                          </span>
+                        </span>
+                      )}
+                      <div className="flex flex-col gap-1">
+                        {level.texts.map((text, j) => (
+                          <p
+                            key={j}
+                            // Key changes are whole paragraphs — the real ones run eight
+                            // lines here and swamped the chain they are supposed to be the
+                            // head of. Clamped, with the full text on hover.
+                            title={level.order === 0 ? text : undefined}
+                            className={
+                              "flex items-start gap-1.5 text-[11.5px] leading-[1.35] " +
+                              (level.order === 0
+                                ? "font-bold uppercase tracking-[0.04em] text-ink"
+                                : level.here
+                                  ? "rounded-[2px] bg-paper px-1.5 py-1 text-[12.5px] font-bold text-ink shadow-[1px_1px_0_rgba(39,93,226,0.25)]"
+                                  : "text-ink/65")
+                            }
+                          >
+                            {/* No bullet on the key change — it is the head of the chain,
+                                not an item in a list — nor on the hovered node, which has
+                                its own card. The bullets are for the levels that hold
+                                several siblings and would otherwise run together. */}
+                            {level.order > 0 && !level.here && <Dot />}
+                            <span className={level.order === 0 ? "line-clamp-3" : "min-w-0"}>
+                              {text}
+                            </span>
+                          </p>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               </>
             ) : (
-              <p className="mt-1.5 text-[12px] italic leading-[1.4] text-muted">
+              <p className="mt-1.5 text-[12px] italic leading-[1.4] text-ink/60">
                 Hover a circle on the map to read it in full.
               </p>
             )}
@@ -1002,19 +1092,23 @@ export function ClusterBoard({
             />
           </div>
         )}
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+        {/* No panel, no fill — these are the questions the group is meant to be holding,
+            and they read best as plain text in the margin. Set nearly twice the size they
+            were: at 12px they were sized like UI chrome and scanned like it, which is the
+            opposite of what a prompt is for. */}
+        <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
           As you group and name themes
         </h2>
-        <ul className="mt-2 flex flex-col gap-2 text-[12px] leading-[1.4]">
+        <ul className="mt-3 flex flex-col gap-3.5 text-[19px] font-medium leading-[1.3] tracking-[-0.01em]">
           <li>What connected change do these implications describe?</li>
           <li>What is changing — and for whom?</li>
           <li>Which implications support or complicate that reading?</li>
         </ul>
-        <p className="mt-3 border-t border-[var(--hairline)] pt-2.5 text-[11.5px] italic leading-[1.4] text-muted">
+        <p className="mt-4 border-t border-[var(--hairline)] pt-3 text-[14.5px] italic leading-[1.4] text-muted">
           If a theme is too broad, split it. If it repeats one note, look for related
           implications.
         </p>
-        <p className="mt-2 text-[11.5px] italic leading-[1.4] text-muted">
+        <p className="mt-2.5 text-[14.5px] italic leading-[1.4] text-muted">
           Aim for 3–5 themes. An implication can sit in more than one.
         </p>
           </>
