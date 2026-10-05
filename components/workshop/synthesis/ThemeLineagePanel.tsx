@@ -70,6 +70,7 @@ export function ThemeLineagePanel({
               busy={busy}
               placeholder={namePlaceholder}
               onSave={onEditTheme}
+              editIcon
             />
           </h2>
 

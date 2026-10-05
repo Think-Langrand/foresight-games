@@ -19,6 +19,9 @@ export function InlineText({
   emptyLabel,
   maxLength = CARD_TEXT_MAX,
   rows,
+  // A pencil beside the text that starts editing on a single click. Double-click is not
+  // discoverable on a headline nobody expects to be editable; the pencil says so.
+  editIcon = false,
 }: {
   text: string;
   editable: boolean;
@@ -29,6 +32,7 @@ export function InlineText({
   emptyLabel?: string;
   maxLength?: number;
   rows?: number;
+  editIcon?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(text);
@@ -62,22 +66,39 @@ export function InlineText({
   }
 
   if (!editing) {
-    return (
+    const start = () => {
+      if (!editable) return;
+      setDraft(text);
+      setEditing(true);
+    };
+    const body = (
       <div
         className={
           "whitespace-pre-wrap break-words " +
           (editable ? "cursor-text rounded-[2px] hover:bg-black/[0.03] " : "") +
           className
         }
-        onDoubleClick={() => {
-          if (!editable) return;
-          setDraft(text);
-          setEditing(true);
-        }}
+        onDoubleClick={start}
         title={editable ? "Double-click to edit" : undefined}
       >
         {text}
       </div>
+    );
+    if (!editIcon || !editable) return body;
+    return (
+      <span className="flex flex-wrap items-start gap-x-2.5 gap-y-1">
+        <span className="min-w-0">{body}</span>
+        <button
+          onClick={start}
+          aria-label="Edit"
+          title="Edit"
+          // Normal weight and case whatever the headline around it is set in, so the
+          // pencil reads as a control rather than as part of the text.
+          className="mt-[0.2em] shrink-0 rounded-[2px] border border-[var(--hairline)] bg-paper px-1.5 py-0.5 text-[12px] font-normal normal-case leading-none tracking-normal text-muted hover:border-ink hover:text-ink"
+        >
+          ✎
+        </button>
+      </span>
     );
   }
 

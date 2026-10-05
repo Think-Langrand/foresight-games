@@ -1506,9 +1506,9 @@ export function ClusterBoard({
               note={
                 editable ? (
                   <p className="mt-3 border-t border-black/10 pt-2.5 text-[11.5px] italic leading-[1.4] text-muted">
-                    Double-click the statement to edit it. Name a theme as a statement about
-                    change — &ldquo;Responsibility moves to communities faster than resources
-                    do&rdquo; rather than &ldquo;Community capacity&rdquo;.
+                    Click ✎ to edit the statement. Name a theme as a statement about change —
+                    &ldquo;Responsibility moves to communities faster than resources do&rdquo;
+                    rather than &ldquo;Community capacity&rdquo;.
                   </p>
                 ) : undefined
               }
