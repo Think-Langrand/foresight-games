@@ -218,16 +218,13 @@ export async function PATCH(
       if (typeof body.shortlisted !== "boolean") {
         return NextResponse.json({ error: "shortlisted must be true or false." }, { status: 400 });
       }
-      // A desirable role is what step 3 includes in the share-out; the other three are
-      // the older shortlist and stay legal so an old board's picks still toggle.
       if (
-        card.cardKind !== "desired_role" &&
         card.cardKind !== "risk" &&
         card.cardKind !== "opportunity" &&
         card.cardKind !== "assumption"
       ) {
         return NextResponse.json(
-          { error: "Only a role, a risk, an opportunity or an assumption can go on the shortlist." },
+          { error: "Only a risk, an opportunity or an assumption can go on the shortlist." },
           { status: 400 }
         );
       }

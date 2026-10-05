@@ -13,6 +13,7 @@ import {
   ANSWER_LABELS,
   answerOf,
   answersOf,
+  boardAnswersOf,
   indexSynthesisBoard,
   isHopeFear,
   themeAnswers,
@@ -159,7 +160,7 @@ export function shapeFromView(
       for (const kind of order) {
         const c = found[kind];
         if (!c || !c.text.trim()) continue;
-        out.push({ ...toRow(c), kind, label: ANSWER_LABELS[kind], shared: c.shortlisted });
+        out.push({ ...toRow(c), kind, label: ANSWER_LABELS[kind] });
       }
       return out;
     };
@@ -174,12 +175,20 @@ export function shapeFromView(
       tensions: (board.tensions.get(t.id) ?? []).map(toStake),
     }));
 
+    // The role step's answers: one set for the board, in question order.
+    const boardRole = boardAnswersOf(board);
+    const role: ThemeAnswerRow[] = ROLE_FIELDS.flatMap((kind) => {
+      const c = boardRole[kind];
+      return c && c.text.trim() ? [{ ...toRow(c), kind, label: ANSWER_LABELS[kind] }] : [];
+    });
+
     return {
       kind: "synthesis",
       exerciseId: ex.id,
       title: ex.title,
       cards: view.cards,
       themes,
+      role,
       unclustered: board.unclustered.map(toRow),
       parked: board.parked.map(toRow),
       orphans: board.orphans.map(toRow),

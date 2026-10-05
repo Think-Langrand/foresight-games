@@ -230,13 +230,13 @@ describe("shapeFromView — synthesis weeks", () => {
     expect(out.themes[0].chain.map((c) => c.id)).not.toContain("GHOST");
   });
 
-  it("carries the theme's description and every answered question in step order, with the share-out mark", () => {
+  it("carries the theme's description and every answered question in step order, and the board's role", () => {
     const out = shapeFromView(
       ex("synthesis"),
       view([
         card("TH1", "FIRST", { seq: 1, cardKind: "theme", description: "What the group means" }),
-        card("R1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "risk" }),
-        card("D1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "desired_role", shortlisted: true }),
+        card("R1", "FIRST", { seq: 2, cardKind: "risk" }),
+        card("D1", "FIRST", { seq: 3, cardKind: "desired_role" }),
         card("B1", "SECOND", { seq: 4, parentId: "TH1", cardKind: "benefit" }),
         card("C1", "SECOND", { seq: 5, parentId: "TH1", cardKind: "condition" }),
         card("T1", "SECOND", { seq: 6, parentId: "TH1", cardKind: "tension" }),
@@ -245,15 +245,12 @@ describe("shapeFromView — synthesis weeks", () => {
     if (out.kind !== "synthesis") return;
     const t = out.themes[0];
     expect(t.description).toBe("What the group means");
-    // Step order, not creation order: the Themes step's answer, part B, then the role.
-    expect(t.answers.map((a) => a.kind)).toEqual(["benefit", "condition", "desired_role", "risk"]);
-    expect(t.answers.find((a) => a.kind === "desired_role")).toMatchObject({
-      text: "D1-text",
-      label: "A desirable role for public health",
-      shared: true,
-    });
-    expect(t.answers.find((a) => a.kind === "risk")?.shared).toBe(false);
+    // Step order, not creation order.
+    expect(t.answers.map((a) => a.kind)).toEqual(["benefit", "condition"]);
     expect(t.tensions.map((r) => r.id)).toEqual(["T1"]);
+    // The role is the board's, in question order, not a theme's.
+    expect(out.role.map((a) => a.kind)).toEqual(["desired_role", "risk"]);
+    expect(out.role[0]).toMatchObject({ text: "D1-text", label: "A desirable role for public health" });
   });
 
   it("carries who a hope concerns beside it", () => {

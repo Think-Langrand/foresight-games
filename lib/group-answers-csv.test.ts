@@ -15,6 +15,7 @@ const ex = (over: Partial<SynthesisExercise> = {}): SynthesisExercise => ({
   title: "Session 3",
   cards: [],
   themes: [],
+  role: [],
   unclustered: [],
   parked: [],
   orphans: [],
@@ -32,12 +33,11 @@ const theme = (over: Partial<SynthesisExercise["themes"][number]> = {}) => ({
   tensions: [],
   ...over,
 });
-const answer = (
-  id: string,
-  kind: SynthesisExercise["themes"][number]["answers"][number]["kind"],
-  text: string,
-  shared = false
-) => ({ ...row(id, text), kind, label: `Q(${kind})`, shared });
+const answer = (id: string, kind: SynthesisExercise["themes"][number]["answers"][number]["kind"], text: string) => ({
+  ...row(id, text),
+  kind,
+  label: `Q(${kind})`,
+});
 
 const kinds = (rows: string[][]) => rows.map((r) => r[2]);
 const content = (rows: string[][]) => rows.map((r) => r[3]);
@@ -50,12 +50,7 @@ describe("synthesisCsvRows", () => {
           theme({
             description: "Who people listen to",
             implications: [row("i", "An implication")],
-            answers: [
-              answer("b", "benefit", "Residents who attend"),
-              answer("c", "condition", "Durable funding"),
-              answer("d", "desired_role", "Convener", true),
-              answer("r", "risk", "Gatekeeping"),
-            ],
+            answers: [answer("b", "benefit", "Residents who attend"), answer("c", "condition", "Durable funding")],
             chain: [
               {
                 ...row("h", "A hope"),
@@ -69,6 +64,7 @@ describe("synthesisCsvRows", () => {
             tensions: [stake("t", "A disagreement")],
           }),
         ],
+        role: [answer("d", "desired_role", "Convener"), answer("r", "risk", "Gatekeeping")],
         unclustered: [row("u", "Unsorted")],
         parked: [row("p", "Parked")],
         orphans: [row("x", "Unplaceable")],
@@ -81,12 +77,12 @@ describe("synthesisCsvRows", () => {
       "implication",
       "benefit",
       "condition",
-      "desired_role",
-      "risk",
       "hope",
       "concerns",
       "assumption",
       "tension",
+      "desired_role",
+      "risk",
       "implication",
       "brainstorm",
       "parked",
@@ -106,9 +102,9 @@ describe("synthesisCsvRows", () => {
     expect(content(rows)).toContain("Response stalls — Through slower sign-off");
   });
 
-  it("marks a role included in the share-out so the picks survive the export", () => {
-    const rows = synthesisCsvRows(ex({ themes: [theme({ answers: [answer("d", "desired_role", "Convener", true)] })] }));
-    expect(content(rows).some((c) => c.startsWith("★ "))).toBe(true);
+  it("writes the board's role answers under their own section", () => {
+    const rows = synthesisCsvRows(ex({ role: [answer("d", "desired_role", "Convener")] }));
+    expect(rows).toEqual([["Session 3", "Public health's role", "desired_role", "Q(desired_role) — Convener", "Ana", "2026-01-01"]]);
   });
 
   it("keeps a hope's value with it and indents the chain by depth", () => {

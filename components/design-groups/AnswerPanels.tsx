@@ -50,12 +50,12 @@ export interface ChainRow extends AnswerRow {
   assumptions: AnswerRow[]; // assumptions written under it (older boards)
 }
 
-// One answer to one of the theme's questions, across the three steps. `kind` is the card
-// kind, `label` the question as the group saw it (lib/synthesis-shape ANSWER_LABELS).
+// One answer to one question — on a theme, or (the role step) for the whole board. `kind`
+// is the card kind, `label` the question as the group saw it (lib/synthesis-shape
+// ANSWER_LABELS).
 export interface ThemeAnswerRow extends AnswerRow {
   kind: ThemeAnswerKind;
   label: string;
-  shared: boolean; // a role the group included in its share-out
 }
 
 // A preserved surprise/disagreement from the retired sandbox (older boards).
@@ -78,6 +78,7 @@ export interface SynthesisExercise {
   title: string;
   cards: RippleCard[]; // the whole shared board (themes, implications, hopes/fears)
   themes: SynthesisTheme[];
+  role: ThemeAnswerRow[]; // the role step's answers — one set for the board, in question order
   unclustered: AnswerRow[]; // implications never sorted into a theme
   parked: AnswerRow[]; // set aside by the group, kept for the record
   // Cards the board could not place — a hope with no theme above it. Surfaced so nothing

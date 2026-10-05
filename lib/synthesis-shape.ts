@@ -54,9 +54,11 @@ export function isReadingField(kind: CardKind | null): kind is ReadingField {
 export const VALUES_FIELDS = ["condition", "assumption", "alternative", "test"] as const;
 export type ValuesField = (typeof VALUES_FIELDS)[number];
 
-// Step 3 — public health's role — four answers on the theme, in grid order. `opportunity`
-// and `risk` are the kinds the old stakes step used, deliberately: a board worked before
-// the rework shows its risks and opportunities here, and the export already knows them.
+// Step 3 — public health's role — four answers for the WHOLE BOARD, in grid order: one
+// role across every theme, answered in the light of all of them. Root cards (no parent).
+// `opportunity` and `risk` are the kinds the old per-theme stakes step used, deliberately:
+// a board worked before the rework still shows its risks and opportunities, under their
+// themes, and the export already knows them.
 export const ROLE_FIELDS = ["desired_role", "opportunity", "risk", "investigate"] as const;
 export type RoleField = (typeof ROLE_FIELDS)[number];
 
@@ -108,6 +110,9 @@ export function placementError(
 
     case "risk":
     case "opportunity":
+      // The role step's answers are board-level (root); older boards wrote them per theme.
+      return root || parentKind === "theme" ? null : "That belongs on the board or a theme.";
+
     case "tension":
       return parentKind === "theme" ? null : "That belongs on a theme.";
 
@@ -126,9 +131,13 @@ export function placementError(
     case "condition":
     case "alternative":
     case "test":
+      return parentKind === "theme" ? null : "That belongs on a theme.";
+
     case "desired_role":
     case "investigate":
-      return parentKind === "theme" ? null : "That belongs on a theme.";
+      // The role is one answer for the whole board, so a root card. A theme parent is
+      // tolerated for the brief period they were written per theme.
+      return root || parentKind === "theme" ? null : "That belongs on the board.";
 
     case "reading":
       return parentKind === "theme" ? null : "A reading belongs on a theme.";
@@ -181,7 +190,8 @@ export interface SynthesisBoard {
   chains: Map<string, RippleCard[]>; // parentId → its hope/fear children
   concerns: Map<string, RippleCard[]>; // hope/fear id → its "who does this concern" note
   assumptions: Map<string, RippleCard[]>; // theme id or hope/fear id → the assumptions under it
-  answers: Map<string, RippleCard[]>; // themeId → step 2B and step 3 answers (condition, alternative, test, desired_role, investigate)
+  answers: Map<string, RippleCard[]>; // themeId → theme-level answers (condition, alternative, test; legacy desired_role, investigate)
+  boardAnswers: RippleCard[]; // the role step's answers — root cards, one set for the board
   chainDepth: Map<string, number>; // theme = 0, hope/fear = 1, 2, …
   parked: RippleCard[]; // set aside, non-STICKY
   // Cards no bucket could legitimately hold: a hope with no theme above it, a risk hung
@@ -211,6 +221,7 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
   const concerns = new Map<string, RippleCard[]>();
   const assumptions = new Map<string, RippleCard[]>();
   const answers = new Map<string, RippleCard[]>();
+  const boardAnswers: RippleCard[] = [];
 
   const push = (map: Map<string, RippleCard[]>, key: string, card: RippleCard) => {
     const arr = map.get(key);
@@ -243,10 +254,13 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
         else orphans.push(c);
         break;
       case "risk":
-        stake(risks, c);
+        // Root = the role step's answer for the board; under a theme = an older board's.
+        if (c.parentId === null) boardAnswers.push(c);
+        else push(risks, c.parentId, c);
         break;
       case "opportunity":
-        stake(opportunities, c);
+        if (c.parentId === null) boardAnswers.push(c);
+        else push(opportunities, c.parentId, c);
         break;
       case "tension":
         stake(tensions, c);
@@ -262,9 +276,12 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
       case "condition":
       case "alternative":
       case "test":
+        stake(answers, c);
+        break;
       case "desired_role":
       case "investigate":
-        stake(answers, c);
+        if (c.parentId === null) boardAnswers.push(c);
+        else push(answers, c.parentId, c);
         break;
       case "reading":
         // A reading reads one theme; parentless it reads nothing.
@@ -296,7 +313,7 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
   // nobody has reordered still reads in creation order; dragging assigns real sort values.
   const byOrder = (a: RippleCard, b: RippleCard) =>
     a.sort - b.sort || a.createdTime.localeCompare(b.createdTime);
-  for (const arr of [themes, unclustered, parked]) arr.sort(byOrder);
+  for (const arr of [themes, unclustered, parked, boardAnswers]) arr.sort(byOrder);
   for (const map of [
     clusters,
     risks,
@@ -373,6 +390,7 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
     concerns,
     assumptions,
     answers,
+    boardAnswers,
     chainDepth,
     parked,
     orphans,
@@ -506,29 +524,21 @@ export function valuesProgress(board: SynthesisBoard, themeId: string): ThemePro
   return entries.length > 0 || bAny ? "started" : "empty";
 }
 
-// Step 3 is done when all four role answers exist.
-export function roleProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
-  const a = answersOf(board, themeId, ROLE_FIELDS);
-  const n = ROLE_FIELDS.filter((k) => filled(a[k])).length;
-  return n === ROLE_FIELDS.length ? "done" : n > 0 ? "started" : "empty";
-}
-
-// The share-out: every theme whose role the group chose to include, in theme order, with
-// the four role answers beside it. Inclusion is the `shortlisted` flag on the role card.
-export interface ShareOutEntry {
-  theme: RippleCard;
-  role: RippleCard;
-  answers: Partial<Record<RoleField, RippleCard>>;
-}
-
-export function shareOut(board: SynthesisBoard): ShareOutEntry[] {
-  const out: ShareOutEntry[] = [];
-  for (const theme of board.themes) {
-    const answers = answersOf(board, theme.id, ROLE_FIELDS);
-    const role = answers.desired_role;
-    if (role && role.shortlisted) out.push({ theme, role, answers });
+// The board's role answers, keyed by question — root cards, first of a kind wins.
+export function boardAnswersOf(board: SynthesisBoard): Partial<Record<RoleField, RippleCard>> {
+  const out: Partial<Record<RoleField, RippleCard>> = {};
+  for (const c of board.boardAnswers) {
+    const k = c.cardKind as RoleField | null;
+    if (k !== null && (ROLE_FIELDS as readonly string[]).includes(k) && !out[k]) out[k] = c;
   }
   return out;
+}
+
+// Step 3 is done when all four role answers exist — for the board, not per theme.
+export function roleProgress(board: SynthesisBoard): ThemeProgress {
+  const a = boardAnswersOf(board);
+  const n = ROLE_FIELDS.filter((k) => filled(a[k])).length;
+  return n === ROLE_FIELDS.length ? "done" : n > 0 ? "started" : "empty";
 }
 
 // Every hope and fear under a theme, depth-first so a flipped card follows the one it

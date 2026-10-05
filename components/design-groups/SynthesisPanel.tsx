@@ -29,11 +29,13 @@ const KIND_STYLE: Record<"hope" | "fear", string> = {
   fear: "bg-coral text-white",
 };
 
-// The answers grouped the way the steps ask them.
+// The theme-level answers grouped the way the steps ask them. The role is board-level and
+// rendered once at the top; a theme only carries role kinds on a board worked in the
+// brief period they were written per theme.
 const GROUPS: { title: string; kinds: readonly ThemeAnswerKind[] }[] = [
   { title: "How does this future work?", kinds: READING_FIELDS },
   { title: "What could work differently", kinds: VALUES_FIELDS },
-  { title: "Public health's role", kinds: ROLE_FIELDS },
+  { title: "Public health's role (on this theme)", kinds: ROLE_FIELDS },
   { title: "Earlier questions", kinds: ["assumed_role", "question"] },
 ];
 
@@ -52,14 +54,7 @@ function AnswerBlock({ title, rows, ...opts }: { title: string; rows: ThemeAnswe
           <li key={r.id} className="group flex items-start gap-2 text-[13px] leading-[1.4]">
             <div className="min-w-0 flex-1">
               <div className="text-[10.5px] font-bold leading-[1.3] text-ink/70">{r.label}</div>
-              <div className="mt-0.5 flex items-start gap-1.5">
-                {r.shared && (
-                  <span aria-hidden title="Included in the share-out" className="mt-[1px] shrink-0 text-[12px] text-blue">
-                    ★
-                  </span>
-                )}
-                <span className="whitespace-pre-wrap">{r.text}</span>
-              </div>
+              <div className="mt-0.5 whitespace-pre-wrap">{r.text}</div>
             </div>
             {opts.onDelete && (
               <button
@@ -210,11 +205,11 @@ export function SynthesisPanel({
 }: { ex: SynthesisExercise; seed?: React.ReactNode } & PanelOpts) {
   const empty =
     ex.themes.length === 0 &&
+    ex.role.length === 0 &&
     ex.unclustered.length === 0 &&
     ex.parked.length === 0 &&
     ex.orphans.length === 0 &&
     ex.questions.every((q) => q.answers.length === 0);
-  const shared = ex.themes.filter((t) => t.answers.some((a) => a.kind === "desired_role" && a.shared));
 
   return (
     <div className="flex flex-col gap-6">
@@ -222,21 +217,11 @@ export function SynthesisPanel({
 
       {empty && <p className="text-[13px] italic text-muted">Nothing on this board yet.</p>}
 
-      {/* What the group carries forward, first: the roles it chose to share. */}
-      {shared.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-[13px] font-bold uppercase tracking-[0.08em] text-muted">Share-out</h3>
-          <ul className="flex flex-col gap-2">
-            {shared.map((t) => {
-              const role = t.answers.find((a) => a.kind === "desired_role");
-              return (
-                <li key={t.id} className="rounded-[3px] border border-black/15 bg-paper p-3 text-[13px] leading-[1.45]">
-                  <div className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-muted">{t.text}</div>
-                  <div className="mt-1 font-bold">★ {role?.text}</div>
-                </li>
-              );
-            })}
-          </ul>
+      {/* What the group carries forward, first: the role it chose for public health, answered
+          once across every theme. */}
+      {ex.role.length > 0 && (
+        <div className="rounded-[4px] border-2 border-ink bg-[rgba(196,255,103,0.16)] px-4 py-3">
+          <AnswerBlock title="Public health's role" rows={ex.role} {...opts} />
         </div>
       )}
 

@@ -30,7 +30,7 @@ import {
   valuesFor,
   valuesProgress,
   roleProgress,
-  shareOut,
+  boardAnswersOf,
   VALUES_FIELDS,
   ROLE_FIELDS,
   implicationOrder,
@@ -311,15 +311,23 @@ describe("placementError", () => {
   });
 
   // --- Week 3 step 2: what's at stake ---------------------------------------
-  it("puts risks, opportunities and tensions on a theme and nowhere else", () => {
-    for (const kind of ["risk", "opportunity", "tension"] as const) {
+  it("puts a risk or opportunity on the board (the role step) or on a theme (older boards), nowhere else", () => {
+    for (const kind of ["risk", "opportunity"] as const) {
+      ok(kind, undefined); // a root: the board's answer
       ok(kind, "theme");
-      no(kind, undefined); // never a root
       no(kind, null); // not under an implication
       no(kind, "hope");
       no(kind, "fear");
       no(kind, "risk"); // stake cards do not nest
     }
+  });
+
+  it("puts a tension on a theme and nowhere else", () => {
+    ok("tension", "theme");
+    no("tension", undefined);
+    no("tension", null);
+    no("tension", "hope");
+    no("tension", "risk");
   });
 
   // --- Week 3 step 3: assumptions -------------------------------------------
@@ -513,14 +521,16 @@ describe("indexSynthesisBoard — orphans", () => {
     expect(b.orphans.map((c) => c.id)).toEqual(["GHOST"]);
   });
 
-  it("surfaces a stake card hung off anything but a live theme", () => {
+  it("surfaces a stake card hung off anything but a live theme — a root one is the board's answer", () => {
     const b = indexSynthesisBoard([
       theme("TH", 1),
       card("I1", "SECOND", "TH", 2),
       card("R", "TERMINAL", "I1", 3, { cardKind: "risk" }),
       card("O", "FIRST", null, 4, { cardKind: "opportunity" }),
+      card("T", "FIRST", null, 5, { cardKind: "tension" }),
     ]);
-    expect(b.orphans.map((c) => c.id).sort()).toEqual(["O", "R"]);
+    expect(b.orphans.map((c) => c.id).sort()).toEqual(["R", "T"]);
+    expect(b.boardAnswers.map((c) => c.id)).toEqual(["O"]);
   });
 
   it("surfaces an assumption whose parent is neither a theme nor on a chain", () => {
@@ -571,6 +581,9 @@ describe("indexSynthesisBoard — partition property", () => {
     ...[...b.assumptions.values()].flat(),
     ...[...b.readings.values()].flat(),
     ...[...b.readingFields.values()].flat(),
+    ...[...b.concerns.values()].flat(),
+    ...[...b.answers.values()].flat(),
+    ...b.boardAnswers,
   ];
 
   const messyBoard = () => [
@@ -1168,10 +1181,11 @@ describe("steps 2 and 3 — placement, answers, progress and the share-out", () 
     card("AS", "SECOND", "TH", 7, { cardKind: "assumption", text: "Panels can overrule" }),
     card("AL", "SECOND", "TH", 8, { cardKind: "alternative", text: "Rotating seats" }),
     card("TE", "SECOND", "TH", 9, { cardKind: "test", text: "Who still misses out" }),
-    card("DR", "SECOND", "TH", 10, { cardKind: "desired_role", text: "Convener", shortlisted: true }),
-    card("OP", "SECOND", "TH", 11, { cardKind: "opportunity", text: "Reach" }),
-    card("RI", "SECOND", "TH", 12, { cardKind: "risk", text: "Gatekeeping" }),
-    card("IN", "SECOND", "TH", 13, { cardKind: "investigate", text: "Authority needed" }),
+    // The role step: one set for the board, as root cards.
+    card("DR", "FIRST", null, 10, { cardKind: "desired_role", text: "Convener" }),
+    card("OP", "FIRST", null, 11, { cardKind: "opportunity", text: "Reach" }),
+    card("RI", "FIRST", null, 12, { cardKind: "risk", text: "Gatekeeping" }),
+    card("IN", "FIRST", null, 13, { cardKind: "investigate", text: "Authority needed" }),
   ];
 
   it("places the new kinds where the steps write them, and nowhere else", () => {
@@ -1180,10 +1194,16 @@ describe("steps 2 and 3 — placement, answers, progress and the share-out", () 
     expect(placementError("assumption", "theme")).toBeNull();
     expect(placementError("assumption", "fear")).toBeNull();
     expect(placementError("assumption", null)).toMatch(/belongs on a theme/);
-    for (const k of ["condition", "alternative", "test", "desired_role", "investigate"] as const) {
+    for (const k of ["condition", "alternative", "test"] as const) {
       expect(placementError(k, "theme")).toBeNull();
       expect(placementError(k, "hope")).toMatch(/belongs on a theme/);
       expect(placementError(k, undefined)).toMatch(/belongs on a theme/);
+    }
+    // The role step's four are board-level root cards; a theme parent is tolerated.
+    for (const k of ROLE_FIELDS) {
+      expect(placementError(k, undefined)).toBeNull();
+      expect(placementError(k, "theme")).toBeNull();
+      expect(placementError(k, "hope")).toMatch(/belongs on the board/);
     }
   });
 
@@ -1193,7 +1213,14 @@ describe("steps 2 and 3 — placement, answers, progress and the share-out", () 
     expect(board.concerns.get("H1")?.map((c) => c.id)).toEqual(["C1"]);
     expect(board.assumptions.get("TH")?.map((c) => c.id)).toEqual(["AS"]);
     expect(board.assumptions.get("F1")?.map((c) => c.id)).toEqual(["A1"]);
-    expect((board.answers.get("TH") ?? []).map((c) => c.id).sort()).toEqual(["AL", "CO", "DR", "IN", "TE"]);
+    expect((board.answers.get("TH") ?? []).map((c) => c.id).sort()).toEqual(["AL", "CO", "TE"]);
+    expect(board.boardAnswers.map((c) => c.id).sort()).toEqual(["DR", "IN", "OP", "RI"]);
+  });
+
+  it("keeps an older board's per-theme risk under its theme, not in the board's answers", () => {
+    const board = indexSynthesisBoard([theme("TH", 1), card("R", "SECOND", "TH", 2, { cardKind: "risk" })]);
+    expect(board.risks.get("TH")?.map((c) => c.id)).toEqual(["R"]);
+    expect(board.boardAnswers).toEqual([]);
   });
 
   it("orphans a concerns note whose hope is unreachable", () => {
@@ -1207,23 +1234,22 @@ describe("steps 2 and 3 — placement, answers, progress and the share-out", () 
 
   it("finds one answer per question across buckets", () => {
     const board = indexSynthesisBoard(b());
-    expect(answerOf(board, "TH", "risk")?.id).toBe("RI");
     expect(answerOf(board, "TH", "assumption")?.id).toBe("AS");
     expect(answerOf(board, "H1", "concerns")?.id).toBe("C1");
     expect(answerOf(board, "TH", "benefit")).toBeNull();
-    const role = answersOf(board, "TH", ROLE_FIELDS);
+    const values = answersOf(board, "TH", VALUES_FIELDS);
+    expect(values.condition?.id).toBe("CO");
+    expect(values.assumption?.id).toBe("AS");
+    const role = boardAnswersOf(board);
     expect(role.desired_role?.id).toBe("DR");
     expect(role.opportunity?.id).toBe("OP");
     expect(role.risk?.id).toBe("RI");
     expect(role.investigate?.id).toBe("IN");
-    const values = answersOf(board, "TH", VALUES_FIELDS);
-    expect(values.condition?.id).toBe("CO");
-    expect(values.assumption?.id).toBe("AS");
   });
 
   it("keeps the first card when a question has two answers", () => {
-    const board = indexSynthesisBoard([...b(), card("RI2", "SECOND", "TH", 14, { cardKind: "risk", text: "later" })]);
-    expect(answerOf(board, "TH", "risk")?.id).toBe("RI");
+    const board = indexSynthesisBoard([...b(), card("RI2", "FIRST", null, 14, { cardKind: "risk", text: "later" })]);
+    expect(boardAnswersOf(board).risk?.id).toBe("RI");
   });
 
   it("lists the values a theme's hopes and fears name", () => {
@@ -1247,20 +1273,10 @@ describe("steps 2 and 3 — placement, answers, progress and the share-out", () 
     expect(valuesProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
   });
 
-  it("step 3 is done at four of four, started below, empty at none", () => {
-    expect(roleProgress(indexSynthesisBoard(b()), "TH")).toBe("done");
-    expect(roleProgress(indexSynthesisBoard(b().filter((c) => c.id !== "IN")), "TH")).toBe("started");
-    expect(roleProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
-  });
-
-  it("the share-out lists themes whose role is included, with its answers", () => {
-    const got = shareOut(indexSynthesisBoard(b()));
-    expect(got).toHaveLength(1);
-    expect(got[0].theme.id).toBe("TH");
-    expect(got[0].role.id).toBe("DR");
-    expect(got[0].answers.opportunity?.id).toBe("OP");
-    const off = b().map((c) => (c.id === "DR" ? { ...c, shortlisted: false } : c));
-    expect(shareOut(indexSynthesisBoard(off))).toEqual([]);
+  it("step 3 is done at four of four for the board, started below, empty at none", () => {
+    expect(roleProgress(indexSynthesisBoard(b()))).toBe("done");
+    expect(roleProgress(indexSynthesisBoard(b().filter((c) => c.id !== "IN")))).toBe("started");
+    expect(roleProgress(indexSynthesisBoard([theme("TH", 1)]))).toBe("empty");
   });
 });
 

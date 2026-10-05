@@ -23,11 +23,9 @@ export function synthesisCsvRows(ex: SynthesisExercise): string[][] {
       rows.push([ex.title, at(t.text), "implication", a.text, a.author, a.createdAt]);
     }
     // One row per answered question, Kind = the card kind, Content = "Question — answer"
-    // so the sheet reads without the app. A role the group included in its share-out is
-    // starred, the way the old shortlist was.
+    // so the sheet reads without the app.
     for (const a of t.answers) {
-      const mark = a.shared ? "★ " : "";
-      rows.push([ex.title, at(t.text), a.kind, `${mark}${a.label} — ${a.text}`, a.author, a.createdAt]);
+      rows.push([ex.title, at(t.text), a.kind, `${a.label} — ${a.text}`, a.author, a.createdAt]);
     }
     for (const c of t.chain) {
       const arrow = "→ ".repeat(Math.max(0, c.depth - 1));
@@ -48,6 +46,10 @@ export function synthesisCsvRows(ex: SynthesisExercise): string[][] {
     }
   }
 
+  // The role step: one set of answers for the board, its own section.
+  for (const a of ex.role) {
+    rows.push([ex.title, "Public health's role", a.kind, `${a.label} — ${a.text}`, a.author, a.createdAt]);
+  }
   for (const a of ex.unclustered) {
     rows.push([ex.title, "Not in a theme", "implication", a.text, a.author, a.createdAt]);
   }

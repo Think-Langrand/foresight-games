@@ -23,7 +23,6 @@ import {
   postRippleCard,
   reorderRippleCard,
   reparentRippleCard,
-  shortlistRippleCard,
 } from "@/components/workshop/hooks";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
@@ -115,8 +114,6 @@ export function SynthesisTeamView({
     parkLocal,
     dropParkLocal,
     describeLocal,
-    shortlistLocal,
-    dropShortlistLocal,
   } = useOptimisticCards(view?.cards ?? NO_CARDS);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -249,11 +246,18 @@ export function SynthesisTeamView({
     }
   };
 
-  // Include a theme's role in the share-out: the `shortlisted` flag on its role card.
-  const shareRole = (theme: RippleCard, included: boolean) => {
-    const role = answerOf(board, theme.id, "desired_role");
-    if (role) shortlist(role, included);
-  };
+  // The role step's answers are for the whole board: root cards, no parent.
+  const answerBoard = (field: CardKind, text: string) =>
+    run(async () => {
+      if (!text.trim()) return;
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "FIRST",
+        cardKind: field,
+        text,
+      });
+      if (res?.card) addLocal(res.card as RippleCard);
+    });
 
   // Put an implication in a SECOND theme, keeping the one it is already in. The text is
   // not sent: the route reads it from the original, so two cards showing one implication
@@ -537,18 +541,6 @@ export function SynthesisTeamView({
       setFocusId(created.id);
     });
 
-  const shortlist = (card: RippleCard, shortlisted: boolean) => {
-    shortlistLocal(card.id, shortlisted);
-    run(async () => {
-      try {
-        await shortlistRippleCard(code, card.id, { participantId: pid, shortlisted });
-      } catch (e) {
-        dropShortlistLocal(card.id);
-        throw e;
-      }
-    });
-  };
-
   const park = (card: RippleCard, parked: boolean) => {
     parkLocal(card.id, parked);
     run(async () => {
@@ -732,16 +724,11 @@ export function SynthesisTeamView({
         <div className="flex flex-col gap-8">
           <RoleBoard
             board={board}
-            lineage={lineage}
             editable={editable}
             busy={busy}
-            themeId={themeId}
-            onPickTheme={setThemeId}
-            onAnswer={answerTheme}
+            onAnswer={answerBoard}
             onEdit={editCard}
-            onDescribe={describeCard}
             onDelete={removeCard}
-            onShare={shareRole}
             onGoToCluster={() => setStep("cluster")}
           />
           {sections.length > 0 && (
