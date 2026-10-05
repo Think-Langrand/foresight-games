@@ -161,10 +161,10 @@ export function ClusterBoard({
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
   // The card whose "also add to…" picker is open. Null when none is.
   const [copyFrom, setCopyFrom] = useState<RippleCard | null>(null);
-  // Cards or the Week 2 map, in the same place. The map is a second way to cluster: a
-  // branch is usually already a theme, so grabbing one beats picking its members out of a
-  // list of 146.
-  const [view, setView] = useState<"cards" | "map">("cards");
+  // Cards or the Week 2 map, in the same place. The map is the way in: a branch is usually
+  // already a theme, so grabbing one beats picking its members out of a list of 146. Cards
+  // only when there is no Week 2 map to draw (a group whose Week 2 is still a placeholder).
+  const [view, setView] = useState<"cards" | "map">(week2Cards.length > 0 ? "map" : "cards");
   // The Week 2 card the map was opened ON, if it was opened from a card. Highlights its
   // path and scrolls to it; cleared as soon as you change branch.
   const [focusNode, setFocusNode] = useState<string | null>(null);
