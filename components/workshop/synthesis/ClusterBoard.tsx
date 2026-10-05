@@ -437,7 +437,7 @@ export function ClusterBoard({
   // can be dragged into someone else's theme, or deleted, between the tick and the click.
   // Intersecting with the live tray means it silently drops out of your selection instead
   // of being yanked back out of their theme by "create theme from selected" — the same
-  // fallback ThemeWorkspace uses for a deleted theme and HopesFearsBoard for a deleted card.
+  // fallback the other steps use for a deleted theme or a deleted hope.
   const trayIds = new Set(board.unclustered.map((c) => c.id));
   const picked = new Set([...rawPicked].filter((id) => trayIds.has(id)));
 

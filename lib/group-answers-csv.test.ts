@@ -27,12 +27,17 @@ const theme = (over: Partial<SynthesisExercise["themes"][number]> = {}) => ({
   text: "Recognition over authority",
   description: null,
   implications: [],
-  risks: [],
-  opportunities: [],
-  tensions: [],
+  answers: [],
   chain: [],
+  tensions: [],
   ...over,
 });
+const answer = (
+  id: string,
+  kind: SynthesisExercise["themes"][number]["answers"][number]["kind"],
+  text: string,
+  shared = false
+) => ({ ...row(id, text), kind, label: `Q(${kind})`, shared });
 
 const kinds = (rows: string[][]) => rows.map((r) => r[2]);
 const content = (rows: string[][]) => rows.map((r) => r[3]);
@@ -45,18 +50,23 @@ describe("synthesisCsvRows", () => {
           theme({
             description: "Who people listen to",
             implications: [row("i", "An implication")],
-            risks: [stake("r", "A risk")],
-            opportunities: [stake("o", "An opportunity")],
-            tensions: [stake("t", "A disagreement")],
+            answers: [
+              answer("b", "benefit", "Residents who attend"),
+              answer("c", "condition", "Durable funding"),
+              answer("d", "desired_role", "Convener", true),
+              answer("r", "risk", "Gatekeeping"),
+            ],
             chain: [
               {
                 ...row("h", "A hope"),
                 cardKind: "hope" as const,
                 depth: 1,
+                concerns: "Night-shift workers",
                 value: "because trust matters",
                 assumptions: [row("a", "We assume trust transfers")],
               },
             ],
+            tensions: [stake("t", "A disagreement")],
           }),
         ],
         unclustered: [row("u", "Unsorted")],
@@ -69,11 +79,14 @@ describe("synthesisCsvRows", () => {
       "theme",
       "theme description",
       "implication",
+      "benefit",
+      "condition",
+      "desired_role",
       "risk",
-      "opportunity",
-      "tension",
       "hope",
+      "concerns",
       "assumption",
+      "tension",
       "implication",
       "brainstorm",
       "parked",
@@ -81,17 +94,20 @@ describe("synthesisCsvRows", () => {
     ]);
   });
 
-  it("keeps a stake card's mechanism on the same row as the finding", () => {
+  it("puts the question on the row with its answer, so the sheet reads without the app", () => {
+    const rows = synthesisCsvRows(ex({ themes: [theme({ answers: [answer("c", "condition", "Durable funding stays")] })] }));
+    expect(content(rows)).toContain("Q(condition) — Durable funding stays");
+  });
+
+  it("keeps a sandbox note's mechanism on the same row", () => {
     const rows = synthesisCsvRows(
-      ex({ themes: [theme({ risks: [stake("r", "Response stalls", { mechanism: "Through slower sign-off" })] })] })
+      ex({ themes: [theme({ tensions: [stake("t", "Response stalls", { mechanism: "Through slower sign-off" })] })] })
     );
     expect(content(rows)).toContain("Response stalls — Through slower sign-off");
   });
 
-  it("marks a shortlisted card so the committee picks survive the export", () => {
-    const rows = synthesisCsvRows(
-      ex({ themes: [theme({ risks: [stake("r", "Response stalls", { shortlisted: true })] })] })
-    );
+  it("marks a role included in the share-out so the picks survive the export", () => {
+    const rows = synthesisCsvRows(ex({ themes: [theme({ answers: [answer("d", "desired_role", "Convener", true)] })] }));
     expect(content(rows).some((c) => c.startsWith("★ "))).toBe(true);
   });
 
@@ -101,8 +117,8 @@ describe("synthesisCsvRows", () => {
         themes: [
           theme({
             chain: [
-              { ...row("h", "A hope"), cardKind: "hope" as const, depth: 1, value: "because X", assumptions: [] },
-              { ...row("f", "A fear"), cardKind: "fear" as const, depth: 2, value: null, assumptions: [] },
+              { ...row("h", "A hope"), cardKind: "hope" as const, depth: 1, concerns: null, value: "because X", assumptions: [] },
+              { ...row("f", "A fear"), cardKind: "fear" as const, depth: 2, concerns: null, value: null, assumptions: [] },
             ],
           }),
         ],
@@ -113,7 +129,7 @@ describe("synthesisCsvRows", () => {
 
   it("names the theme on every row belonging to it", () => {
     const rows = synthesisCsvRows(
-      ex({ themes: [theme({ risks: [stake("r", "A risk")], implications: [row("i", "An implication")] })] })
+      ex({ themes: [theme({ answers: [answer("r", "risk", "A risk")], implications: [row("i", "An implication")] })] })
     );
     expect(rows.slice(1).every((r) => r[1] === "Theme: Recognition over authority")).toBe(true);
   });

@@ -7,8 +7,20 @@ import type {
   StakeRow,
   QuestionBlock,
   SynthesisTheme,
+  ThemeAnswerRow,
 } from "@/components/design-groups/AnswerPanels";
-import { indexSynthesisBoard, isHopeFear } from "@/lib/synthesis-shape";
+import {
+  ANSWER_LABELS,
+  answerOf,
+  answersOf,
+  indexSynthesisBoard,
+  isHopeFear,
+  themeAnswers,
+  READING_FIELDS,
+  ROLE_FIELDS,
+  VALUES_FIELDS,
+  type ThemeAnswerKind,
+} from "@/lib/synthesis-shape";
 
 // Pure shaping of one design-group week's board into its read-only answers — worksheet
 // Q&A, an implications map (+ brainstorm / question blocks), or a placeholder. No I/O:
@@ -100,8 +112,8 @@ export function shapeFromView(
     });
 
     // Each theme's hopes & fears, flattened depth-first so the panel's indentation reads
-    // as the chain itself. Assumptions ride ON a row rather than becoming rows of their
-    // own — they say what we are treating as true, not what follows next.
+    // as the chain itself. Who it concerns and the older boards' assumptions ride ON a row
+    // rather than becoming rows of their own.
     const flattenChain = (parentId: string): ChainRow[] => {
       const out: ChainRow[] = [];
       const walk = (id: string) => {
@@ -114,6 +126,7 @@ export function shapeFromView(
             ...toRow(c),
             cardKind: c.cardKind,
             depth,
+            concerns: answerOf(board, c.id, "concerns")?.text ?? null,
             value: c.description,
             assumptions: (board.assumptions.get(c.id) ?? []).map(toRow),
           });
@@ -124,15 +137,41 @@ export function shapeFromView(
       return out;
     };
 
+    // Every answered question on a theme, in the order the week asks them: the Themes
+    // step's four (with an old reading's answers standing in — themeAnswers), then part B,
+    // then the role, then the two retired questions older boards may still carry. One
+    // list, so the viewer and the CSV can never disagree about what was answered.
+    const answersFor = (themeId: string): ThemeAnswerRow[] => {
+      const found: Partial<Record<ThemeAnswerKind, RippleCard>> = {
+        ...themeAnswers(board, themeId),
+        ...answersOf(board, themeId, VALUES_FIELDS),
+        ...answersOf(board, themeId, ROLE_FIELDS),
+        ...answersOf(board, themeId, ["assumed_role", "question"] as const),
+      };
+      const order: readonly ThemeAnswerKind[] = [
+        ...READING_FIELDS,
+        ...VALUES_FIELDS,
+        ...ROLE_FIELDS,
+        "assumed_role",
+        "question",
+      ];
+      const out: ThemeAnswerRow[] = [];
+      for (const kind of order) {
+        const c = found[kind];
+        if (!c || !c.text.trim()) continue;
+        out.push({ ...toRow(c), kind, label: ANSWER_LABELS[kind], shared: c.shortlisted });
+      }
+      return out;
+    };
+
     const themes: SynthesisTheme[] = board.themes.map((t) => ({
       id: t.id,
       text: t.text,
       description: t.description,
       implications: (board.clusters.get(t.id) ?? []).map(toRow),
-      risks: (board.risks.get(t.id) ?? []).map(toStake),
-      opportunities: (board.opportunities.get(t.id) ?? []).map(toStake),
-      tensions: (board.tensions.get(t.id) ?? []).map(toStake),
+      answers: answersFor(t.id),
       chain: flattenChain(t.id),
+      tensions: (board.tensions.get(t.id) ?? []).map(toStake),
     }));
 
     return {

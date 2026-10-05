@@ -230,24 +230,43 @@ describe("shapeFromView — synthesis weeks", () => {
     expect(out.themes[0].chain.map((c) => c.id)).not.toContain("GHOST");
   });
 
-  it("carries the theme's description, stake lists and shortlist marks", () => {
+  it("carries the theme's description and every answered question in step order, with the share-out mark", () => {
     const out = shapeFromView(
       ex("synthesis"),
       view([
         card("TH1", "FIRST", { seq: 1, cardKind: "theme", description: "What the group means" }),
-        card("R1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "risk", description: "via slower sign-off", shortlisted: true }),
-        card("O1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "opportunity" }),
-        card("T1", "SECOND", { seq: 4, parentId: "TH1", cardKind: "tension" }),
+        card("R1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "risk" }),
+        card("D1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "desired_role", shortlisted: true }),
+        card("B1", "SECOND", { seq: 4, parentId: "TH1", cardKind: "benefit" }),
+        card("C1", "SECOND", { seq: 5, parentId: "TH1", cardKind: "condition" }),
+        card("T1", "SECOND", { seq: 6, parentId: "TH1", cardKind: "tension" }),
       ])
     );
     if (out.kind !== "synthesis") return;
     const t = out.themes[0];
     expect(t.description).toBe("What the group means");
-    expect(t.risks).toEqual([
-      expect.objectContaining({ id: "R1", mechanism: "via slower sign-off", shortlisted: true }),
-    ]);
-    expect(t.opportunities.map((r) => r.id)).toEqual(["O1"]);
+    // Step order, not creation order: the Themes step's answer, part B, then the role.
+    expect(t.answers.map((a) => a.kind)).toEqual(["benefit", "condition", "desired_role", "risk"]);
+    expect(t.answers.find((a) => a.kind === "desired_role")).toMatchObject({
+      text: "D1-text",
+      label: "A desirable role for public health",
+      shared: true,
+    });
+    expect(t.answers.find((a) => a.kind === "risk")?.shared).toBe(false);
     expect(t.tensions.map((r) => r.id)).toEqual(["T1"]);
+  });
+
+  it("carries who a hope concerns beside it", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("H1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "hope" }),
+        card("C1", "TERMINAL", { seq: 3, parentId: "H1", cardKind: "concerns" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.themes[0].chain[0]).toMatchObject({ id: "H1", concerns: "C1-text" });
   });
 
   it("hangs assumptions on their hope, and the value with it", () => {

@@ -22,26 +22,29 @@ export function synthesisCsvRows(ex: SynthesisExercise): string[][] {
     for (const a of t.implications) {
       rows.push([ex.title, at(t.text), "implication", a.text, a.author, a.createdAt]);
     }
-    // A stake card's mechanism belongs with it, not on a row of its own — the two are one
-    // answer, and splitting them makes the export harder to read than the board.
-    for (const [kind, list] of [
-      ["risk", t.risks],
-      ["opportunity", t.opportunities],
-      ["tension", t.tensions],
-    ] as const) {
-      for (const r of list) {
-        const mark = r.shortlisted ? "★ " : "";
-        const body = r.mechanism ? `${mark}${r.text} — ${r.mechanism}` : `${mark}${r.text}`;
-        rows.push([ex.title, at(t.text), kind, body, r.author, r.createdAt]);
-      }
+    // One row per answered question, Kind = the card kind, Content = "Question — answer"
+    // so the sheet reads without the app. A role the group included in its share-out is
+    // starred, the way the old shortlist was.
+    for (const a of t.answers) {
+      const mark = a.shared ? "★ " : "";
+      rows.push([ex.title, at(t.text), a.kind, `${mark}${a.label} — ${a.text}`, a.author, a.createdAt]);
     }
     for (const c of t.chain) {
       const arrow = "→ ".repeat(Math.max(0, c.depth - 1));
       const body = c.value ? `${arrow}${c.text} — ${c.value}` : `${arrow}${c.text}`;
       rows.push([ex.title, at(t.text), c.cardKind, body, c.author, c.createdAt]);
+      if (c.concerns) {
+        rows.push([ex.title, at(t.text), "concerns", `${arrow}↳ ${c.concerns}`, c.author, c.createdAt]);
+      }
       for (const a of c.assumptions) {
         rows.push([ex.title, at(t.text), "assumption", `${arrow}◆ ${a.text}`, a.author, a.createdAt]);
       }
+    }
+    // Older boards' sandbox notes, with their mechanism on the same row.
+    for (const r of t.tensions) {
+      const mark = r.shortlisted ? "★ " : "";
+      const body = r.mechanism ? `${mark}${r.text} — ${r.mechanism}` : `${mark}${r.text}`;
+      rows.push([ex.title, at(t.text), "tension", body, r.author, r.createdAt]);
     }
   }
 

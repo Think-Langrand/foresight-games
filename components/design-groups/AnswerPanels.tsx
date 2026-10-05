@@ -4,6 +4,7 @@ import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { ImplicationTree } from "@/components/workshop/ImplicationTree";
 import { ImplicationList } from "@/components/workshop/ImplicationList";
 import type { RippleCard } from "@/lib/ripples-types";
+import type { ThemeAnswerKind } from "@/lib/synthesis-shape";
 
 // Read-only renderings of one design-group week's answers, shaped server-side by
 // lib/group-answers.ts. Shared by the admin answers viewer (with authors, kind badges and
@@ -44,24 +45,32 @@ export interface ChainRow extends AnswerRow {
   // kind in it, so the colour maps and the CSV's Kind column stay honest.
   cardKind: "hope" | "fear";
   depth: number; // 1 = written straight onto the theme, 2 = its flip side, …
+  concerns: string | null; // who it concerns — the `concerns` card under it
   value: string | null; // why it matters — the card's description
-  assumptions: AnswerRow[]; // what we're treating as true
+  assumptions: AnswerRow[]; // assumptions written under it (older boards)
 }
 
-// A risk, an opportunity, or a preserved surprise/disagreement.
+// One answer to one of the theme's questions, across the three steps. `kind` is the card
+// kind, `label` the question as the group saw it (lib/synthesis-shape ANSWER_LABELS).
+export interface ThemeAnswerRow extends AnswerRow {
+  kind: ThemeAnswerKind;
+  label: string;
+  shared: boolean; // a role the group included in its share-out
+}
+
+// A preserved surprise/disagreement from the retired sandbox (older boards).
 export interface StakeRow extends AnswerRow {
-  mechanism: string | null; // through what mechanism, and for whom
-  shortlisted: boolean; // picked out for the committee
+  mechanism: string | null;
+  shortlisted: boolean;
 }
 export interface SynthesisTheme {
   id: string;
   text: string;
   description: string | null; // what the group means by this theme
   implications: AnswerRow[]; // the Week 2 implications clustered into this theme
-  risks: StakeRow[];
-  opportunities: StakeRow[];
-  tensions: StakeRow[]; // surprises and disagreements, preserved rather than resolved
+  answers: ThemeAnswerRow[]; // every answered question, in step order
   chain: ChainRow[]; // its hopes & fears, depth-first so indentation reads as the chain
+  tensions: StakeRow[]; // older boards' sandbox notes, preserved rather than resolved
 }
 export interface SynthesisExercise {
   kind: "synthesis";
