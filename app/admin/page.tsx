@@ -3,6 +3,7 @@ import { supabaseConfigured } from "@/lib/workshop";
 import { listProjects } from "@/lib/projects";
 import { SignOutButton } from "@/components/admin/SignOutButton";
 import { CardGameLauncher } from "@/components/CardGameLauncher";
+import { AdminProjectsManager, type AdminProject } from "@/components/admin/AdminProjectsManager";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,12 @@ export default async function AdminPage() {
   }
   const projects = await listProjects();
   const launcherProjects = projects.filter((p) => p.enabled).map((p) => ({ slug: p.slug, name: p.name }));
+  // The same cards as Manage projects — dashboard, activity, edit, delete, new — so a
+  // project can be worked on from here. The passphrase hash never reaches the client.
+  const adminProjects: AdminProject[] = projects.map(({ passphraseHash, ...p }) => ({
+    ...p,
+    hasPassphrase: Boolean(passphraseHash),
+  }));
 
   return (
     <main className="mx-auto min-h-screen max-w-[1100px] px-6 py-10">
@@ -46,45 +53,7 @@ export default async function AdminPage() {
             Manage projects →
           </Link>
         </div>
-        {projects.length === 0 ? (
-          <p className="mt-3 text-[14px] italic text-muted">
-            No projects yet — create one from <span className="not-italic font-semibold text-ink">Manage projects</span>.
-          </p>
-        ) : (
-          <ul className="mt-3 flex flex-col gap-2">
-            {projects.map((p) => (
-              <li key={p.id}>
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[3px] border border-[var(--rule)] bg-paper px-4 py-3 hover:border-ink hover:bg-card">
-                  <Link href={`/admin/projects/${p.slug}`} className="min-w-0 flex-1">
-                    <span className="text-[15px] font-bold">{p.name}</span>
-                    {!p.enabled && (
-                      <span className="ml-2 rounded-[2px] bg-[var(--hairline)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
-                        disabled
-                      </span>
-                    )}
-                    <span className="ml-2 text-[12px] text-muted">/{p.slug}</span>
-                  </Link>
-                  <div className="flex shrink-0 items-center gap-3 text-[11px] font-bold uppercase tracking-[0.08em]">
-                    <Link
-                      href={`/admin/projects/${p.slug}/activity`}
-                      className="text-blue underline hover:text-ink"
-                    >
-                      Activity →
-                    </Link>
-                    <a
-                      href={`/project/${p.slug}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue underline hover:text-ink"
-                    >
-                      Open site →
-                    </a>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <AdminProjectsManager projects={adminProjects} />
       </section>
 
       <section className="mt-12">
