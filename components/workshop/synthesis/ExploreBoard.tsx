@@ -146,6 +146,7 @@ export function ExploreBoard({
               <CardWall
                 tone="risk"
                 title="Risks"
+                closeAfterAdd
                 cards={board.risks.get(theme.id) ?? []}
                 editable={editable}
                 busy={busy}
@@ -158,6 +159,7 @@ export function ExploreBoard({
               <CardWall
                 tone="opportunity"
                 title="Opportunities"
+                closeAfterAdd
                 cards={board.opportunities.get(theme.id) ?? []}
                 editable={editable}
                 busy={busy}

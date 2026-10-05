@@ -72,6 +72,7 @@ export function CardWall({
   emptyHint,
   tall = false,
   slotQuestion,
+  closeAfterAdd = false,
 }: {
   tone: WallTone;
   title: string;
@@ -91,6 +92,10 @@ export function CardWall({
   emptyHint?: string;
   // Step 3's two are the whole page, so they are given room to look like it.
   tall?: boolean;
+  // Return to the add slot after each card. The default keeps the composer open for a run
+  // of ideas (step 3); step 2's walls are read beside the questions, so a card lands and
+  // the slot comes back.
+  closeAfterAdd?: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const t = TONE[tone];
@@ -129,7 +134,10 @@ export function CardWall({
                 label={addLabel}
                 busy={busy}
                 autoFocus
-                onAdd={onAdd}
+                onAdd={(text) => {
+                  onAdd(text);
+                  if (closeAfterAdd) setAdding(false);
+                }}
                 onDone={() => setAdding(false)}
               />
             </div>
