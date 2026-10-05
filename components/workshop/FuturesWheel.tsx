@@ -156,6 +156,7 @@ export function FuturesWheel({
   variant = "map",
   nodeProps,
   nodeExtra,
+  ringFor,
   zoom = "fit",
   onFitScale,
 }: {
@@ -177,6 +178,9 @@ export function FuturesWheel({
   nodeProps?: (cardId: string) => React.HTMLAttributes<HTMLDivElement> & { draggable?: boolean };
   // A marker drawn under a circle — "in Theme 2", "not on this board".
   nodeExtra?: (cardId: string) => React.ReactNode;
+  // A coloured ring around a circle — the synthesis board colours every node by its order
+  // and picks out a selection. `depth` is the ring index (0 = the first ring drawn).
+  ringFor?: (cardId: string, depth: number) => { color: string; width?: number } | null | undefined;
   // "fit" shrinks the wheel to its container; a number is an explicit zoom. Dragging out
   // of a scaled container is fine — the browser hit-tests transformed geometry, which is
   // the same machinery native drag uses to decide what is under the pointer.
@@ -313,6 +317,7 @@ export function FuturesWheel({
               label={n.text}
               dim={highlightIds ? !highlightIds.has(n.id) : false}
               emphasis={selected}
+              ring={ringFor?.(n.id, n.depth) ?? null}
               extra={nodeExtra?.(n.id)}
               {...(nodeProps?.(n.id) ?? {})}
             />
@@ -335,6 +340,7 @@ function WheelCircle({
   hub,
   dim,
   emphasis,
+  ring,
   extra,
   ...rest
 }: {
@@ -348,6 +354,9 @@ function WheelCircle({
   hub?: boolean;
   dim?: boolean;
   emphasis?: boolean;
+  // A ring outside the border, in its own colour. Drawn as a box-shadow so it costs no
+  // layout and sits outside the circle's edge; the emphasis glow stacks outside it.
+  ring?: { color: string; width?: number } | null;
   extra?: React.ReactNode;
 } & React.HTMLAttributes<HTMLDivElement>) {
   // Dimming is done in colour, not opacity. A translucent circle lets the line behind it
@@ -355,6 +364,12 @@ function WheelCircle({
   const background = dim ? "var(--paper)" : bg;
   const color = dim ? "color-mix(in srgb, var(--ink) 40%, var(--paper))" : fg;
   const edge = dim ? "var(--hairline)" : border;
+  const ringWidth = ring?.width ?? 3;
+  const shadow = ring
+    ? emphasis
+      ? `0 0 0 ${ringWidth}px ${ring.color}, 0 0 0 ${ringWidth + 6}px rgba(196,255,103,0.45)`
+      : `0 0 0 ${ringWidth}px ${ring.color}`
+    : undefined;
   const { className: extraClass = "", style: extraStyle, ...handlers } = rest;
   return (
     <div
@@ -372,6 +387,7 @@ function WheelCircle({
         background,
         color,
         border: edge ? `${hub || emphasis ? 3 : 2}px solid ${edge}` : "none",
+        ...(shadow ? { boxShadow: shadow } : {}),
         ...extraStyle,
       }}
       {...handlers}

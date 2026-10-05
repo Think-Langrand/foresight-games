@@ -686,6 +686,7 @@ export function SynthesisTeamView({
           onCreateThemeFrom={createThemeFrom}
           onMoveManyToTheme={moveManyToTheme}
           week2Cards={week2Cards}
+          scenarioTitle={config.scenarioTitle}
           admin={admin}
           themeId={themeId}
           onPickTheme={setThemeId}

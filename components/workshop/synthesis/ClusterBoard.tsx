@@ -23,6 +23,7 @@ import {
 } from "@/components/workshop/synthesis/SynthesisCard";
 import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
+import { rippleDepthColor } from "@/components/workshop/RippleCard";
 import { SuggestThemesRail } from "@/components/workshop/synthesis/SuggestThemesRail";
 import { ThemeJoinSearch } from "@/components/workshop/synthesis/ThemeJoinSearch";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
@@ -41,16 +42,15 @@ import {
 // needs to be neither.
 const CARD_BG = "#efeade";
 
-// One fill per order, so the distance from the key change is a colour rather than a number
-// you have to read. Tinted rather than solid: the card's own text has to stay the loudest
-// thing on it, and these sit on the near-white card ground.
-const ORDER_TINT: Record<number | "deep", string> = {
-  1: "bg-lime",
-  2: "bg-blue/25",
-  3: "bg-coral/30",
-  4: "bg-black/12",
-  deep: "bg-black/12",
-};
+// One colour per order, so the distance from the key change is a colour rather than a
+// number you have to read. The SAME hue the Week 2 wheel gives that ring (RippleCard's
+// depth palette: 1st blue, 2nd amber, 3rd coral, then cycling lighter), so the filter
+// chips, the stamp on a card and the ring round a map node all agree. The stamp and the
+// off-state chip are tinted rather than solid: the text has to stay the loudest thing.
+const orderColor = (order: number) => rippleDepthColor(order);
+const orderTint = (order: number) => `color-mix(in srgb, ${orderColor(order)} 28%, var(--card))`;
+// The hue cycle lands on lime every fourth order, and lime wants ink text, not white.
+const orderOnText = (order: number) => (order % 4 === 0 ? "var(--ink)" : "#fff");
 
 // STEP 1 — cluster Week 2's implications into themes.
 //
@@ -111,6 +111,7 @@ export function ClusterBoard({
   onCreateThemeFrom,
   onMoveManyToTheme,
   week2Cards = [],
+  scenarioTitle,
   admin,
   themeId,
   onPickTheme,
@@ -144,6 +145,8 @@ export function ClusterBoard({
   onMoveManyToTheme: (cardIds: string[], themeId: string) => void;
   // Week 2's map, so the drill-in can show an implication inside its own branch.
   week2Cards?: RippleCard[];
+  // The hub label when the whole map is drawn.
+  scenarioTitle?: string;
   // Present for a signed-in facilitator only: the clustering tool rides the right rail.
   admin?: AdminTools;
   // The theme open in the body (null = the board). Owned by the view and shared with the
@@ -395,8 +398,9 @@ export function ClusterBoard({
 
   // --- the map ----------------------------------------------------------------
   // Which branch is drawn. The key-change chips already in the header pick it; with none
-  // picked the map falls back to the first that has implications, because "every key
-  // change" is the 2217px whole map and does not belong in this column.
+  // picked ("Any key change") the map is the WHOLE wheel, every key change at once. It is
+  // big — Group 1's is 2217px — but "fit" scales it into the column and the zoom gets you
+  // close; drawing the first branch instead, under a chip that said "any", misled.
   // The branches the map can show. NOT `keyChanges`, which counts the tray: once a group
   // has clustered everything under one key change it drops out of the chips, and that
   // branch's map would become unreachable at exactly the point the group is reviewing its
@@ -413,12 +417,19 @@ export function ClusterBoard({
     }
     return [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   })();
-  const mapAt = Math.max(
-    0,
-    mapKeyChanges.findIndex(([text]) => text === (mapKey ?? keyFilter))
-  );
-  const mapRootId = mapKeyChanges[mapAt]?.[1] ?? null;
+  // The cycler's own choice wins, then the tray's chip; neither = the whole wheel. A key
+  // change that has since vanished from the list falls back to the first.
+  const mapPick = mapKey ?? keyFilter;
+  const mapAll = mapPick === null;
+  const mapAt = mapAll ? -1 : Math.max(0, mapKeyChanges.findIndex(([text]) => text === mapPick));
+  const mapRootId = mapAll ? null : (mapKeyChanges[mapAt]?.[1] ?? null);
   const mapBranch = mapRootId ? branchOf(week2Cards, mapRootId) : null;
+  // The whole-map view has no root to cut away, and its first ring is the key changes.
+  const focusBranch = focusNode ? branchOf(week2Cards, focusNode) : null;
+  // Every order on the Week 2 map, for the legend beside the zoom. From the map, not the
+  // tray, so it is complete inside a theme's "find more" map where the tray is out of view.
+  const mapOrders = [...new Set(week2Cards.map((c) => implicationOrder(lineage[c.id])).filter((o): o is number => o !== null))]
+    .sort((a, b) => a - b);
 
 
   // Every Week 2 id that has a Week 3 card, and where that card currently sits. The map
@@ -627,10 +638,8 @@ export function ClusterBoard({
         {order !== null && (
           <span
             title={`${ordinal(order)}-order implication — ${order} step${order === 1 ? "" : "s"} from its key change`}
-            className={
-              "pointer-events-none absolute bottom-1 right-1 rounded-[2px] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-ink " +
-              (ORDER_TINT[order] ?? ORDER_TINT.deep)
-            }
+            className="pointer-events-none absolute bottom-1 right-1 rounded-[2px] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-ink"
+            style={{ background: orderTint(order) }}
           >
             {ordinal(order)}
           </span>
@@ -671,7 +680,7 @@ export function ClusterBoard({
   // where that theme's own nodes are lit and a selection can be added straight into it.
   const renderMap = (inTheme: RippleCard | null) => (
     <div className="rounded-[3px] border border-dashed border-black/15 p-3">
-      {mapBranch ? (
+      {mapKeyChanges.length > 0 && (mapAll || mapBranch) ? (
         <>
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
@@ -712,21 +721,36 @@ export function ClusterBoard({
               <span className="text-[10px] font-bold text-muted">{Math.round(zoom * 100)}%</span>
             )}
 
+            {/* The order colours, so the rings on the circles read without going back to
+                the tray's chips — which are out of view inside a theme. */}
+            {mapOrders.length > 0 && (
+              <span className="ml-2 flex items-center gap-1.5" aria-label="Ring colours by order">
+                {mapOrders.map((o) => (
+                  <span key={o} className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.05em] text-muted">
+                    <span aria-hidden className="inline-block h-[9px] w-[9px] rounded-full" style={{ background: orderColor(o) }} />
+                    {ordinal(o)}
+                  </span>
+                ))}
+              </span>
+            )}
+
             {/* Which branch, and the way through all of them. The key-change chips in the
                 tray header can pick one, but they are counted off the TRAY — a key change
                 whose implications have all been clustered drops out of them, and its map
                 with it. Stepping through happens here, off the full list, so every map
-                stays reachable however far the clustering has got. */}
+                stays reachable however far the clustering has got. "All key changes" is
+                one stop on the way round, unless the tray is filtered to one key change —
+                the cycler never touches the tray's filter, so it cannot clear it. */}
             {mapKeyChanges.length > 1 && (
               <span className="ml-auto flex min-w-0 items-center gap-1.5">
                 <span
                   className="min-w-0 max-w-[20rem] truncate text-[10.5px] font-bold uppercase tracking-[0.05em]"
-                  title={mapKeyChanges[mapAt]?.[0]}
+                  title={mapAll ? "All key changes" : mapKeyChanges[mapAt]?.[0]}
                 >
-                  {mapKeyChanges[mapAt]?.[0]}
+                  {mapAll ? "All key changes" : mapKeyChanges[mapAt]?.[0]}
                 </span>
                 <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-muted">
-                  {mapAt + 1}/{mapKeyChanges.length}
+                  {mapAll ? `${mapKeyChanges.length} maps` : `${mapAt + 1}/${mapKeyChanges.length}`}
                 </span>
                 {([
                   ["‹", -1, "Previous key change"],
@@ -736,9 +760,13 @@ export function ClusterBoard({
                     key={step}
                     onClick={() => {
                       // Wraps, so you can walk the whole set in one direction.
-                      const n = mapKeyChanges.length;
-                      const next = mapKeyChanges[(mapAt + step + n) % n];
-                      setMapKey(next[0]); // the map only — the tray keeps its filter
+                      const stops: (string | null)[] = [
+                        ...(keyFilter === null ? [null] : []),
+                        ...mapKeyChanges.map(([text]) => text),
+                      ];
+                      const cur = Math.max(0, stops.indexOf(mapPick));
+                      const next = stops[(cur + step + stops.length) % stops.length];
+                      setMapKey(next); // the map only — the tray keeps its filter
                       setFocusNode(null);
                       setZoom("fit"); // branches differ in size; a held zoom misleads
                     }}
@@ -799,24 +827,46 @@ export function ClusterBoard({
 
           <div className="max-h-[70vh] overflow-auto">
             <FuturesWheel
-              key={mapBranch.root.id}
-              cards={mapBranch.subtree
-                .filter((c) => c.id !== mapBranch.root.id)
-                .map((c) => (c.parentId === mapBranch.root.id ? { ...c, parentId: null } : c))}
-              centerLabel={mapBranch.root.text}
-              variant="branch"
+              key={mapBranch ? mapBranch.root.id : "all"}
+              cards={
+                mapBranch
+                  ? mapBranch.subtree
+                      .filter((c) => c.id !== mapBranch.root.id)
+                      .map((c) => (c.parentId === mapBranch.root.id ? { ...c, parentId: null } : c))
+                  : week2Cards
+              }
+              centerLabel={mapBranch ? mapBranch.root.text : scenarioTitle || "This future"}
+              variant={mapBranch ? "branch" : "map"}
               zoom={zoom}
               onFitScale={(v) => (fitScaleRef.current = v)}
               selectedId={focusNode ?? undefined}
-              highlightIds={focusNode ? mapBranch.pathIds : undefined}
+              highlightIds={focusNode ? (mapBranch ?? focusBranch)?.pathIds : undefined}
+              // Every circle wears its order's colour; a picked one goes blue and a member
+              // of the open theme lime, thicker, so the selection still reads over the
+              // order rings.
+              ringFor={(w2id) => {
+                const hit = seeded.get(w2id);
+                if (hit && picked.has(hit.card.id)) return { color: "var(--blue)", width: 4 };
+                if (hit && inTheme !== null && hit.themeId === inTheme.id) return { color: "var(--lime-deep)", width: 4 };
+                const o = implicationOrder(lineage[w2id]);
+                return o === null ? null : { color: orderColor(o), width: 3 };
+              }}
               nodeProps={(w2id) => {
                 const hit = seeded.get(w2id);
                 // Hovering reads the node out in full in the right rail — on every node,
                 // including one with no Week 3 card, because "what does this one say" is
                 // the question whether or not you can act on it.
                 const read = { onMouseEnter: () => setPeek(w2id) };
+                // The tray's order filter applies to the map too: the other orders step
+                // back so the filtered one reads as a ring of colour.
+                const order = implicationOrder(lineage[w2id]);
+                const filteredOut = orderFilter !== null && order !== orderFilter;
+                // On the whole map the key changes are drawn too. They are the structure,
+                // not candidates — never seeded, never dragged — so they read at full
+                // strength with no "not on this board" stamp.
+                if (order === null) return { ...read, style: { cursor: "default" } };
                 // Never seeded into this week: there is no row to move.
-                if (!hit) return { ...read, style: { cursor: "not-allowed", opacity: 0.45 } };
+                if (!hit) return { ...read, style: { cursor: "not-allowed", opacity: filteredOut ? 0.2 : 0.45 } };
                 const themed = hit.themeId !== null;
                 const member = inTheme !== null && hit.themeId === inTheme.id;
                 return {
@@ -826,22 +876,19 @@ export function ClusterBoard({
                     if (!editable || themed) return;
                     togglePicked(hit.card.id);
                   },
-                  className: picked.has(hit.card.id)
-                    ? "ring-[3px] ring-blue"
-                    : member
-                      ? "ring-[3px] ring-[var(--lime-deep)]"
-                      : "",
                   style: {
                     cursor: !editable || themed ? "default" : "grab",
                     ...(themed ? { background: "var(--lime)" } : {}),
                     // Inside a theme the OTHER themes' nodes step back, so the lit ones
                     // read as the shape of this theme on the map.
                     ...(inTheme && themed && !member ? { opacity: 0.45 } : {}),
+                    ...(filteredOut ? { opacity: 0.3 } : {}),
                   },
                 };
               }}
               nodeExtra={(w2id) => {
                 const hit = seeded.get(w2id);
+                if (implicationOrder(lineage[w2id]) === null) return null; // a key change
                 if (!hit) return (
                   <span className="rounded-[2px] bg-black/10 px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-muted">
                     not on this board
@@ -994,10 +1041,8 @@ export function ClusterBoard({
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {peekLineage && implicationOrder(peekLineage) !== null && (
                     <span
-                      className={
-                        "rounded-[2px] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-ink " +
-                        (ORDER_TINT[implicationOrder(peekLineage)!] ?? ORDER_TINT.deep)
-                      }
+                      className="rounded-[2px] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-ink"
+                      style={{ background: orderTint(implicationOrder(peekLineage)!) }}
                     >
                       {ordinal(implicationOrder(peekLineage)!)}
                     </span>
@@ -1472,6 +1517,10 @@ export function ClusterBoard({
               {[null, ...orders].map((o) => {
                 const on = orderFilter === o;
                 const n = o === null ? board.unclustered.length : (orderCounts.get(o) ?? 0);
+                // Each order's chip wears its colour — the same one its cards are stamped
+                // with and its circles are ringed with on the map — solid when it is the
+                // filter, as a dot and a tint otherwise.
+                const colour = o === null ? null : orderColor(o);
                 return (
                   <button
                     key={o ?? "all"}
@@ -1483,12 +1532,26 @@ export function ClusterBoard({
                         : `${ordinal(o)}-order — ${o} step${o === 1 ? "" : "s"} from its key change`
                     }
                     className={
-                      "rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                      (on
-                        ? "border-ink bg-ink text-paper"
-                        : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
+                      "flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
+                      (colour === null
+                        ? on
+                          ? "border-ink bg-ink text-paper"
+                          : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink"
+                        : on
+                          ? ""
+                          : "text-ink hover:brightness-95")
+                    }
+                    style={
+                      o === null || colour === null
+                        ? undefined
+                        : on
+                          ? { background: colour, borderColor: colour, color: orderOnText(o) }
+                          : { background: orderTint(o), borderColor: colour }
                     }
                   >
+                    {colour !== null && !on && (
+                      <span aria-hidden className="inline-block h-[7px] w-[7px] rounded-full" style={{ background: colour }} />
+                    )}
                     {o === null ? "All" : ordinal(o)} {n}
                   </button>
                 );
