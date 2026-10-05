@@ -46,6 +46,7 @@ import {
 } from "@/lib/synthesis-shape";
 import type { WorksheetSection } from "@/lib/exercise-types";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
+import { requestSummary } from "@/lib/analysis/implication-cluster-client";
 
 // WEEK 3 — Synthesis. Four steps on one shared board:
 //   1 · Cluster            — drag Week 2's implications into themes, and name each
@@ -131,6 +132,10 @@ export function SynthesisTeamView({
   const [themeId, setThemeId] = useState<string | null>(null);
   // Which fear step 4 has open. Hoisted for the same hook-order reason.
   const [focusId, setFocusId] = useState<string | null>(null);
+  // The facilitator's summary call (step 3). Owned here, not by the step: it takes about
+  // half a minute, and the step unmounts if the facilitator looks at another one meanwhile.
+  const [summarizing, setSummarizing] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   // Inside a design-group session page the tabs row is the header, and the scenario toggle
   // goes up into it. Standalone, the board draws its own header as before.
   const inTabs = useInSessionTabs();
@@ -584,6 +589,23 @@ export function SynthesisTeamView({
     });
   };
 
+  // Facilitator only: write the executive summary of steps 1–2. The route stores it on the
+  // board's config and realtime delivers it to every member, this one included; the
+  // refresh is only so the facilitator never waits on the channel.
+  const summarize = async () => {
+    if (!admin) return;
+    setSummarizing(true);
+    setSummaryError(null);
+    try {
+      await requestSummary(admin.projectId, admin.groupId, { exerciseId: admin.exerciseId });
+      refresh();
+    } catch (e) {
+      setSummaryError(e instanceof Error ? e.message : "Summary failed.");
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
   // ---- locked / finished -----------------------------------------------------
   // A locked week (phase HARVEST) lands here. It renders the SAME read-only panel the
   // admin viewer and the earlier-week tabs use, so the whole Week 3 artefact — themes,
@@ -692,6 +714,11 @@ export function SynthesisTeamView({
           board={board}
           editable={editable}
           busy={busy}
+          admin={admin}
+          summary={config.summary}
+          summarizing={summarizing}
+          summaryError={summaryError}
+          onSummarize={summarize}
           onAdd={addBoardCard}
           onEdit={editCard}
           onDelete={removeCard}

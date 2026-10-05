@@ -195,11 +195,7 @@ export function HopeFearGallery({
                     </span>
                   </div>
                   <AddCardForm
-                    label={
-                      kind === "hope"
-                        ? "What would it mean to us if this went well?"
-                        : "What would we hate to lose here?"
-                    }
+                    label={kind === "hope" ? "We hope … because …" : "We fear … because …"}
                     busy={busy}
                     autoFocus
                     onAdd={(text) => onQuickAdd(kind, text)}

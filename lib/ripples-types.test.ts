@@ -184,6 +184,19 @@ describe("resolveConfig", () => {
     expect(c.chipsPerPlayer).toBe(DEFAULT_RIPPLES_CONFIG.chipsPerPlayer);
   });
 
+  it("carries the facilitator's summary through, and nulls a malformed one", () => {
+    const summary = {
+      overview: "Trust moves to people.",
+      themes: [],
+      tensions: [],
+      generatedAt: "2026-10-05T12:00:00.000Z",
+      cardCount: 3,
+    };
+    expect(resolveConfig({ summary }).summary).toEqual(summary);
+    expect(resolveConfig({ summary: { overview: "no timestamp" } }).summary).toBeNull();
+    expect(resolveConfig({}).summary).toBeNull();
+  });
+
   // The no-backfill contract: design-group boards provisioned before the rank step
   // existed have no `scoringEnabled` key, and must still turn it on.
   describe("scoringEnabled defaults to sharedTeam", () => {

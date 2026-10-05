@@ -5,6 +5,7 @@ import { ImplicationTree } from "@/components/workshop/ImplicationTree";
 import { ImplicationList } from "@/components/workshop/ImplicationList";
 import type { RippleCard } from "@/lib/ripples-types";
 import type { ThemeAnswerKind } from "@/lib/synthesis-shape";
+import type { SynthesisSummary } from "@/lib/synthesis-summary-shape";
 
 // Read-only renderings of one design-group week's answers, shaped server-side by
 // lib/group-answers.ts. Shared by the admin answers viewer (with authors, kind badges and
@@ -92,6 +93,8 @@ export interface SynthesisExercise {
   // is ever silently lost; an empty list is the normal case.
   orphans: AnswerRow[];
   questions: QuestionBlock[]; // the Sandbox
+  // The facilitator's executive summary of steps 1–2, if one has been generated.
+  summary: SynthesisSummary | null;
 }
 export interface PlaceholderExercise {
   kind: "placeholder";

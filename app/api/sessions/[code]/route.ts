@@ -65,7 +65,13 @@ export async function PATCH(
     if (body.status) patch.status = body.status;
     if (body.prompt !== undefined) patch.prompt = body.prompt;
     if (body.currentUncertaintyId) patch.currentUncertaintyId = body.currentUncertaintyId;
-    if (body.config !== undefined) patch.config = body.config;
+    if (body.config !== undefined) {
+      // A config write replaces the blob wholesale, and this route is open to anyone with
+      // the code. The facilitator's Week 3 summary lives in the blob and is written only by
+      // the admin summary route, so it is carried over rather than taken from the body.
+      const stored = (session.config ?? {}) as Record<string, unknown>;
+      patch.config = { ...body.config, summary: stored.summary ?? null };
+    }
 
     if (body.phase) {
       if (!isRipplePhase(body.phase)) {

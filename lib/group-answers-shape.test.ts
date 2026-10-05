@@ -332,6 +332,20 @@ describe("shapeFromView — synthesis weeks", () => {
     expect(out.orphans.map((a) => a.id)).toEqual(["LOOSE"]);
   });
 
+  it("carries the facilitator's summary from the board's config", () => {
+    const summary = {
+      overview: "Trust moves to people.",
+      themes: [],
+      tensions: [],
+      generatedAt: "2026-10-05T12:00:00.000Z",
+      cardCount: 1,
+    };
+    const v = view(board());
+    const out = shapeFromView(ex("synthesis"), { ...v, config: { ...v.config, summary } });
+    if (out.kind !== "synthesis") return;
+    expect(out.summary).toEqual(summary);
+  });
+
   it("degrades to a placeholder when the board could not be loaded", () => {
     expect(shapeFromView(ex("synthesis"), null).kind).toBe("placeholder");
   });

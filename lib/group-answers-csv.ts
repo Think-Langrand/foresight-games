@@ -14,6 +14,20 @@ export function synthesisCsvRows(ex: SynthesisExercise): string[][] {
   const rows: string[][] = [];
   const at = (theme: string) => `Theme: ${theme}`;
 
+  // The facilitator's summary first, as the panel shows it. No author: the model wrote it.
+  if (ex.summary) {
+    const s = ex.summary;
+    const line = (content: string) => rows.push([ex.title, "Summary", "summary", content, "", s.generatedAt]);
+    line(s.overview);
+    for (const t of s.themes) {
+      if (t.about) line(`${t.title} — ${t.about}`);
+      if (t.atStake) line(`${t.title} — at stake: ${t.atStake}`);
+      for (const r of t.risks) line(`${t.title} — risk: ${r}`);
+      for (const o of t.opportunities) line(`${t.title} — opportunity: ${o}`);
+    }
+    for (const x of s.tensions) line(`Tension: ${x}`);
+  }
+
   // A hope or fear, its "why" on the same row, indented by depth — then whatever rode on
   // it (who it concerns, older boards' assumptions) as rows of their own.
   const chainRows = (section: string, c: SynthesisExercise["hopesFears"][number]) => {

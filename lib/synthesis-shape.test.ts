@@ -14,6 +14,7 @@ import {
   clusterProgress,
   exploreProgress,
   flipProgress,
+  summaryCardCount,
   boardChainCards,
   flattenChainCards,
   stakeLedger,
@@ -1297,6 +1298,18 @@ describe("clusterProgress / exploreProgress", () => {
     expect(exploreProgress(indexSynthesisBoard([theme("TH", 1), ...stakes()]), "TH")).toBe("started");
     expect(exploreProgress(indexSynthesisBoard([theme("TH", 1), stakes()[0]]), "TH")).toBe("started");
     expect(exploreProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
+  });
+
+  it("summaryCardCount counts the themes, their answers, risks and opportunities — not hopes or fears", () => {
+    const cards = [
+      theme("TH", 1),
+      ...answered(),
+      ...stakes(),
+      card("I", "SECOND", "TH", 30),
+      card("F", "FIRST", null, 31, { cardKind: "fear" }),
+    ];
+    expect(summaryCardCount(indexSynthesisBoard(cards))).toBe(1 + 4 + 2);
+    expect(summaryCardCount(indexSynthesisBoard([]))).toBe(0);
   });
 });
 

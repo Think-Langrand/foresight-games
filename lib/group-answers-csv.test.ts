@@ -21,6 +21,7 @@ const ex = (over: Partial<SynthesisExercise> = {}): SynthesisExercise => ({
   parked: [],
   orphans: [],
   questions: [],
+  summary: null,
   ...over,
 });
 
@@ -170,5 +171,29 @@ describe("synthesisCsvRows", () => {
 
   it("returns nothing for an empty week", () => {
     expect(synthesisCsvRows(ex())).toEqual([]);
+  });
+
+  it("writes the facilitator's summary first, under its own section, with no author", () => {
+    const rows = synthesisCsvRows(
+      ex({
+        themes: [theme()],
+        summary: {
+          overview: "Trust moves to people.",
+          themes: [{ themeId: "T", title: "Trust", about: "Who people listen to", atStake: "Hosts gain reach", risks: ["Bad actors"], opportunities: ["Trust routes"] }],
+          tensions: ["Reach vs accountability"],
+          generatedAt: "2026-10-05T12:00:00.000Z",
+          cardCount: 4,
+        },
+      })
+    );
+    expect(rows.slice(0, 6)).toEqual([
+      ["Session 3", "Summary", "summary", "Trust moves to people.", "", "2026-10-05T12:00:00.000Z"],
+      ["Session 3", "Summary", "summary", "Trust — Who people listen to", "", "2026-10-05T12:00:00.000Z"],
+      ["Session 3", "Summary", "summary", "Trust — at stake: Hosts gain reach", "", "2026-10-05T12:00:00.000Z"],
+      ["Session 3", "Summary", "summary", "Trust — risk: Bad actors", "", "2026-10-05T12:00:00.000Z"],
+      ["Session 3", "Summary", "summary", "Trust — opportunity: Trust routes", "", "2026-10-05T12:00:00.000Z"],
+      ["Session 3", "Summary", "summary", "Tension: Reach vs accountability", "", "2026-10-05T12:00:00.000Z"],
+    ]);
+    expect(rows[6][2]).toBe("theme");
   });
 });

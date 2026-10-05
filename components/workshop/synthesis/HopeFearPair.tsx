@@ -32,7 +32,7 @@ const FACE: Record<
     backFill: "rgba(196, 255, 103, 0.22)",
     backEdge: "border-[var(--lime-deep)]/70",
     mark: "☀",
-    ask: "What's the hope on the other side of this?",
+    ask: "Same facts, said as a hope — We hope … because …",
   },
   fear: {
     chip: "bg-coral text-white",
@@ -40,7 +40,7 @@ const FACE: Record<
     backFill: "rgba(255, 100, 78, 0.16)",
     backEdge: "border-coral/60",
     mark: "☂",
-    ask: "What's the fear on the other side of this?",
+    ask: "Same facts, said as a fear — We fear … because …",
   },
 };
 

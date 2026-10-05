@@ -71,14 +71,18 @@ export function CardWall({
   badgeFor,
   emptyHint,
   tall = false,
+  slotQuestion,
 }: {
   tone: WallTone;
   title: string;
   cards: RippleCard[];
   editable: boolean;
   busy: boolean;
-  // The composer's placeholder — the question this wall answers.
+  // The composer's placeholder — the sentence to finish ("We hope … because …").
   addLabel: string;
+  // The question the slot asks, shown on the add slot and above the open composer, so the
+  // placeholder can be the sentence-starter rather than carry the whole prompt.
+  slotQuestion?: string;
   onAdd: (text: string) => void;
   onEdit: (card: RippleCard, text: string) => void;
   onRequestDelete: (card: RippleCard) => void;
@@ -118,6 +122,9 @@ export function CardWall({
         {editable &&
           (adding ? (
             <div className={"flex w-56 flex-col rounded-[4px] border-2 border-ink bg-paper p-2.5"}>
+              {slotQuestion && (
+                <div className="mb-1.5 text-[11.5px] font-bold leading-[1.3]">{slotQuestion}</div>
+              )}
               <AddCardForm
                 label={addLabel}
                 busy={busy}
@@ -140,6 +147,9 @@ export function CardWall({
               <span className="text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-muted">
                 ＋ Add {noun === "opportunity" ? "an" : "a"} {noun}
               </span>
+              {slotQuestion && (
+                <span className="max-w-[22ch] text-[11px] italic leading-[1.35] text-muted">{slotQuestion}</span>
+              )}
             </button>
           ))}
 

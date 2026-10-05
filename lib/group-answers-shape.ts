@@ -207,6 +207,7 @@ export function shapeFromView(
       // customized stores [] and must fall back to the type's template, or its Sandbox
       // notes are invisible here.
       questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
+      summary: view.config.summary,
     };
   }
 

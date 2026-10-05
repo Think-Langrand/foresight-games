@@ -552,6 +552,20 @@ export function flipProgress(board: SynthesisBoard): { flipped: number; total: n
   return { flipped: flipped.length, total: fears.length };
 }
 
+// How much of steps 1–2 there is for the facilitator's summary to read: the themes, their
+// answered questions, their risks and opportunities. Stored with the summary, so the board
+// can say "this has changed since" — see lib/synthesis-summary-shape.
+export function summaryCardCount(board: SynthesisBoard): number {
+  let n = board.themes.length;
+  for (const t of board.themes) {
+    const a = themeAnswers(board, t.id);
+    n += READING_FIELDS.filter((k) => (a[k]?.text ?? "").trim().length > 0).length;
+    n += board.risks.get(t.id)?.length ?? 0;
+    n += board.opportunities.get(t.id)?.length ?? 0;
+  }
+  return n;
+}
+
 // Every hope and fear under a theme, depth-first so a flipped card follows the one it
 // came from. `depth` is its chain depth (1 = written straight onto the theme), and
 // `flippedFrom` is the card it answers, which the gallery shows instead of drawing a tree.

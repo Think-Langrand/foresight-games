@@ -7,6 +7,7 @@ import type {
   ImplicationClusterResponse,
   SimilarResponse,
 } from "./implication-cluster-shape";
+import type { SynthesisSummary } from "@/lib/synthesis-summary-shape";
 
 export interface ClusterRequest {
   sourceExerciseId: string;
@@ -53,5 +54,19 @@ export function requestSimilar(
     `/api/admin/projects/${projectId}/design-groups/${groupId}/similar`,
     body,
     "Suggestions failed"
+  );
+}
+
+// The Week 3 executive summary. The one admin LLM route that writes: the summary lands on
+// the board's config, and realtime carries it to every member.
+export function requestSummary(
+  projectId: string,
+  groupId: string,
+  body: { exerciseId: string }
+): Promise<{ summary: SynthesisSummary }> {
+  return post(
+    `/api/admin/projects/${projectId}/design-groups/${groupId}/summary`,
+    body,
+    "Summary failed"
   );
 }

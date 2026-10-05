@@ -7,6 +7,7 @@
 // matter. A facilitator advances phases.
 
 import type { WorkshopSession } from "@/lib/workshop-types";
+import { coerceSummary, type SynthesisSummary } from "@/lib/synthesis-summary-shape";
 
 // ---------------------------------------------------------------------------
 // Phases (facilitator-advanced, all teams move together)
@@ -231,6 +232,10 @@ export interface RipplesConfig {
   scoringEnabled: boolean;
   // The reflection questions asked after the three rounds (admin-editable).
   questions: string[];
+  // Week 3 only: the facilitator's executive summary of steps 1–2, read by the group at the
+  // hopes & fears step. Written by the admin summary route, never by a member; this table
+  // is in the realtime publication, so writing it here is what makes it land live.
+  summary: SynthesisSummary | null;
 }
 
 // The default reflection questions (used unless an admin overrides them).
@@ -257,6 +262,7 @@ export const DEFAULT_RIPPLES_CONFIG: RipplesConfig = {
   sharedTeam: false,
   scoringEnabled: false,
   questions: DEFAULT_QUESTIONS,
+  summary: null,
 };
 
 // Coerce a raw jsonb blob (or null) into a complete, well-typed config by merging
@@ -298,6 +304,7 @@ export function resolveConfig(raw: Record<string, unknown> | null | undefined): 
       Array.isArray(r.questions) && r.questions.length > 0
         ? (r.questions as unknown[]).filter((q): q is string => typeof q === "string" && q.trim().length > 0)
         : DEFAULT_QUESTIONS,
+    summary: coerceSummary(r.summary),
   };
 }
 

@@ -16,6 +16,7 @@ import {
   VALUES_FIELDS,
   type ThemeAnswerKind,
 } from "@/lib/synthesis-shape";
+import type { SynthesisSummary } from "@/lib/synthesis-summary-shape";
 
 // Read-only rendering of a Week 3 (synthesis) week: each theme with its implications, the
 // four questions answered on it and its risks and opportunities (steps 1–2); then the
@@ -158,6 +159,64 @@ function ChainList({ rows, ...opts }: { rows: ChainRow[] } & PanelOpts) {
   );
 }
 
+// The facilitator's executive summary of steps 1–2, as the group read it before writing
+// hopes and fears. Read-only everywhere: regenerating is the live board's job.
+export function SummaryBlock({ summary }: { summary: SynthesisSummary }) {
+  return (
+    <div className="rounded-[4px] border-2 border-ink bg-[rgba(196,255,103,0.16)] px-4 py-3">
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <Eyebrow>Where we&rsquo;ve got to</Eyebrow>
+        <span className="text-[10.5px] italic text-muted">
+          Written by the model from steps 1–2 · {new Date(summary.generatedAt).toLocaleString()}
+        </span>
+      </div>
+      <p className="mt-1.5 max-w-[75ch] text-[14px] leading-[1.5]">{summary.overview}</p>
+      {summary.themes.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-2.5">
+          {summary.themes.map((t, i) => (
+            <li key={`${t.themeId}-${i}`} className="rounded-[3px] border border-black/15 bg-paper p-3">
+              <div className="text-[13px] font-bold">{t.title}</div>
+              {t.about && <p className="mt-0.5 text-[12.5px] leading-[1.45] text-ink/80">{t.about}</p>}
+              {t.atStake && (
+                <p className="mt-1 text-[12.5px] leading-[1.45]">
+                  <span className="font-bold uppercase tracking-[0.05em] text-muted">At stake · </span>
+                  {t.atStake}
+                </p>
+              )}
+              {(t.risks.length > 0 || t.opportunities.length > 0) && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {t.risks.map((r) => (
+                    <span key={r} className="rounded-[2px] border border-coral/60 bg-coral/10 px-1.5 py-0.5 text-[11.5px] leading-[1.3]">
+                      <span className="font-bold text-coral">▼ </span>
+                      {r}
+                    </span>
+                  ))}
+                  {t.opportunities.map((o) => (
+                    <span key={o} className="rounded-[2px] border border-[var(--lime-deep)] bg-lime/25 px-1.5 py-0.5 text-[11.5px] leading-[1.3]">
+                      <span className="font-bold">▲ </span>
+                      {o}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {summary.tensions.length > 0 && (
+        <div className="mt-3">
+          <Eyebrow>Tensions to keep in view</Eyebrow>
+          <ul className="mt-1 flex flex-col gap-1 text-[12.5px] leading-[1.45]">
+            {summary.tensions.map((x) => (
+              <li key={x}>⟷ {x}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ThemeBlock({ theme, ...opts }: { theme: SynthesisTheme } & PanelOpts) {
   const byGroup = GROUPS.map((g) => ({
     ...g,
@@ -214,6 +273,7 @@ export function SynthesisPanel({
   const empty =
     ex.themes.length === 0 &&
     ex.hopesFears.length === 0 &&
+    ex.summary === null &&
     ex.role.length === 0 &&
     ex.unclustered.length === 0 &&
     ex.parked.length === 0 &&
@@ -226,6 +286,8 @@ export function SynthesisPanel({
       {seed}
 
       {empty && <p className="text-[13px] italic text-muted">Nothing on this board yet.</p>}
+
+      {ex.summary && <SummaryBlock summary={ex.summary} />}
 
       {/* LEGACY — an older board's role answers, once the week's share-out. */}
       {ex.role.length > 0 && (

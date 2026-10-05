@@ -57,11 +57,18 @@ export function FlipBoard({
     <PromptRail>
       <Prompts
         heading="Flip the fears"
-        lead="Pick a fear. What is the hope on the other side of it?"
+        lead="Same facts, said as a hope."
         questions={[
-          { question: "If this fear didn't come true, what would be true instead?" },
-          { question: "What is this fear protecting?", hint: "The hope is usually in there." },
-          { question: "Keep the fear.", hint: "Flipping it does not mean dropping it — both sides stay." },
+          { question: "What was the fear protecting?", hint: "That value is the hope's because." },
+          {
+            question: "Was our way of working the only way to get it?",
+            hint: "Staffing it ourselves was one way, not the only way.",
+          },
+          { question: "A flip is a hope, not a plan.", hint: "Say what people would experience, not the fix." },
+          {
+            question: "Keep both on the board.",
+            hint: "The fear and the hope are two honest readings of the same facts. The tension is the finding.",
+          },
         ]}
       />
     </PromptRail>

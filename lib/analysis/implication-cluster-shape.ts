@@ -257,5 +257,6 @@ export function rankByCentroid(
 export interface AdminTools {
   projectId: string;
   groupId: string;
+  exerciseId: string; // this week — what the summary route is asked to read
   clusterSources: { exerciseId: string; title: string; count: number }[];
 }

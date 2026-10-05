@@ -133,6 +133,7 @@ export default async function DesignGroupExercisePage({
       ? {
           projectId: project.id,
           groupId,
+          exerciseId: exercise.id,
           clusterSources: pastWeeks.flatMap((w) =>
             w.kind === "implications"
               ? [{ exerciseId: w.exerciseId, title: w.title, count: implicationSeedCandidates(w.cards).length }]
