@@ -8,9 +8,9 @@ import { SessionHeaderActions, useInSessionTabs } from "@/components/design-grou
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
 import { ClusterBoard } from "@/components/workshop/synthesis/ClusterBoard";
-import { ShortlistBoard } from "@/components/workshop/synthesis/ShortlistBoard";
+import { RoleBoard } from "@/components/workshop/synthesis/RoleBoard";
 import type { DeleteThemeMode } from "@/components/workshop/synthesis/DeleteThemeModal";
-import { HopesFearsBoard } from "@/components/workshop/synthesis/HopesFearsBoard";
+import { ValuesBoard } from "@/components/workshop/synthesis/ValuesBoard";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
 import { shapeFromView } from "@/lib/group-answers-shape";
 import {
@@ -37,10 +37,10 @@ import {
 } from "@/lib/ripples-types";
 import {
   indexSynthesisBoard,
+  answerOf,
   childrenOf,
   planReorder,
   SORT_STEP,
-  type ReadingField,
   type SortWrite,
   type Week2Lineage,
 } from "@/lib/synthesis-shape";
@@ -60,16 +60,14 @@ import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 // semantics, and a second one would entangle two unrelated flows. The two share their
 // chrome through BoardShell and their card plumbing through hooks.ts.
 
-type SynthStep = "cluster" | "hopes" | "shortlist";
-const SYNTH_STEPS: readonly SynthStep[] = ["cluster", "hopes", "shortlist"];
-// "Find themes" and "Explore themes" were two steps on one object — a theme's membership
-// and its reading — and the wireframes called them 1a and 1b of one activity. They are one
-// step now: a theme opened from the rail carries both. Steps 2 and 3 keep their old names
-// until they are reworked — renaming them now would promise a step that has not been built.
+type SynthStep = "cluster" | "values" | "role";
+const SYNTH_STEPS: readonly SynthStep[] = ["cluster", "values", "role"];
+// Named for the question each asks, after the workshop wireframes. The theme rail is the
+// picker on all three and the open theme carries across them.
 const STEP_LABELS: Record<SynthStep, string> = {
   cluster: "1 · Themes",
-  hopes: "2 · Hopes & Fears",
-  shortlist: "3 · Top 3 & 3",
+  values: "2 · Values & alternatives",
+  role: "3 · Public health's role",
 };
 
 const NO_CARDS: RippleCard[] = [];
@@ -126,11 +124,11 @@ export function SynthesisTeamView({
   // Declared up here with the other state, NOT inside the build branch below — several
   // early returns sit between the two, and a hook after one of them would break the order.
   const [step, setStep] = useState<SynthStep>("cluster");
-  // Hoisted beside `step` for the same hook-order reason, and shared by steps 1 and 2 so
+  // Hoisted beside `step` for the same hook-order reason, and shared by every step so
   // moving between them keeps you on the theme you were working on. In step 1 null means
-  // "the board", in step 2 it falls back to the first theme.
+  // "the board"; steps 2 and 3 fall back to the first theme.
   const [themeId, setThemeId] = useState<string | null>(null);
-  // Which hope or fear step 3 has open. Hoisted for the same hook-order reason; a newly
+  // Which hope or fear step 2 has open. Hoisted for the same hook-order reason; a newly
   // written card focuses itself, because the next thing you do is say why it matters.
   const [focusId, setFocusId] = useState<string | null>(null);
   // Inside a design-group session page the tabs row is the header, and the scenario toggle
@@ -230,12 +228,31 @@ export function SynthesisTeamView({
       if (res?.card) addLocal(res.card as RippleCard);
     });
 
-  // A first answer to one of the theme's four questions. An answer's card does not exist
-  // until the group writes it, so the first save creates it (here) and every later one
-  // edits it (editCard) — which is why ReadingBoard asks for "answer" rather than "add".
-  const answerTheme = (theme: RippleCard, field: ReadingField, text: string) => {
+  // A first answer to one of a theme's questions, on any step. An answer's card does not
+  // exist until the group writes it, so the first save creates it (here) and every later
+  // one edits it (editCard) — which is why the grids ask for "answer" rather than "add".
+  const answerTheme = (theme: RippleCard, field: CardKind, text: string) => {
     if (!text.trim()) return;
     addChildCard(theme, field, text);
+  };
+
+  // "Who does this concern?" on a hope or fear: one small card under it, created on the
+  // first save, edited after, removed when saved empty.
+  const setConcern = (card: RippleCard, text: string) => {
+    const existing = answerOf(board, card.id, "concerns");
+    const next = text.trim();
+    if (existing) {
+      if (next) editCard(existing, next);
+      else removeCard(existing);
+    } else if (next) {
+      addChildCard(card, "concerns", next);
+    }
+  };
+
+  // Include a theme's role in the share-out: the `shortlisted` flag on its role card.
+  const shareRole = (theme: RippleCard, included: boolean) => {
+    const role = answerOf(board, theme.id, "desired_role");
+    if (role) shortlist(role, included);
   };
 
   // Put an implication in a SECOND theme, keeping the one it is already in. The text is
@@ -690,8 +707,8 @@ export function SynthesisTeamView({
         />
       )}
 
-      {step === "hopes" && (
-        <HopesFearsBoard
+      {step === "values" && (
+        <ValuesBoard
           board={board}
           lineage={lineage}
           editable={editable}
@@ -702,7 +719,8 @@ export function SynthesisTeamView({
           onFocus={setFocusId}
           onAdd={addChainCardFocused}
           onFlip={addChildCard}
-          onAddAssumption={(parent, text) => addChildCard(parent, "assumption", text)}
+          onConcern={setConcern}
+          onAnswer={answerTheme}
           onEdit={editCard}
           onDescribe={describeCard}
           onDelete={removeCard}
@@ -710,13 +728,20 @@ export function SynthesisTeamView({
         />
       )}
 
-      {step === "shortlist" && (
+      {step === "role" && (
         <div className="flex flex-col gap-8">
-          <ShortlistBoard
+          <RoleBoard
             board={board}
+            lineage={lineage}
             editable={editable}
             busy={busy}
-            onToggle={shortlist}
+            themeId={themeId}
+            onPickTheme={setThemeId}
+            onAnswer={answerTheme}
+            onEdit={editCard}
+            onDescribe={describeCard}
+            onDelete={removeCard}
+            onShare={shareRole}
             onGoToCluster={() => setStep("cluster")}
           />
           {sections.length > 0 && (

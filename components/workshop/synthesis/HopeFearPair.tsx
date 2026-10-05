@@ -51,10 +51,9 @@ export function HopeFearPair({
   busy,
   onEdit,
   onDescribe,
-  onAddAssumption,
+  onConcern,
   onFlip,
   onRequestDelete,
-  onDelete,
 }: {
   card: RippleCard;
   board: SynthesisBoard;
@@ -62,12 +61,10 @@ export function HopeFearPair({
   busy: boolean;
   onEdit: (card: RippleCard, text: string) => void;
   onDescribe: (card: RippleCard, description: string) => void;
-  onAddAssumption: (parent: RippleCard, text: string) => void;
+  onConcern: (card: RippleCard, text: string) => void;
   onFlip: (parent: RippleCard, kind: HopeFear, text: string) => void;
-  // The open card's delete asks first; an assumption's ✕ does not — it is a single line
-  // with nothing under it.
+  // Deleting asks first: a card takes whatever was flipped from it along.
   onRequestDelete: (card: RippleCard) => void;
-  onDelete: (card: RippleCard) => void;
 }) {
   const [writing, setWriting] = useState(false);
 
@@ -92,9 +89,8 @@ export function HopeFearPair({
           busy={busy}
           onEdit={onEdit}
           onDescribe={onDescribe}
-          onAddAssumption={onAddAssumption}
+          onConcern={onConcern}
           onRequestDelete={onRequestDelete}
-          onDelete={onDelete}
         />
       </div>
 
@@ -125,9 +121,8 @@ export function HopeFearPair({
             busy={busy}
             onEdit={onEdit}
             onDescribe={onDescribe}
-            onAddAssumption={onAddAssumption}
+            onConcern={onConcern}
             onRequestDelete={onRequestDelete}
-            onDelete={onDelete}
           />
         ) : writing ? (
           <div
