@@ -108,13 +108,10 @@ export function HopeFearFocus({
         {face.mark}
       </span>
 
-      <div className="px-6 pb-5 pt-5">
+      <div className="px-6 pb-4 pt-5">
         <div className="flex items-start gap-3 pl-8">
           <span className={"shrink-0 rounded-[2px] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] " + face.chip}>
             {kind}
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted">
-            What do we {kind === "hope" ? "hope" : "fear"}?
           </span>
           {editable && (
             <div className="ml-auto">
@@ -135,7 +132,18 @@ export function HopeFearFocus({
           )}
         </div>
 
-        <div className="mt-2.5 pl-8 pr-2 text-[20px] font-extrabold leading-[1.25]">
+        {/* The first of the three questions, styled like the other two so the card reads
+            as one set of three — not a title with two questions under it. Always answered:
+            a hope or fear is written before the card exists. */}
+        <div className="mt-3 flex items-start gap-2 pl-8">
+          <span aria-hidden className="mt-[1px] text-[11px] leading-none text-[var(--lime-deep)]">
+            ●
+          </span>
+          <div className="text-[12.5px] font-bold leading-[1.3]">
+            What do we {kind === "hope" ? "hope" : "fear"}?
+          </div>
+        </div>
+        <div className="mt-2 pl-8 pr-2 text-[20px] font-extrabold leading-[1.25]">
           <InlineText text={card.text} editable={editable} busy={busy} onSave={(t) => onEdit(card, t)} editIcon />
         </div>
       </div>
