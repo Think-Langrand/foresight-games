@@ -31,6 +31,8 @@ import { PROMPTS, ReadingBoard } from "@/components/workshop/synthesis/ReadingBo
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
 import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
+import { Dot, ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
+import { PromptRail } from "@/components/workshop/synthesis/PromptRail";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 import {
   DeleteThemeModal,
@@ -52,19 +54,6 @@ const ORDER_TINT: Record<number | "deep", string> = {
   4: "bg-black/12",
   deep: "bg-black/12",
 };
-
-// A very small bullet, for the several places this step lists one line per implication: a
-// rail square, the theme popover, the map read-out. Those lines are short, tight and often
-// truncated, and with nothing marking where each begins they read as one paragraph. Takes
-// its colour from the text it sits beside, so it never has to be restyled per list.
-function Dot() {
-  return (
-    <span
-      aria-hidden
-      className="mt-[0.52em] h-[3px] w-[3px] shrink-0 rounded-full bg-current opacity-45"
-    />
-  );
-}
 
 // STEP 1 — cluster Week 2's implications into themes.
 //
@@ -90,11 +79,10 @@ function Dot() {
 
 type Drag = { id: string; kind: "card" | "theme" };
 
-// Per-browser memory of two folds: the right rail, and the sheet's "In this theme" block.
-// See prefStore.ts for why these are external stores rather than state read in an effect.
-const FOLD = ["open", "closed"] as const;
-const rightRailPref = makePrefStore("synthesis.rightRail", "open", FOLD);
-const themeCardsPref = makePrefStore("synthesis.themeCards", "open", FOLD);
+// Per-browser memory of the sheet's "In this theme" fold. See prefStore.ts for why this is
+// an external store rather than state read in an effect. (The right rail's fold lives in
+// PromptRail.)
+const themeCardsPref = makePrefStore("synthesis.themeCards", "open", ["open", "closed"] as const);
 // Which card the pointer is over and which side of it — `after` is the far side along the
 // list's axis (right in a wrapping row, below in a column). `anchorId` null = past the end.
 type Over = { zone: string; anchorId: string | null; after: boolean };
@@ -193,10 +181,6 @@ export function ClusterBoard({
   // Inside an open theme, how "find more" looks: the text search, or the Week 2 map with
   // this theme's nodes lit. Ephemeral — it is a way of looking, not a preference.
   const [findMode, setFindMode] = useState<"search" | "map">("search");
-  // The rail square under the pointer, and where to draw its full contents. The squares
-  // truncate every line to fit; the popover is the same theme with nothing cut. Fixed to
-  // the viewport rather than inside the rail, which scrolls and would clip it.
-  const [hoverTheme, setHoverTheme] = useState<{ id: string; top: number } | null>(null);
   // Tray cards ticked for "create theme from selected". Drag still works and is untouched;
   // this is the other way round the same job, for a group that would rather read the whole
   // tray and tick than pick cards up one at a time.
@@ -212,31 +196,9 @@ export function ClusterBoard({
   // key change has no chip at all. Picking a chip still sets both; cycling sets only this.
   const [mapKey, setMapKey] = useState<string | null>(null);
 
-  // Tell the page a rail is on the left, so the header and the board both yield to it.
-  // A DOM side effect in an effect is exactly what effects are for; the alternative was
-  // threading a step-1-only flag through SessionTabs, which every other week also uses.
-  // "wide" when the facilitator's suggestions share the right rail, which needs reading room.
-  useEffect(() => {
-    document.body.dataset.themeRail = admin ? "wide" : "1";
-    return () => {
-      delete document.body.dataset.themeRail;
-    };
-  }, [admin]);
-
-  // The right rail can be folded away: once the prompts have been read, and especially once
-  // a facilitator's suggestions have been used, it is width the board could be using. The
-  // choice is remembered per browser (see RIGHT_RAIL_KEY).
-  const rightRailOpen = usePref(rightRailPref) === "open";
   // Whether the sheet's "In this theme" block is unfolded. Once a theme's membership is
   // settled and the reading is the work, the cards are height the reading could be using.
   const cardsOpen = usePref(themeCardsPref) === "open";
-  useEffect(() => {
-    document.body.dataset.rightRail = rightRailOpen ? "open" : "closed";
-    return () => {
-      delete document.body.dataset.rightRail;
-    };
-  }, [rightRailOpen]);
-  const toggleRightRail = () => rightRailPref.write(rightRailOpen ? "closed" : "open");
   // Show only implications from one key change. Independent of the order filter; both
   // narrow the TRAY and neither touches what is already in a theme.
   const [keyFilter, setKeyFilter] = useState<string | null>(null);
@@ -945,244 +907,83 @@ export function ClusterBoard({
 
   return (
     <>
-      {/* The drop rail: a fixed panel at the SCREEN edge, outside the 1100px column, so the
-          board reads as a board you pull cards into rather than a page you scroll. With 146
-          implications the themes sat six screens below the tray and the targets scrolled
-          away from the cards entirely.
-          
-          It scrolls itself, because three big targets plus a group's real themes will
-          outgrow a short viewport. Hidden below lg, where there is no gutter to live in and
-          the stacked layout still reads. */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15rem] overflow-y-auto border-r border-ink bg-card px-3 py-4 lg:block">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
-          Themes
-        </h2>
-        <p className="mt-1 text-[11px] italic leading-[1.35] text-muted">
-          {picked.size > 0
+      <ThemeRail
+        board={board}
+        activeId={focus?.id ?? null}
+        onPick={onPickTheme}
+        progressFor={(t) => readingProgress(board, t.id)}
+        progressLabel="Questions"
+        wide={Boolean(admin)}
+        dragging={drag !== null}
+        hint={
+          picked.size > 0
             ? `Click one to add ${picked.size}.`
             : focus
               ? "Click the lit theme again to go back to the board."
-              : "Click a theme to open it. Drag cards in, or tick and click."}
-        </p>
-
-        <div className="mt-3 flex flex-col gap-2.5">
-          {board.themes.map((t, i) => {
-            const n = board.clusters.get(t.id)?.length ?? 0;
-            const lit = zoneLit(`theme:${t.id}`);
-            // How far its reading has got — the rail is the picker for both halves of the
-            // step now, so it carries what step 2's chips used to.
-            const state = readingProgress(board, t.id);
-            return (
-              <button
-                key={t.id}
-                {...zoneProps(`theme:${t.id}`)}
-                onClick={() => {
-                  // With nothing ticked, a square opens its theme; with a selection it
-                  // is the drop target it always was.
-                  if (picked.size === 0) {
-                    // The square stays lit while its theme is open, so clicking it again
-                    // reads as "turn this off" — and the rail is where your pointer
-                    // already is. Going back should not mean finding the one button at
-                    // the top of the body.
-                    onPickTheme(focus?.id === t.id ? null : t.id);
-                    return;
-                  }
-                  onMoveManyToTheme([...picked], t.id);
-                  setPicked(new Set());
-                }}
-                aria-pressed={focus?.id === t.id}
-                onMouseEnter={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  // Keep the popover on screen: anchor to the square's top, but never so
-                  // low that a long list runs off the bottom.
-                  const top = Math.max(8, Math.min(r.top, window.innerHeight - 380));
-                  setHoverTheme({ id: t.id, top });
-                }}
-                onMouseLeave={() => setHoverTheme(null)}
+              : "Click a theme to open it. Drag cards in, or tick and click."
+        }
+        // The squares are drop targets here, and a click with cards ticked adds them.
+        squareProps={(t) => zoneProps(`theme:${t.id}`)}
+        squareLit={(t) => zoneLit(`theme:${t.id}`)}
+        pickedCount={picked.size}
+        onAddPicked={(t) => {
+          onMoveManyToTheme([...picked], t.id);
+          setPicked(new Set());
+        }}
+        footer={
+          <>
+            {/* Empty slots, never pre-created themes. A real blank theme would exist on the
+                board from the moment anyone opened it: three "nothing yet" chips on later
+                steps, three to delete if the group wants two, and a race to make three per
+                person. A slot mints its theme on first drop — onStartTheme already did. */}
+            {Array.from({ length: Math.max(0, 3 - board.themes.length) }).map((_, i) => (
+              <div
+                key={`slot-${i}`}
+                {...zoneProps("newtheme")}
                 className={
-                  "flex aspect-square w-full flex-col rounded-[6px] border-2 p-2.5 text-left transition-all " +
-                  (lit
-                    ? "scale-[1.02] border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)] "
-                    : focus?.id === t.id
-                      ? "border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)] "
-                      : "border-ink bg-[rgba(196,255,103,0.16)] hover:bg-lime/40 ") +
-                  (picked.size > 0 ? "cursor-copy" : "")
+                  "flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-[6px] border-2 border-dashed p-3 text-center transition-all " +
+                  (zoneLit("newtheme")
+                    ? "scale-[1.02] border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)]"
+                    : "border-black/25 hover:border-ink")
                 }
               >
-                <span className="flex items-baseline justify-between gap-1.5">
-                  {/* The number is shown as well as the name, because the map labels a
-                      clustered node "Theme 3" — and once a group renames a theme, a number
-                      that appears nowhere on the theme itself refers to nothing. */}
-                  <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] font-bold text-paper">
-                    {i + 1}
-                  </span>
-                  <span
-                    aria-label={STATE_LABEL[state]}
-                    title={`Reading: ${STATE_LABEL[state]}`}
-                    className={"shrink-0 text-[10px] leading-none " + STATE_DOT[state]}
-                  >
-                    {stateGlyph(state)}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.08em]">
-                    {t.text}
-                  </span>
-                  <span className="shrink-0 text-[9.5px] font-bold text-muted">{n}</span>
+                <span aria-hidden className="text-[26px] leading-none opacity-25">
+                  ⊕
                 </span>
-                {/* What is actually in it, a line each. The square is the whole budget, so
-                    anything past it is cut rather than stretching the rail. */}
-                <span className="mt-1.5 flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
-                  {(board.clusters.get(t.id) ?? []).map((c) => (
-                    <span
-                      key={c.id}
-                      className="flex min-w-0 items-start gap-1.5 text-[10.5px] leading-[1.35] text-ink/80"
-                    >
-                      <Dot />
-                      <span className="min-w-0 truncate">{c.text}</span>
-                    </span>
-                  ))}
-                  {n === 0 && (
-                    <span className="text-[10.5px] italic leading-[1.35] text-muted">
-                      Nothing in it yet.
-                    </span>
-                  )}
+                <span className="text-[10.5px] font-bold uppercase leading-[1.3] tracking-[0.05em] text-muted">
+                  Drop to start a theme
                 </span>
-                {picked.size > 0 && (
-                  <span className="mt-auto pt-1 text-[9.5px] font-bold uppercase tracking-[0.05em] text-blue">
-                    ＋ Add {picked.size}
-                  </span>
-                )}
+              </div>
+            ))}
+
+            {/* The rail button mints a theme straight away, named the way a dropped card
+                or a ticked set would name it — "Theme N". Naming can wait until the group
+                knows what the pile is about; the form in the body is still there for when
+                it does. */}
+            {editable && (
+              <button
+                onClick={() => {
+                  if (picked.size > 0) {
+                    onCreateThemeFrom([...picked]);
+                    setPicked(new Set());
+                  } else onAddTheme(`Theme ${board.themes.length + 1}`);
+                }}
+                disabled={busy}
+                className="rounded-[2px] border border-ink bg-paper px-2 py-2 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-40"
+              >
+                {picked.size > 0 ? `＋ New theme from ${picked.size}` : "＋ New theme"}
               </button>
-            );
-          })}
-
-          {/* Empty slots, never pre-created themes. A real blank theme would exist on the
-              board from the moment anyone opened it: three "nothing yet" chips on steps 2
-              and 3, three to delete if the group wants two, and a race to make three per
-              person. A slot mints its theme on first drop — onStartTheme already did. */}
-          {Array.from({ length: Math.max(0, 3 - board.themes.length) }).map((_, i) => (
-            <div
-              key={`slot-${i}`}
-              {...zoneProps("newtheme")}
-              className={
-                "flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-[6px] border-2 border-dashed p-3 text-center transition-all " +
-                (zoneLit("newtheme")
-                  ? "scale-[1.02] border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)]"
-                  : "border-black/25 hover:border-ink")
-              }
-            >
-              <span aria-hidden className="text-[26px] leading-none opacity-25">
-                ⊕
-              </span>
-              <span className="text-[10.5px] font-bold uppercase leading-[1.3] tracking-[0.05em] text-muted">
-                Drop to start a theme
-              </span>
-            </div>
-          ))}
-
-          {/* The rail button mints a theme straight away, named the way a dropped card
-              or a ticked set would name it — "Theme N". Naming can wait until the group
-              knows what the pile is about; the form in the body is still there for when
-              it does. */}
-          {editable && (
-            <button
-              onClick={() => {
-                if (picked.size > 0) {
-                  onCreateThemeFrom([...picked]);
-                  setPicked(new Set());
-                } else onAddTheme(`Theme ${board.themes.length + 1}`);
-              }}
-              disabled={busy}
-              className="rounded-[2px] border border-ink bg-paper px-2 py-2 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-40"
-            >
-              {picked.size > 0 ? `＋ New theme from ${picked.size}` : "＋ New theme"}
-            </button>
-          )}
-        </div>
-      </aside>
-
-      {/* The hovered square, in full. Read-only and ignores the pointer, so it never gets
-          between the cursor and the square that opened it, or a card being dragged. */}
-      {hoverTheme && !drag && (() => {
-        const t = board.themes.find((x) => x.id === hoverTheme.id);
-        if (!t) return null;
-        // Never for the theme that is already open. The popover answers "what is in this
-        // one without opening it", which that theme has already answered in full — and it
-        // is drawn over the top-left of the body, where the "Working in" bar lives. Since
-        // your pointer is still on the square you just clicked, it would cover the way
-        // back out at the one moment you are most likely to want it.
-        if (focus?.id === t.id) return null;
-        const n = board.themes.indexOf(t) + 1;
-        const held = board.clusters.get(t.id) ?? [];
-        return (
-          <div
-            role="tooltip"
-            className="pointer-events-none fixed left-[15.5rem] z-40 hidden w-[24rem] overflow-y-auto rounded-[4px] border-2 border-ink bg-card p-3.5 shadow-[4px_5px_0_rgba(36,36,34,0.2)] lg:block"
-            style={{ top: hoverTheme.top, maxHeight: `calc(100vh - ${hoverTheme.top + 8}px)` }}
-          >
-            <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
-              Theme {n} · {held.length} implication{held.length === 1 ? "" : "s"}
-            </div>
-            <div className="mt-1 text-[14px] font-extrabold leading-[1.25]">{t.text}</div>
-            {t.description && (
-              <p className="mt-1.5 text-[12px] leading-[1.45] text-ink/80">{t.description}</p>
             )}
-            {held.length > 0 ? (
-              <ul className="mt-2.5 flex flex-col gap-1.5 border-t border-black/10 pt-2.5">
-                {held.map((c) => (
-                  <li key={c.id} className="flex items-start gap-2 text-[12px] leading-[1.4]">
-                    <Dot />
-                    <span className="min-w-0">{c.text}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-[12px] italic text-muted">Nothing in it yet.</p>
-            )}
-            <p className="mt-2.5 text-[10px] font-bold uppercase tracking-[0.05em] text-blue">
-              Click to open
-            </p>
-          </div>
-        );
-      })()}
+          </>
+        }
+      />
 
       {/* The instructions, mirroring the theme rail on the other side. Step 1 used to say
           only "name a theme"; a group with no shared idea of what it is looking for
           produces either one theme per implication or one theme for everything, and every
           later step inherits it. Up here it stays readable while you work, instead of
           scrolling away above 146 cards. */}
-      <aside
-        className={
-          "fixed inset-y-0 right-0 z-30 hidden overflow-y-auto border-l border-ink bg-card py-4 lg:block " +
-          (!rightRailOpen ? "w-[2.75rem] px-0" : admin ? "w-[21rem] px-3" : "w-[15rem] px-3")
-        }
-      >
-        {/* Folded: a thin strip with one control, so the rail is still findable. */}
-        {!rightRailOpen ? (
-          <button
-            onClick={toggleRightRail}
-            aria-expanded={false}
-            title="Show the prompts"
-            className="mx-auto flex h-full w-full flex-col items-center gap-2 pt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-muted hover:bg-lime/40 hover:text-ink"
-          >
-            <span aria-hidden className="text-[13px] leading-none">
-              ‹
-            </span>
-            <span className="[writing-mode:vertical-rl]">{admin ? "Prompts & suggestions" : "Prompts"}</span>
-          </button>
-        ) : (
-          <>
-        {/* In flow rather than floated over the heading, so it never sits on top of
-            whatever is first in the rail. */}
-        <div className="-mt-1 mb-2 flex justify-end">
-          <button
-            onClick={toggleRightRail}
-            aria-expanded={true}
-            title="Hide this panel"
-            className="rounded-[2px] border border-[var(--hairline)] bg-paper px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-muted hover:border-ink hover:text-ink"
-          >
-            Hide ›
-          </button>
-        </div>
+      <PromptRail wide={Boolean(admin)} label={admin ? "Prompts & suggestions" : "Prompts"}>
         {/* ---- the hovered node, in full ----
             Only on the map, where the question exists: a circle clips its label to fit, so
             the rail is where the whole implication can actually be read. It also says the
@@ -1352,9 +1153,7 @@ export function ClusterBoard({
             </p>
           </>
         )}
-          </>
-        )}
-      </aside>
+      </PromptRail>
 
       {/* The rails are fixed at the screen edges, so they eat both gutters. Yield exactly
           what it actually takes: its width less whatever margin the centred 1100px column
