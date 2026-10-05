@@ -149,14 +149,15 @@ export const CARD_DESCRIPTION_MAX = 1000;
 // A Week 3 theme carries implication children AND hope/fear children at the SAME depth,
 // so this column is the only thing separating the two. Plain text with no CHECK
 // constraint (see the card_order note above) — THIS list is the source of truth.
-// Week 3's answers are cards of a kind under a theme (or under a hope/fear):
-//   step 1  — `benefit`, `cost`, `experience`, `mechanism`   (READING_FIELDS)
-//   step 2A — `hope` / `fear` chains, each with a `concerns` note; "why" is the description
-//   step 2B — `condition`, `assumption`, `alternative`, `test`   (VALUES_FIELDS)
-//   step 3  — `desired_role`, `opportunity`, `risk`, `investigate` (ROLE_FIELDS)
-// `reading`, `assumed_role`, `question` and `tension` are earlier shapes; none is offered
-// any more but every kind stays here, because a kind is the permanent link to every card
-// ever written under it. See lib/synthesis-shape for where each may live.
+// Week 3's cards of a kind:
+//   step 2 — `benefit`, `cost`, `experience`, `mechanism` (READING_FIELDS) and `risk` /
+//            `opportunity` walls, all on a theme
+//   step 3 — `hope` / `fear` as ROOT cards, the board's own
+//   step 4 — a `hope` chained under the `fear` it flips
+// `reading`, `assumed_role`, `question`, `tension`, `concerns`, `assumption`, `condition`,
+// `alternative`, `test`, `desired_role` and `investigate` are earlier shapes; none is
+// offered any more but every kind stays here, because a kind is the permanent link to
+// every card ever written under it. See lib/synthesis-shape for where each may live.
 export const CARD_KINDS = [
   "theme",
   "hope",

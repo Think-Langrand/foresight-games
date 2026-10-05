@@ -39,14 +39,15 @@ export interface ImplicationsExercise {
   brainstorm: AnswerRow[]; // the section=null STICKY notes
   questions: QuestionBlock[]; // section-tagged question/brainstorm blocks, if the week carries any
 }
-// A hope or fear in a theme's chain, flattened with its depth so the panel can indent it.
+// A hope or fear in a chain, flattened with its depth so the panel can indent it. The
+// board's own (step 3, flipped in step 4) or — on older boards — a theme's.
 export interface ChainRow extends AnswerRow {
   // Deliberately narrow: assumptions hang OFF a chain row rather than becoming a third
   // kind in it, so the colour maps and the CSV's Kind column stay honest.
   cardKind: "hope" | "fear";
-  depth: number; // 1 = written straight onto the theme, 2 = its flip side, …
-  concerns: string | null; // who it concerns — the `concerns` card under it
-  value: string | null; // why it matters — the card's description
+  depth: number; // 1 = written straight on (the board, or an older board's theme), 2 = its flip side, …
+  concerns: string | null; // who it concerns — the `concerns` card under it (older boards)
+  value: string | null; // why it matters — the card's description (older boards)
   assumptions: AnswerRow[]; // assumptions written under it (older boards)
 }
 
@@ -58,7 +59,8 @@ export interface ThemeAnswerRow extends AnswerRow {
   label: string;
 }
 
-// A preserved surprise/disagreement from the retired sandbox (older boards).
+// A risk or opportunity on a theme (step 2's two walls), or a preserved
+// surprise/disagreement from the retired sandbox (older boards).
 export interface StakeRow extends AnswerRow {
   mechanism: string | null;
   shortlisted: boolean;
@@ -69,7 +71,9 @@ export interface SynthesisTheme {
   description: string | null; // what the group means by this theme
   implications: AnswerRow[]; // the Week 2 implications clustered into this theme
   answers: ThemeAnswerRow[]; // every answered question, in step order
-  chain: ChainRow[]; // its hopes & fears, depth-first so indentation reads as the chain
+  risks: StakeRow[]; // step 2's risks wall
+  opportunities: StakeRow[]; // step 2's opportunities wall
+  chain: ChainRow[]; // LEGACY: hopes & fears written on the theme by an older board
   tensions: StakeRow[]; // older boards' sandbox notes, preserved rather than resolved
 }
 export interface SynthesisExercise {
@@ -78,7 +82,10 @@ export interface SynthesisExercise {
   title: string;
   cards: RippleCard[]; // the whole shared board (themes, implications, hopes/fears)
   themes: SynthesisTheme[];
-  role: ThemeAnswerRow[]; // the role step's answers — one set for the board, in question order
+  // The board's hopes and fears (step 3), each flipped card right after the one it came
+  // from (step 4) — depth-first, so indentation reads as the pair.
+  hopesFears: ChainRow[];
+  role: ThemeAnswerRow[]; // LEGACY: the retired role step's answers — one set for the board
   unclustered: AnswerRow[]; // implications never sorted into a theme
   parked: AnswerRow[]; // set aside by the group, kept for the record
   // Cards the board could not place — a hope with no theme above it. Surfaced so nothing

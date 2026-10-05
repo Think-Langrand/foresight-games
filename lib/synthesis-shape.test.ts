@@ -11,7 +11,10 @@ import {
   childrenOf,
   descendantsOf,
   stakeProgress,
-  hopesProgress,
+  clusterProgress,
+  exploreProgress,
+  flipProgress,
+  boardChainCards,
   flattenChainCards,
   stakeLedger,
   shortlistCounts,
@@ -27,9 +30,6 @@ import {
   themeAnswers,
   answerOf,
   answersOf,
-  valuesFor,
-  valuesProgress,
-  roleProgress,
   boardAnswersOf,
   VALUES_FIELDS,
   ROLE_FIELDS,
@@ -295,9 +295,9 @@ describe("placementError", () => {
     no("fear", "fear");
   });
 
-  it("refuses a hope or fear that would float free of every theme", () => {
-    no("hope", undefined);
-    no("fear", undefined);
+  it("lets a hope or fear stand on the board (step 3), but never under an implication", () => {
+    ok("hope", undefined);
+    ok("fear", undefined);
     no("hope", null);
     no("fear", null);
   });
@@ -505,11 +505,13 @@ describe("indexSynthesisBoard — stake cards and assumptions", () => {
 });
 
 describe("indexSynthesisBoard — orphans", () => {
-  it("surfaces a parentless hope instead of silently discarding it", () => {
-    // This used to vanish: the bucketing hit `if (c.parentId)` and fell off the end.
+  it("keeps a parentless hope as the board's own — step 3 writes them there", () => {
+    // This used to be an orphan (and before that vanished entirely); now it is the shape
+    // the hopes & fears step produces.
     const b = indexSynthesisBoard([theme("TH", 1), card("H", "FIRST", null, 2, { cardKind: "hope" })]);
-    expect(b.orphans.map((c) => c.id)).toEqual(["H"]);
-    expect(b.chainDepth.has("H")).toBe(false);
+    expect(b.hopesFears.map((c) => c.id)).toEqual(["H"]);
+    expect(b.chainDepth.get("H")).toBe(1);
+    expect(b.orphans).toEqual([]);
   });
 
   it("surfaces a hope hung off a clustered implication", () => {
@@ -570,6 +572,7 @@ describe("indexSynthesisBoard — partition property", () => {
   // bucketing into nowhere, which TypeScript cannot catch.
   const bucketsOf = (b: ReturnType<typeof indexSynthesisBoard>) => [
     ...b.themes,
+    ...b.hopesFears,
     ...b.unclustered,
     ...b.parked,
     ...b.orphans,
@@ -967,46 +970,6 @@ describe("stakeProgress", () => {
   });
 });
 
-describe("hopesProgress", () => {
-  const withCards = (...cards: RippleCard[]) =>
-    hopesProgress(indexSynthesisBoard([theme("TH", 1), ...cards]), "TH");
-  const why = { description: "because it matters" };
-
-  it("is empty until something is written", () => {
-    expect(withCards()).toBe("empty");
-  });
-
-  it("needs both a hope and a fear", () => {
-    expect(withCards(card("H", "SECOND", "TH", 2, { cardKind: "hope", ...why }))).toBe("started");
-    expect(
-      withCards(
-        card("H", "SECOND", "TH", 2, { cardKind: "hope", ...why }),
-        card("F", "SECOND", "TH", 3, { cardKind: "fear", ...why })
-      )
-    ).toBe("done");
-  });
-
-  it("is not done while any card is missing its why", () => {
-    // The step exists to get at the value underneath; a hope with no why is the failure
-    // it is meant to prevent, so it does not count as finished.
-    expect(
-      withCards(
-        card("H", "SECOND", "TH", 2, { cardKind: "hope", ...why }),
-        card("F", "SECOND", "TH", 3, { cardKind: "fear" })
-      )
-    ).toBe("started");
-  });
-
-  it("counts a flipped card too, at any depth", () => {
-    expect(
-      withCards(
-        card("H", "SECOND", "TH", 2, { cardKind: "hope", ...why }),
-        card("F", "TERMINAL", "H", 3, { cardKind: "fear", ...why })
-      )
-    ).toBe("done");
-  });
-});
-
 describe("twinIndex / implicationKey / themeCountFor", () => {
   // TH1 and TH2 each hold a copy of one implication (twin "T"); I2 sits only in TH1;
   // I3 is still in the tray.
@@ -1223,13 +1186,24 @@ describe("steps 2 and 3 — placement, answers, progress and the share-out", () 
     expect(board.boardAnswers).toEqual([]);
   });
 
+  it("keeps a concerns note under one of the board's own hopes", () => {
+    const board = indexSynthesisBoard([
+      theme("TH", 1),
+      card("ROOTHOPE", "FIRST", null, 2, { cardKind: "hope" }),
+      card("C", "SECOND", "ROOTHOPE", 3, { cardKind: "concerns", text: "x" }),
+    ]);
+    expect(board.orphans).toEqual([]);
+    expect(board.concerns.get("ROOTHOPE")?.map((c) => c.id)).toEqual(["C"]);
+  });
+
   it("orphans a concerns note whose hope is unreachable", () => {
     const board = indexSynthesisBoard([
       theme("TH", 1),
-      card("LOOSEHOPE", "FIRST", null, 2, { cardKind: "hope" }),
-      card("C", "SECOND", "LOOSEHOPE", 3, { cardKind: "concerns", text: "x" }),
+      card("I", "SECOND", "TH", 2),
+      card("GHOST", "TERMINAL", "I", 3, { cardKind: "hope" }),
+      card("C", "ORDER_4", "GHOST", 4, { cardKind: "concerns", text: "x" }),
     ]);
-    expect(board.orphans.map((c) => c.id).sort()).toEqual(["C", "LOOSEHOPE"]);
+    expect(board.orphans.map((c) => c.id).sort()).toEqual(["C", "GHOST"]);
   });
 
   it("finds one answer per question across buckets", () => {
@@ -1252,31 +1226,77 @@ describe("steps 2 and 3 — placement, answers, progress and the share-out", () 
     expect(boardAnswersOf(board).risk?.id).toBe("RI");
   });
 
-  it("lists the values a theme's hopes and fears name", () => {
-    const got = valuesFor(indexSynthesisBoard(b()), "TH");
-    expect(got.map((v) => v.card.id)).toEqual(["H1"]); // F1 has no why yet
-    expect(got[0].value).toBe("because trust");
+});
+
+describe("the board's own hopes and fears (steps 3 and 4)", () => {
+  // Two fears and a hope written on the board; F1 has been flipped into H2.
+  const b = () => [
+    theme("TH", 1),
+    card("F1", "FIRST", null, 2, { cardKind: "fear" }),
+    card("H1", "FIRST", null, 3, { cardKind: "hope" }),
+    card("F2", "FIRST", null, 4, { cardKind: "fear" }),
+    card("H2", "SECOND", "F1", 5, { cardKind: "hope" }),
+  ];
+
+  it("indexes root hopes and fears as the board's, in order, with the flip chained off", () => {
+    const board = indexSynthesisBoard(b());
+    expect(board.hopesFears.map((c) => c.id)).toEqual(["F1", "H1", "F2"]);
+    expect(board.chains.get("F1")?.map((c) => c.id)).toEqual(["H2"]);
+    expect(board.chainDepth.get("F1")).toBe(1);
+    expect(board.chainDepth.get("H2")).toBe(2);
+    expect(board.orphans).toEqual([]);
   });
 
-  it("step 2 is done with a value and all four part-B answers", () => {
-    expect(valuesProgress(indexSynthesisBoard(b()), "TH")).toBe("done");
+  it("boardChainCards walks depth-first, a flipped hope right after its fear", () => {
+    const entries = boardChainCards(indexSynthesisBoard(b()));
+    expect(entries.map((e) => e.card.id)).toEqual(["F1", "H2", "H1", "F2"]);
+    expect(entries.map((e) => e.depth)).toEqual([1, 2, 1, 1]);
+    expect(entries[1].flippedFrom?.id).toBe("F1");
+    expect(entries[0].flippedFrom).toBeNull();
   });
 
-  it("step 2 is started with hopes but no part B, or part B but no value", () => {
-    const noB = b().filter((c) => !["CO", "AS", "AL", "TE"].includes(c.id));
-    expect(valuesProgress(indexSynthesisBoard(noB), "TH")).toBe("started");
-    const noWhy = b().map((c) => (c.id === "H1" ? { ...c, description: null } : c));
-    expect(valuesProgress(indexSynthesisBoard(noWhy), "TH")).toBe("started");
+  it("oppositeOf finds the pair from either side of a flipped root fear", () => {
+    const board = indexSynthesisBoard(b());
+    const f1 = board.hopesFears.find((c) => c.id === "F1")!;
+    const h2 = board.chains.get("F1")![0];
+    expect(oppositeOf(board, f1)?.id).toBe("H2");
+    expect(oppositeOf(board, h2)?.id).toBe("F1");
+    const f2 = board.hopesFears.find((c) => c.id === "F2")!;
+    expect(oppositeOf(board, f2)).toBeNull();
   });
 
-  it("step 2 is empty with nothing written", () => {
-    expect(valuesProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
+  it("flipProgress counts the fears with a hope on their other side", () => {
+    expect(flipProgress(indexSynthesisBoard(b()))).toEqual({ flipped: 1, total: 2 });
+    expect(flipProgress(indexSynthesisBoard([theme("TH", 1)]))).toEqual({ flipped: 0, total: 0 });
   });
 
-  it("step 3 is done at four of four for the board, started below, empty at none", () => {
-    expect(roleProgress(indexSynthesisBoard(b()))).toBe("done");
-    expect(roleProgress(indexSynthesisBoard(b().filter((c) => c.id !== "IN")))).toBe("started");
-    expect(roleProgress(indexSynthesisBoard([theme("TH", 1)]))).toBe("empty");
+  it("a hope flipped from a fear deletes with it", () => {
+    expect(descendantsOf(indexSynthesisBoard(b()), "F1").map((c) => c.id)).toEqual(["H2"]);
+  });
+});
+
+describe("clusterProgress / exploreProgress", () => {
+  it("step 1 is done once a theme holds an implication, empty until then", () => {
+    expect(clusterProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
+    expect(clusterProgress(indexSynthesisBoard([theme("TH", 1), card("I", "SECOND", "TH", 2)]), "TH")).toBe("done");
+  });
+
+  const answered = () =>
+    READING_FIELDS.map((k, i) => card(`Q${i}`, "SECOND", "TH", 10 + i, { cardKind: k, text: "an answer" }));
+  const stakes = () => [
+    card("R", "SECOND", "TH", 20, { cardKind: "risk" }),
+    card("O", "SECOND", "TH", 21, { cardKind: "opportunity" }),
+  ];
+
+  it("step 2 is done with the four answers AND a risk and an opportunity", () => {
+    expect(exploreProgress(indexSynthesisBoard([theme("TH", 1), ...answered(), ...stakes()]), "TH")).toBe("done");
+  });
+
+  it("step 2 is started with only one half, empty with neither", () => {
+    expect(exploreProgress(indexSynthesisBoard([theme("TH", 1), ...answered()]), "TH")).toBe("started");
+    expect(exploreProgress(indexSynthesisBoard([theme("TH", 1), ...stakes()]), "TH")).toBe("started");
+    expect(exploreProgress(indexSynthesisBoard([theme("TH", 1), stakes()[0]]), "TH")).toBe("started");
+    expect(exploreProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
   });
 });
 

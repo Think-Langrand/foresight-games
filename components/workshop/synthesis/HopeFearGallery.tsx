@@ -31,6 +31,13 @@ const FACE: Record<HopeFear, { chip: string; tint: string; addTint: string; mark
   },
 };
 
+// The line at the foot of each card: where the work still is, so the gallery is a to-do
+// list as well. The default asks for a "why"; the flip step asks whether it has been
+// flipped.
+export type GalleryStatus = (entry: ChainEntry) => { label: string; done: boolean };
+const needsWhy: GalleryStatus = ({ card }) =>
+  card.description ? { label: "✓ Why it matters", done: true } : { label: "Needs a why", done: false };
+
 export function HopeFearGallery({
   entries,
   selectedId,
@@ -39,6 +46,10 @@ export function HopeFearGallery({
   onSelect,
   onRequestDelete,
   onQuickAdd,
+  heading = "This theme’s hopes and fears",
+  lead = "Pick one to work on it below.",
+  addKinds = ["hope", "fear"],
+  status = needsWhy,
 }: {
   entries: ChainEntry[];
   selectedId: string | null;
@@ -47,6 +58,12 @@ export function HopeFearGallery({
   onSelect: (card: RippleCard) => void;
   onRequestDelete: (card: RippleCard) => void;
   onQuickAdd: (kind: HopeFear, text: string) => void;
+  heading?: string;
+  lead?: string;
+  // Which add slots to offer. Empty when the gallery is a picker over cards written
+  // elsewhere (the flip step).
+  addKinds?: readonly HopeFear[];
+  status?: GalleryStatus;
 }) {
   const [adding, setAdding] = useState<HopeFear | null>(null);
 
@@ -54,17 +71,19 @@ export function HopeFearGallery({
     <div>
       <div className="mb-2 flex flex-wrap items-baseline gap-2">
         <h3 className="text-[13px] font-bold uppercase tracking-[0.08em]">
-          This theme&rsquo;s hopes and fears
+          {heading}
           {entries.length > 0 && <span className="ml-1.5 text-muted">({entries.length})</span>}
         </h3>
-        <p className="text-[12px] italic text-muted">Pick one to work on it below.</p>
+        <p className="text-[12px] italic text-muted">{lead}</p>
       </div>
 
       <div className="flex flex-wrap items-stretch gap-3">
-        {entries.map(({ card, flippedFrom }) => {
+        {entries.map((entry) => {
+          const { card, flippedFrom } = entry;
           const kind = card.cardKind as HopeFear;
           const face = FACE[kind];
           const on = card.id === selectedId;
+          const state = status(entry);
           return (
             // A div rather than a button: the ⋯ menu is interactive and cannot legally
             // nest inside one. Keyboard-reachable, so selecting a card never needs a mouse.
@@ -132,14 +151,13 @@ export function HopeFearGallery({
                     ↩ flipped from {flippedFrom.cardKind}
                   </span>
                 )}
-                {/* Where the work still is, so the gallery is a to-do list as well. */}
                 <span
                   className={
                     "text-[9.5px] font-bold uppercase tracking-[0.06em] " +
-                    (card.description ? "text-muted" : "text-coral")
+                    (state.done ? "text-muted" : "text-coral")
                   }
                 >
-                  {card.description ? "✓ Why it matters" : "Needs a why"}
+                  {state.label}
                 </span>
               </div>
             </div>
@@ -152,7 +170,7 @@ export function HopeFearGallery({
             together — and a colourless box does not look like the card it is about to
             become. The one you picked turns into itself and the textarea sits inside it. */}
         {editable &&
-          (["hope", "fear"] as const).map((kind) => {
+          addKinds.map((kind) => {
             const face = FACE[kind];
             if (adding === kind) {
               return (

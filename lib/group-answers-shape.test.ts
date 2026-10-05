@@ -283,12 +283,49 @@ describe("shapeFromView — synthesis weeks", () => {
     expect(out.themes[0].chain.map((c) => c.id)).toEqual(["H1"]);
   });
 
+  it("carries the board's hopes and fears, a flipped hope right after its fear", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("F1", "FIRST", { seq: 2, cardKind: "fear" }),
+        card("H1", "FIRST", { seq: 3, cardKind: "hope" }),
+        card("H2", "SECOND", { seq: 4, parentId: "F1", cardKind: "hope" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.hopesFears).toEqual([
+      expect.objectContaining({ id: "F1", cardKind: "fear", depth: 1 }),
+      expect.objectContaining({ id: "H2", cardKind: "hope", depth: 2 }),
+      expect.objectContaining({ id: "H1", cardKind: "hope", depth: 1 }),
+    ]);
+    expect(out.orphans).toEqual([]);
+    // Not a theme's — the board's.
+    expect(out.themes[0].chain).toEqual([]);
+  });
+
+  it("carries a theme's risks and opportunities as its own, not the board's role", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("R1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "risk" }),
+        card("O1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "opportunity", description: "via x" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.themes[0].risks.map((r) => r.id)).toEqual(["R1"]);
+    expect(out.themes[0].opportunities[0]).toMatchObject({ id: "O1", mechanism: "via x" });
+    expect(out.role).toEqual([]);
+  });
+
   it("surfaces unplaceable cards rather than dropping them", () => {
     const out = shapeFromView(
       ex("synthesis"),
       view([
         card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
-        card("LOOSE", "FIRST", { seq: 2, cardKind: "hope" }), // no theme above it
+        card("I1", "SECOND", { seq: 2, parentId: "TH1" }),
+        card("LOOSE", "TERMINAL", { seq: 3, parentId: "I1", cardKind: "hope" }), // under an implication
       ])
     );
     if (out.kind !== "synthesis") return;

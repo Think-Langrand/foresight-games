@@ -68,16 +68,20 @@ export function HopeFearFocus({
   onDescribe,
   onConcern,
   onRequestDelete,
+  plain = false,
 }: {
   card: RippleCard;
   board: SynthesisBoard;
   editable: boolean;
   busy: boolean;
   onEdit: (card: RippleCard, text: string) => void;
-  onDescribe: (card: RippleCard, description: string) => void;
+  onDescribe?: (card: RippleCard, description: string) => void;
   // "Who does this concern?" — written, edited or (saved empty) removed.
-  onConcern: (card: RippleCard, text: string) => void;
+  onConcern?: (card: RippleCard, text: string) => void;
   onRequestDelete: (card: RippleCard) => void;
+  // Just the card and its text — no "who" and "why" fields. The flip step pairs cards
+  // written as a plain brainstorm, and asking for more there would be a different step.
+  plain?: boolean;
 }) {
   const kind = card.cardKind as HopeFear;
   const face = FACE[kind];
@@ -132,16 +136,18 @@ export function HopeFearFocus({
             as one set of three — not a title with two questions under it. Always answered:
             a hope or fear is written before the card exists. */}
         <div className="mt-3 flex items-start gap-2.5 pl-8">
-          <AnswerCheck answered />
+          {!plain && <AnswerCheck answered />}
           <div className="text-[12.5px] font-bold leading-[1.3]">
             What do we {kind === "hope" ? "hope" : "fear"}?
           </div>
         </div>
-        <div className="mt-2 pl-8 pr-2 text-[20px] font-extrabold leading-[1.25]">
+        <div className={"mt-2 pl-8 pr-2 text-[20px] font-extrabold leading-[1.25] " + (plain ? "pb-6" : "")}>
           <InlineText text={card.text} editable={editable} busy={busy} onSave={(t) => onEdit(card, t)} editIcon />
         </div>
       </div>
 
+      {plain ? null : (
+        <>
       <Field
         label="Who does this concern?"
         hint="Whose lives or work would be affected?"
@@ -157,7 +163,7 @@ export function HopeFearFocus({
             placeholder="Residents who…, the staff who…, the towns that…"
             maxLength={CARD_TEXT_MAX}
             rows={2}
-            onSave={(next) => onConcern(card, next)}
+            onSave={(next) => onConcern?.(card, next)}
           />
         </div>
       </Field>
@@ -180,10 +186,12 @@ export function HopeFearFocus({
             placeholder="…because ___. This tells us we want to protect or advance ___."
             maxLength={CARD_DESCRIPTION_MAX}
             rows={4}
-            onSave={(next) => onDescribe(card, next)}
+            onSave={(next) => onDescribe?.(card, next)}
           />
         </div>
       </Field>
+        </>
+      )}
     </div>
   );
 }

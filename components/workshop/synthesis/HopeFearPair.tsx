@@ -54,17 +54,20 @@ export function HopeFearPair({
   onConcern,
   onFlip,
   onRequestDelete,
+  plain = false,
 }: {
   card: RippleCard;
   board: SynthesisBoard;
   editable: boolean;
   busy: boolean;
   onEdit: (card: RippleCard, text: string) => void;
-  onDescribe: (card: RippleCard, description: string) => void;
-  onConcern: (card: RippleCard, text: string) => void;
+  onDescribe?: (card: RippleCard, description: string) => void;
+  onConcern?: (card: RippleCard, text: string) => void;
   onFlip: (parent: RippleCard, kind: HopeFear, text: string) => void;
   // Deleting asks first: a card takes whatever was flipped from it along.
   onRequestDelete: (card: RippleCard) => void;
+  // Both faces show just their text — see HopeFearFocus.
+  plain?: boolean;
 }) {
   const [writing, setWriting] = useState(false);
 
@@ -81,7 +84,7 @@ export function HopeFearPair({
     // between them carries the instruction, so the pairing is stated where the pairing
     // happens rather than on a button somewhere.
     <div className="flex flex-col items-stretch gap-4 lg:flex-row lg:gap-0">
-      <div className="flex min-h-[26rem] min-w-0 flex-1 basis-0">
+      <div className={"flex min-w-0 flex-1 basis-0 " + (plain ? "min-h-[14rem]" : "min-h-[26rem]")}>
         <HopeFearFocus
           card={card}
           board={board}
@@ -91,6 +94,7 @@ export function HopeFearPair({
           onDescribe={onDescribe}
           onConcern={onConcern}
           onRequestDelete={onRequestDelete}
+          plain={plain}
         />
       </div>
 
@@ -108,7 +112,7 @@ export function HopeFearPair({
         </span>
       </div>
 
-      <div className="flex min-h-[26rem] min-w-0 flex-1 basis-0">
+      <div className={"flex min-w-0 flex-1 basis-0 " + (plain ? "min-h-[14rem]" : "min-h-[26rem]")}>
         {opposite ? (
           // The same card as the one on the left, and live. It used to be a summary you
           // had to open first, which meant a card could tell you it was missing its "why"
@@ -123,6 +127,7 @@ export function HopeFearPair({
             onDescribe={onDescribe}
             onConcern={onConcern}
             onRequestDelete={onRequestDelete}
+            plain={plain}
           />
         ) : writing ? (
           <div

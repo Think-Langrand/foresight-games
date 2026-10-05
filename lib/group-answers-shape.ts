@@ -112,31 +112,39 @@ export function shapeFromView(
       shortlisted: c.shortlisted,
     });
 
-    // Each theme's hopes & fears, flattened depth-first so the panel's indentation reads
-    // as the chain itself. Who it concerns and the older boards' assumptions ride ON a row
-    // rather than becoming rows of their own.
-    const flattenChain = (parentId: string): ChainRow[] => {
-      const out: ChainRow[] = [];
-      const walk = (id: string) => {
-        for (const c of board.chains.get(id) ?? []) {
-          const depth = board.chainDepth.get(c.id);
-          // Absent from chainDepth = unreachable from any theme, so drawn by no view.
-          // Skipped here too, so the answer sheet matches what the group actually sees.
-          if (depth === undefined || !isHopeFear(c.cardKind)) continue;
-          out.push({
-            ...toRow(c),
-            cardKind: c.cardKind,
-            depth,
-            concerns: answerOf(board, c.id, "concerns")?.text ?? null,
-            value: c.description,
-            assumptions: (board.assumptions.get(c.id) ?? []).map(toRow),
-          });
-          walk(c.id);
-        }
-      };
-      walk(parentId);
+    // A hope or fear as a row. Who it concerns and the older boards' assumptions ride ON
+    // the row rather than becoming rows of their own.
+    const toChainRow = (c: RippleCard, depth: number, kind: "hope" | "fear"): ChainRow => ({
+      ...toRow(c),
+      cardKind: kind,
+      depth,
+      concerns: answerOf(board, c.id, "concerns")?.text ?? null,
+      value: c.description,
+      assumptions: (board.assumptions.get(c.id) ?? []).map(toRow),
+    });
+
+    // Everything chained under `parentId`, flattened depth-first so the panel's
+    // indentation reads as the chain itself.
+    const flattenChain = (parentId: string, out: ChainRow[] = []): ChainRow[] => {
+      for (const c of board.chains.get(parentId) ?? []) {
+        const depth = board.chainDepth.get(c.id);
+        // Absent from chainDepth = unreachable from any root, so drawn by no view.
+        // Skipped here too, so the answer sheet matches what the group actually sees.
+        if (depth === undefined || !isHopeFear(c.cardKind)) continue;
+        out.push(toChainRow(c, depth, c.cardKind));
+        flattenChain(c.id, out);
+      }
       return out;
     };
+
+    // The board's own hopes and fears (step 3), each followed by what was flipped from it.
+    const hopesFears: ChainRow[] = [];
+    for (const root of board.hopesFears) {
+      const depth = board.chainDepth.get(root.id);
+      if (depth === undefined || !isHopeFear(root.cardKind)) continue;
+      hopesFears.push(toChainRow(root, depth, root.cardKind));
+      flattenChain(root.id, hopesFears);
+    }
 
     // Every answered question on a theme, in the order the week asks them: the Themes
     // step's four (with an old reading's answers standing in — themeAnswers), then part B,
@@ -171,11 +179,13 @@ export function shapeFromView(
       description: t.description,
       implications: (board.clusters.get(t.id) ?? []).map(toRow),
       answers: answersFor(t.id),
+      risks: (board.risks.get(t.id) ?? []).map(toStake),
+      opportunities: (board.opportunities.get(t.id) ?? []).map(toStake),
       chain: flattenChain(t.id),
       tensions: (board.tensions.get(t.id) ?? []).map(toStake),
     }));
 
-    // The role step's answers: one set for the board, in question order.
+    // LEGACY — the retired role step's answers: one set for the board, in question order.
     const boardRole = boardAnswersOf(board);
     const role: ThemeAnswerRow[] = ROLE_FIELDS.flatMap((kind) => {
       const c = boardRole[kind];
@@ -188,6 +198,7 @@ export function shapeFromView(
       title: ex.title,
       cards: view.cards,
       themes,
+      hopesFears,
       role,
       unclustered: board.unclustered.map(toRow),
       parked: board.parked.map(toRow),

@@ -107,8 +107,7 @@ export default async function DesignGroupExercisePage({
   const render = getExerciseType(exercise.type)?.render ?? "placeholder";
 
   if (render === "synthesis") {
-    // Week 3's hopes & fears step shows each clustered implication's ORIGINAL Week 2
-    // lineage. Week 2's board is already loaded above (an implications week's shaped
+    // Week 3's theme steps show each clustered implication's ORIGINAL Week 2 lineage. Week 2's board is already loaded above (an implications week's shaped
     // answers carry its whole card array), so this is pure shaping — no extra query.
     // Merged across every earlier implications week; the keys are card ids, so they
     // cannot collide.

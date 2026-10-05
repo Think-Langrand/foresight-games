@@ -173,9 +173,8 @@ export async function PATCH(
         return NextResponse.json({ error: "You can only move your own card." }, { status: 403 });
       }
       const parentId = body.parentCardId ?? null;
-      // The SAME kind rules the add-a-card route applies. Without this a hope could be
-      // dragged out to a root, leaving it with no theme ancestor — absent from chainDepth,
-      // drawn by no view, and so impossible for anyone to see or delete again.
+      // The SAME kind rules the add-a-card route applies. Without this a theme's answer
+      // could be dragged out to a root, where no view draws it and nobody can delete it.
       if (parentId === null) {
         const misplaced = placementError(card.cardKind, undefined);
         if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });

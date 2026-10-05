@@ -15,6 +15,7 @@ const ex = (over: Partial<SynthesisExercise> = {}): SynthesisExercise => ({
   title: "Session 3",
   cards: [],
   themes: [],
+  hopesFears: [],
   role: [],
   unclustered: [],
   parked: [],
@@ -29,9 +30,25 @@ const theme = (over: Partial<SynthesisExercise["themes"][number]> = {}) => ({
   description: null,
   implications: [],
   answers: [],
+  risks: [],
+  opportunities: [],
   chain: [],
   tensions: [],
   ...over,
+});
+const chainRow = (
+  id: string,
+  text: string,
+  cardKind: "hope" | "fear",
+  depth: number,
+  extra: Partial<{ concerns: string | null; value: string | null; assumptions: ReturnType<typeof row>[] }> = {}
+) => ({
+  ...row(id, text),
+  cardKind,
+  depth,
+  concerns: extra.concerns ?? null,
+  value: extra.value ?? null,
+  assumptions: extra.assumptions ?? [],
 });
 const answer = (id: string, kind: SynthesisExercise["themes"][number]["answers"][number]["kind"], text: string) => ({
   ...row(id, text),
@@ -51,19 +68,19 @@ describe("synthesisCsvRows", () => {
             description: "Who people listen to",
             implications: [row("i", "An implication")],
             answers: [answer("b", "benefit", "Residents who attend"), answer("c", "condition", "Durable funding")],
+            risks: [stake("rk", "A risk")],
+            opportunities: [stake("op", "An opportunity")],
             chain: [
-              {
-                ...row("h", "A hope"),
-                cardKind: "hope" as const,
-                depth: 1,
+              chainRow("h", "A hope", "hope", 1, {
                 concerns: "Night-shift workers",
                 value: "because trust matters",
                 assumptions: [row("a", "We assume trust transfers")],
-              },
+              }),
             ],
             tensions: [stake("t", "A disagreement")],
           }),
         ],
+        hopesFears: [chainRow("bf", "A board fear", "fear", 1), chainRow("bh", "Its hope", "hope", 2)],
         role: [answer("d", "desired_role", "Convener"), answer("r", "risk", "Gatekeeping")],
         unclustered: [row("u", "Unsorted")],
         parked: [row("p", "Parked")],
@@ -77,10 +94,14 @@ describe("synthesisCsvRows", () => {
       "implication",
       "benefit",
       "condition",
+      "risk",
+      "opportunity",
       "hope",
       "concerns",
       "assumption",
       "tension",
+      "fear",
+      "hope",
       "desired_role",
       "risk",
       "implication",
@@ -112,15 +133,32 @@ describe("synthesisCsvRows", () => {
       ex({
         themes: [
           theme({
-            chain: [
-              { ...row("h", "A hope"), cardKind: "hope" as const, depth: 1, concerns: null, value: "because X", assumptions: [] },
-              { ...row("f", "A fear"), cardKind: "fear" as const, depth: 2, concerns: null, value: null, assumptions: [] },
-            ],
+            chain: [chainRow("h", "A hope", "hope", 1, { value: "because X" }), chainRow("f", "A fear", "fear", 2)],
           }),
         ],
       })
     );
     expect(content(rows)).toEqual(["Recognition over authority", "A hope — because X", "→ A fear"]);
+  });
+
+  it("writes the board's hopes and fears under their own section, a flip indented under its fear", () => {
+    const rows = synthesisCsvRows(
+      ex({ hopesFears: [chainRow("f", "Clinics close", "fear", 1), chainRow("h", "Care comes to people", "hope", 2)] })
+    );
+    expect(rows).toEqual([
+      ["Session 3", "Hopes & fears", "fear", "Clinics close", "Ana", "2026-01-01"],
+      ["Session 3", "Hopes & fears", "hope", "→ Care comes to people", "Ana", "2026-01-01"],
+    ]);
+  });
+
+  it("writes a theme's risks and opportunities on the theme", () => {
+    const rows = synthesisCsvRows(
+      ex({ themes: [theme({ risks: [stake("r", "Burnout")], opportunities: [stake("o", "New allies")] })] })
+    );
+    expect(rows.slice(1)).toEqual([
+      ["Session 3", "Theme: Recognition over authority", "risk", "Burnout", "Ana", "2026-01-01"],
+      ["Session 3", "Theme: Recognition over authority", "opportunity", "New allies", "Ana", "2026-01-01"],
+    ]);
   });
 
   it("names the theme on every row belonging to it", () => {

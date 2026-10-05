@@ -8,9 +8,10 @@ import { SessionHeaderActions, useInSessionTabs } from "@/components/design-grou
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
 import { ClusterBoard } from "@/components/workshop/synthesis/ClusterBoard";
-import { RoleBoard } from "@/components/workshop/synthesis/RoleBoard";
+import { ExploreBoard } from "@/components/workshop/synthesis/ExploreBoard";
+import { HopesFearsBoard } from "@/components/workshop/synthesis/HopesFearsBoard";
+import { FlipBoard } from "@/components/workshop/synthesis/FlipBoard";
 import type { DeleteThemeMode } from "@/components/workshop/synthesis/DeleteThemeModal";
-import { ValuesBoard } from "@/components/workshop/synthesis/ValuesBoard";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
 import { shapeFromView } from "@/lib/group-answers-shape";
 import {
@@ -36,37 +37,40 @@ import {
 } from "@/lib/ripples-types";
 import {
   indexSynthesisBoard,
-  answerOf,
   childrenOf,
   planReorder,
   SORT_STEP,
+  type HopeFear,
   type SortWrite,
   type Week2Lineage,
 } from "@/lib/synthesis-shape";
 import type { WorksheetSection } from "@/lib/exercise-types";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 
-// WEEK 3 — Synthesis. Three steps on one shared board:
-//   1 · Cluster            — drag Week 2's implications into themes
-//   2 · Hopes & Fears      — chain hopes and fears off each theme
-//   3 · Risks & Opportunities — two brainstorm boards, prompted by the first two steps
+// WEEK 3 — Synthesis. Four steps on one shared board:
+//   1 · Cluster            — drag Week 2's implications into themes, and name each
+//   2 · Theme exploration  — per theme: four questions, then a risks wall and an
+//                            opportunities wall
+//   3 · Hopes & fears      — for the board, not a theme: two big walls, as many as you can
+//   4 · Flip the fears     — pick a fear, write the hope on its other side
 //
-// One board is the whole point: the themes made in step 1 are live in step 2 and the
-// hopes/fears from step 2 are live in step 3, with no facilitator hand-off in between.
+// One board is the whole point: the themes made in step 1 are live in step 2, and the
+// fears written in step 3 are live in step 4, with no facilitator hand-off in between.
 //
 // A sibling of RipplesTeamView rather than another branch inside it — that component
 // already runs its own three-step machine (rank/map/sandbox) over different card
 // semantics, and a second one would entangle two unrelated flows. The two share their
 // chrome through BoardShell and their card plumbing through hooks.ts.
 
-type SynthStep = "cluster" | "values" | "role";
-const SYNTH_STEPS: readonly SynthStep[] = ["cluster", "values", "role"];
-// Named for the question each asks, after the workshop wireframes. The theme rail is the
-// picker on all three and the open theme carries across them.
+type SynthStep = "cluster" | "explore" | "hopes" | "flip";
+const SYNTH_STEPS: readonly SynthStep[] = ["cluster", "explore", "hopes", "flip"];
+// Named for what each step does. The theme rail is the picker on the first two and the
+// open theme carries across them; the last two are the board's.
 const STEP_LABELS: Record<SynthStep, string> = {
-  cluster: "1 · Themes",
-  values: "2 · Values & alternatives",
-  role: "3 · Public health's role",
+  cluster: "1 · Cluster",
+  explore: "2 · Theme exploration",
+  hopes: "3 · Hopes & fears",
+  flip: "4 · Flip the fears",
 };
 
 const NO_CARDS: RippleCard[] = [];
@@ -89,7 +93,7 @@ export function SynthesisTeamView({
   drivers?: PublicDriverCard[];
   hiddenSections?: string[];
   sections?: WorksheetSection[];
-  // Week 2 ancestry for the step-2 drill-in, keyed by Week 2 card id. Shaped server-side
+  // Week 2 ancestry for the theme sheets, keyed by Week 2 card id. Shaped server-side
   // from the earlier-week answers the page already loads.
   lineage?: Record<string, Week2Lineage>;
   // Week 2's whole map, so step 1 can draw an implication's own branch of it rather than
@@ -121,12 +125,11 @@ export function SynthesisTeamView({
   // Declared up here with the other state, NOT inside the build branch below — several
   // early returns sit between the two, and a hook after one of them would break the order.
   const [step, setStep] = useState<SynthStep>("cluster");
-  // Hoisted beside `step` for the same hook-order reason, and shared by every step so
-  // moving between them keeps you on the theme you were working on. In step 1 null means
-  // "the board"; steps 2 and 3 fall back to the first theme.
+  // Hoisted beside `step` for the same hook-order reason, and shared by the two theme
+  // steps so moving between them keeps you on the theme you were working on. In step 1
+  // null means "the board"; step 2 falls back to the first theme.
   const [themeId, setThemeId] = useState<string | null>(null);
-  // Which hope or fear step 2 has open. Hoisted for the same hook-order reason; a newly
-  // written card focuses itself, because the next thing you do is say why it matters.
+  // Which fear step 4 has open. Hoisted for the same hook-order reason.
   const [focusId, setFocusId] = useState<string | null>(null);
   // Inside a design-group session page the tabs row is the header, and the scenario toggle
   // goes up into it. Standalone, the board draws its own header as before.
@@ -144,7 +147,7 @@ export function SynthesisTeamView({
     }
   }, []);
 
-  // One index for all three steps; every Week 3 selector reads it.
+  // One index for all four steps; every Week 3 selector reads it.
   const board = useMemo(() => indexSynthesisBoard(cards), [cards]);
 
   if (loading && !view) return <Centered>Loading session…</Centered>;
@@ -225,36 +228,25 @@ export function SynthesisTeamView({
       if (res?.card) addLocal(res.card as RippleCard);
     });
 
-  // A first answer to one of a theme's questions, on any step. An answer's card does not
+  // A first answer to one of a theme's four questions (step 2). An answer's card does not
   // exist until the group writes it, so the first save creates it (here) and every later
-  // one edits it (editCard) — which is why the grids ask for "answer" rather than "add".
+  // one edits it (editCard) — which is why the grid asks for "answer" rather than "add".
   const answerTheme = (theme: RippleCard, field: CardKind, text: string) => {
     if (!text.trim()) return;
     addChildCard(theme, field, text);
   };
 
-  // "Who does this concern?" on a hope or fear: one small card under it, created on the
-  // first save, edited after, removed when saved empty.
-  const setConcern = (card: RippleCard, text: string) => {
-    const existing = answerOf(board, card.id, "concerns");
-    const next = text.trim();
-    if (existing) {
-      if (next) editCard(existing, next);
-      else removeCard(existing);
-    } else if (next) {
-      addChildCard(card, "concerns", next);
-    }
-  };
-
-  // The role step's answers are for the whole board: root cards, no parent.
-  const answerBoard = (field: CardKind, text: string) =>
+  // Step 3's hopes and fears are the board's own: root cards, no parent. Appended, like
+  // a theme, so a new one lands after the ones already there.
+  const addBoardCard = (kind: HopeFear, text: string) =>
     run(async () => {
       if (!text.trim()) return;
       const res = await postRippleCard(code, {
         participantId: pid,
         cardOrder: "FIRST",
-        cardKind: field,
+        cardKind: kind,
         text,
+        sort: endSort(board.hopesFears),
       });
       if (res?.card) addLocal(res.card as RippleCard);
     });
@@ -357,6 +349,8 @@ export function SynthesisTeamView({
       }
     });
 
+  // A card of a kind under another card: a theme's answer or wall card (step 2), or the
+  // hope flipped from a fear (step 4).
   const addChildCard = (parent: RippleCard, kind: CardKind, text: string) =>
     run(async () => {
       const order = childOrderOf(parent.order);
@@ -417,7 +411,7 @@ export function SynthesisTeamView({
   // was not.
   //
   //   move  — hand the implications back to the tray, then delete. The theme's own
-  //           hope/fear chains still go, and the modal says so.
+  //           answers and wall cards still go, and the modal says so.
   //   purge — delete the implications first (each cascades its own subtree), then the
   //           theme. Doing the children first is what keeps the route's guard satisfied
   //           rather than working around it.
@@ -518,29 +512,6 @@ export function SynthesisTeamView({
     );
   };
 
-  // Writing a hope or fear from the gallery opens it: there is nothing else to look at,
-  // and the next question — why does this matter — is the point of the step.
-  //
-  // Writing the OTHER SIDE of an open card deliberately does not (it uses addChildCard):
-  // the whole reason the pair is shown side by side is to see them together, and pivoting
-  // away the moment the second one exists would hide the pair you just completed.
-  const addChainCardFocused = (parent: RippleCard, kind: CardKind, text: string) =>
-    run(async () => {
-      const order = childOrderOf(parent.order);
-      if (!order) throw new Error("That chain is already as deep as it goes.");
-      const res = await postRippleCard(code, {
-        participantId: pid,
-        cardOrder: order,
-        parentCardId: parent.id,
-        cardKind: kind,
-        text,
-      });
-      const created = res?.card as RippleCard | undefined;
-      if (!created) return;
-      addLocal(created);
-      setFocusId(created.id);
-    });
-
   const park = (card: RippleCard, parked: boolean) => {
     parkLocal(card.id, parked);
     run(async () => {
@@ -616,7 +587,8 @@ export function SynthesisTeamView({
   // ---- locked / finished -----------------------------------------------------
   // A locked week (phase HARVEST) lands here. It renders the SAME read-only panel the
   // admin viewer and the earlier-week tabs use, so the whole Week 3 artefact — themes,
-  // clusters, chains, risks/opportunities, parked — survives the lock in one place.
+  // clusters, answers, risks/opportunities, hopes/fears and flips, parked — survives the
+  // lock in one place.
   if (!building) {
     const shaped = shapeFromView(
       { id: "live", title: title || "Synthesis", type: "synthesis", sections },
@@ -695,24 +667,19 @@ export function SynthesisTeamView({
           admin={admin}
           themeId={themeId}
           onPickTheme={setThemeId}
-          onAnswer={answerTheme}
         />
       )}
 
-      {step === "values" && (
-        <ValuesBoard
+      {step === "explore" && (
+        <ExploreBoard
           board={board}
           lineage={lineage}
           editable={editable}
           busy={busy}
           themeId={themeId}
-          focusId={focusId}
           onPickTheme={setThemeId}
-          onFocus={setFocusId}
-          onAdd={addChainCardFocused}
-          onFlip={addChildCard}
-          onConcern={setConcern}
           onAnswer={answerTheme}
+          onAddStake={addChildCard}
           onEdit={editCard}
           onDescribe={describeCard}
           onDelete={removeCard}
@@ -720,17 +687,31 @@ export function SynthesisTeamView({
         />
       )}
 
-      {step === "role" && (
+      {step === "hopes" && (
+        <HopesFearsBoard
+          board={board}
+          editable={editable}
+          busy={busy}
+          onAdd={addBoardCard}
+          onEdit={editCard}
+          onDelete={removeCard}
+        />
+      )}
+
+      {step === "flip" && (
         <div className="flex flex-col gap-8">
-          <RoleBoard
+          <FlipBoard
             board={board}
             editable={editable}
             busy={busy}
-            onAnswer={answerBoard}
+            focusId={focusId}
+            onFocus={setFocusId}
+            onFlip={addChildCard}
             onEdit={editCard}
             onDelete={removeCard}
-            onGoToCluster={() => setStep("cluster")}
+            onGoToHopes={() => setStep("hopes")}
           />
+          {/* Any custom sections an admin adds to this week ride the last step. */}
           {sections.length > 0 && (
             <div className="border-t border-[var(--rule)] pt-6">
               <WorksheetSections

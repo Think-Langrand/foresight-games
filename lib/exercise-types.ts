@@ -4,8 +4,8 @@
 // A design group runs a program of exercises (weeks). Each exercise has a `type`
 // that decides how it renders and whether it needs a shared board:
 //   - implications        → the existing RipplesTeamView (tree + one brainstorm)
-//   - synthesis           → SynthesisTeamView (cluster into themes → hopes & fears →
-//                           risks & opportunities), Week 3
+//   - synthesis           → SynthesisTeamView (cluster into themes → explore each →
+//                           hopes & fears → flip the fears), Week 3
 //   - scenario-assessment → a spec-driven WorksheetView (brainstorm + question areas)
 //   - placeholder         → "being designed" panel; no board
 //
@@ -128,10 +128,9 @@ const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
 ];
 
 // --- Synthesis (Week 3) — no sections -----------------------------------------
-// All four steps are code (cluster, what's at stake, hopes & fears, the shortlist), so
-// nothing rides the section substrate. Week 3 is the one week that does not end on a free
-// sticky wall: step 2's own Sandbox list is attached to a theme, which is where a loose
-// thought in this week actually belongs.
+// All four steps are code (cluster, theme exploration, hopes & fears, flip the fears), so
+// nothing rides the section substrate: every wall on this board is cards of a kind, on a
+// theme or on the board itself.
 //
 // The retired `synthesis-risks`, `synthesis-opportunities` and `synthesis-sandbox` keys
 // are NOT reused or renamed — a key is the permanent link to every answer card ever
@@ -164,11 +163,12 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
     boardBacked: true,
     sections: IMPLICATIONS_SECTIONS,
   },
-  // Week 3: cluster Week 2's implications into themes, chain hopes & fears off each
-  // theme, then generate risks & opportunities. Three code-driven steps on one board.
+  // Week 3: cluster Week 2's implications into themes, explore each (four questions,
+  // risks, opportunities), brainstorm hopes & fears for the board, then flip the fears.
+  // Four code-driven steps on one board.
   synthesis: {
     id: "synthesis",
-    label: "Synthesis (Themes, Stakes, Hopes & Fears)",
+    label: "Synthesis (Cluster, Exploration, Hopes & Fears, Flip)",
     render: "synthesis",
     boardBacked: true,
     sections: SYNTHESIS_SECTIONS,

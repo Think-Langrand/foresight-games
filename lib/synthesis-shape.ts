@@ -1,15 +1,19 @@
 // Client-safe shaping for the Week 3 SYNTHESIS board. No server imports — safe in client
 // components, route handlers, and tests.
 //
-// One shared board holds three different things in ONE parent tree, told apart only by
+// One shared board holds several different things in ONE parent tree, told apart only by
 // card_kind (migration 0020):
 //
 //   theme (a FIRST root) ─ implication children (kind null, clustered from Week 2)
-//                        └ hope/fear children, alternating with their flip side, deep
+//                        ├ the four "how does this future work?" answers (READING_FIELDS)
+//                        └ risk / opportunity cards (step 2's two walls)
+//   hope / fear (a FIRST root) ─ its flip side as a child (step 4), alternating, deep
 //
-// Because a theme's implication children and its hope/fear children sit at the SAME tree
-// depth, the hopes & fears step cannot use depthByCard — it would interleave the two. It
-// walks the KIND-FILTERED subgraph below instead (chainDepth).
+// Hopes and fears are the board's, not a theme's (step 3). Older boards wrote them under a
+// theme; that shape still indexes, which is why chainDepth is seeded from BOTH the themes
+// and the root hopes/fears. Because a theme's implication children and its hope/fear
+// children sit at the SAME tree depth, the chain walk cannot use depthByCard — it would
+// interleave the two. It walks the KIND-FILTERED subgraph below instead (chainDepth).
 
 import {
   MAX_TREE_DEPTH,
@@ -50,15 +54,14 @@ export function isReadingField(kind: CardKind | null): kind is ReadingField {
   return kind !== null && READING_FIELD_SET.has(kind);
 }
 
-// Step 2B — what could work differently — four answers on the theme, in grid order.
+// LEGACY — the retired "what could work differently" step: four answers on the theme. No
+// step asks them any more; boards that wrote them still read in the panel and the CSV.
 export const VALUES_FIELDS = ["condition", "assumption", "alternative", "test"] as const;
 export type ValuesField = (typeof VALUES_FIELDS)[number];
 
-// Step 3 — public health's role — four answers for the WHOLE BOARD, in grid order: one
-// role across every theme, answered in the light of all of them. Root cards (no parent).
-// `opportunity` and `risk` are the kinds the old per-theme stakes step used, deliberately:
-// a board worked before the rework still shows its risks and opportunities, under their
-// themes, and the export already knows them.
+// LEGACY — the retired "public health's role" step: four answers for the WHOLE BOARD as
+// root cards. `opportunity` and `risk` double as step 2's per-theme walls: root = an old
+// board's role answer, under a theme = a wall card.
 export const ROLE_FIELDS = ["desired_role", "opportunity", "risk", "investigate"] as const;
 export type RoleField = (typeof ROLE_FIELDS)[number];
 
@@ -156,9 +159,9 @@ export function placementError(
 
     case "hope":
     case "fear":
-      if (root) return "Hopes and fears belong on a theme.";
-      if (parentKind === "theme") return null;
-      if (!isHopeFear(parentKind ?? null)) return "Write hopes and fears on a theme.";
+      // The board's own (step 3), or an older board's under a theme.
+      if (root || parentKind === "theme") return null;
+      if (!isHopeFear(parentKind ?? null)) return "Hopes and fears belong on the board.";
       // parentKind is a hope or fear: only its flip side may chain off it.
       return kind === flipOf(parentKind as HopeFear)
         ? null
@@ -180,6 +183,7 @@ export function placementError(
 
 export interface SynthesisBoard {
   themes: RippleCard[]; // kind 'theme', tree roots, not parked
+  hopesFears: RippleCard[]; // kind 'hope'/'fear', tree roots — step 3's two walls
   unclustered: RippleCard[]; // kind null, tree roots, not parked — the tray
   clusters: Map<string, RippleCard[]>; // themeId → its implication children
   risks: Map<string, RippleCard[]>; // themeId → its risk cards
@@ -208,6 +212,7 @@ export interface SynthesisBoard {
 // database unreachable from any theme, visible to nobody and deletable by nobody.
 export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
   const themes: RippleCard[] = [];
+  const hopesFears: RippleCard[] = [];
   const unclustered: RippleCard[] = [];
   const parked: RippleCard[] = [];
   const orphans: RippleCard[] = [];
@@ -250,8 +255,10 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
         break;
       case "hope":
       case "fear":
+        // A root is the board's own (step 3); under something, it chains off a theme
+        // (older boards) or off its flip side.
         if (c.parentId) push(chains, c.parentId, c);
-        else orphans.push(c);
+        else hopesFears.push(c);
         break;
       case "risk":
         // Root = the role step's answer for the board; under a theme = an older board's.
@@ -313,7 +320,7 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
   // nobody has reordered still reads in creation order; dragging assigns real sort values.
   const byOrder = (a: RippleCard, b: RippleCard) =>
     a.sort - b.sort || a.createdTime.localeCompare(b.createdTime);
-  for (const arr of [themes, unclustered, parked, boardAnswers]) arr.sort(byOrder);
+  for (const arr of [themes, hopesFears, unclustered, parked, boardAnswers]) arr.sort(byOrder);
   for (const map of [
     clusters,
     risks,
@@ -329,19 +336,25 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
     for (const arr of map.values()) arr.sort(byOrder);
   }
 
-  // Breadth-first from the themes, following ONLY hope/fear children. Cycle-guarded and
-  // capped at MAX_TREE_DEPTH, so a malformed board truncates instead of spinning.
+  // Breadth-first, following ONLY hope/fear children. Cycle-guarded and capped at
+  // MAX_TREE_DEPTH, so a malformed board truncates instead of spinning. Seeded twice:
+  // from the themes at 0 (an older board's chains hang off them), then from the board's
+  // own hopes and fears at 1 — "1 = written straight on", whichever shape the board is.
   const chainDepth = new Map<string, number>();
-  let level = themes;
-  for (let depth = 0; depth <= MAX_TREE_DEPTH && level.length > 0; depth++) {
-    const next: RippleCard[] = [];
-    for (const c of level) {
-      if (chainDepth.has(c.id)) continue;
-      chainDepth.set(c.id, depth);
-      next.push(...(chains.get(c.id) ?? []));
+  const seedDepths = (seeds: RippleCard[], startDepth: number) => {
+    let level = seeds;
+    for (let depth = startDepth; depth <= MAX_TREE_DEPTH && level.length > 0; depth++) {
+      const next: RippleCard[] = [];
+      for (const c of level) {
+        if (chainDepth.has(c.id)) continue;
+        chainDepth.set(c.id, depth);
+        next.push(...(chains.get(c.id) ?? []));
+      }
+      level = next;
     }
-    level = next;
-  }
+  };
+  seedDepths(themes, 0);
+  seedDepths(hopesFears, 1);
 
   // Reachability sweep. Being in a bucket is not the same as being reachable: a hope hung
   // off a clustered implication sits in `chains` under a parent no view ever walks to.
@@ -361,6 +374,7 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
   // theme (step 2B) or a live hope or fear (the older shape). Themes sit in chainDepth at 0,
   // so for the notes reachability alone would wave a theme parent through — hence the set.
   const liveChainCard = new Set<string>();
+  for (const c of hopesFears) liveChainCard.add(c.id);
   for (const arr of chains.values()) {
     for (const c of arr) if (chainDepth.has(c.id)) liveChainCard.add(c.id);
   }
@@ -379,6 +393,7 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
 
   return {
     themes,
+    hopesFears,
     unclustered,
     clusters,
     risks,
@@ -503,28 +518,8 @@ export function answersOf<K extends CardKind>(
   return out;
 }
 
-const filled = (c: RippleCard | undefined | null) => (c?.text ?? "").trim().length > 0;
-
-// Step 2A's values: every hope and fear on the theme that says why it matters.
-export function valuesFor(board: SynthesisBoard, themeId: string): { card: RippleCard; value: string }[] {
-  return flattenChainCards(board, themeId)
-    .filter((e) => (e.card.description ?? "").trim().length > 0)
-    .map((e) => ({ card: e.card, value: (e.card.description ?? "").trim() }));
-}
-
-// Step 2 is done when at least one hope or fear says why it matters AND all four "what
-// could work differently" answers exist; started once anything on either part is written.
-export function valuesProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
-  const entries = flattenChainCards(board, themeId);
-  const values = valuesFor(board, themeId);
-  const b = answersOf(board, themeId, VALUES_FIELDS);
-  const bDone = VALUES_FIELDS.every((k) => filled(b[k]));
-  const bAny = VALUES_FIELDS.some((k) => filled(b[k]));
-  if (values.length > 0 && bDone) return "done";
-  return entries.length > 0 || bAny ? "started" : "empty";
-}
-
-// The board's role answers, keyed by question — root cards, first of a kind wins.
+// LEGACY — an older board's role answers, keyed by question: root cards, first of a kind
+// wins. Nothing writes these any more; the panel and the CSV still read them.
 export function boardAnswersOf(board: SynthesisBoard): Partial<Record<RoleField, RippleCard>> {
   const out: Partial<Record<RoleField, RippleCard>> = {};
   for (const c of board.boardAnswers) {
@@ -534,11 +529,27 @@ export function boardAnswersOf(board: SynthesisBoard): Partial<Record<RoleField,
   return out;
 }
 
-// Step 3 is done when all four role answers exist — for the board, not per theme.
-export function roleProgress(board: SynthesisBoard): ThemeProgress {
-  const a = boardAnswersOf(board);
-  const n = ROLE_FIELDS.filter((k) => filled(a[k])).length;
-  return n === ROLE_FIELDS.length ? "done" : n > 0 ? "started" : "empty";
+// Step 1 is done once the theme actually holds something. A theme is a grouping; an
+// empty one has not grouped anything yet.
+export function clusterProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
+  return (board.clusters.get(themeId)?.length ?? 0) > 0 ? "done" : "empty";
+}
+
+// Step 2 is done when the four questions are answered AND the theme has at least one risk
+// and one opportunity; started once either half has anything on it.
+export function exploreProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
+  const reading = readingProgress(board, themeId);
+  const stakes = stakeProgress(board, themeId);
+  if (reading === "done" && stakes === "done") return "done";
+  return reading !== "empty" || stakes !== "empty" ? "started" : "empty";
+}
+
+// Step 4: how many of the board's fears have a hope written on their other side. A fear
+// is flipped once a hope hangs off it; the UI nudges towards all of them without blocking.
+export function flipProgress(board: SynthesisBoard): { flipped: number; total: number } {
+  const fears = board.hopesFears.filter((c) => c.cardKind === "fear");
+  const flipped = fears.filter((f) => (board.chains.get(f.id) ?? []).some((c) => c.cardKind === "hope"));
+  return { flipped: flipped.length, total: fears.length };
 }
 
 // Every hope and fear under a theme, depth-first so a flipped card follows the one it
@@ -552,16 +563,31 @@ export interface ChainEntry {
 
 export function flattenChainCards(board: SynthesisBoard, themeId: string): ChainEntry[] {
   const out: ChainEntry[] = [];
-  const walk = (parentId: string, parent: RippleCard | null) => {
-    for (const c of board.chains.get(parentId) ?? []) {
-      const depth = board.chainDepth.get(c.id);
-      // Absent from chainDepth = unreachable from any theme, so drawn by no view.
-      if (depth === undefined || !isHopeFear(c.cardKind)) continue;
-      out.push({ card: c, depth, flippedFrom: parent });
-      walk(c.id, c);
-    }
-  };
-  walk(themeId, null);
+  walkChain(board, themeId, null, out);
+  return out;
+}
+
+function walkChain(board: SynthesisBoard, parentId: string, parent: RippleCard | null, out: ChainEntry[]) {
+  for (const c of board.chains.get(parentId) ?? []) {
+    const depth = board.chainDepth.get(c.id);
+    // Absent from chainDepth = unreachable from any root, so drawn by no view.
+    if (depth === undefined || !isHopeFear(c.cardKind)) continue;
+    out.push({ card: c, depth, flippedFrom: parent });
+    walkChain(board, c.id, c, out);
+  }
+}
+
+// The board's own hopes and fears (step 3) with whatever was flipped from each (step 4),
+// depth-first so a flipped card follows the one it came from. Depth 1 is a card written
+// on the board; 2 is its other side.
+export function boardChainCards(board: SynthesisBoard): ChainEntry[] {
+  const out: ChainEntry[] = [];
+  for (const root of board.hopesFears) {
+    const depth = board.chainDepth.get(root.id);
+    if (depth === undefined) continue;
+    out.push({ card: root, depth, flippedFrom: null });
+    walkChain(board, root.id, root, out);
+  }
   return out;
 }
 
@@ -602,10 +628,12 @@ export function oppositeOf(board: SynthesisBoard, card: RippleCard): RippleCard 
   const child = (board.chains.get(card.id) ?? []).find((c) => c.cardKind === other);
   if (child) return child;
 
-  // Upwards. The board indexes children by parent, so the parent card itself is found as
-  // somebody else's child — cheap at these sizes, and it avoids a second index whose only
-  // job would be this one lookup.
+  // Upwards. The parent is one of the board's own hopes/fears (step 4 flips a root fear),
+  // or — on an older board — somebody else's child in `chains`. Cheap at these sizes, and
+  // it avoids a second index whose only job would be this one lookup.
   if (!card.parentId) return null;
+  const root = board.hopesFears.find((c) => c.id === card.parentId);
+  if (root) return root.cardKind === other ? root : null;
   for (const siblings of board.chains.values()) {
     for (const c of siblings) {
       // A theme parent is not an opposite, and neither is a hope above a hope.
@@ -701,18 +729,6 @@ export function readingProgress(board: SynthesisBoard, themeId: string): ThemePr
   const legacy = (board.readings.get(themeId) ?? []).length > 0;
   const stray = (board.readingFields.get(themeId) ?? []).some((c) => FIELD_LIKE_SET.has(c.cardKind ?? ""));
   return legacy || stray ? "started" : "empty";
-}
-
-// Step 3 is done when the theme has both a hope and a fear AND every card on it says why
-// it matters. A hope without its value is the exact failure the step exists to prevent,
-// so it does not count as finished.
-export function hopesProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
-  const entries = flattenChainCards(board, themeId);
-  if (entries.length === 0) return "empty";
-  const hasHope = entries.some((e) => e.card.cardKind === "hope");
-  const hasFear = entries.some((e) => e.card.cardKind === "fear");
-  const allExplained = entries.every((e) => Boolean(e.card.description));
-  return hasHope && hasFear && allExplained ? "done" : "started";
 }
 
 export interface ThemeStake {

@@ -11,10 +11,8 @@ import {
   insertionPoint,
   keyChangeLabel,
   ordinal,
-  readingProgress,
-  READING_FIELDS,
+  clusterProgress,
   twinIndex,
-  type ReadingField,
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
 import {
@@ -27,7 +25,6 @@ import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { SuggestThemesRail } from "@/components/workshop/synthesis/SuggestThemesRail";
 import { ThemeJoinSearch } from "@/components/workshop/synthesis/ThemeJoinSearch";
-import { PROMPTS, ReadingBoard } from "@/components/workshop/synthesis/ReadingBoard";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
 import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
@@ -117,7 +114,6 @@ export function ClusterBoard({
   admin,
   themeId,
   onPickTheme,
-  onAnswer,
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -151,12 +147,9 @@ export function ClusterBoard({
   // Present for a signed-in facilitator only: the clustering tool rides the right rail.
   admin?: AdminTools;
   // The theme open in the body (null = the board). Owned by the view and shared with the
-  // hopes & fears step, so moving between steps keeps you on the theme you were working on.
+  // exploration step, so moving between steps keeps you on the theme you were working on.
   themeId: string | null;
   onPickTheme: (id: string | null) => void;
-  // A first answer to one of the theme's four questions — see ReadingBoard. The answer's
-  // card is created on that first save and edited (onEditCard) after.
-  onAnswer: (theme: RippleCard, field: ReadingField, text: string) => void;
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
@@ -911,8 +904,8 @@ export function ClusterBoard({
         board={board}
         activeId={focus?.id ?? null}
         onPick={onPickTheme}
-        progressFor={(t) => readingProgress(board, t.id)}
-        progressLabel="Questions"
+        progressFor={(t) => clusterProgress(board, t.id)}
+        progressLabel="Cards"
         wide={Boolean(admin)}
         dragging={drag !== null}
         hint={
@@ -1110,49 +1103,23 @@ export function ClusterBoard({
         {/* No panel, no fill — these are the questions the group is meant to be holding,
             and they read best as plain text in the margin. Set nearly twice the size they
             were: at 12px they were sized like UI chrome and scanned like it, which is the
-            opposite of what a prompt is for. Which questions depends on where the body is:
-            grouping prompts on the board, the reading's four inside a theme. */}
-        {focus ? (
-          <>
-            <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
-              How does this future work?
-            </h2>
-            <p className="mt-2 text-[14.5px] italic leading-[1.4] text-muted">
-              Four questions about this change. Think of a real person, place or decision
-              inside it as you answer each one.
-            </p>
-            <ul className="mt-3 flex flex-col gap-3.5">
-              {READING_FIELDS.map((f) => (
-                <li key={f}>
-                  <div className="text-[17px] font-medium leading-[1.3] tracking-[-0.01em]">
-                    {PROMPTS[f].question}
-                  </div>
-                  <div className="mt-0.5 text-[12.5px] italic leading-[1.4] text-muted">
-                    {PROMPTS[f].hint}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <>
-            <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
-              As you group and name themes
-            </h2>
-            <ul className="mt-3 flex flex-col gap-3.5 text-[19px] font-medium leading-[1.3] tracking-[-0.01em]">
-              <li>What connected change do these implications describe?</li>
-              <li>What is changing — and for whom?</li>
-              <li>Which implications support or complicate that reading?</li>
-            </ul>
-            <p className="mt-4 border-t border-[var(--hairline)] pt-3 text-[14.5px] italic leading-[1.4] text-muted">
-              If a theme is too broad, split it. If it repeats one note, look for related
-              implications.
-            </p>
-            <p className="mt-2.5 text-[14.5px] italic leading-[1.4] text-muted">
-              Aim for 3–5 themes. An implication can sit in more than one.
-            </p>
-          </>
-        )}
+            opposite of what a prompt is for. The same prompts on the board and inside a
+            theme: this step is clustering, wherever you are standing. */}
+        <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
+          As you group and name themes
+        </h2>
+        <ul className="mt-3 flex flex-col gap-3.5 text-[19px] font-medium leading-[1.3] tracking-[-0.01em]">
+          <li>What do these implications have in common?</li>
+          <li>What is this theme about — and for whom?</li>
+          <li>Which implications support or complicate that reading?</li>
+        </ul>
+        <p className="mt-4 border-t border-[var(--hairline)] pt-3 text-[14.5px] italic leading-[1.4] text-muted">
+          If a theme is too broad, split it. If it repeats one note, look for related
+          implications.
+        </p>
+        <p className="mt-2.5 text-[14.5px] italic leading-[1.4] text-muted">
+          Aim for 3–5 themes. An implication can sit in more than one.
+        </p>
       </PromptRail>
 
       {/* The rails are fixed at the screen edges, so they eat both gutters. Yield exactly
@@ -1242,14 +1209,14 @@ export function ClusterBoard({
         const at = board.themes.findIndex((t) => t.id === theme.id);
         const prev = board.themes[at - 1];
         const next = board.themes[at + 1];
-        const state = readingProgress(board, theme.id);
-        // The next theme still owing a reading, wrapping past the end — the hand-off step
-        // 2's chips used to make, so a pass over every theme stays a pass.
+        const state = clusterProgress(board, theme.id);
+        // The next theme still empty, wrapping past the end, so a pass over every theme
+        // stays a pass.
         const nextUnfinished = (() => {
           const n = board.themes.length;
           for (let k = 1; k < n; k++) {
             const t = board.themes[(at + k) % n];
-            if (readingProgress(board, t.id) !== "done") return t;
+            if (clusterProgress(board, t.id) !== "done") return t;
           }
           return null;
         })();
@@ -1282,7 +1249,7 @@ export function ClusterBoard({
               busy={busy}
               onEditTheme={(t) => onEditCard(theme, t)}
               onDescribeTheme={(d) => onDescribeCard(theme, d)}
-              namePlaceholder="Name this theme as a statement about change…"
+              namePlaceholder="What is this theme about?"
               showImplications={false}
               showDescription={false}
               menu={
@@ -1305,31 +1272,16 @@ export function ClusterBoard({
               note={
                 editable ? (
                   <p className="mt-3 border-t border-black/10 pt-2.5 text-[11.5px] italic leading-[1.4] text-muted">
-                    Click ✎ to edit the statement. Name a theme as a statement about change —
-                    &ldquo;Responsibility moves to communities faster than resources do&rdquo;
-                    rather than &ldquo;Community capacity&rdquo;.
+                    Click ✎ to edit the name. Say what these implications have in common.
                   </p>
                 ) : undefined
               }
             >
-              {/* ---- how does this future work? ----
-                   The four questions, straight under the statement: the sheet is the
-                   statement and these, and everything else on it folds. */}
-              <ReadingBoard
-                theme={theme}
-                board={board}
-                editable={editable}
-                busy={busy}
-                onAnswer={onAnswer}
-                onEdit={onEditCard}
-                onDelete={onDeleteCard}
-              />
-
               {/* ---- in this theme ----
                    Everything in it, as full cards, plus the ways to find more. The whole
                    block is the drop zone, like a column, so a card dragged off a rail
                    square still lands. Folds away (remembered per browser) once membership
-                   is settled and the questions above are the work. */}
+                   is settled. */}
               <div
                 {...zoneProps(zone)}
                 className={
@@ -1684,7 +1636,7 @@ export function ClusterBoard({
             {addingTheme ? (
               <div className="w-72" onClick={(e) => e.stopPropagation()}>
                 <AddCardForm
-                  label="Name this theme — as a statement about change…"
+                  label="What is this theme about?"
                   busy={busy}
                   autoFocus
                   onAdd={onAddTheme}
@@ -1700,9 +1652,8 @@ export function ClusterBoard({
                   Drag an implication here to start your first theme
                 </p>
                 <p className="mx-auto max-w-[58ch] text-[12.5px] leading-[1.45] text-muted">
-                  Or click to name one yourself. Name a theme as a statement about change —
-                  &ldquo;Responsibility moves to communities faster than resources do&rdquo;
-                  rather than &ldquo;Community capacity&rdquo;.
+                  Or click to name one yourself. Say what the implications in it have in
+                  common.
                 </p>
               </>
             )}
@@ -1910,7 +1861,7 @@ export function ClusterBoard({
                 {addingTheme ? (
                   <div className="w-full" onClick={(e) => e.stopPropagation()}>
                     <AddCardForm
-                      label="Name this theme — as a statement about change…"
+                      label="What is this theme about?"
                       busy={busy}
                       autoFocus
                       onAdd={onAddTheme}

@@ -57,10 +57,10 @@ export function ThemeLineagePanel({
       <div className="px-5 py-4">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          {/* Named for what a theme IS — a statement about change — so the label does the
-              teaching every time the card is seen, not only in step 1's composer. */}
+          {/* The question the name answers, so the label does the teaching every time the
+              card is seen, not only in step 1's composer. */}
           <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">
-            The change we see
+            What is this theme about
           </div>
 
           <h2 className="mt-1 text-[20px] font-extrabold uppercase leading-[1.1] tracking-tight">
