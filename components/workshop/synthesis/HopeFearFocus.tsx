@@ -3,6 +3,7 @@
 import { CARD_DESCRIPTION_MAX, CARD_TEXT_MAX, type RippleCard } from "@/lib/ripples-types";
 import { answerOf, type HopeFear, type SynthesisBoard } from "@/lib/synthesis-shape";
 import { CardMenu, CardMenuItem, InlineText } from "@/components/workshop/synthesis/SynthesisCard";
+import { AnswerCheck } from "@/components/workshop/synthesis/QuestionGrid";
 
 // One hope or fear, with room to do the actual work on it.
 //
@@ -46,13 +47,8 @@ function Field({
 }) {
   return (
     <div className={"border-t-2 border-dashed px-6 py-4 " + rule}>
-      <div className="flex items-start gap-2">
-        <span
-          aria-hidden
-          className={"mt-[1px] text-[11px] leading-none " + (answered ? "text-[var(--lime-deep)]" : "text-black/30")}
-        >
-          {answered ? "●" : "○"}
-        </span>
+      <div className="flex items-start gap-2.5">
+        <AnswerCheck answered={answered} />
         <div>
           <div className="text-[12.5px] font-bold leading-[1.3]">{label}</div>
           {hint && <div className="mt-0.5 text-[11px] italic leading-[1.4] text-muted">{hint}</div>}
@@ -135,10 +131,8 @@ export function HopeFearFocus({
         {/* The first of the three questions, styled like the other two so the card reads
             as one set of three — not a title with two questions under it. Always answered:
             a hope or fear is written before the card exists. */}
-        <div className="mt-3 flex items-start gap-2 pl-8">
-          <span aria-hidden className="mt-[1px] text-[11px] leading-none text-[var(--lime-deep)]">
-            ●
-          </span>
+        <div className="mt-3 flex items-start gap-2.5 pl-8">
+          <AnswerCheck answered />
           <div className="text-[12.5px] font-bold leading-[1.3]">
             What do we {kind === "hope" ? "hope" : "fear"}?
           </div>

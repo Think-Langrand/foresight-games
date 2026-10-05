@@ -11,6 +11,26 @@ import { CARD_TEXT_MAX, type RippleCard } from "@/lib/ripples-types";
 // the question's kind, which is why the grid never writes: it asks its caller to answer,
 // edit or delete, and the caller knows which card that is.
 
+// The answered mark: a checkbox, ticked once the question has an answer. Drawn, not an
+// <input> — it reports, it is not how you answer — but shaped like one, because "which
+// of these have we done" is a checklist question and a checklist is what people look for.
+export function AnswerCheck({ answered, className = "" }: { answered: boolean; className?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={answered ? "Answered" : "Not answered yet"}
+      className={
+        "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[3px] border-2 text-[12px] font-extrabold leading-none " +
+        (answered ? "border-ink bg-lime text-ink" : "border-black/30 bg-paper text-transparent") +
+        " " +
+        className
+      }
+    >
+      ✓
+    </span>
+  );
+}
+
 export interface QuestionField<K extends string> {
   key: K;
   question: string;
@@ -60,6 +80,7 @@ export function QuestionGrid<K extends string>({
         <span className="text-[11px] italic text-muted">
           {answered} of {fields.length} answered
           {canEdit && answered < fields.length && " · click a question to answer it"}
+          {answered === fields.length && " · all done"}
         </span>
       </div>
       {lead && <div className="mt-2">{lead}</div>}
@@ -98,16 +119,8 @@ export function QuestionGrid<K extends string>({
             (canEdit ? " cursor-pointer hover:border-ink hover:border-l-ink" : "");
           const body = (
             <>
-              <div className="flex items-start gap-2">
-                <span
-                  aria-hidden
-                  className={
-                    "mt-[3px] text-[12px] leading-none " +
-                    (has ? "text-[var(--lime-deep)]" : "text-black/30")
-                  }
-                >
-                  {has ? "●" : "○"}
-                </span>
+              <div className="flex items-start gap-2.5">
+                <AnswerCheck answered={has} />
                 <span className="text-[13.5px] font-bold leading-[1.35]">{f.question}</span>
               </div>
               {has ? (
