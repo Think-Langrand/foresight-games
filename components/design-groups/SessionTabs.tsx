@@ -69,7 +69,10 @@ export function SessionTabs({
 
   return (
     <SessionHeaderProvider value={{ slot }}>
-      <nav className="mx-auto max-w-[1100px] px-5 pt-4">
+      {/* `session-tabs` lets globals.css widen this row to the full column while a theme
+          rail is mounted (Week 3's first two steps), so the header spans what the board
+          spans. */}
+      <nav className="session-tabs mx-auto max-w-[1100px] px-5 pt-4">
         <div className="flex flex-wrap items-center gap-3 border-b border-[var(--rule)] pb-3">
           <div role="tablist" aria-label="Sessions" className="flex min-w-0 flex-wrap items-center gap-1.5">
             {pastWeeks.map((w) => tab(w.exerciseId, w.title))}

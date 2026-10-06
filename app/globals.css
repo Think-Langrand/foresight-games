@@ -286,4 +286,10 @@ textarea:focus-visible {
   body[data-theme-rail][data-right-rail="closed"] {
     padding-right: 3.5rem;
   }
+  /* With a rail on each side the board fills the column between them (Shell `fluid`), so
+     the session row above it spans the same width rather than a centred 1100px band.
+     Unlayered on purpose: it has to beat the utility class on the nav. */
+  body[data-theme-rail] .session-tabs {
+    max-width: none;
+  }
 }

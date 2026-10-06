@@ -16,6 +16,7 @@ import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineageP
 import { ThemeFoot } from "@/components/workshop/synthesis/ThemeFoot";
 import { CardWall } from "@/components/workshop/synthesis/CardWall";
 import { READING_QUESTIONS, ReadingBoard } from "@/components/workshop/synthesis/ReadingBoard";
+import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
 // STEP 2 — theme exploration. One theme at a time, picked on the rail like every theme
@@ -59,6 +60,9 @@ export function ExploreBoard({
 }) {
   const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
   const doomed = pendingDelete ? descendantsOf(board, pendingDelete.id) : [];
+  // The sheet element, so the rail's squares start level with it — see useRailBand.
+  const [sheetEl, setSheetEl] = useState<HTMLElement | null>(null);
+  useRailBand(sheetEl);
 
   // Falls back to the first theme: this step is a pass over every theme, so there is
   // always one to be on. Resolved live, so a deleted theme never strands the sheet.
@@ -73,6 +77,9 @@ export function ExploreBoard({
       progressFor={progressFor}
       progressLabel="Exploration"
       hint="Click a theme to work on it."
+      // An empty band: nothing to read out on this step, but the squares still line up
+      // with the sheet, as they do with step 1's toolbar.
+      top={null}
     />
   );
   const prompts = (
@@ -118,7 +125,7 @@ export function ExploreBoard({
       {rail}
       {prompts}
 
-      <section className="flex flex-col gap-4">
+      <section ref={setSheetEl} className="flex flex-col gap-4">
         <ThemeLineagePanel
           theme={theme}
           implications={board.clusters.get(theme.id) ?? []}

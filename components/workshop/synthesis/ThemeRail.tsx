@@ -48,6 +48,7 @@ export function ThemeRail({
   pickedCount = 0,
   onAddPicked,
   footer,
+  top,
 }: {
   board: SynthesisBoard;
   // The theme open in the body; null = none. Clicking the lit square passes null back.
@@ -69,6 +70,11 @@ export function ThemeRail({
   onAddPicked?: (theme: RippleCard) => void;
   // Below the squares — step 1's empty slots and "+ New theme" button.
   footer?: React.ReactNode;
+  // Above the squares: the rail's top band, as tall as the board's own header stack (see
+  // useRailBand), so the squares start level with the board's toolbar. Step 1 puts the
+  // "selected implication" read-out here; step 2 leaves it empty for the alignment alone.
+  // Undefined = no band, the squares start at the top.
+  top?: React.ReactNode;
 }) {
   // The square under the pointer, and where to draw its full contents. Fixed to the
   // viewport rather than inside the rail, which scrolls and would clip it.
@@ -88,7 +94,21 @@ export function ThemeRail({
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15rem] overflow-y-auto border-r border-ink bg-card px-3 py-4 lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15rem] flex-col border-r border-ink bg-card px-3 py-4 lg:flex">
+        {top !== undefined && (
+          // The band's top edge is the viewport's (the aside's padding is pulled back
+          // over), and its height is the toolbar's distance from the top of the page, so
+          // whatever follows begins exactly level with the toolbar. Pinned: the squares
+          // scroll beneath it rather than carrying it away. Scrolls inside itself when a
+          // long chain overflows.
+          <div
+            className="-mx-3 -mt-4 shrink-0 overflow-y-auto border-b border-ink/15 px-3 pb-3 pt-4"
+            style={{ height: "var(--rail-band, auto)", minHeight: "6rem" }}
+          >
+            {top}
+          </div>
+        )}
+        <div className="min-h-0 flex-1 overflow-y-auto">
         <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Themes</h2>
         <p className="mt-1 text-[11px] italic leading-[1.35] text-muted">{hint}</p>
 
@@ -178,6 +198,7 @@ export function ThemeRail({
             );
           })}
           {footer}
+        </div>
         </div>
       </aside>
 
