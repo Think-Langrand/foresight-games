@@ -375,7 +375,9 @@ function WheelCircle({
     <div
       title={label}
       className={
-        "absolute flex items-center justify-center rounded-full text-center shadow-[0_1px_0_rgba(36,36,34,0.08)] " +
+        // Crowded rings overlap. The circle under the pointer rises above its neighbours
+        // and grows a step, so what you are about to grab is never in doubt.
+        "absolute flex items-center justify-center rounded-full text-center shadow-[0_1px_0_rgba(36,36,34,0.08)] transition-transform duration-100 hover:z-20 hover:scale-105 " +
         (emphasis ? "z-10 shadow-[0_0_0_6px_rgba(196,255,103,0.45)] " : "") +
         extraClass
       }

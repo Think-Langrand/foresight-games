@@ -1,9 +1,20 @@
 "use client";
 
+import { useMemo, useRef, useState } from "react";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { ImplicationTree } from "@/components/workshop/ImplicationTree";
 import { ImplicationList } from "@/components/workshop/ImplicationList";
-import type { RippleCard } from "@/lib/ripples-types";
+import {
+  KeyChangeChips,
+  MapToolbar,
+  OrderChips,
+  orderColor,
+  stepZoom,
+  type Zoom,
+} from "@/components/workshop/MapControls";
+import { buildChildrenMap, depthByCard, type RippleCard } from "@/lib/ripples-types";
+import { sortRootsByRank } from "@/lib/ripples-scoring";
+import { branchOf, keyChangeLabel } from "@/lib/synthesis-shape";
 import type { ThemeAnswerKind } from "@/lib/synthesis-shape";
 import type { SynthesisSummary } from "@/lib/synthesis-summary-shape";
 
@@ -190,6 +201,10 @@ export function QuestionBlocks({ questions, onDelete, showMeta = true }: { quest
 
 // An implications week: the map (Wheel / Tree / List switch), then any question blocks
 // and the brainstorm notes. `seed` is an optional slot above the map (admin seeding).
+//
+// The map carries the same controls as the Week 3 cluster board's — which key change,
+// which order, zoom and fit — so a group reading last session's map back sees it the way
+// it sees it while clustering: one branch at a time, or all of them, in the order colours.
 export function ImplicationsPanel({
   ex,
   view,
@@ -202,33 +217,154 @@ export function ImplicationsPanel({
   setView: (v: MapView) => void;
   seed?: React.ReactNode;
 } & PanelOpts) {
-  const hasTree = ex.cards.some((c) => c.order !== "STICKY");
+  // The tree alone (no brainstorm stickies), its depths, its key changes in rank order,
+  // and what hangs under each — the counts the chips show.
+  const model = useMemo(() => {
+    const tree = ex.cards.filter((c) => c.order !== "STICKY");
+    const depths = depthByCard(tree);
+    const children = buildChildrenMap(tree);
+    const everyRoot = sortRootsByRank((children.get(null) ?? []).filter((c) => depths.has(c.id)));
+    const countUnder = (id: string): number => {
+      let n = 0;
+      const walk = (x: string) => {
+        for (const k of children.get(x) ?? []) {
+          if (!depths.has(k.id)) continue;
+          n += 1;
+          walk(k.id);
+        }
+      };
+      walk(id);
+      return n;
+    };
+    // Only key changes the group actually mapped under — a chip reading "0" is noise, and a
+    // branch with nothing in it is a hub and no wheel. The whole map still draws them all.
+    const roots = everyRoot.filter((r) => countUnder(r.id) > 0);
+    const keyChanges = roots.map((r) => ({ key: r.id, label: keyChangeLabel(r.text), title: r.text, count: countUnder(r.id) }));
+    const orderCounts = new Map<number, number>();
+    for (const c of tree) {
+      const d = depths.get(c.id);
+      if (d !== undefined && d > 0) orderCounts.set(d, (orderCounts.get(d) ?? 0) + 1);
+    }
+    const orders = [...orderCounts.keys()].sort((a, b) => a - b).map((o) => ({ order: o, count: orderCounts.get(o)! }));
+    const total = orders.reduce((n, o) => n + o.count, 0);
+    return { tree, depths, roots, keyChanges, orders, total };
+  }, [ex.cards]);
+  const hasTree = model.tree.length > 0;
+
+  // Which branch (null = every key change), which order, and how close.
+  const [branch, setBranch] = useState<string | null>(null);
+  const [orderFilter, setOrderFilter] = useState<number | null>(null);
+  const [zoom, setZoom] = useState<Zoom>("fit");
+  const fitScaleRef = useRef(1);
+  // A stale id (the branch was deleted) falls back to the whole map.
+  const branchAt = branch === null ? -1 : model.roots.findIndex((r) => r.id === branch);
+  const branchRoot = branchAt >= 0 ? model.roots[branchAt] : null;
+  const sub = branchRoot ? branchOf(model.tree, branchRoot.id) : null;
+  // The branch variant takes the key change as its hub, so the root is cut away and its
+  // children become the first ring.
+  const wheelCards = sub
+    ? sub.subtree.filter((c) => c.id !== sub.root.id).map((c) => (c.parentId === sub.root.id ? { ...c, parentId: null } : c))
+    : model.tree;
+  // A card's order is its depth on the WHOLE map (the key change is 0, so no order).
+  const orderOf = (id: string) => {
+    const d = model.depths.get(id);
+    return d === undefined || d === 0 ? null : d;
+  };
+  const dimmed = (id: string) => orderFilter !== null && orderOf(id) !== orderFilter;
+  const stepBranch = (step: -1 | 1) => {
+    const stops: (string | null)[] = [null, ...model.roots.map((r) => r.id)];
+    const cur = Math.max(0, stops.indexOf(branchRoot?.id ?? null));
+    setBranch(stops[(cur + step + stops.length) % stops.length]);
+    setZoom("fit"); // branches differ in size; a held zoom misleads
+  };
+  const onZoom = (dir: "in" | "out" | "fit") =>
+    setZoom(dir === "fit" ? "fit" : (z) => stepZoom(z, dir, fitScaleRef.current));
+  const spatial = view !== "list";
+
   return (
     <div className="flex flex-col gap-6">
       {seed}
       <div>
-        <div className="mb-3 flex items-center gap-1">
-          {MAP_VIEWS.map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              aria-pressed={v === view}
-              className={
-                "rounded-[2px] border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.06em] " +
-                (v === view ? "border-ink bg-ink text-white" : "border-[var(--rule)] bg-paper text-muted hover:border-ink")
-              }
-            >
-              {MAP_LABELS[v]}
-            </button>
-          ))}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1">
+            {MAP_VIEWS.map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                aria-pressed={v === view}
+                className={
+                  "rounded-[2px] border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.06em] " +
+                  (v === view ? "border-ink bg-ink text-white" : "border-[var(--rule)] bg-paper text-muted hover:border-ink")
+                }
+              >
+                {MAP_LABELS[v]}
+              </button>
+            ))}
+          </span>
+          {hasTree && model.keyChanges.length > 1 && (
+            <KeyChangeChips
+              items={model.keyChanges}
+              allCount={model.total}
+              value={branchRoot?.id ?? null}
+              onChange={(k) => {
+                setBranch(k);
+                setZoom("fit");
+              }}
+            />
+          )}
         </div>
+        {hasTree && spatial && model.orders.length > 1 && (
+          <div className="mb-2">
+            <OrderChips orders={model.orders} allCount={model.total} value={orderFilter} onChange={setOrderFilter} />
+          </div>
+        )}
         {!hasTree ? (
           <p className="text-[13px] italic text-muted">No implications mapped yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            {view === "wheel" && <FuturesWheel cards={ex.cards} centerLabel={ex.scenarioTitle} />}
-            {view === "tree" && <ImplicationTree cards={ex.cards} scenarioTitle={ex.scenarioTitle} />}
-            {view === "list" && <ImplicationList cards={ex.cards} scenarioTitle={ex.scenarioTitle} />}
+          <div className={spatial ? "rounded-[3px] border border-dashed border-black/15 p-3" : ""}>
+            {spatial && (
+              <MapToolbar
+                zoom={zoom}
+                onZoom={onZoom}
+                orders={model.orders.map((o) => o.order)}
+                branch={{
+                  label: branchRoot ? branchRoot.text : "All key changes",
+                  index: branchRoot ? branchAt : null,
+                  total: model.roots.length,
+                  onStep: stepBranch,
+                }}
+              />
+            )}
+            <div className={spatial ? "max-h-[75vh] overflow-auto" : "overflow-x-auto"}>
+              {view === "wheel" && (
+                <FuturesWheel
+                  key={branchRoot?.id ?? "all"}
+                  cards={wheelCards}
+                  centerLabel={branchRoot ? branchRoot.text : ex.scenarioTitle}
+                  variant={branchRoot ? "branch" : "map"}
+                  zoom={zoom}
+                  onFitScale={(v) => (fitScaleRef.current = v)}
+                  ringFor={(id) => {
+                    const o = orderOf(id);
+                    return o === null ? null : { color: orderColor(o) };
+                  }}
+                  nodeProps={(id) => (dimmed(id) ? { style: { opacity: 0.3 } } : {})}
+                />
+              )}
+              {view === "tree" && (
+                <ImplicationTree
+                  cards={model.tree}
+                  scenarioTitle={ex.scenarioTitle}
+                  rootIds={branchRoot ? new Set([branchRoot.id]) : undefined}
+                  dimDepth={(d) => d > 0 && orderFilter !== null && d !== orderFilter}
+                  zoom={zoom}
+                  onFitScale={(v) => (fitScaleRef.current = v)}
+                />
+              )}
+              {view === "list" && (
+                <ImplicationList cards={sub ? sub.subtree : model.tree} scenarioTitle={ex.scenarioTitle} />
+              )}
+            </div>
           </div>
         )}
       </div>

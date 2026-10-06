@@ -7,9 +7,23 @@ import { RippleArtBand } from "@/components/workshop/RippleArt";
 // panel, the error toast, and a centred one-liner. Extracted from RipplesTeamView so the
 // Week 3 synthesis board wears exactly the same chrome instead of a near-copy.
 
-export function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
+// `fluid` drops the cap altogether: the Week 3 steps with a rail on both sides have the
+// rails as their edges, and a centred band between them leaves two dead gutters.
+export function Shell({
+  children,
+  wide,
+  fluid,
+}: {
+  children: React.ReactNode;
+  wide?: boolean;
+  fluid?: boolean;
+}) {
   return (
-    <main className={"mx-auto min-h-screen px-5 py-6 " + (wide ? "max-w-[1100px]" : "max-w-[820px]")}>
+    <main
+      className={
+        "mx-auto min-h-screen px-5 py-6 " + (fluid ? "max-w-none" : wide ? "max-w-[1100px]" : "max-w-[820px]")
+      }
+    >
       {children}
     </main>
   );

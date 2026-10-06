@@ -23,10 +23,18 @@ import {
 } from "@/components/workshop/synthesis/SynthesisCard";
 import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
-import { rippleDepthColor } from "@/components/workshop/RippleCard";
+import {
+  KeyChangeChips,
+  MapToolbar,
+  OrderChips,
+  orderColor,
+  orderTint,
+  stepZoom,
+} from "@/components/workshop/MapControls";
 import { SuggestThemesRail } from "@/components/workshop/synthesis/SuggestThemesRail";
 import { ThemeJoinSearch } from "@/components/workshop/synthesis/ThemeJoinSearch";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
+import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
 import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
 import { Dot, ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
@@ -42,15 +50,8 @@ import {
 // needs to be neither.
 const CARD_BG = "#efeade";
 
-// One colour per order, so the distance from the key change is a colour rather than a
-// number you have to read. The SAME hue the Week 2 wheel gives that ring (RippleCard's
-// depth palette: 1st blue, 2nd amber, 3rd coral, then cycling lighter), so the filter
-// chips, the stamp on a card and the ring round a map node all agree. The stamp and the
-// off-state chip are tinted rather than solid: the text has to stay the loudest thing.
-const orderColor = (order: number) => rippleDepthColor(order);
-const orderTint = (order: number) => `color-mix(in srgb, ${orderColor(order)} 28%, var(--card))`;
-// The hue cycle lands on lime every fourth order, and lime wants ink text, not white.
-const orderOnText = (order: number) => (order % 4 === 0 ? "var(--ink)" : "#fff");
+// One colour per order — see MapControls, which the read-only Session 2 view shares, so
+// the distance from the key change is the same colour wherever a map is drawn.
 
 // STEP 1 — cluster Week 2's implications into themes.
 //
@@ -156,6 +157,9 @@ export function ClusterBoard({
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
+  // The toolbar element, for lining the theme rail's squares up with it — see useRailBand.
+  const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
+  useRailBand(toolbarEl);
   const [addingTheme, setAddingTheme] = useState(false);
   const [addingTo, setAddingTo] = useState<string | null>(null); // theme id, or "tray"
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
@@ -342,6 +346,30 @@ export function ClusterBoard({
       // The payload is never read — setData is what makes the drag legal in Firefox/Safari.
       e.dataTransfer.setData("text/plain", id);
       e.dataTransfer.effectAllowed = "move";
+      // A map circle drags as ITSELF. The browser's default ghost is a snapshot of the
+      // element's box, and on a crowded ring that box has a neighbour painted over it — so
+      // the ghost read as "both of them", or a square with two half circles in it. A clone
+      // of just this circle, parked off-screen for the one frame setDragImage needs, drags
+      // as one circle. Tray cards keep the default: nothing overlaps them.
+      const el = e.currentTarget as HTMLElement;
+      if (el.classList.contains("rounded-full")) {
+        const r = el.getBoundingClientRect();
+        const ghost = el.cloneNode(true) as HTMLElement;
+        ghost.querySelectorAll(".top-full").forEach((n) => n.remove()); // the "Theme 2" marker under it
+        Object.assign(ghost.style, {
+          position: "fixed",
+          top: "-9999px",
+          left: "0",
+          width: `${r.width}px`,
+          height: `${r.height}px`,
+          transform: "none",
+          margin: "0",
+          opacity: "1",
+        });
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, r.width / 2, r.height / 2);
+        requestAnimationFrame(() => ghost.remove());
+      }
       setDrag({ id, kind });
     },
     onDragEnd: endDrag,
@@ -682,104 +710,34 @@ export function ClusterBoard({
     <div className="rounded-[3px] border border-dashed border-black/15 p-3">
       {mapKeyChanges.length > 0 && (mapAll || mapBranch) ? (
         <>
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
-              Zoom
-            </span>
-            {([
-              ["−", "out"],
-              ["+", "in"],
-            ] as const).map(([glyph, dir]) => (
-              <button
-                key={dir}
-                onClick={() =>
-                  setZoom((z) => {
-                    const from = typeof z === "number" ? z : (fitScaleRef.current || 1);
-                    const next = dir === "in" ? from * 1.25 : from / 1.25;
-                    return Math.min(2, Math.max(0.25, Number(next.toFixed(3))));
-                  })
-                }
-                aria-label={dir === "in" ? "Zoom in" : "Zoom out"}
-                className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[12px] font-bold leading-none text-muted hover:border-ink hover:text-ink"
-              >
-                {glyph}
-              </button>
-            ))}
-            <button
-              onClick={() => setZoom("fit")}
-              aria-pressed={zoom === "fit"}
-              className={
-                "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                (zoom === "fit"
-                  ? "border-ink bg-ink text-paper"
-                  : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
-              }
-            >
-              Fit
-            </button>
-            {typeof zoom === "number" && (
-              <span className="text-[10px] font-bold text-muted">{Math.round(zoom * 100)}%</span>
-            )}
-
-            {/* The order colours, so the rings on the circles read without going back to
-                the tray's chips — which are out of view inside a theme. */}
-            {mapOrders.length > 0 && (
-              <span className="ml-2 flex items-center gap-1.5" aria-label="Ring colours by order">
-                {mapOrders.map((o) => (
-                  <span key={o} className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.05em] text-muted">
-                    <span aria-hidden className="inline-block h-[9px] w-[9px] rounded-full" style={{ background: orderColor(o) }} />
-                    {ordinal(o)}
-                  </span>
-                ))}
-              </span>
-            )}
-
-            {/* Which branch, and the way through all of them. The key-change chips in the
-                tray header can pick one, but they are counted off the TRAY — a key change
-                whose implications have all been clustered drops out of them, and its map
-                with it. Stepping through happens here, off the full list, so every map
-                stays reachable however far the clustering has got. "All key changes" is
-                one stop on the way round, unless the tray is filtered to one key change —
-                the cycler never touches the tray's filter, so it cannot clear it. */}
-            {mapKeyChanges.length > 1 && (
-              <span className="ml-auto flex min-w-0 items-center gap-1.5">
-                <span
-                  className="min-w-0 max-w-[20rem] truncate text-[10.5px] font-bold uppercase tracking-[0.05em]"
-                  title={mapAll ? "All key changes" : mapKeyChanges[mapAt]?.[0]}
-                >
-                  {mapAll ? "All key changes" : mapKeyChanges[mapAt]?.[0]}
-                </span>
-                <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-muted">
-                  {mapAll ? `${mapKeyChanges.length} maps` : `${mapAt + 1}/${mapKeyChanges.length}`}
-                </span>
-                {([
-                  ["‹", -1, "Previous key change"],
-                  ["›", 1, "Next key change"],
-                ] as const).map(([glyph, step, label]) => (
-                  <button
-                    key={step}
-                    onClick={() => {
-                      // Wraps, so you can walk the whole set in one direction.
-                      const stops: (string | null)[] = [
-                        ...(keyFilter === null ? [null] : []),
-                        ...mapKeyChanges.map(([text]) => text),
-                      ];
-                      const cur = Math.max(0, stops.indexOf(mapPick));
-                      const next = stops[(cur + step + stops.length) % stops.length];
-                      setMapKey(next); // the map only — the tray keeps its filter
-                      setFocusNode(null);
-                      setZoom("fit"); // branches differ in size; a held zoom misleads
-                    }}
-                    aria-label={label}
-                    title={label}
-                    className="shrink-0 rounded-[2px] border border-ink bg-paper px-2 py-0.5 text-[12px] font-bold leading-none hover:bg-lime"
-                  >
-                    {glyph}
-                  </button>
-                ))}
-              </span>
-            )}
-          </div>
+          <MapToolbar
+            zoom={zoom}
+            onZoom={(dir) => setZoom(dir === "fit" ? "fit" : (z) => stepZoom(z, dir, fitScaleRef.current))}
+            orders={mapOrders}
+            // Which branch, and the way through all of them. The key-change chips in the
+            // toolbar can pick one, but they are counted off the TRAY — a key change whose
+            // implications have all been clustered drops out of them, and its map with it.
+            // Stepping through happens here, off the full list, so every map stays
+            // reachable however far the clustering has got. "All key changes" is one stop
+            // on the way round, unless the tray is filtered to one key change — the cycler
+            // never touches the tray's filter, so it cannot clear it.
+            branch={{
+              label: mapAll ? "All key changes" : (mapKeyChanges[mapAt]?.[0] ?? ""),
+              index: mapAll ? null : mapAt,
+              total: mapKeyChanges.length,
+              onStep: (step) => {
+                const stops: (string | null)[] = [
+                  ...(keyFilter === null ? [null] : []),
+                  ...mapKeyChanges.map(([text]) => text),
+                ];
+                const cur = Math.max(0, stops.indexOf(mapPick));
+                const next = stops[(cur + step + stops.length) % stops.length];
+                setMapKey(next); // the map only — the tray keeps its filter
+                setFocusNode(null);
+                setZoom("fit"); // branches differ in size; a held zoom misleads
+              },
+            }}
+          />
 
           {/* What to do with the circles you have clicked. On the board the rail squares
               are also targets; inside a theme the obvious destination is this theme, so it
@@ -945,6 +903,135 @@ export function ClusterBoard({
     );
   };
 
+  // ---- the hovered node, in full ----
+  // The top of the right rail: a circle clips its label to fit, so this is where the
+  // whole implication can actually be read.
+  // It also says the things the node has no room for — how far out it is, which key
+  // change it hangs off, and whether it is already in a theme. A solid panel rather than
+  // a ruled-off stretch of rail: it is the one part of that column that changes as you
+  // move, and it should read as a readout.
+  const peekPanel = (
+    <div className="rounded-[4px] border border-blue/30 bg-[#e4ecfb] p-3">
+      <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue">
+        Selected implication
+      </h2>
+      {peekCard && mapVisible ? (
+        <>
+          {/* The circle's text first, in full: that is what the hover was for, and the
+              band is only as tall as the header stack beside it. The chain it sits in
+              scrolls beneath. */}
+          <p className="mt-1.5 text-[12.5px] font-bold leading-[1.3] text-ink">{peekCard.text}</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {peekLineage && implicationOrder(peekLineage) !== null && (
+              <span
+                className="rounded-[2px] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-ink"
+                style={{ background: orderTint(implicationOrder(peekLineage)!) }}
+              >
+                {ordinal(implicationOrder(peekLineage)!)}
+              </span>
+            )}
+            {peekSeeded === null ? (
+              <span className="rounded-[2px] bg-black/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
+                Not on this board
+              </span>
+            ) : peekSeeded.themeId !== null ? (
+              <span className="rounded-[2px] bg-ink px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-paper">
+                Theme {board.themes.findIndex((t) => t.id === peekSeeded.themeId) + 1}
+              </span>
+            ) : (
+              <span className="rounded-[2px] border border-ink/30 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
+                Not in a theme
+              </span>
+            )}
+          </div>
+
+          {/* The branch read top to bottom, one order per step. The hovered node is the
+              bold one; everything under it keeps going, because a node is almost always
+              the middle of a chain rather than the end of one. The text is not repeated
+              above — it is already in here, in its place. */}
+          <ol className="mt-2.5 flex flex-col">
+            {peekLevels.map((level, i) => (
+              <li key={i}>
+                {i === 0 && (
+                  <span className="mb-0.5 block text-[9px] font-bold uppercase tracking-[0.07em] text-blue/70">
+                    Key change
+                  </span>
+                )}
+                {i > 0 && (
+                  // An actual arrow, drawn, carrying the order it steps into.
+                  <span className="flex items-center gap-1.5 py-0.5 pl-1.5 text-blue/60">
+                    <svg width="9" height="18" viewBox="0 0 9 18" aria-hidden className="shrink-0">
+                      <line x1="4.5" y1="0" x2="4.5" y2="12" stroke="currentColor" strokeWidth="1.5" />
+                      <polygon points="4.5,18 1,11.5 8,11.5" fill="currentColor" />
+                    </svg>
+                    <span className="text-[9px] font-bold uppercase tracking-[0.07em]">
+                      {ordinal(level.order)} order
+                    </span>
+                  </span>
+                )}
+                <div className="flex flex-col gap-1">
+                  {level.texts.map((text, j) => (
+                    <p
+                      key={j}
+                      // Key changes are whole paragraphs — the real ones run eight lines
+                      // here and swamped the chain they are supposed to be the head of.
+                      // Clamped, with the full text on hover.
+                      title={level.order === 0 ? text : undefined}
+                      className={
+                        "flex items-start gap-1.5 text-[11.5px] leading-[1.35] " +
+                        (level.order === 0
+                          ? "font-bold uppercase tracking-[0.04em] text-ink"
+                          : level.here && text === peekCard.text
+                            ? "rounded-[2px] bg-paper px-1.5 py-1 font-bold text-ink shadow-[1px_1px_0_rgba(39,93,226,0.25)]"
+                            : "text-ink/65")
+                      }
+                    >
+                      {/* No bullet on the key change — it is the head of the chain, not an
+                          item in a list — nor on the hovered node, which is marked as the
+                          place in the chain. The bullets are for the levels that hold
+                          several siblings and would otherwise run together. */}
+                      {level.order > 0 && !(level.here && text === peekCard.text) && <Dot />}
+                      <span className={level.order === 0 ? "line-clamp-2" : "min-w-0"}>
+                        {level.here && text === peekCard.text ? "◀ this one" : text}
+                      </span>
+                    </p>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : (
+        <p className="mt-1.5 text-[12px] italic leading-[1.4] text-ink/60">
+          {mapVisible
+            ? "Hover a circle on the map to read it here."
+            : "Open the map to read an implication in full here."}
+        </p>
+      )}
+    </div>
+  );
+
+  // The two places the body can be, as icons: a grid of cards, and the wheel. Drawn
+  // inline — the repo has no icon set, and these two shapes are the things themselves.
+  const viewIcon = (v: "cards" | "map") =>
+    v === "cards" ? (
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden fill="currentColor">
+        <rect x="1" y="1" width="5" height="5" rx="1" />
+        <rect x="8" y="1" width="5" height="5" rx="1" />
+        <rect x="1" y="8" width="5" height="5" rx="1" />
+        <rect x="8" y="8" width="5" height="5" rx="1" />
+      </svg>
+    ) : (
+      <svg width="14" height="14" viewBox="-1 -1 16 16" aria-hidden fill="currentColor">
+        <circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+        <circle cx="7" cy="7" r="2" />
+        <circle cx="7" cy="1.2" r="1.2" />
+        <circle cx="12.8" cy="7" r="1.2" />
+        <circle cx="7" cy="12.8" r="1.2" />
+        <circle cx="1.2" cy="7" r="1.2" />
+      </svg>
+    );
+
   return (
     <>
       <ThemeRail
@@ -955,6 +1042,13 @@ export function ClusterBoard({
         progressLabel="Cards"
         wide={Boolean(admin)}
         dragging={drag !== null}
+        // The step, said once and large, where the eye starts. The band ends in a rule the
+        // toolbar's rule continues — see useRailBand.
+        top={
+          <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
+            1. Combine implications into themed clusters
+          </p>
+        }
         hint={
           picked.size > 0
             ? `Click one to add ${picked.size}.`
@@ -1024,113 +1118,9 @@ export function ClusterBoard({
           later step inherits it. Up here it stays readable while you work, instead of
           scrolling away above 146 cards. */}
       <PromptRail wide={Boolean(admin)} label={admin ? "Prompts & suggestions" : "Prompts"}>
-        {/* ---- the hovered node, in full ----
-            Only on the map, where the question exists: a circle clips its label to fit, so
-            the rail is where the whole implication can actually be read. It also says the
-            things the node has no room for — how far out it is, which key change it hangs
-            off, and whether it is already in a theme. */}
-        {mapVisible && (
-          // A solid panel rather than a ruled-off stretch of rail: it is the one part of
-          // this column that changes as you move, and it should read as a readout.
-          <div className="mb-4 rounded-[4px] border border-blue/30 bg-[#e4ecfb] p-3">
-            <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue">
-              Selected implication
-            </h2>
-            {peekCard ? (
-              <>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  {peekLineage && implicationOrder(peekLineage) !== null && (
-                    <span
-                      className="rounded-[2px] px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-ink"
-                      style={{ background: orderTint(implicationOrder(peekLineage)!) }}
-                    >
-                      {ordinal(implicationOrder(peekLineage)!)}
-                    </span>
-                  )}
-                  {peekSeeded === null ? (
-                    <span className="rounded-[2px] bg-black/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
-                      Not on this board
-                    </span>
-                  ) : peekSeeded.themeId !== null ? (
-                    <span className="rounded-[2px] bg-ink px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-paper">
-                      Theme {board.themes.findIndex((t) => t.id === peekSeeded.themeId) + 1}
-                    </span>
-                  ) : (
-                    <span className="rounded-[2px] border border-ink/30 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
-                      Not in a theme
-                    </span>
-                  )}
-                </div>
-
-                {/* The branch read top to bottom, one order per step. The hovered node is
-                    the bold one; everything under it keeps going, because a node is almost
-                    always the middle of a chain rather than the end of one. The text is not
-                    repeated above — it is already in here, in its place. */}
-                <ol className="mt-2.5 flex flex-col">
-                  {peekLevels.map((level, i) => (
-                    <li key={i}>
-                      {i === 0 && (
-                        <span className="mb-0.5 block text-[9px] font-bold uppercase tracking-[0.07em] text-blue/70">
-                          Key change
-                        </span>
-                      )}
-                      {i > 0 && (
-                        // An actual arrow, drawn, carrying the order it steps into.
-                        <span className="flex items-center gap-1.5 py-0.5 pl-1.5 text-blue/60">
-                          <svg
-                            width="9"
-                            height="18"
-                            viewBox="0 0 9 18"
-                            aria-hidden
-                            className="shrink-0"
-                          >
-                            <line x1="4.5" y1="0" x2="4.5" y2="12" stroke="currentColor" strokeWidth="1.5" />
-                            <polygon points="4.5,18 1,11.5 8,11.5" fill="currentColor" />
-                          </svg>
-                          <span className="text-[9px] font-bold uppercase tracking-[0.07em]">
-                            {ordinal(level.order)} order
-                          </span>
-                        </span>
-                      )}
-                      <div className="flex flex-col gap-1">
-                        {level.texts.map((text, j) => (
-                          <p
-                            key={j}
-                            // Key changes are whole paragraphs — the real ones run eight
-                            // lines here and swamped the chain they are supposed to be the
-                            // head of. Clamped, with the full text on hover.
-                            title={level.order === 0 ? text : undefined}
-                            className={
-                              "flex items-start gap-1.5 text-[11.5px] leading-[1.35] " +
-                              (level.order === 0
-                                ? "font-bold uppercase tracking-[0.04em] text-ink"
-                                : level.here
-                                  ? "rounded-[2px] bg-paper px-1.5 py-1 text-[12.5px] font-bold text-ink shadow-[1px_1px_0_rgba(39,93,226,0.25)]"
-                                  : "text-ink/65")
-                            }
-                          >
-                            {/* No bullet on the key change — it is the head of the chain,
-                                not an item in a list — nor on the hovered node, which has
-                                its own card. The bullets are for the levels that hold
-                                several siblings and would otherwise run together. */}
-                            {level.order > 0 && !level.here && <Dot />}
-                            <span className={level.order === 0 ? "line-clamp-3" : "min-w-0"}>
-                              {text}
-                            </span>
-                          </p>
-                        ))}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </>
-            ) : (
-              <p className="mt-1.5 text-[12px] italic leading-[1.4] text-ink/60">
-                Hover a circle on the map to read it in full.
-              </p>
-            )}
-          </div>
-        )}
+        {/* The hovered node, in full — the one part of this column that changes as you
+            move, so it sits first and reads as a readout. */}
+        <div className="mb-4">{peekPanel}</div>
 
         {/* A facilitator's clustering tool, above the prompts: example groupings to read
             beside the real tray. Members never see this — `admin` is decided on the server. */}
@@ -1186,60 +1176,145 @@ export function ClusterBoard({
         </div>
       )}
 
-      {/* ---- where the body is, in one place that never moves ----
-           Cards↔Map and board↔theme were two independent pieces of state sharing a single
-           exit, and the Cards|Map toggle only existed in the tray. So from inside a theme
-           there was no way to ask for the OTHER board, and "← Back to the board" could not
-           say which one it meant — it just returned you to whichever you had left.
+      {/* ---- the toolbar ----
+           One always-rendered bar above the workspace, and the thing the theme rail lines
+           up with (useRailBand measures it). Two lines on the board: which key change and
+           which order are in view, with the ways to look at them — a grid of cards or the
+           wheel — on the right beside the selection. Inside a theme the filters give way to
+           the theme's chip, and Cards and Map are the ways out; the theme's own rail square
+           toggles it shut.
 
-           There are three places the body can be, so this is one control with three
-           segments rather than a toggle plus a back button. Where you are is a label; the
-           other two are the ways out, always in the same spot. */}
-      {(week2Cards.length > 0 || focus) && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--rule)] pb-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
-            Working in
-          </span>
-          <span className="flex min-w-0 flex-wrap items-center gap-1">
-            {(["cards", "map"] as const).map((v) => {
-              if (v === "map" && week2Cards.length === 0) return null;
-              const on = !focus && view === v;
-              return (
-                <button
-                  key={v}
-                  onClick={() => {
-                    setView(v);
-                    if (v === "cards") setFocusNode(null);
-                    onPickTheme(null); // leaving a theme, if one is open
-                  }}
-                  aria-pressed={on}
-                  className={
-                    "rounded-[2px] border px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] transition-colors " +
-                    (on
-                      ? "border-ink bg-ink text-paper"
-                      : "border-ink bg-paper text-ink hover:bg-lime")
-                  }
-                >
-                  {v === "cards" ? "Cards" : "Map"}
-                </button>
-              );
-            })}
-            {/* Not a button. Clicking where you already are should not be one of the
-                options; the theme's own rail square toggles it shut, and Cards and Map
-                are the ways out from here. */}
-            {focus && (
-              <span className="flex min-w-0 max-w-[22rem] items-center gap-1.5 rounded-[2px] border-2 border-ink bg-lime px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] shadow-[2px_2px_0_rgba(36,36,34,0.2)]">
-                <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] text-paper">
-                  {board.themes.findIndex((t) => t.id === focus.id) + 1}
-                </span>
-                <span className="truncate" title={focus.text}>
-                  {focus.text}
-                </span>
+           Cards↔Map and board↔theme used to be two controls sharing a single exit, with
+           the toggle only in the tray; from inside a theme there was no way to ask for the
+           OTHER board. The icons live here, in one spot, whichever state the board is in.
+
+           No "Not yet in a theme" heading: theming everything is not the goal, and the
+           count is on the "All" chip. */}
+      <div
+        ref={setToolbarEl}
+        // The rule along its top is the one the theme rail's band ends in: pulled out
+        // into both gutters so the line runs from rail to rail. The label under it is
+        // this side's "Themes".
+        className="flex flex-col gap-1.5 border-b border-t border-[var(--rule)] border-t-ink pb-2.5 pt-3 lg:-mx-9 lg:px-9"
+      >
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+          {focus ? "Theme" : "Implications"}
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          {focus ? (
+            // Not a button. Clicking where you already are should not be one of the
+            // options.
+            <span className="flex min-w-0 max-w-[26rem] items-center gap-1.5 rounded-[2px] border-2 border-ink bg-lime px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] shadow-[2px_2px_0_rgba(36,36,34,0.2)]">
+              <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] text-paper">
+                {board.themes.findIndex((t) => t.id === focus.id) + 1}
               </span>
+              <span className="truncate" title={focus.text}>
+                {focus.text}
+              </span>
+            </span>
+          ) : (
+            keyChanges.length > 1 && (
+              <KeyChangeChips
+                items={keyChanges.map((k) => ({ key: k, label: keyChangeLabel(k), title: k, count: keyCounts.get(k) ?? 0 }))}
+                allCount={board.unclustered.filter(matchesOrder).length}
+                value={keyFilter}
+                onChange={(k) => {
+                  setKeyFilter(k);
+                  // A chip means both: filter the tray AND take the map there. Without this
+                  // the map would stay wherever the cycler last left it.
+                  setMapKey(k);
+                  setFocusNode(null);
+                }}
+              />
+            )
+          )}
+
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            {(week2Cards.length > 0 || focus) && (
+              <span role="group" aria-label="Working in" className="flex items-center gap-1">
+                {(["cards", "map"] as const).map((v) => {
+                  if (v === "map" && week2Cards.length === 0) return null;
+                  const on = !focus && view === v;
+                  const label = v === "cards" ? "Cards" : "Map";
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => {
+                        setView(v);
+                        if (v === "cards") setFocusNode(null);
+                        onPickTheme(null); // leaving a theme, if one is open
+                      }}
+                      aria-pressed={on}
+                      aria-label={label}
+                      title={label}
+                      className={
+                        "rounded-[2px] border p-1.5 leading-none transition-colors " +
+                        (on ? "border-ink bg-ink text-paper" : "border-ink bg-paper text-ink hover:bg-lime")
+                      }
+                    >
+                      {viewIcon(v)}
+                    </button>
+                  );
+                })}
+              </span>
+            )}
+            {!focus && editable && board.unclustered.length > 0 && (
+              <>
+                <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+                  {picked.size} selected
+                </span>
+                {picked.size > 0 && (
+                  <>
+                    <button
+                      onClick={() => {
+                        onCreateThemeFrom([...picked]);
+                        setPicked(new Set());
+                      }}
+                      disabled={busy}
+                      className="rounded-[2px] border border-ink bg-lime px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep disabled:opacity-40"
+                    >
+                      Create theme from selected
+                    </button>
+                    <button
+                      onClick={() => setPicked(new Set())}
+                      className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
+                    >
+                      Clear
+                    </button>
+                  </>
+                )}
+              </>
             )}
           </span>
         </div>
-      )}
+
+        {/* Nearly half a real board is third-order — two steps removed from any key change
+            — so a group that wants to cluster the direct consequences first needs a way to
+            see only those. It also makes a 146-card tray navigable at all. Each order's
+            chip wears its colour — the same one its cards are stamped with and its circles
+            are ringed with on the map — solid when it is the filter, as a dot and a tint
+            otherwise. */}
+        {!focus && (orders.length > 1 || editable) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {orders.length > 1 && (
+              <OrderChips
+                orders={orders.map((o) => ({ order: o, count: orderCounts.get(o) ?? 0 }))}
+                allCount={board.unclustered.length}
+                value={orderFilter}
+                onChange={setOrderFilter}
+              />
+            )}
+            {editable && (
+              <button
+                onClick={() => setAddingTo(addingTo === "tray" ? null : "tray")}
+                className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+              >
+                ＋ Add an implication
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ---- one theme, opened from the rail: the sheet ----
            The columns show every theme at once, which is right for sorting and wrong for
@@ -1492,132 +1567,9 @@ export function ClusterBoard({
 
       {!focus && (
       <>
-      {/* ---- the tray ---- */}
-      <section>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <h2 className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
-            Not yet in a theme ({board.unclustered.length})
-          </h2>
-          {editable && (
-            <button
-              onClick={() => setAddingTo(addingTo === "tray" ? null : "tray")}
-              className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
-            >
-              ＋ Add an implication
-            </button>
-          )}
-          {/* Cards|Map used to live here. It moved up to the "Working in" bar, which is
-              outside this section and therefore still on screen while a theme is open —
-              which is the whole point of it. */}
-          {/* Nearly half a real board is third-order — two steps removed from any key
-              change — so a group that wants to cluster the direct consequences first needs
-              a way to see only those. It also makes a 146-card tray navigable at all. */}
-          {orders.length > 1 && (
-            <span className="flex flex-wrap items-center gap-1">
-              {[null, ...orders].map((o) => {
-                const on = orderFilter === o;
-                const n = o === null ? board.unclustered.length : (orderCounts.get(o) ?? 0);
-                // Each order's chip wears its colour — the same one its cards are stamped
-                // with and its circles are ringed with on the map — solid when it is the
-                // filter, as a dot and a tint otherwise.
-                const colour = o === null ? null : orderColor(o);
-                return (
-                  <button
-                    key={o ?? "all"}
-                    onClick={() => setOrderFilter(o)}
-                    aria-pressed={on}
-                    title={
-                      o === null
-                        ? "Every implication in the tray"
-                        : `${ordinal(o)}-order — ${o} step${o === 1 ? "" : "s"} from its key change`
-                    }
-                    className={
-                      "flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                      (colour === null
-                        ? on
-                          ? "border-ink bg-ink text-paper"
-                          : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink"
-                        : on
-                          ? ""
-                          : "text-ink hover:brightness-95")
-                    }
-                    style={
-                      o === null || colour === null
-                        ? undefined
-                        : on
-                          ? { background: colour, borderColor: colour, color: orderOnText(o) }
-                          : { background: orderTint(o), borderColor: colour }
-                    }
-                  >
-                    {colour !== null && !on && (
-                      <span aria-hidden className="inline-block h-[7px] w-[7px] rounded-full" style={{ background: colour }} />
-                    )}
-                    {o === null ? "All" : ordinal(o)} {n}
-                  </button>
-                );
-              })}
-            </span>
-          )}
-          {keyChanges.length > 1 && (
-            <span className="flex flex-wrap items-center gap-1">
-              {[null, ...keyChanges].map((k) => {
-                const on = keyFilter === k;
-                const n = k === null ? board.unclustered.filter(matchesOrder).length : (keyCounts.get(k) ?? 0);
-                return (
-                  <button
-                    key={k ?? "all-keys"}
-                    onClick={() => {
-                      setKeyFilter(k);
-                      // A chip means both: filter the tray AND take the map there. Without
-                      // this the map would stay wherever the cycler last left it.
-                      setMapKey(k);
-                      setFocusNode(null);
-                    }}
-                    aria-pressed={on}
-                    title={k ?? "Every key change"}
-                    className={
-                      // No truncation here: keyChangeLabel already caps the label, and
-                      // clipping it also clipped the count, which is the half worth reading.
-                      "whitespace-nowrap rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                      (on
-                        ? "border-blue bg-blue text-white"
-                        : "border-[var(--rule)] bg-paper text-muted hover:border-blue hover:text-ink")
-                    }
-                  >
-                    {k === null ? "Any key change" : keyChangeLabel(k)} {n}
-                  </button>
-                );
-              })}
-            </span>
-          )}
-          {editable && board.unclustered.length > 0 && (
-            <span className="ml-auto flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
-                {picked.size} selected
-              </span>
-              {picked.size > 0 && (
-                <>
-                  <button
-                    onClick={() => {
-                      onCreateThemeFrom([...picked]);
-                      setPicked(new Set());
-                    }}
-                    disabled={busy}
-                    className="rounded-[2px] border border-ink bg-lime px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep disabled:opacity-40"
-                  >
-                    Create theme from selected
-                  </button>
-                  <button
-                    onClick={() => setPicked(new Set())}
-                    className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
-                  >
-                    Clear
-                  </button>
-                </>
-              )}
-            </span>
-          )}
-        </div>
+      {/* ---- the tray ----
+           Its filters, add button and view toggle are in the toolbar above. */}
+      <section aria-label="Implications not yet in a theme">
         {view === "map" ? renderMap(null) : (
         <div
           {...zoneProps("tray")}
