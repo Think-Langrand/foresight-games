@@ -75,7 +75,11 @@ const CARD_BG = "#efeade";
 //
 // Ordering is a `sort` value per card, renumbered by planReorder — see lib/synthesis-shape.
 
-type Drag = { id: string; kind: "card" | "theme" };
+// `copy`: the drag started on a map circle whose implication is ALREADY in a theme. The
+// map draws the implication, not a row, so dragging it to another theme adds it there as
+// well (a twin copy, migration 0023) and leaves the first theme as it was. A tray card and
+// a card dragged between columns in Cards view still move.
+type Drag = { id: string; kind: "card" | "theme"; copy?: boolean };
 
 // Per-browser memory of the sheet's "In this theme" fold. See prefStore.ts for why this is
 // an external store rather than state read in an effect. (The right rail's fold lives in
@@ -129,8 +133,10 @@ export function ClusterBoard({
   // Put `card` in `themeId` (null = the tray), immediately before `beforeId` (null = last).
   onMoveCard: (card: RippleCard, themeId: string | null, beforeId: string | null) => void;
   onMoveTheme: (theme: RippleCard, beforeId: string | null) => void;
-  // Dropped on empty theme space: make a theme and put the card straight into it.
-  onStartTheme: (card: RippleCard) => void;
+  // Dropped on empty theme space: make a theme and put the card straight into it. `copy`
+  // keeps the card where it is and puts a twin copy in the new theme (a map circle that
+  // was already clustered).
+  onStartTheme: (card: RippleCard, copy?: boolean) => void;
   onPark: (card: RippleCard, parked: boolean) => void;
   onDeleteCard: (card: RippleCard) => void;
   // Deleting a theme also decides the fate of what it holds — see DeleteThemeModal.
@@ -139,10 +145,12 @@ export function ClusterBoard({
   // Put this implication in ANOTHER theme as well, keeping the one it is already in.
   // Clustering is not a partition — see migration 0023.
   onCopyToTheme: (card: RippleCard, themeId: string) => void;
-  // Make a theme and move these tray implications into it, in one go. `text` names it;
-  // without one it is "Theme N".
+  // Make a theme and put these implications into it, in one go. `text` names it; without
+  // one it is "Theme N". A tray card moves; a card already in a theme is copied, so a
+  // selection made on the map can mix the two.
   onCreateThemeFrom: (cardIds: string[], text?: string) => void;
-  // Move several tray implications into an EXISTING theme at once — the rail's click.
+  // Put several implications into an EXISTING theme at once — the rail's click. Same
+  // move-or-copy rule as onCreateThemeFrom; one already in that theme is left alone.
   onMoveManyToTheme: (cardIds: string[], themeId: string) => void;
   // Week 2's map, so the drill-in can show an implication inside its own branch.
   week2Cards?: RippleCard[];
@@ -271,8 +279,21 @@ export function ClusterBoard({
   // --- drop handling ---------------------------------------------------------
   const dropCard = (zone: string, beforeId: string | null) => {
     const card = drag && drag.kind === "card" ? byId.get(drag.id) : null;
+    const copy = Boolean(drag?.copy);
     endDrag();
     if (!card || !editable) return;
+    // A map circle already in a theme: the drop ADDS the implication to the target theme
+    // and leaves it where it was. Onto a theme it is already in, or anywhere that is not a
+    // theme, nothing happens — the tray and the drawer are for rows, and this is not one.
+    if (copy) {
+      if (zone === "newtheme") onStartTheme(card, true);
+      else if (zone.startsWith("theme:")) {
+        const themeId = zone.slice("theme:".length);
+        const already = (twins.get(implicationKey(card))?.themeIds ?? []).includes(themeId);
+        if (!already) onCopyToTheme(card, themeId);
+      }
+      return;
+    }
     if (zone === "parked") {
       if (card.cardKind === "theme") return; // a theme is emptied and deleted, never parked
       if (!card.parked) onPark(card, true);
@@ -339,13 +360,13 @@ export function ClusterBoard({
       }
     : {};
 
-  const dragProps = (id: string, kind: Drag["kind"]) => ({
+  const dragProps = (id: string, kind: Drag["kind"], copy = false) => ({
     draggable: editable,
     onDragStart: (e: React.DragEvent) => {
       if (!editable) return;
       // The payload is never read — setData is what makes the drag legal in Firefox/Safari.
       e.dataTransfer.setData("text/plain", id);
-      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.effectAllowed = copy ? "copy" : "move";
       // A map circle drags as ITSELF. The browser's default ghost is a snapshot of the
       // element's box, and on a crowded ring that box has a neighbour painted over it — so
       // the ghost read as "both of them", or a square with two half circles in it. A clone
@@ -370,7 +391,7 @@ export function ClusterBoard({
         e.dataTransfer.setDragImage(ghost, r.width / 2, r.height / 2);
         requestAnimationFrame(() => ghost.remove());
       }
-      setDrag({ id, kind });
+      setDrag({ id, kind, copy });
     },
     onDragEnd: endDrag,
   });
@@ -391,6 +412,8 @@ export function ClusterBoard({
   // doubled-up implication is visible wherever it appears rather than only where it was
   // copied from.
   const twins = twinIndex(board);
+  // The themes holding any copy of this card's implication, in board order.
+  const themesOf = (card: RippleCard): string[] => twins.get(implicationKey(card))?.themeIds ?? [];
 
   // The tray by order, so the filter can be built and labelled from one pass. A card typed
   // here by hand has no Week 2 ancestry and so no order; it is always shown, because
@@ -466,12 +489,13 @@ export function ClusterBoard({
   const seeded = seededIndex(board);
 
   // DERIVED, not synced. Several people cluster this board at once, so a card you ticked
-  // can be dragged into someone else's theme, or deleted, between the tick and the click.
-  // Intersecting with the live tray means it silently drops out of your selection instead
-  // of being yanked back out of their theme by "create theme from selected" — the same
-  // fallback the other steps use for a deleted theme or a deleted hope.
-  const trayIds = new Set(board.unclustered.map((c) => c.id));
-  const picked = new Set([...rawPicked].filter((id) => trayIds.has(id)));
+  // can be deleted between the tick and the click; intersecting with the live board means
+  // it silently drops out of your selection — the same fallback the other steps use for a
+  // deleted theme or a deleted hope. A card someone else files into their theme meanwhile
+  // STAYS selected: adding a selection to a theme copies a clustered card rather than
+  // moving it, so nothing is yanked back out of their theme.
+  const liveIds = new Set([...board.unclustered, ...[...board.clusters.values()].flat()].map((c) => c.id));
+  const picked = new Set([...rawPicked].filter((id) => liveIds.has(id)));
 
   // --- the rail's read-out on the map -----------------------------------------
   // A node clips its label to fit its circle, and on a real board most of them clip. The
@@ -805,7 +829,9 @@ export function ClusterBoard({
               ringFor={(w2id) => {
                 const hit = seeded.get(w2id);
                 if (hit && picked.has(hit.card.id)) return { color: "var(--blue)", width: 4 };
-                if (hit && inTheme !== null && hit.themeId === inTheme.id) return { color: "var(--lime-deep)", width: 4 };
+                if (hit && inTheme !== null && themesOf(hit.card).includes(inTheme.id)) {
+                  return { color: "var(--lime-deep)", width: 4 };
+                }
                 const o = implicationOrder(lineage[w2id]);
                 return o === null ? null : { color: orderColor(o), width: 3 };
               }}
@@ -825,17 +851,27 @@ export function ClusterBoard({
                 if (order === null) return { ...read, style: { cursor: "default" } };
                 // Never seeded into this week: there is no row to move.
                 if (!hit) return { ...read, style: { cursor: "not-allowed", opacity: filteredOut ? 0.2 : 0.45 } };
-                const themed = hit.themeId !== null;
-                const member = inTheme !== null && hit.themeId === inTheme.id;
+                // Every theme holding a copy of this implication — not only the one the
+                // seeded original sits in. Clustering is not a partition, and several
+                // people file at once: a circle a teammate has already put in Theme 1 can
+                // still be dragged (or ticked) into Theme 3, where it is COPIED. Only a
+                // theme it is already in is closed to it.
+                const inThemes = themesOf(hit.card);
+                const themed = inThemes.length > 0;
+                const member = inTheme !== null && inThemes.includes(inTheme.id);
+                const themeNums = inThemes.map((id) => board.themes.findIndex((t) => t.id === id) + 1);
                 return {
-                  ...(editable && !themed ? dragProps(hit.card.id, "card") : {}),
+                  ...(editable ? dragProps(hit.card.id, "card", themed) : {}),
                   ...read,
                   onClick: () => {
-                    if (!editable || themed) return;
+                    if (!editable) return;
                     togglePicked(hit.card.id);
                   },
+                  title: themed
+                    ? `In theme ${themeNums.join(", ")}. Drag or tick it to add it to another theme as well.`
+                    : undefined,
                   style: {
-                    cursor: !editable || themed ? "default" : "grab",
+                    cursor: !editable ? "default" : "grab",
                     ...(themed ? { background: "var(--lime)" } : {}),
                     // Inside a theme the OTHER themes' nodes step back, so the lit ones
                     // read as the shape of this theme on the map.
@@ -852,16 +888,20 @@ export function ClusterBoard({
                     not on this board
                   </span>
                 );
-                if (hit.themeId === null) return null;
-                if (inTheme && hit.themeId === inTheme.id) return (
+                const inThemes = themesOf(hit.card);
+                if (inThemes.length === 0) return null;
+                // Inside a theme the stamp answers "is it in THIS one"; on the board it
+                // names every theme holding it, so a doubled-up implication reads as such
+                // without opening each theme.
+                if (inTheme && inThemes.includes(inTheme.id)) return (
                   <span className="rounded-[2px] bg-[var(--lime-deep)] px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-ink">
-                    this theme
+                    this theme{inThemes.length > 1 ? ` +${inThemes.length - 1}` : ""}
                   </span>
                 );
-                const n = board.themes.findIndex((t) => t.id === hit.themeId) + 1;
+                const nums = inThemes.map((id) => board.themes.findIndex((t) => t.id === id) + 1);
                 return (
                   <span className="rounded-[2px] bg-ink px-1 py-px text-[8.5px] font-bold uppercase tracking-[0.05em] text-paper">
-                    Theme {n}
+                    {nums.length > 1 ? `Themes ${nums.join(" · ")}` : `Theme ${nums[0]}`}
                   </span>
                 );
               }}
@@ -1258,7 +1298,7 @@ export function ClusterBoard({
                 })}
               </span>
             )}
-            {!focus && editable && board.unclustered.length > 0 && (
+            {!focus && editable && (board.unclustered.length > 0 || picked.size > 0) && (
               <>
                 <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
                   {picked.size} selected
