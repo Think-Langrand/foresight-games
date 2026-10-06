@@ -157,9 +157,10 @@ export function ClusterBoard({
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
-  // The toolbar element, for lining the theme rail up with it — see useRailBand.
-  const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
-  useRailBand(toolbarEl);
+  // Where the workspace starts (the map or the cards, or an open theme's sheet), for
+  // lining the theme rail's squares up with it — see useRailBand.
+  const [workEl, setWorkEl] = useState<HTMLDivElement | null>(null);
+  useRailBand(workEl);
   const [addingTheme, setAddingTheme] = useState(false);
   const [addingTo, setAddingTo] = useState<string | null>(null); // theme id, or "tray"
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
@@ -1226,7 +1227,7 @@ export function ClusterBoard({
 
            No "Not yet in a theme" heading: theming everything is not the goal, and the
            count is on the "All" chip. */}
-      <div ref={setToolbarEl} className="flex flex-col gap-1.5 border-b border-[var(--rule)] pb-2.5">
+      <div className="flex flex-col gap-1.5 border-b border-[var(--rule)] pb-2.5">
         <div className="flex flex-wrap items-center gap-2">
           {focus ? (
             // Not a button. Clicking where you already are should not be one of the
@@ -1395,6 +1396,11 @@ export function ClusterBoard({
           </div>
         )}
       </div>
+
+      {/* Where the workspace begins. A zero-height mark the theme rail measures against, so
+          its squares start level with the map or the cards below — not with the toolbar
+          above. Its own flex gap is cancelled so it takes no room. */}
+      <div ref={setWorkEl} aria-hidden className="-mb-6 h-0" />
 
       {/* ---- one theme, opened from the rail: the sheet ----
            The columns show every theme at once, which is right for sorting and wrong for

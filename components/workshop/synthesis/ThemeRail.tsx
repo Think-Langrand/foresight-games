@@ -70,8 +70,8 @@ export function ThemeRail({
   onAddPicked?: (theme: RippleCard) => void;
   // Below the squares — step 1's empty slots and "+ New theme" button.
   footer?: React.ReactNode;
-  // Above the squares: the rail's top band, as tall as the board's own header stack (see
-  // useRailBand), so the squares start level with the board's toolbar. Step 1 puts the
+  // Above the squares: the rail's top band, at least as tall as everything above the
+  // board's workspace (see useRailBand), so the squares start level with the map. Step 1 puts the
   // "selected implication" read-out here; step 2 leaves it empty for the alignment alone.
   // Undefined = no band, the squares start at the top.
   top?: React.ReactNode;
@@ -97,13 +97,13 @@ export function ThemeRail({
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15rem] flex-col border-r border-ink bg-card px-3 py-4 lg:flex">
         {top !== undefined && (
           // The band's top edge is the viewport's (the aside's padding is pulled back
-          // over), and its height is the toolbar's distance from the top of the page, so
-          // whatever follows begins exactly level with the toolbar. Pinned: the squares
-          // scroll beneath it rather than carrying it away. Scrolls inside itself when a
-          // long chain overflows.
+          // over), and it is AT LEAST as tall as the board's header stack — down to where
+          // the workspace starts — so the squares begin level with the map. Never shorter
+          // than its content: a long read-out pushes the squares down rather than being
+          // cut off. Pinned: the squares scroll beneath it rather than carrying it away.
           <div
-            className="-mx-3 -mt-4 shrink-0 overflow-y-auto border-b border-ink/15 px-3 pb-3 pt-4"
-            style={{ height: "var(--rail-band, auto)", minHeight: "6rem" }}
+            className="-mx-3 -mt-4 shrink-0 border-b border-ink/15 px-3 pb-3 pt-4"
+            style={{ minHeight: "var(--rail-band, 6rem)" }}
           >
             {top}
           </div>
