@@ -346,6 +346,30 @@ export function ClusterBoard({
       // The payload is never read — setData is what makes the drag legal in Firefox/Safari.
       e.dataTransfer.setData("text/plain", id);
       e.dataTransfer.effectAllowed = "move";
+      // A map circle drags as ITSELF. The browser's default ghost is a snapshot of the
+      // element's box, and on a crowded ring that box has a neighbour painted over it — so
+      // the ghost read as "both of them", or a square with two half circles in it. A clone
+      // of just this circle, parked off-screen for the one frame setDragImage needs, drags
+      // as one circle. Tray cards keep the default: nothing overlaps them.
+      const el = e.currentTarget as HTMLElement;
+      if (el.classList.contains("rounded-full")) {
+        const r = el.getBoundingClientRect();
+        const ghost = el.cloneNode(true) as HTMLElement;
+        ghost.querySelectorAll(".top-full").forEach((n) => n.remove()); // the "Theme 2" marker under it
+        Object.assign(ghost.style, {
+          position: "fixed",
+          top: "-9999px",
+          left: "0",
+          width: `${r.width}px`,
+          height: `${r.height}px`,
+          transform: "none",
+          margin: "0",
+          opacity: "1",
+        });
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, r.width / 2, r.height / 2);
+        requestAnimationFrame(() => ghost.remove());
+      }
       setDrag({ id, kind });
     },
     onDragEnd: endDrag,
