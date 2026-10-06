@@ -23,7 +23,14 @@ import {
 } from "@/components/workshop/synthesis/SynthesisCard";
 import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
-import { rippleDepthColor } from "@/components/workshop/RippleCard";
+import {
+  KeyChangeChips,
+  MapToolbar,
+  OrderChips,
+  orderColor,
+  orderTint,
+  stepZoom,
+} from "@/components/workshop/MapControls";
 import { SuggestThemesRail } from "@/components/workshop/synthesis/SuggestThemesRail";
 import { ThemeJoinSearch } from "@/components/workshop/synthesis/ThemeJoinSearch";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
@@ -43,15 +50,8 @@ import {
 // needs to be neither.
 const CARD_BG = "#efeade";
 
-// One colour per order, so the distance from the key change is a colour rather than a
-// number you have to read. The SAME hue the Week 2 wheel gives that ring (RippleCard's
-// depth palette: 1st blue, 2nd amber, 3rd coral, then cycling lighter), so the filter
-// chips, the stamp on a card and the ring round a map node all agree. The stamp and the
-// off-state chip are tinted rather than solid: the text has to stay the loudest thing.
-const orderColor = (order: number) => rippleDepthColor(order);
-const orderTint = (order: number) => `color-mix(in srgb, ${orderColor(order)} 28%, var(--card))`;
-// The hue cycle lands on lime every fourth order, and lime wants ink text, not white.
-const orderOnText = (order: number) => (order % 4 === 0 ? "var(--ink)" : "#fff");
+// One colour per order — see MapControls, which the read-only Session 2 view shares, so
+// the distance from the key change is the same colour wherever a map is drawn.
 
 // STEP 1 — cluster Week 2's implications into themes.
 //
@@ -710,104 +710,34 @@ export function ClusterBoard({
     <div className="rounded-[3px] border border-dashed border-black/15 p-3">
       {mapKeyChanges.length > 0 && (mapAll || mapBranch) ? (
         <>
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
-              Zoom
-            </span>
-            {([
-              ["−", "out"],
-              ["+", "in"],
-            ] as const).map(([glyph, dir]) => (
-              <button
-                key={dir}
-                onClick={() =>
-                  setZoom((z) => {
-                    const from = typeof z === "number" ? z : (fitScaleRef.current || 1);
-                    const next = dir === "in" ? from * 1.25 : from / 1.25;
-                    return Math.min(2, Math.max(0.25, Number(next.toFixed(3))));
-                  })
-                }
-                aria-label={dir === "in" ? "Zoom in" : "Zoom out"}
-                className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[12px] font-bold leading-none text-muted hover:border-ink hover:text-ink"
-              >
-                {glyph}
-              </button>
-            ))}
-            <button
-              onClick={() => setZoom("fit")}
-              aria-pressed={zoom === "fit"}
-              className={
-                "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                (zoom === "fit"
-                  ? "border-ink bg-ink text-paper"
-                  : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
-              }
-            >
-              Fit
-            </button>
-            {typeof zoom === "number" && (
-              <span className="text-[10px] font-bold text-muted">{Math.round(zoom * 100)}%</span>
-            )}
-
-            {/* The order colours, so the rings on the circles read without going back to
-                the tray's chips — which are out of view inside a theme. */}
-            {mapOrders.length > 0 && (
-              <span className="ml-2 flex items-center gap-1.5" aria-label="Ring colours by order">
-                {mapOrders.map((o) => (
-                  <span key={o} className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.05em] text-muted">
-                    <span aria-hidden className="inline-block h-[9px] w-[9px] rounded-full" style={{ background: orderColor(o) }} />
-                    {ordinal(o)}
-                  </span>
-                ))}
-              </span>
-            )}
-
-            {/* Which branch, and the way through all of them. The key-change chips in the
-                tray header can pick one, but they are counted off the TRAY — a key change
-                whose implications have all been clustered drops out of them, and its map
-                with it. Stepping through happens here, off the full list, so every map
-                stays reachable however far the clustering has got. "All key changes" is
-                one stop on the way round, unless the tray is filtered to one key change —
-                the cycler never touches the tray's filter, so it cannot clear it. */}
-            {mapKeyChanges.length > 1 && (
-              <span className="ml-auto flex min-w-0 items-center gap-1.5">
-                <span
-                  className="min-w-0 max-w-[20rem] truncate text-[10.5px] font-bold uppercase tracking-[0.05em]"
-                  title={mapAll ? "All key changes" : mapKeyChanges[mapAt]?.[0]}
-                >
-                  {mapAll ? "All key changes" : mapKeyChanges[mapAt]?.[0]}
-                </span>
-                <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-muted">
-                  {mapAll ? `${mapKeyChanges.length} maps` : `${mapAt + 1}/${mapKeyChanges.length}`}
-                </span>
-                {([
-                  ["‹", -1, "Previous key change"],
-                  ["›", 1, "Next key change"],
-                ] as const).map(([glyph, step, label]) => (
-                  <button
-                    key={step}
-                    onClick={() => {
-                      // Wraps, so you can walk the whole set in one direction.
-                      const stops: (string | null)[] = [
-                        ...(keyFilter === null ? [null] : []),
-                        ...mapKeyChanges.map(([text]) => text),
-                      ];
-                      const cur = Math.max(0, stops.indexOf(mapPick));
-                      const next = stops[(cur + step + stops.length) % stops.length];
-                      setMapKey(next); // the map only — the tray keeps its filter
-                      setFocusNode(null);
-                      setZoom("fit"); // branches differ in size; a held zoom misleads
-                    }}
-                    aria-label={label}
-                    title={label}
-                    className="shrink-0 rounded-[2px] border border-ink bg-paper px-2 py-0.5 text-[12px] font-bold leading-none hover:bg-lime"
-                  >
-                    {glyph}
-                  </button>
-                ))}
-              </span>
-            )}
-          </div>
+          <MapToolbar
+            zoom={zoom}
+            onZoom={(dir) => setZoom(dir === "fit" ? "fit" : (z) => stepZoom(z, dir, fitScaleRef.current))}
+            orders={mapOrders}
+            // Which branch, and the way through all of them. The key-change chips in the
+            // toolbar can pick one, but they are counted off the TRAY — a key change whose
+            // implications have all been clustered drops out of them, and its map with it.
+            // Stepping through happens here, off the full list, so every map stays
+            // reachable however far the clustering has got. "All key changes" is one stop
+            // on the way round, unless the tray is filtered to one key change — the cycler
+            // never touches the tray's filter, so it cannot clear it.
+            branch={{
+              label: mapAll ? "All key changes" : (mapKeyChanges[mapAt]?.[0] ?? ""),
+              index: mapAll ? null : mapAt,
+              total: mapKeyChanges.length,
+              onStep: (step) => {
+                const stops: (string | null)[] = [
+                  ...(keyFilter === null ? [null] : []),
+                  ...mapKeyChanges.map(([text]) => text),
+                ];
+                const cur = Math.max(0, stops.indexOf(mapPick));
+                const next = stops[(cur + step + stops.length) % stops.length];
+                setMapKey(next); // the map only — the tray keeps its filter
+                setFocusNode(null);
+                setZoom("fit"); // branches differ in size; a held zoom misleads
+              },
+            }}
+          />
 
           {/* What to do with the circles you have clicked. On the board the rail squares
               are also targets; inside a theme the obvious destination is this theme, so it
@@ -1284,36 +1214,18 @@ export function ClusterBoard({
             </span>
           ) : (
             keyChanges.length > 1 && (
-              <span className="flex flex-wrap items-center gap-1">
-                {[null, ...keyChanges].map((k) => {
-                  const on = keyFilter === k;
-                  const n = k === null ? board.unclustered.filter(matchesOrder).length : (keyCounts.get(k) ?? 0);
-                  return (
-                    <button
-                      key={k ?? "all-keys"}
-                      onClick={() => {
-                        setKeyFilter(k);
-                        // A chip means both: filter the tray AND take the map there. Without
-                        // this the map would stay wherever the cycler last left it.
-                        setMapKey(k);
-                        setFocusNode(null);
-                      }}
-                      aria-pressed={on}
-                      title={k ?? "Every key change"}
-                      className={
-                        // No truncation here: keyChangeLabel already caps the label, and
-                        // clipping it also clipped the count, which is the half worth reading.
-                        "whitespace-nowrap rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                        (on
-                          ? "border-blue bg-blue text-white"
-                          : "border-[var(--rule)] bg-paper text-muted hover:border-blue hover:text-ink")
-                      }
-                    >
-                      {k === null ? "Any key change" : keyChangeLabel(k)} {n}
-                    </button>
-                  );
-                })}
-              </span>
+              <KeyChangeChips
+                items={keyChanges.map((k) => ({ key: k, label: keyChangeLabel(k), title: k, count: keyCounts.get(k) ?? 0 }))}
+                allCount={board.unclustered.filter(matchesOrder).length}
+                value={keyFilter}
+                onChange={(k) => {
+                  setKeyFilter(k);
+                  // A chip means both: filter the tray AND take the map there. Without this
+                  // the map would stay wherever the cycler last left it.
+                  setMapKey(k);
+                  setFocusNode(null);
+                }}
+              />
             )
           )}
 
@@ -1385,47 +1297,12 @@ export function ClusterBoard({
         {!focus && (orders.length > 1 || editable) && (
           <div className="flex flex-wrap items-center gap-2">
             {orders.length > 1 && (
-              <span className="flex flex-wrap items-center gap-1">
-                {[null, ...orders].map((o) => {
-                  const on = orderFilter === o;
-                  const n = o === null ? board.unclustered.length : (orderCounts.get(o) ?? 0);
-                  const colour = o === null ? null : orderColor(o);
-                  return (
-                    <button
-                      key={o ?? "all"}
-                      onClick={() => setOrderFilter(o)}
-                      aria-pressed={on}
-                      title={
-                        o === null
-                          ? "Every implication in the tray"
-                          : `${ordinal(o)}-order — ${o} step${o === 1 ? "" : "s"} from its key change`
-                      }
-                      className={
-                        "flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                        (colour === null
-                          ? on
-                            ? "border-ink bg-ink text-paper"
-                            : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink"
-                          : on
-                            ? ""
-                            : "text-ink hover:brightness-95")
-                      }
-                      style={
-                        o === null || colour === null
-                          ? undefined
-                          : on
-                            ? { background: colour, borderColor: colour, color: orderOnText(o) }
-                            : { background: orderTint(o), borderColor: colour }
-                      }
-                    >
-                      {colour !== null && !on && (
-                        <span aria-hidden className="inline-block h-[7px] w-[7px] rounded-full" style={{ background: colour }} />
-                      )}
-                      {o === null ? "All" : ordinal(o)} {n}
-                    </button>
-                  );
-                })}
-              </span>
+              <OrderChips
+                orders={orders.map((o) => ({ order: o, count: orderCounts.get(o) ?? 0 }))}
+                allCount={board.unclustered.length}
+                value={orderFilter}
+                onChange={setOrderFilter}
+              />
             )}
             {editable && (
               <button

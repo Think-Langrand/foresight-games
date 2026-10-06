@@ -40,7 +40,7 @@ export function SessionTabs({
   children: React.ReactNode;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null); // null = current session
-  const [mapView, setMapView] = useState<MapView>("tree");
+  const [mapView, setMapView] = useState<MapView>("wheel");
   // The right-hand end of the header line, lent to the live board. A callback ref into
   // state, so the board's portal re-renders once the element exists.
   const [slot, setSlot] = useState<HTMLElement | null>(null);
