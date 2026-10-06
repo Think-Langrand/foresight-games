@@ -157,10 +157,9 @@ export function ClusterBoard({
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
-  // Where the workspace starts (the map or the cards, or an open theme's sheet), for
-  // lining the theme rail's squares up with it — see useRailBand.
-  const [workEl, setWorkEl] = useState<HTMLDivElement | null>(null);
-  useRailBand(workEl);
+  // The toolbar element, for lining the theme rail's squares up with it — see useRailBand.
+  const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
+  useRailBand(toolbarEl);
   const [addingTheme, setAddingTheme] = useState(false);
   const [addingTo, setAddingTo] = useState<string | null>(null); // theme id, or "tray"
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
@@ -951,8 +950,8 @@ export function ClusterBoard({
   };
 
   // ---- the hovered node, in full ----
-  // The top-left corner of the board, level with the session and step rows: a circle
-  // clips its label to fit, so this is where the whole implication can actually be read.
+  // The top of the right rail: a circle clips its label to fit, so this is where the
+  // whole implication can actually be read.
   // It also says the things the node has no room for — how far out it is, which key
   // change it hangs off, and whether it is already in a theme. A solid panel rather than
   // a ruled-off stretch of rail: it is the one part of that column that changes as you
@@ -1089,7 +1088,8 @@ export function ClusterBoard({
         progressLabel="Cards"
         wide={Boolean(admin)}
         dragging={drag !== null}
-        top={peekPanel}
+        // An empty band: the squares start level with the toolbar — see useRailBand.
+        top={null}
         hint={
           picked.size > 0
             ? `Click one to add ${picked.size}.`
@@ -1159,6 +1159,10 @@ export function ClusterBoard({
           later step inherits it. Up here it stays readable while you work, instead of
           scrolling away above 146 cards. */}
       <PromptRail wide={Boolean(admin)} label={admin ? "Prompts & suggestions" : "Prompts"}>
+        {/* The hovered node, in full — the one part of this column that changes as you
+            move, so it sits first and reads as a readout. */}
+        <div className="mb-4">{peekPanel}</div>
+
         {/* A facilitator's clustering tool, above the prompts: example groupings to read
             beside the real tray. Members never see this — `admin` is decided on the server. */}
         {admin && (
@@ -1227,7 +1231,7 @@ export function ClusterBoard({
 
            No "Not yet in a theme" heading: theming everything is not the goal, and the
            count is on the "All" chip. */}
-      <div className="flex flex-col gap-1.5 border-b border-[var(--rule)] pb-2.5">
+      <div ref={setToolbarEl} className="flex flex-col gap-1.5 border-b border-[var(--rule)] pb-2.5">
         <div className="flex flex-wrap items-center gap-2">
           {focus ? (
             // Not a button. Clicking where you already are should not be one of the
@@ -1396,11 +1400,6 @@ export function ClusterBoard({
           </div>
         )}
       </div>
-
-      {/* Where the workspace begins. A zero-height mark the theme rail measures against, so
-          its squares start level with the map or the cards below — not with the toolbar
-          above. Its own flex gap is cancelled so it takes no room. */}
-      <div ref={setWorkEl} aria-hidden className="-mb-6 h-0" />
 
       {/* ---- one theme, opened from the rail: the sheet ----
            The columns show every theme at once, which is right for sorting and wrong for
