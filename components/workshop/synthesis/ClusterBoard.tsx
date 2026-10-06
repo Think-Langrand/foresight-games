@@ -1112,8 +1112,13 @@ export function ClusterBoard({
         progressLabel="Cards"
         wide={Boolean(admin)}
         dragging={drag !== null}
-        // An empty band: the squares start level with the toolbar — see useRailBand.
-        top={null}
+        // The step, said once and large, where the eye starts. The band ends in a rule the
+        // toolbar's rule continues — see useRailBand.
+        top={
+          <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
+            1. Combine implications into themed clusters
+          </p>
+        }
         hint={
           picked.size > 0
             ? `Click one to add ${picked.size}.`
@@ -1255,7 +1260,16 @@ export function ClusterBoard({
 
            No "Not yet in a theme" heading: theming everything is not the goal, and the
            count is on the "All" chip. */}
-      <div ref={setToolbarEl} className="flex flex-col gap-1.5 border-b border-[var(--rule)] pb-2.5">
+      <div
+        ref={setToolbarEl}
+        // The rule along its top is the one the theme rail's band ends in: pulled out
+        // into both gutters so the line runs from rail to rail. The label under it is
+        // this side's "Themes".
+        className="flex flex-col gap-1.5 border-b border-t border-[var(--rule)] border-t-ink pb-2.5 pt-3 lg:-mx-9 lg:px-9"
+      >
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+          {focus ? "Theme" : "Implications"}
+        </h2>
         <div className="flex flex-wrap items-center gap-2">
           {focus ? (
             // Not a button. Clicking where you already are should not be one of the
@@ -1678,8 +1692,7 @@ export function ClusterBoard({
       <>
       {/* ---- the tray ----
            Its filters, add button and view toggle are in the toolbar above. */}
-      <section>
-        <h2 className="sr-only">Not yet in a theme ({board.unclustered.length})</h2>
+      <section aria-label="Implications not yet in a theme">
         {view === "map" ? renderMap(null) : (
         <div
           {...zoneProps("tray")}

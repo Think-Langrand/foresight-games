@@ -77,9 +77,12 @@ export function ExploreBoard({
       progressFor={progressFor}
       progressLabel="Exploration"
       hint="Click a theme to work on it."
-      // An empty band: nothing to read out on this step, but the squares still line up
-      // with the sheet, as they do with step 1's toolbar.
-      top={null}
+      // The step, said once and large; the band ends in a rule the sheet's rule continues.
+      top={
+        <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
+          2. Explore each theme: four questions, its risks and opportunities
+        </p>
+      }
     />
   );
   const prompts = (
@@ -125,7 +128,7 @@ export function ExploreBoard({
       {rail}
       {prompts}
 
-      <section ref={setSheetEl} className="flex flex-col gap-4">
+      <section ref={setSheetEl} className="flex flex-col gap-4 border-t border-ink pt-3 lg:-mx-9 lg:px-9">
         <ThemeLineagePanel
           theme={theme}
           implications={board.clusters.get(theme.id) ?? []}
