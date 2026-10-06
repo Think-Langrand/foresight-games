@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
+import { sortRootsByRank } from "@/lib/ripples-scoring";
 import {
   childrenOf,
   implicationKey,
@@ -208,8 +209,11 @@ export function ClusterBoard({
   // settled and the reading is the work, the cards are height the reading could be using.
   const cardsOpen = usePref(themeCardsPref) === "open";
   // Show only implications from one key change. Independent of the order filter; both
-  // narrow the TRAY and neither touches what is already in a theme.
-  const [keyFilter, setKeyFilter] = useState<string | null>(null);
+  // narrow the TRAY and neither touches what is already in a theme. `undefined` = nothing
+  // picked yet, which resolves to the FIRST key change (the board's top-ranked one) once
+  // the list is known below; null = "Any key change", chosen on purpose.
+  const [keyPick, setKeyPick] = useState<string | null | undefined>(undefined);
+  const setKeyFilter = setKeyPick;
   const togglePicked = (id: string) =>
     setPicked((prev) => {
       const next = new Set(prev);
@@ -427,6 +431,42 @@ export function ClusterBoard({
   // number is what you would actually get by pressing it. Counting both against the whole
   // tray would show "3rd 68" next to a key change that has four.
   const matchesOrder = (c: RippleCard) => orderFilter === null || orderOf(c) === orderFilter;
+
+  // Key changes in the order the Week 2 board ranks them (impact, then plausibility), so
+  // the chips, the map stepper and "the first key change" all mean the same thing the
+  // group meant when it ranked them. Alphabetical would make "first" an accident of
+  // wording. A key change the ranking does not know sorts last, by text.
+  const keyRank = new Map(
+    sortRootsByRank(week2Cards.filter((c) => !c.parentId)).map((r, i) => [r.id, i] as const)
+  );
+  const byKeyRank = (aId: string | null, aText: string, bId: string | null, bText: string) => {
+    const ra = aId !== null ? (keyRank.get(aId) ?? Infinity) : Infinity;
+    const rb = bId !== null ? (keyRank.get(bId) ?? Infinity) : Infinity;
+    return ra !== rb ? ra - rb : aText.localeCompare(bText);
+  };
+
+  const keyCounts = new Map<string, number>();
+  const keyIds = new Map<string, string | null>(); // text → Week 2 key change id
+  for (const c of board.unclustered.filter(matchesOrder)) {
+    const k = keyOf(c);
+    if (k) {
+      keyCounts.set(k, (keyCounts.get(k) ?? 0) + 1);
+      if (!keyIds.has(k)) keyIds.set(k, lineageOf(c)?.keyChangeId ?? null);
+    }
+  }
+  // Only key changes the group actually mapped under. On the real Group 1 board three of
+  // the six have no implications at all, and a chip reading "0" is just noise.
+  const keyChanges = [...keyCounts.keys()].sort((a, b) =>
+    byKeyRank(keyIds.get(a) ?? null, a, keyIds.get(b) ?? null, b)
+  );
+
+  // The tray's key-change filter: what was picked, or the first key change while nothing
+  // has been. A picked key change that has since been clustered away entirely has no chip
+  // left to show it lit; fall back to the first so the tray never filters to nothing.
+  const keyFilter: string | null =
+    keyPick === undefined || (keyPick !== null && !keyCounts.has(keyPick))
+      ? (keyChanges[0] ?? null)
+      : keyPick;
   const matchesKey = (c: RippleCard) => keyFilter === null || keyOf(c) === keyFilter;
 
   const orderCounts = new Map<number, number>();
@@ -435,15 +475,6 @@ export function ClusterBoard({
     if (o !== null) orderCounts.set(o, (orderCounts.get(o) ?? 0) + 1);
   }
   const orders = [...orderCounts.keys()].sort((a, b) => a - b);
-
-  const keyCounts = new Map<string, number>();
-  for (const c of board.unclustered.filter(matchesOrder)) {
-    const k = keyOf(c);
-    if (k) keyCounts.set(k, (keyCounts.get(k) ?? 0) + 1);
-  }
-  // Only key changes the group actually mapped under. On the real Group 1 board three of
-  // the six have no implications at all, and a chip reading "0" is just noise.
-  const keyChanges = [...keyCounts.keys()].sort();
 
   const tray = board.unclustered.filter((c) => matchesOrder(c) && matchesKey(c));
 
@@ -466,7 +497,7 @@ export function ClusterBoard({
         seen.set(l.keyChange, l.keyChangeId);
       }
     }
-    return [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return [...seen.entries()].sort((a, b) => byKeyRank(a[1], a[0], b[1], b[0]));
   })();
   // The cycler's own choice wins, then the tray's chip; neither = the whole wheel. A key
   // change that has since vanished from the list falls back to the first.
@@ -750,9 +781,10 @@ export function ClusterBoard({
               index: mapAll ? null : mapAt,
               total: mapKeyChanges.length,
               onStep: (step) => {
+                // Same order as the chips: the key changes, then "any" last.
                 const stops: (string | null)[] = [
-                  ...(keyFilter === null ? [null] : []),
                   ...mapKeyChanges.map(([text]) => text),
+                  ...(keyFilter === null ? [null] : []),
                 ];
                 const cur = Math.max(0, stops.indexOf(mapPick));
                 const next = stops[(cur + step + stops.length) % stops.length];
@@ -1339,7 +1371,9 @@ export function ClusterBoard({
             {orders.length > 1 && (
               <OrderChips
                 orders={orders.map((o) => ({ order: o, count: orderCounts.get(o) ?? 0 }))}
-                allCount={board.unclustered.length}
+                // With the key-change filter applied, like the per-order counts beside
+                // it: "All 109" next to "1st 6 · 2nd 15 · 3rd 22" did not add up.
+                allCount={board.unclustered.filter(matchesKey).length}
                 value={orderFilter}
                 onChange={setOrderFilter}
               />
