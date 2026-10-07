@@ -6,9 +6,12 @@ import { ordinal } from "@/lib/synthesis-shape";
 // The controls every implications map shares — the live cluster board's and the read-only
 // Session 2 view's — so looking at a map is the same wherever you are looking at it:
 //
-//   KeyChangeChips  which key change's branch (or all of them)
-//   OrderChips      which order is in view, each in its colour
+//   KeyChangeChips  which key change's branch — one each, then "Any key change" last
+//   OrderChips      which order is in view, each in its colour — "All" first
 //   MapToolbar      zoom − + Fit, the order legend, and the way through the branches
+//
+// Each row opens with one word saying what it filters, so the two rows of chips read as
+// two questions rather than one run of buttons.
 //
 // One colour per order, the same hue the Week 2 wheel gives that ring (RippleCard's depth
 // palette: 1st blue, 2nd amber, 3rd coral, then cycling lighter), so a chip, a card's stamp
@@ -29,6 +32,16 @@ export function stepZoom(zoom: Zoom, dir: "in" | "out", fitScale: number): numbe
   return Math.min(2, Math.max(0.25, Number(next.toFixed(3))));
 }
 
+// The one-word label that opens a row of chips.
+function RowLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="mr-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-muted">{children}</span>
+  );
+}
+
+// The key changes come first, in the order the board ranks them, and the first one is
+// what a board opens on; "Any key change" is the way out to the whole wheel, so it sits
+// last rather than being the first thing to read.
 export function KeyChangeChips({
   items,
   allCount,
@@ -42,7 +55,8 @@ export function KeyChangeChips({
 }) {
   return (
     <span className="flex flex-wrap items-center gap-1">
-      {[null, ...items].map((it) => {
+      <RowLabel>Key change:</RowLabel>
+      {[...items, null].map((it) => {
         const key = it === null ? null : it.key;
         const on = value === key;
         return (
@@ -81,6 +95,7 @@ export function OrderChips({
 }) {
   return (
     <span className="flex flex-wrap items-center gap-1">
+      <RowLabel>Order:</RowLabel>
       {[null, ...orders].map((it) => {
         const o = it === null ? null : it.order;
         const on = value === o;

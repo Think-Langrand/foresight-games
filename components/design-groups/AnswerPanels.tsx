@@ -251,8 +251,11 @@ export function ImplicationsPanel({
   }, [ex.cards]);
   const hasTree = model.tree.length > 0;
 
-  // Which branch (null = every key change), which order, and how close.
-  const [branch, setBranch] = useState<string | null>(null);
+  // Which branch (null = every key change), which order, and how close. Nothing picked yet
+  // (`undefined`) opens on the FIRST key change, the top-ranked one, like the live board;
+  // null is "Any key change" chosen on purpose.
+  const [branchPick, setBranch] = useState<string | null | undefined>(undefined);
+  const branch = branchPick === undefined ? (model.roots[0]?.id ?? null) : branchPick;
   const [orderFilter, setOrderFilter] = useState<number | null>(null);
   const [zoom, setZoom] = useState<Zoom>("fit");
   const fitScaleRef = useRef(1);
@@ -272,7 +275,8 @@ export function ImplicationsPanel({
   };
   const dimmed = (id: string) => orderFilter !== null && orderOf(id) !== orderFilter;
   const stepBranch = (step: -1 | 1) => {
-    const stops: (string | null)[] = [null, ...model.roots.map((r) => r.id)];
+    // Same order as the chips: the key changes, then "any" last.
+    const stops: (string | null)[] = [...model.roots.map((r) => r.id), null];
     const cur = Math.max(0, stops.indexOf(branchRoot?.id ?? null));
     setBranch(stops[(cur + step + stops.length) % stops.length]);
     setZoom("fit"); // branches differ in size; a held zoom misleads

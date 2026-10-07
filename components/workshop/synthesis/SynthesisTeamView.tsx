@@ -38,8 +38,10 @@ import {
 import {
   indexSynthesisBoard,
   childrenOf,
+  implicationKey,
   planReorder,
   SORT_STEP,
+  twinIndex,
   type HopeFear,
   type SortWrite,
   type Week2Lineage,
@@ -259,21 +261,52 @@ export function SynthesisTeamView({
   // Put an implication in a SECOND theme, keeping the one it is already in. The text is
   // not sent: the route reads it from the original, so two cards showing one implication
   // cannot drift apart by being typed twice. See migration 0023.
-  const copyToTheme = (card: RippleCard, themeId: string) =>
-    run(async () => {
-      const res = await postRippleCard(code, {
-        participantId: pid,
-        cardOrder: "SECOND",
-        parentCardId: themeId,
-        copyOfCardId: card.id,
-        sort: endSort(board.clusters.get(themeId) ?? []),
-      });
-      if (res?.card) addLocal(res.card as RippleCard);
+  // One more copy of an implication, in another theme. The server stamps both rows with a
+  // shared twin key (migration 0023) and refuses a second copy in the same theme.
+  const writeCopy = async (card: RippleCard, themeId: string) => {
+    const res = await postRippleCard(code, {
+      participantId: pid,
+      cardOrder: "SECOND",
+      parentCardId: themeId,
+      copyOfCardId: card.id,
+      sort: endSort(board.clusters.get(themeId) ?? []),
     });
+    if (res?.card) addLocal(res.card as RippleCard);
+  };
+
+  const copyToTheme = (card: RippleCard, themeId: string) => run(() => writeCopy(card, themeId));
+
+  // Put one implication into a theme the way its situation calls for. A tray card MOVES.
+  // A card already in a theme is COPIED, because clustering is not a partition and the
+  // map — where this mostly happens — shows the implication rather than any one row of
+  // it: a teammate filing it in Theme 1 must not stop anyone adding it to Theme 3, and
+  // adding it to Theme 3 must not pull it out of Theme 1. One already in `themeId` is
+  // left alone. Shared by the rail's click, "new theme from N" and a themed drop.
+  const clusteredIds = () => new Set([...board.clusters.values()].flat().map((c) => c.id));
+  const placeInTheme = async (
+    card: RippleCard,
+    themeId: string,
+    predicted: ReturnType<typeof orderAtDepth>,
+    clustered: Set<string>
+  ) => {
+    if (clustered.has(card.id)) {
+      const already = (twinIndex(board).get(implicationKey(card))?.themeIds ?? []).includes(themeId);
+      if (!already) await writeCopy(card, themeId);
+      return;
+    }
+    if (predicted) reparentLocal(card.id, themeId, predicted);
+    try {
+      await reparentRippleCard(code, card.id, { participantId: pid, parentCardId: themeId });
+    } catch (e) {
+      dropReparentLocal(card.id);
+      throw e;
+    }
+  };
 
   // Dropped onto empty theme space: mint a theme and put the card straight into it, so
-  // grouping never has to start with naming something.
-  const startThemeWith = (card: RippleCard) =>
+  // grouping never has to start with naming something. `copy` is a map circle that is
+  // already in a theme: it stays there, and the new theme gets a copy.
+  const startThemeWith = (card: RippleCard, copy = false) =>
     run(async () => {
       const res = await postRippleCard(code, {
         participantId: pid,
@@ -286,6 +319,10 @@ export function SynthesisTeamView({
       if (!created) return;
       addLocal(created);
 
+      if (copy) {
+        await writeCopy(card, created.id);
+        return;
+      }
       // No reorder needed: the card is the only one in a brand-new theme, so whatever sort
       // it already carries orders a list of one correctly. That keeps this to two round
       // trips rather than three.
@@ -326,31 +363,23 @@ export function SynthesisTeamView({
       addLocal(created);
 
       const predicted = orderAtDepth(1);
+      const clustered = clusteredIds();
       for (const id of cardIds) {
-        if (predicted) reparentLocal(id, created.id, predicted);
-        try {
-          await reparentRippleCard(code, id, { participantId: pid, parentCardId: created.id });
-        } catch (e) {
-          dropReparentLocal(id);
-          throw e;
-        }
+        const card = cards.find((c) => c.id === id);
+        if (card) await placeInTheme(card, created.id, predicted, clustered);
       }
     });
 
-  // The rail's click: drop everything ticked into a theme that already exists. Per-card,
-  // like createThemeFrom, because reparent is per-card; a failure part-way leaves what
-  // already moved, which is recoverable by dragging.
+  // The rail's click: put everything ticked into a theme that already exists. Per-card,
+  // like createThemeFrom, because reparent and copy are per-card; a failure part-way
+  // leaves what already landed, which is recoverable by dragging.
   const moveManyToTheme = (cardIds: string[], themeId: string) =>
     run(async () => {
       const predicted = orderAtDepth(1);
+      const clustered = clusteredIds();
       for (const id of cardIds) {
-        if (predicted) reparentLocal(id, themeId, predicted);
-        try {
-          await reparentRippleCard(code, id, { participantId: pid, parentCardId: themeId });
-        } catch (e) {
-          dropReparentLocal(id);
-          throw e;
-        }
+        const card = cards.find((c) => c.id === id);
+        if (card) await placeInTheme(card, themeId, predicted, clustered);
       }
     });
 
