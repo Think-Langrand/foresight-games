@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { CardsView, SessionView, Team, TeamStatus } from "@/lib/workshop-types";
-import type { RippleCard, RipplesView } from "@/lib/ripples-types";
+import type { CardKind, CardOrder, RippleCard, RipplesView } from "@/lib/ripples-types";
 
 // Tables whose changes should refresh each view (filtered by session code).
 const SESSION_TABLES = ["sessions", "submissions", "responses"] as const;
@@ -159,6 +159,16 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
   const [deletes, setDeletes] = useState<Set<string>>(() => new Set());
   const [sorts, setSorts] = useState<Map<string, number>>(() => new Map());
   const [edits, setEdits] = useState<Map<string, string>>(() => new Map());
+  // Week 3 clustering: where a dragged card now hangs, and its new depth-encoding order.
+  // Only the MOVED card is overlaid — every view derives depth by WALKING parents
+  // (depthByCard / indexSynthesisBoard), so its whole subtree re-renders at the new depth
+  // for free and there is nothing per-descendant to track here.
+  const [reparents, setReparents] = useState<
+    Map<string, { parentId: string | null; order: CardOrder }>
+  >(() => new Map());
+  const [parks, setParks] = useState<Map<string, boolean>>(() => new Map());
+  const [descs, setDescs] = useState<Map<string, string | null>>(() => new Map());
+  const [shorts, setShorts] = useState<Map<string, boolean>>(() => new Map());
   // `inflight` counts this card's score writes that haven't come back yet. While any is
   // outstanding the overlay has to stand, because the server list in hand may predate it.
   const [scores, setScores] = useState<Map<string, { patch: ScorePatch; inflight: number }>>(
@@ -204,6 +214,54 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
       }
       return changed ? next : prev;
     });
+    setReparents((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, move] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        if (!server || (server.parentId ?? null) === move.parentId) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    setParks((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, parked] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        if (!server || server.parked === parked) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    setDescs((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, d] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        if (!server || server.description === d) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    setShorts((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, v] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        if (!server || server.shortlisted === v) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
     // Per-AXIS, not per-object: the two score rows write independently, so a
     // plausibility round-trip landing first must not drop a still-pending impact.
     //
@@ -235,19 +293,43 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     const merged = adds.length
       ? [...serverCards, ...adds.filter((a) => !serverIds.has(a.id))]
       : serverCards;
-    if (!deletes.size && !sorts.size && !edits.size && !scores.size) return merged;
+    if (
+      !deletes.size &&
+      !sorts.size &&
+      !edits.size &&
+      !scores.size &&
+      !reparents.size &&
+      !parks.size &&
+      !descs.size &&
+      !shorts.size
+    )
+      return merged;
     return merged
       .filter((c) => !deletes.has(c.id))
       .map((c) => {
-        if (!sorts.has(c.id) && !edits.has(c.id) && !scores.has(c.id)) return c;
+        if (
+          !sorts.has(c.id) &&
+          !edits.has(c.id) &&
+          !scores.has(c.id) &&
+          !reparents.has(c.id) &&
+          !parks.has(c.id) &&
+          !descs.has(c.id) &&
+          !shorts.has(c.id)
+        )
+          return c;
+        const move = reparents.get(c.id);
         return {
           ...c,
           ...(sorts.has(c.id) ? { sort: sorts.get(c.id)! } : {}),
           ...(edits.has(c.id) ? { text: edits.get(c.id)! } : {}),
           ...(scores.get(c.id)?.patch ?? {}),
+          ...(move ? { parentId: move.parentId, order: move.order } : {}),
+          ...(parks.has(c.id) ? { parked: parks.get(c.id)! } : {}),
+          ...(descs.has(c.id) ? { description: descs.get(c.id)! } : {}),
+          ...(shorts.has(c.id) ? { shortlisted: shorts.get(c.id)! } : {}),
         };
       });
-  }, [serverCards, adds, deletes, sorts, edits, scores]);
+  }, [serverCards, adds, deletes, sorts, edits, scores, reparents, parks, descs, shorts]);
 
   const addLocal = useCallback((c: RippleCard) => setAdds((p) => [...p, c]), []);
   const removeLocal = useCallback((id: string) => setDeletes((p) => new Set(p).add(id)), []);
@@ -267,6 +349,53 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
   );
   const editLocal = useCallback(
     (id: string, text: string) => setEdits((p) => new Map(p).set(id, text)),
+    []
+  );
+  const reparentLocal = useCallback(
+    (id: string, parentId: string | null, order: CardOrder) =>
+      setReparents((p) => new Map(p).set(id, { parentId, order })),
+    []
+  );
+  const dropReparentLocal = useCallback(
+    (id: string) =>
+      setReparents((p) => {
+        if (!p.has(id)) return p;
+        const next = new Map(p);
+        next.delete(id);
+        return next;
+      }),
+    []
+  );
+  const shortlistLocal = useCallback(
+    (id: string, shortlisted: boolean) => setShorts((p) => new Map(p).set(id, shortlisted)),
+    []
+  );
+  const dropShortlistLocal = useCallback(
+    (id: string) =>
+      setShorts((p) => {
+        if (!p.has(id)) return p;
+        const next = new Map(p);
+        next.delete(id);
+        return next;
+      }),
+    []
+  );
+  const describeLocal = useCallback(
+    (id: string, description: string | null) => setDescs((p) => new Map(p).set(id, description)),
+    []
+  );
+  const parkLocal = useCallback(
+    (id: string, parked: boolean) => setParks((p) => new Map(p).set(id, parked)),
+    []
+  );
+  const dropParkLocal = useCallback(
+    (id: string) =>
+      setParks((p) => {
+        if (!p.has(id)) return p;
+        const next = new Map(p);
+        next.delete(id);
+        return next;
+      }),
     []
   );
   // MERGES rather than replaces, so setting impact doesn't wipe a plausibility write
@@ -320,6 +449,13 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     unremoveLocal,
     reorderLocal,
     editLocal,
+    reparentLocal,
+    dropReparentLocal,
+    parkLocal,
+    dropParkLocal,
+    describeLocal,
+    shortlistLocal,
+    dropShortlistLocal,
     scoreLocal,
     settleScoreLocal,
     dropScoreLocal,
@@ -346,9 +482,14 @@ export async function postRippleCard(
     participantId: string;
     cardOrder: string;
     parentCardId?: string | null;
-    text: string;
+    // Omitted when copying — the route reads the text from the original (0023).
+    text?: string;
     sort?: number;
     section?: string | null;
+    cardKind?: CardKind | null; // Week 3: theme / hope / fear. Omit for an implication.
+    description?: string | null;
+    // Week 3: put an implication that is already on this board into another theme too.
+    copyOfCardId?: string;
   }
 ) {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/cards`, {
@@ -371,6 +512,79 @@ export async function reorderRippleCard(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "reorder", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+// Re-hang a card: cluster it into a theme, or pass parentCardId: null to send it back to
+// the unclustered tray. The route recomputes the card_order of the whole moved subtree.
+export async function reparentRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; parentCardId: string | null }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reparent", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+// Set (or, with an empty string, clear) a theme's description.
+export async function describeRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; description: string }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "description", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+// Pick a risk or opportunity out for the committee shortlist, or unpick it.
+export async function shortlistRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; shortlisted: boolean }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "shortlist", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+// Park a card in Week 3's tray, or unpark it. Nothing is deleted either way.
+export async function parkRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; parked: boolean }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "park", ...body }),
     }
   );
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");

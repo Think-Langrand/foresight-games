@@ -50,10 +50,22 @@ export function ImplicationTree({
   onEdit,
   onFlag,
   onVote,
+  rootIds,
+  dimDepth,
+  zoom,
+  onFitScale,
 }: {
   cards: RippleCard[];
   scenarioTitle: string;
   interactive?: boolean;
+  // Read-only filters, for the Session 2 view: draw only these key changes (undefined =
+  // all of them), and fade the nodes of the orders not in view.
+  rootIds?: Set<string>;
+  dimDepth?: (depth: number) => boolean;
+  // "fit" shrinks the whole tree to its container's width; a number is an explicit zoom.
+  // Undefined = drawn at 1:1 (the live board, which scrolls sideways instead).
+  zoom?: number | "fit";
+  onFitScale?: (scale: number) => void;
   busy?: boolean;
   // Name each column above the tree ("Key change", "1st order", …). Build-time
   // orientation — the read-only/projector views leave it off.
@@ -81,8 +93,43 @@ export function ImplicationTree({
   );
   const ranks = useMemo(() => rankByCardId(cards), [cards]);
   const depths = useMemo(() => depthByCard(cards), [cards]);
-  // Same invariant as renderBranch: only draw a root that depthByCard placed.
-  const drawnRoots = roots.filter((r) => depths.has(r.id));
+  // Same invariant as renderBranch: only draw a root that depthByCard placed — and, when
+  // the view is filtered to one key change, only that one.
+  const drawnRoots = roots.filter((r) => depths.has(r.id) && (!rootIds || rootIds.has(r.id)));
+
+  // Fit: the tree's natural width against its box. Measured, like the wheel's; the inner
+  // box is scaled from its top-left and the outer box sized to the result, so the page
+  // keeps the right amount of room under it.
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const onFitScaleRef = useRef(onFitScale);
+  useEffect(() => {
+    onFitScaleRef.current = onFitScale;
+  }, [onFitScale]);
+  const [fitScale, setFitScale] = useState(1);
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  const scale = zoom === undefined ? 1 : zoom === "fit" ? fitScale : zoom;
+  useEffect(() => {
+    if (zoom === undefined) return;
+    const box = boxRef.current;
+    const inner = innerRef.current;
+    if (!box || !inner) return;
+    const apply = () => {
+      const w = inner.scrollWidth;
+      const h = inner.scrollHeight;
+      setNatural({ w, h });
+      if (zoom === "fit") {
+        const next = Math.min(1, (box.clientWidth || w) / (w || 1));
+        setFitScale(next);
+        onFitScaleRef.current?.(next);
+      }
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(box);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, [zoom, cards, drawnRoots.length]);
   // Reuses the depth map above rather than walking the tree a second time.
   const lastColumn = useMemo(
     () => maxRenderedDepth(cards, { interactive, depths }),
@@ -134,7 +181,10 @@ export function ImplicationTree({
       <div
         className={
           "min-w-0 flex-none animate-rise overflow-hidden rounded-[4px] border border-[var(--hairline)] bg-card p-2.5 shadow-[0_1px_0_rgba(36,36,34,0.06)] " +
-          (card.greyed ? "rotate-[-1.2deg] opacity-40" : "")
+          (card.greyed ? "rotate-[-1.2deg] opacity-40 " : "") +
+          // An order not in view steps back rather than disappearing: the chain it sits
+          // in still reads. Important, because the grow-in animation owns opacity.
+          (dimDepth?.(depth) ? "!opacity-30" : "")
         }
         style={{ width: NODE_W, borderLeft: `4px solid ${rippleDepthColor(depth)}` }}
       >
@@ -291,8 +341,24 @@ export function ImplicationTree({
   };
 
   return (
-    <div className="overflow-x-auto pb-2">
-      <div className="w-max">
+    <div
+      ref={boxRef}
+      className={zoom === undefined ? "overflow-x-auto pb-2" : "overflow-auto pb-2"}
+    >
+      <div
+        className="relative"
+        // Sized to the scaled tree, so nothing scrolls past it and nothing is cut short.
+        style={
+          zoom === undefined || !natural
+            ? undefined
+            : { width: natural.w * scale, height: natural.h * scale }
+        }
+      >
+      <div
+        ref={innerRef}
+        className="w-max"
+        style={zoom === undefined ? undefined : { transform: `scale(${scale})`, transformOrigin: "top left" }}
+      >
         {showHeaders && lastColumn >= 0 && (
           <div className="mb-1.5 flex items-end">
             <div
@@ -350,6 +416,7 @@ export function ImplicationTree({
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

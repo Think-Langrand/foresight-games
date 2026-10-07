@@ -1,6 +1,28 @@
 import { getExerciseType, resolveEffectiveSections, type WorksheetSection } from "@/lib/exercise-types";
 import type { RippleCard, RipplesView } from "@/lib/ripples-types";
-import type { AnswerRow, ExerciseAnswers, QuestionBlock } from "@/components/design-groups/AnswerPanels";
+import type {
+  AnswerRow,
+  ChainRow,
+  ExerciseAnswers,
+  StakeRow,
+  QuestionBlock,
+  SynthesisTheme,
+  ThemeAnswerRow,
+} from "@/components/design-groups/AnswerPanels";
+import {
+  ANSWER_LABELS,
+  answerOf,
+  answersOf,
+  boardAnswersOf,
+  indexSynthesisBoard,
+  isHopeFear,
+  themeAnswers,
+  READING_FIELDS,
+  ROLE_FIELDS,
+  THEME_ROLE_FIELDS,
+  VALUES_FIELDS,
+  type ThemeAnswerKind,
+} from "@/lib/synthesis-shape";
 
 // Pure shaping of one design-group week's board into its read-only answers — worksheet
 // Q&A, an implications map (+ brainstorm / question blocks), or a placeholder. No I/O:
@@ -79,6 +101,124 @@ export function shapeFromView(
       // customized stores [] and must fall back to the type's template, or its risks /
       // opportunities blocks are invisible here.
       questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
+    };
+  }
+
+  if (render === "synthesis" && view) {
+    const board = indexSynthesisBoard(view.cards);
+
+    const toStake = (c: RippleCard): StakeRow => ({
+      ...toRow(c),
+      mechanism: c.description,
+      shortlisted: c.shortlisted,
+    });
+
+    // A hope or fear as a row. Who it concerns and the older boards' assumptions ride ON
+    // the row rather than becoming rows of their own.
+    const toChainRow = (c: RippleCard, depth: number, kind: "hope" | "fear"): ChainRow => {
+      // Its own card, so its own author and time — the CSV prints them, not the hope's.
+      const concerns = answerOf(board, c.id, "concerns");
+      const concernsRow = concerns ? toRow(concerns) : null;
+      return {
+        ...toRow(c),
+        cardKind: kind,
+        depth,
+        concerns: concerns?.text ?? null,
+        concernsBy: concernsRow ? { author: concernsRow.author, createdAt: concernsRow.createdAt } : null,
+        value: c.description,
+        assumptions: (board.assumptions.get(c.id) ?? []).map(toRow),
+      };
+    };
+
+    // Everything chained under `parentId`, flattened depth-first so the panel's
+    // indentation reads as the chain itself.
+    const flattenChain = (parentId: string, out: ChainRow[] = []): ChainRow[] => {
+      for (const c of board.chains.get(parentId) ?? []) {
+        const depth = board.chainDepth.get(c.id);
+        // Absent from chainDepth = unreachable from any root, so drawn by no view.
+        // Skipped here too, so the answer sheet matches what the group actually sees.
+        if (depth === undefined || !isHopeFear(c.cardKind)) continue;
+        out.push(toChainRow(c, depth, c.cardKind));
+        flattenChain(c.id, out);
+      }
+      return out;
+    };
+
+    // The board's own hopes and fears (step 3), each followed by what was flipped from it.
+    const hopesFears: ChainRow[] = [];
+    for (const root of board.hopesFears) {
+      const depth = board.chainDepth.get(root.id);
+      if (depth === undefined || !isHopeFear(root.cardKind)) continue;
+      hopesFears.push(toChainRow(root, depth, root.cardKind));
+      flattenChain(root.id, hopesFears);
+    }
+
+    // Every answered question on a theme, in the order the week asks them: the Themes
+    // step's four (with an old reading's answers standing in — themeAnswers), then part B,
+    // then the role, then the two retired questions older boards may still carry. One
+    // list, so the viewer and the CSV can never disagree about what was answered.
+    const answersFor = (themeId: string): ThemeAnswerRow[] => {
+      const found: Partial<Record<ThemeAnswerKind, RippleCard>> = {
+        ...themeAnswers(board, themeId),
+        ...answersOf(board, themeId, VALUES_FIELDS),
+        // Of the role step's four, `risk` and `opportunity` are step 2's wall kinds when
+        // they sit under a theme, and the walls (`risks` / `opportunities` below) already
+        // list every one of them. Reading them here as well put the first of each on the
+        // sheet twice — once as a "role" answer, once on its wall.
+        ...answersOf(board, themeId, THEME_ROLE_FIELDS),
+        ...answersOf(board, themeId, ["assumed_role", "question"] as const),
+      };
+      const order: readonly ThemeAnswerKind[] = [
+        ...READING_FIELDS,
+        ...VALUES_FIELDS,
+        ...THEME_ROLE_FIELDS,
+        "assumed_role",
+        "question",
+      ];
+      const out: ThemeAnswerRow[] = [];
+      for (const kind of order) {
+        const c = found[kind];
+        if (!c || !c.text.trim()) continue;
+        out.push({ ...toRow(c), kind, label: ANSWER_LABELS[kind] });
+      }
+      return out;
+    };
+
+    const themes: SynthesisTheme[] = board.themes.map((t) => ({
+      id: t.id,
+      text: t.text,
+      description: t.description,
+      implications: (board.clusters.get(t.id) ?? []).map(toRow),
+      answers: answersFor(t.id),
+      risks: (board.risks.get(t.id) ?? []).map(toStake),
+      opportunities: (board.opportunities.get(t.id) ?? []).map(toStake),
+      chain: flattenChain(t.id),
+      tensions: (board.tensions.get(t.id) ?? []).map(toStake),
+    }));
+
+    // LEGACY — the retired role step's answers: one set for the board, in question order.
+    const boardRole = boardAnswersOf(board);
+    const role: ThemeAnswerRow[] = ROLE_FIELDS.flatMap((kind) => {
+      const c = boardRole[kind];
+      return c && c.text.trim() ? [{ ...toRow(c), kind, label: ANSWER_LABELS[kind] }] : [];
+    });
+
+    return {
+      kind: "synthesis",
+      exerciseId: ex.id,
+      title: ex.title,
+      cards: view.cards,
+      themes,
+      hopesFears,
+      role,
+      unclustered: board.unclustered.map(toRow),
+      parked: board.parked.map(toRow),
+      orphans: board.orphans.map(toRow),
+      // resolveEffectiveSections, not the raw column: a synthesis week that was never
+      // customized stores [] and must fall back to the type's template, or its Sandbox
+      // notes are invisible here.
+      questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
+      summary: view.config.summary,
     };
   }
 

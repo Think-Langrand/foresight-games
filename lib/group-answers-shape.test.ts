@@ -7,7 +7,17 @@ import { DEFAULT_RIPPLES_CONFIG, type CardOrder, type RippleCard, type RipplesVi
 function card(
   id: string,
   order: CardOrder,
-  opts: { section?: string | null; seq?: number; sort?: number; author?: string | null; parentId?: string } = {}
+  opts: {
+    section?: string | null;
+    seq?: number;
+    sort?: number;
+    author?: string | null;
+    parentId?: string;
+    cardKind?: RippleCard["cardKind"];
+    parked?: boolean;
+    description?: string | null;
+    shortlisted?: boolean;
+  } = {}
 ): RippleCard {
   return {
     id,
@@ -25,6 +35,11 @@ function card(
     sourceLabel: null,
     plausibility: null,
     impact: null,
+    cardKind: opts.cardKind ?? null,
+    parked: opts.parked ?? false,
+    description: opts.description ?? null,
+    shortlisted: opts.shortlisted ?? false,
+    twinKey: null,
     createdTime: `2026-01-01T00:00:${String(opts.seq ?? 0).padStart(2, "0")}Z`,
   };
 }
@@ -151,5 +166,205 @@ describe("shapeFromView — other types", () => {
   it("placeholder and unknown types shape to a placeholder", () => {
     expect(shapeFromView(ex("placeholder"), null).kind).toBe("placeholder");
     expect(shapeFromView(ex("no-such-type"), view([])).kind).toBe("placeholder");
+  });
+});
+
+describe("shapeFromView — synthesis weeks", () => {
+  // TH1 ─ I1 (clustered implication)
+  //     └ H1(hope) ─ F1(fear)
+  // I2 unsorted; PK parked; two risks/opps answers.
+  const board = () => [
+    card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+    card("I1", "SECOND", { seq: 2, parentId: "TH1" }),
+    card("H1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "hope" }),
+    card("F1", "TERMINAL", { seq: 4, parentId: "H1", cardKind: "fear" }),
+    card("I2", "FIRST", { seq: 5 }),
+    card("PK", "FIRST", { seq: 6, parked: true }),
+    card("N1", "STICKY", { seq: 7, section: "synthesis-sandbox" }),
+  ];
+
+  it("shapes themes with their implications and their hope/fear chain", () => {
+    const out = shapeFromView(ex("synthesis"), view(board()));
+    expect(out.kind).toBe("synthesis");
+    if (out.kind !== "synthesis") return;
+    expect(out.themes).toHaveLength(1);
+    expect(out.themes[0].text).toBe("TH1-text");
+    expect(out.themes[0].implications.map((a) => a.id)).toEqual(["I1"]);
+    // Depth-first, so the indentation in the panel reads as the chain.
+    expect(out.themes[0].chain).toEqual([
+      expect.objectContaining({ id: "H1", cardKind: "hope", depth: 1 }),
+      expect.objectContaining({ id: "F1", cardKind: "fear", depth: 2 }),
+    ]);
+  });
+
+  it("separates the unsorted tray from the parked pile", () => {
+    const out = shapeFromView(ex("synthesis"), view(board()));
+    if (out.kind !== "synthesis") return;
+    expect(out.unclustered.map((a) => a.id)).toEqual(["I2"]);
+    expect(out.parked.map((a) => a.id)).toEqual(["PK"]);
+  });
+
+  it("has no question blocks — every step of the week is code now", () => {
+    const out = shapeFromView(ex("synthesis"), view(board()));
+    if (out.kind !== "synthesis") return;
+    expect(out.questions).toEqual([]);
+  });
+
+  // The safety net for every retired key. A note written into the old Sandbox, or into the
+  // Risks/Opportunities boards before those were replaced by cards on a theme, must still
+  // be readable by a facilitator — the admin surfaces pass includeRemoved for exactly this.
+  it("still surfaces a note written under a retired key, as a removed block", () => {
+    const out = shapeFromView(ex("synthesis"), view(board()), { includeRemoved: true });
+    if (out.kind !== "synthesis") return;
+    expect(out.questions).toHaveLength(1);
+    expect(out.questions[0]).toMatchObject({ key: "synthesis-sandbox", removed: true });
+    expect(out.questions[0].answers.map((a) => a.id)).toEqual(["N1"]);
+  });
+
+  it("omits a hope unreachable from any theme, matching what the board draws", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([...board(), card("GHOST", "TERMINAL", { seq: 9, parentId: "I1", cardKind: "hope" })])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.themes[0].chain.map((c) => c.id)).not.toContain("GHOST");
+  });
+
+  it("carries the theme's description and every answered question in step order, and the board's role", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme", description: "What the group means" }),
+        card("R1", "FIRST", { seq: 2, cardKind: "risk" }),
+        card("D1", "FIRST", { seq: 3, cardKind: "desired_role" }),
+        card("B1", "SECOND", { seq: 4, parentId: "TH1", cardKind: "benefit" }),
+        card("C1", "SECOND", { seq: 5, parentId: "TH1", cardKind: "condition" }),
+        card("T1", "SECOND", { seq: 6, parentId: "TH1", cardKind: "tension" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    const t = out.themes[0];
+    expect(t.description).toBe("What the group means");
+    // Step order, not creation order.
+    expect(t.answers.map((a) => a.kind)).toEqual(["benefit", "condition"]);
+    expect(t.tensions.map((r) => r.id)).toEqual(["T1"]);
+    // The role is the board's, in question order, not a theme's.
+    expect(out.role.map((a) => a.kind)).toEqual(["desired_role", "risk"]);
+    expect(out.role[0]).toMatchObject({ text: "D1-text", label: "A desirable role for public health" });
+  });
+
+  it("carries who a hope concerns beside it", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("H1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "hope" }),
+        card("C1", "TERMINAL", { seq: 3, parentId: "H1", cardKind: "concerns" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.themes[0].chain[0]).toMatchObject({ id: "H1", concerns: "C1-text" });
+  });
+
+  it("hangs assumptions on their hope, and the value with it", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("H1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "hope", description: "because trust matters" }),
+        card("A1", "TERMINAL", { seq: 3, parentId: "H1", cardKind: "assumption" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    const [hope] = out.themes[0].chain;
+    expect(hope.value).toBe("because trust matters");
+    expect(hope.assumptions.map((a) => a.id)).toEqual(["A1"]);
+    // Not a chain row of its own — the colour maps and the CSV Kind column depend on this.
+    expect(out.themes[0].chain.map((c) => c.id)).toEqual(["H1"]);
+  });
+
+  it("carries the board's hopes and fears, a flipped hope right after its fear", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("F1", "FIRST", { seq: 2, cardKind: "fear" }),
+        card("H1", "FIRST", { seq: 3, cardKind: "hope" }),
+        card("H2", "SECOND", { seq: 4, parentId: "F1", cardKind: "hope" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.hopesFears).toEqual([
+      expect.objectContaining({ id: "F1", cardKind: "fear", depth: 1 }),
+      expect.objectContaining({ id: "H2", cardKind: "hope", depth: 2 }),
+      expect.objectContaining({ id: "H1", cardKind: "hope", depth: 1 }),
+    ]);
+    expect(out.orphans).toEqual([]);
+    // Not a theme's — the board's.
+    expect(out.themes[0].chain).toEqual([]);
+  });
+
+  it("carries a theme's risks and opportunities as its own, not the board's role", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("R1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "risk" }),
+        card("O1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "opportunity", description: "via x" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.themes[0].risks.map((r) => r.id)).toEqual(["R1"]);
+    expect(out.themes[0].opportunities[0]).toMatchObject({ id: "O1", mechanism: "via x" });
+    expect(out.role).toEqual([]);
+    // …and ONLY as its risks and opportunities. `risk` and `opportunity` are also two of
+    // the retired role step's answer kinds, and reading them as answers as well listed the
+    // first of each twice on the sheet and in the CSV.
+    expect(out.themes[0].answers).toEqual([]);
+  });
+
+  it("still reads the retired role step's other two answers on a theme", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("D1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "desired_role" }),
+        card("R1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "risk" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.themes[0].answers.map((a) => a.kind)).toEqual(["desired_role"]);
+    expect(out.themes[0].risks.map((r) => r.id)).toEqual(["R1"]);
+  });
+
+  it("surfaces unplaceable cards rather than dropping them", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("I1", "SECOND", { seq: 2, parentId: "TH1" }),
+        card("LOOSE", "TERMINAL", { seq: 3, parentId: "I1", cardKind: "hope" }), // under an implication
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.orphans.map((a) => a.id)).toEqual(["LOOSE"]);
+  });
+
+  it("carries the facilitator's summary from the board's config", () => {
+    const summary = {
+      overview: "Trust moves to people.",
+      themes: [],
+      tensions: [],
+      generatedAt: "2026-10-05T12:00:00.000Z",
+      cardCount: 1,
+    };
+    const v = view(board());
+    const out = shapeFromView(ex("synthesis"), { ...v, config: { ...v.config, summary } });
+    if (out.kind !== "synthesis") return;
+    expect(out.summary).toEqual(summary);
+  });
+
+  it("degrades to a placeholder when the board could not be loaded", () => {
+    expect(shapeFromView(ex("synthesis"), null).kind).toBe("placeholder");
   });
 });

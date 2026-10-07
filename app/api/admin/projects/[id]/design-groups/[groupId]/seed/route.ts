@@ -49,8 +49,14 @@ export async function POST(
     const target = exercises.find((e) => e.id === exerciseId);
     if (!target || !target.sessionCode)
       return NextResponse.json({ error: "Exercise not found." }, { status: 404 });
-    if (getExerciseType(target.type)?.render !== "implications")
-      return NextResponse.json({ error: "Only implications weeks can be seeded." }, { status: 400 });
+    // Both tree-backed weeks take seeded FIRST roots: an implications week seeds key
+    // changes from Week 1, a synthesis week seeds Week 2's implications into its tray.
+    const targetRender = getExerciseType(target.type)?.render;
+    if (targetRender !== "implications" && targetRender !== "synthesis")
+      return NextResponse.json(
+        { error: "Only implications and synthesis weeks can be seeded." },
+        { status: 400 }
+      );
 
     // Source weeks = this group's other board-backed weeks, keyed by board code.
     const sourceWeeks = new Map(

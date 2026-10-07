@@ -1,16 +1,45 @@
 import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import {
+  applyReparent,
   deleteCard,
+  deleteCardAtomically,
   flagCard,
   getPlayerByParticipant,
   getRippleCard,
+  isUniqueViolation,
+  listBoardCards,
+  moveCardSource,
   scoreCard,
+  setCardParked,
+  setCardShortlisted,
+  updateCardDescription,
   updateCardSort,
   updateCardText,
+  updateTwinText,
   voteCard,
 } from "@/lib/ripples";
-import { CARD_TEXT_MAX, isTreeRoot, resolveConfig } from "@/lib/ripples-types";
+import {
+  CARD_DESCRIPTION_MAX,
+  CARD_TEXT_MAX,
+  isTreeRoot,
+  planReparent,
+  resolveConfig,
+  type ReparentRefusal,
+} from "@/lib/ripples-types";
+import { placementError } from "@/lib/synthesis-shape";
+
+// One human sentence per refusal planReparent can return — the reasons exist so the
+// message can name the real cause, like the POST route's three distinct parent refusals.
+const REPARENT_MESSAGES: Record<ReparentRefusal, string> = {
+  NOT_TREE_CARD: "That card can't be moved there.",
+  PARENT_NOT_FOUND: "That group no longer exists — reload the board.",
+  PARENT_NOT_PLACED: "That group isn't on the board any more — reload and try again.",
+  PARENT_UNAVAILABLE: "That group is parked or has been challenged out.",
+  CYCLE: "A card can't be moved inside itself.",
+  TOO_DEEP: "That chain is already as deep as it goes.",
+  NO_CHANGE: "It's already there.",
+};
 import { AXIS_LABELS, SCORE_AXES, SCORE_MAX, SCORE_MIN, coerceScore } from "@/lib/ripples-scoring";
 
 export const dynamic = "force-dynamic";
@@ -26,12 +55,25 @@ export async function PATCH(
   }
   const { code, cardId } = await params;
   let body: {
-    action?: "flag" | "vote" | "reorder" | "text" | "score";
+    action?:
+      | "flag"
+      | "vote"
+      | "reorder"
+      | "text"
+      | "description"
+      | "score"
+      | "reparent"
+      | "park"
+      | "shortlist";
     participantId?: string;
     sort?: number;
     text?: string;
+    description?: string | null;
     plausibility?: number | null;
     impact?: number | null;
+    parentCardId?: string | null;
+    parked?: boolean;
+    shortlisted?: boolean;
   } = {};
   try {
     body = await req.json();
@@ -106,6 +148,138 @@ export async function PATCH(
       return NextResponse.json({ ok: true, ...patch });
     }
 
+    // A theme's optional note about what it means. Empty clears it. Same co-ownership
+    // rule as the text edit below.
+    if (body.action === "description") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only edit your own card." }, { status: 403 });
+      }
+      const raw = (body.description ?? "").trim();
+      if (raw.length > CARD_DESCRIPTION_MAX) {
+        return NextResponse.json(
+          { error: `A description is at most ${CARD_DESCRIPTION_MAX} characters.` },
+          { status: 400 }
+        );
+      }
+      await updateCardDescription(session.code, cardId, raw || null);
+      return NextResponse.json({ ok: true, description: raw || null });
+    }
+
+    // Cluster a card into a theme, un-cluster it back to the tray (parentCardId: null), or
+    // re-hang a whole subtree — Week 3's drag board. Depth is encoded in card_order, so the
+    // move rewrites the order of this card AND of every descendant under it; planReparent
+    // works that out from the whole board and applyReparent writes it deepest-first.
+    //
+    // Sits ABOVE the challengeEnabled gate deliberately, like `score` below: design-group
+    // boards have challenge off, and they are exactly the boards that cluster.
+    if (body.action === "reparent") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only move your own card." }, { status: 403 });
+      }
+      const parentId = body.parentCardId ?? null;
+      // The SAME kind rules the add-a-card route applies. Without this a theme's answer
+      // could be dragged out to a root, where no view draws it and nobody can delete it.
+      if (parentId === null) {
+        const misplaced = placementError(card.cardKind, undefined);
+        if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });
+      } else {
+        const parent = await getRippleCard(session.code, parentId);
+        if (!parent) {
+          return NextResponse.json({ error: REPARENT_MESSAGES.PARENT_NOT_FOUND }, { status: 404 });
+        }
+        if (parent.teamId !== player.teamId) {
+          return NextResponse.json({ error: "That card is on another board." }, { status: 403 });
+        }
+        const misplaced = placementError(card.cardKind, parent.cardKind);
+        if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });
+      }
+      const boardCards = await listBoardCards(session.code);
+      // A copy of an implication (0023) dragged into a theme that already holds another
+      // copy of it would put the same note in that theme twice. Same rule, and the same
+      // answer, as the add-card route gives a second copy; the unique index (0024) is
+      // the backstop for the race.
+      if (
+        card.twinKey &&
+        parentId !== null &&
+        boardCards.some((c) => c.id !== cardId && c.twinKey === card.twinKey && c.parentId === parentId)
+      ) {
+        return NextResponse.json(
+          { error: "That implication is already in this theme." },
+          { status: 409 }
+        );
+      }
+      const plan = planReparent(
+        boardCards.filter((c) => c.teamId === card.teamId),
+        cardId,
+        parentId
+      );
+      if (!plan.ok) {
+        return NextResponse.json({ error: REPARENT_MESSAGES[plan.reason] }, { status: 400 });
+      }
+      try {
+        await applyReparent(session.code, cardId, parentId, plan.moves);
+      } catch (err) {
+        if (isUniqueViolation(err)) {
+          return NextResponse.json(
+            { error: "That implication is already in this theme." },
+            { status: 409 }
+          );
+        }
+        throw err;
+      }
+      const own = plan.moves.find((m) => m.cardId === cardId);
+      return NextResponse.json({ ok: true, parentCardId: parentId, cardOrder: own?.order });
+    }
+
+    // Week 3 step 4: pick this out as one of the three to explain to the committee.
+    // Only the analytical cards can be shortlisted — a hope is not a finding and a theme
+    // is the container. Refused by kind, the same way park refuses a theme.
+    //
+    // Assumptions joined the list because step 4 also asks which of them were challenged
+    // in a way that surprised the group; that is a finding about the group's own thinking,
+    // and the doc names it as a workshop output.
+    if (body.action === "shortlist") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only change your own card." }, { status: 403 });
+      }
+      if (typeof body.shortlisted !== "boolean") {
+        return NextResponse.json({ error: "shortlisted must be true or false." }, { status: 400 });
+      }
+      if (
+        card.cardKind !== "risk" &&
+        card.cardKind !== "opportunity" &&
+        card.cardKind !== "assumption"
+      ) {
+        return NextResponse.json(
+          { error: "Only a risk, an opportunity or an assumption can go on the shortlist." },
+          { status: 400 }
+        );
+      }
+      await setCardShortlisted(session.code, cardId, body.shortlisted);
+      return NextResponse.json({ ok: true, shortlisted: body.shortlisted });
+    }
+
+    // Park a card in Week 3's tray — set aside, not deleted, and draggable back out. Uses
+    // the dedicated `parked` column, never `greyed` (that one belongs to challenge voting).
+    if (body.action === "park") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only park your own card." }, { status: 403 });
+      }
+      if (typeof body.parked !== "boolean") {
+        return NextResponse.json({ error: "parked must be true or false." }, { status: 400 });
+      }
+      // A theme is emptied and deleted, never parked — parking one would hide its whole
+      // cluster along with it.
+      if (card.cardKind === "theme") {
+        return NextResponse.json(
+          { error: "A theme can't be parked — empty it and delete it instead." },
+          { status: 400 }
+        );
+      }
+      await setCardParked(session.code, cardId, body.parked);
+      return NextResponse.json({ ok: true, parked: body.parked });
+    }
+
     // Edit a card's text in place — author-owned, EXCEPT on a shared-team board (design
     // groups) where the whole group co-owns the worksheet and any member may edit any card.
     if (body.action === "text") {
@@ -119,7 +293,10 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      await updateCardText(session.code, cardId, text);
+      // Copies of one implication in several themes (0023) are one implication: editing
+      // any copy edits them all, so the same note never reads differently per theme.
+      if (card.twinKey) await updateTwinText(session.code, card.twinKey, text);
+      else await updateCardText(session.code, cardId, text);
       return NextResponse.json({ ok: true });
     }
 
@@ -187,6 +364,56 @@ export async function DELETE(
     const config = resolveConfig(session.config);
     if (!config.sharedTeam && card.authorPlayerId !== player.id) {
       return NextResponse.json({ error: "You can only delete your own card." }, { status: 403 });
+    }
+
+    const refuseHeld = (held: number) =>
+      NextResponse.json(
+        {
+          error: `This theme still holds ${held} implication${held === 1 ? "" : "s"}, parked ones included. Move them out first.`,
+        },
+        { status: 409 }
+      );
+
+    // The whole delete as one transaction (0026): the theme guard, the twin's lineage
+    // hand-over and the delete itself, with the row locked across them. Null = the
+    // function is not installed on this database yet, and the same steps run below as
+    // separate requests — correct in every case but a race measured in milliseconds.
+    const atomic = await deleteCardAtomically(session.code, cardId);
+    if (atomic) return atomic.ok ? NextResponse.json({ ok: true }) : refuseHeld(atomic.held);
+
+    // parent_card_id is ON DELETE CASCADE (migration 0007), so deleting a Week 3 theme
+    // would silently take its whole subtree with it — every implication seeded in from
+    // Week 2 and every hope/fear chain hanging off it. Refuse while it still holds
+    // implications; the group drags them out first. (Hope/fear children are the theme's
+    // own work and go with it — the client confirm names the count.)
+    if (card.cardKind === "theme") {
+      const board = await listBoardCards(session.code);
+      // Every implication still hanging off the theme — PARKED ones included. Parking
+      // only sets a flag; the row keeps its parent, so the cascade would take it too.
+      // The clusters index leaves parked cards out, which is right for the board and
+      // wrong here.
+      const held = board.filter(
+        (c) => c.teamId === card.teamId && c.parentId === cardId && c.cardKind === null
+      ).length;
+      if (held > 0) return refuseHeld(held);
+    }
+
+    // Of an implication's copies (0023), only the seeded original carries the Week 2 link
+    // (source_card_id). Deleting that one — "remove from this theme" on the copy that
+    // happened to come first — would leave the surviving copies with no way back to the
+    // map: no lineage, and the circle would read "not on this board". Hand the link to a
+    // sibling first, so whichever copy survives is the one the map finds.
+    if (card.twinKey && card.sourceCardId) {
+      const siblings = (await listBoardCards(session.code)).filter(
+        (c) => c.id !== cardId && c.teamId === card.teamId && c.twinKey === card.twinKey
+      );
+      // The first sibling still there takes it. One deleted between our read and our
+      // write (two copies removed at once) is skipped — moveCardSource says so — and the
+      // next is tried; with none left the link goes with this card, as it would have
+      // anyway.
+      for (const s of siblings) {
+        if (await moveCardSource(session.code, cardId, s.id, card.sourceCardId)) break;
+      }
     }
 
     await deleteCard(session.code, cardId);

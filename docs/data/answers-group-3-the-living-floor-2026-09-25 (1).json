@@ -1,0 +1,1428 @@
+{
+  "groupName": "Group 3 | The Living Floor",
+  "scenarioTitle": "The Living Floor",
+  "exercises": [
+    {
+      "kind": "worksheet",
+      "exerciseId": "6f0de397-2808-4944-a940-318f87143173",
+      "title": "Session 1 - Scenario Assessment",
+      "questions": [
+        {
+          "key": "reactions",
+          "label": "First reactions",
+          "kind": "brainstorm",
+          "answers": [
+            {
+              "id": "f0721a6d-b531-40b9-81b1-949c17073b87",
+              "text": "Governance isn't well-described, especially across resource diverse communities. Ex. who is the decision-making party?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:29:32.282599+00:00"
+            },
+            {
+              "id": "bfac12e8-ab7b-43a7-a0e0-e493c8effff5",
+              "text": "Overall is public health still seen as government function?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:29:42.054345+00:00"
+            },
+            {
+              "id": "1acc562d-d520-49b2-a05f-126740b79548",
+              "text": "Increased social isolation is highlighted, with improved outcomes for physical health and detrimental outcomes for mental health.",
+              "author": "You",
+              "createdAt": "2026-09-11T19:31:51.20038+00:00"
+            },
+            {
+              "id": "9551745b-1b23-4c7a-b524-961d4911dd95",
+              "text": "In this future, the median age of people is higher which changes the focus of public health and healthcare towards healthy aging and gerontology and minimizing pediatrics and healthy children",
+              "author": "You",
+              "createdAt": "2026-09-11T20:13:00.720299+00:00"
+            },
+            {
+              "id": "a72e3799-e645-41bb-9890-3d5e04a2ff67",
+              "text": "Life expectancy increases are a success (possible substantial reduction in chronic disease), but healthy years of life (specifically mental health) may be preventing growth there.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:17:06.68378+00:00"
+            }
+          ]
+        },
+        {
+          "key": "assess-important",
+          "label": "What feels most important or distinctive?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "d3d2b6cd-61f8-4625-97de-4630aaa98699",
+              "text": "Even with \"future-thinking\" ideas implemented, there are not the health equity gains that we may expect.",
+              "author": "You",
+              "createdAt": "2026-09-11T19:35:27.072011+00:00"
+            },
+            {
+              "id": "abb98b94-b8da-436c-b71b-c42f64ecea3a",
+              "text": "Life expectancy has increased but maybe that really isnt the right metric - still have disparities, still have inequities,",
+              "author": "You",
+              "createdAt": "2026-09-11T19:37:50.93002+00:00"
+            },
+            {
+              "id": "8b01dac3-0e0b-4ab3-a17d-6e2abd2111da",
+              "text": "Role of AI is the preposterous part of the scenario...",
+              "author": "You",
+              "createdAt": "2026-09-11T19:38:36.71385+00:00"
+            }
+          ]
+        },
+        {
+          "key": "assess-unclear",
+          "label": "What feels unclear, incomplete, or difficult to understand?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "042a592e-80da-493c-b9d0-0194ba40c21d",
+              "text": "Who governs - AI or is government still in tact.",
+              "author": "You",
+              "createdAt": "2026-09-11T19:39:09.928393+00:00"
+            },
+            {
+              "id": "0f55e961-2f48-4a67-992b-4f8b332cab84",
+              "text": "What is the role of academia? With fewer thought jobs and research being managed by AI, can universities survive or find a new purpose?",
+              "author": "You",
+              "createdAt": "2026-09-11T20:14:39.12862+00:00"
+            }
+          ]
+        },
+        {
+          "key": "assess-assumptions",
+          "label": "What assumptions does the scenario appear to make?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "49cce12f-8682-48c0-96a6-e0f18546bd08",
+              "text": "That nothing would come in to fill the void that has been created from loss of work.",
+              "author": "You",
+              "createdAt": "2026-09-11T19:34:20.936955+00:00"
+            }
+          ]
+        },
+        {
+          "key": "assess-missing",
+          "label": "Is anything important missing that would need to be true for this future to make sense?",
+          "kind": "question",
+          "answers": []
+        },
+        {
+          "key": "stepping-in",
+          "label": "Stepping into the future — It is now several years into this future. What has become normal that would feel unusual today? ",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "5af61d6c-51c4-4c56-9729-6564eeabca08",
+              "text": "Changes in currency - is everything crypto?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:58:01.45017+00:00"
+            },
+            {
+              "id": "a4c60a73-a09b-488c-bbfe-e2e9a21f2127",
+              "text": "The economy, including tax structures, is ambiguous and very different than today.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:01:13.633806+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_cf8bc585",
+          "label": "What no longer works?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "09245070-16ef-4889-b92f-326580ca738c",
+              "text": "Leveraging in-person social networks to communicate",
+              "author": "You",
+              "createdAt": "2026-09-11T19:58:48.753864+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_3cd8acca",
+          "label": "What has become easier?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "ab872a76-9e57-4637-8b22-8ac9f52a30af",
+              "text": "Driving cars/transportation may be easier (i.e. self-driving cars).",
+              "author": "You",
+              "createdAt": "2026-09-11T19:53:08.48442+00:00"
+            },
+            {
+              "id": "a40e6854-6e68-4e9a-9d99-9150b4cd5dbf",
+              "text": "Reduced debt, including no medical debt.",
+              "author": "You",
+              "createdAt": "2026-09-11T19:53:34.868216+00:00"
+            },
+            {
+              "id": "a72f416d-c169-4e85-a72c-488b3e9bb9ed",
+              "text": "Basic survival needs",
+              "author": "You",
+              "createdAt": "2026-09-11T19:54:16.81+00:00"
+            },
+            {
+              "id": "563a3266-f9b0-4e8f-8d97-3db17192ccdc",
+              "text": "Health care services (physical health), safety, etc.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:01:30.741201+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_91b777eb",
+          "label": "What has become harder?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "bd6f67c8-a1ea-42bd-a86d-3733561def27",
+              "text": "If social connections are broken, building and keeping trust is more difficult.",
+              "author": "You",
+              "createdAt": "2026-09-11T19:50:26.143081+00:00"
+            },
+            {
+              "id": "0778b876-3d04-4c7d-a7a5-c7d1aa8d9844",
+              "text": "Operating with a national framework/guidance for public health policies/approaches. Everything has become locally decided.",
+              "author": "You",
+              "createdAt": "2026-09-11T19:56:51.580899+00:00"
+            },
+            {
+              "id": "229f09b3-06ea-4f52-909f-d736818c7039",
+              "text": "Incentivizing creativity and entrepreneurship.",
+              "author": "You",
+              "createdAt": "2026-09-11T19:57:09.617011+00:00"
+            },
+            {
+              "id": "1e0482e4-755c-41a6-b16f-d82ed34723f1",
+              "text": "Reaching people who have opted out of a techno-first future (if they can)",
+              "author": "You",
+              "createdAt": "2026-09-11T19:57:39.140974+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_68b7ae17",
+          "label": "What do people now expect from institutions?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "5a5d36b4-c431-4b37-aad4-abca69e02054",
+              "text": "Unsure - are institutions the decision-makers?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:54:37.48307+00:00"
+            },
+            {
+              "id": "3408c911-dac2-408c-906c-8d608b42315b",
+              "text": "What institutions have been replaced by AI?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:59:55.201958+00:00"
+            },
+            {
+              "id": "7f48b95a-3ad2-4e42-b53d-c7abdf1e4109",
+              "text": "Data centers are major institutions that are leading structure/change.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:00:24.723326+00:00"
+            },
+            {
+              "id": "8fd6872d-0ebe-4ec3-ac60-2eb31d36c6ea",
+              "text": "Can public health reposition to address social isolation as a primary risk factor?",
+              "author": "You",
+              "createdAt": "2026-09-11T20:04:01.629627+00:00"
+            }
+          ]
+        },
+        {
+          "key": "sec_47689a89",
+          "label": "What additional thoughts should be captured that are different about this future?",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "0448c0dd-d303-4b41-8360-ccdeb2004b34",
+              "text": "What is celebrity in this future? What does entertainment look like/does it exist?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:52:23.987798+00:00"
+            },
+            {
+              "id": "d372f6b8-9790-4dbe-a503-2d2143541df5",
+              "text": "What happens when AI reaches its limits of innovation?",
+              "author": "You",
+              "createdAt": "2026-09-11T19:54:58.238462+00:00"
+            },
+            {
+              "id": "8ddb5ede-7914-4f2a-bb23-ad757f5584bd",
+              "text": "What is the \"town square\"?",
+              "author": "You",
+              "createdAt": "2026-09-11T20:03:31.852443+00:00"
+            }
+          ]
+        },
+        {
+          "key": "key-changes",
+          "label": "Key changes — brainstorm",
+          "kind": "brainstorm",
+          "answers": [
+            {
+              "id": "149f6db5-f555-4c2c-9a32-8cb38c4621b9",
+              "text": "* median age of society is higher",
+              "author": "You",
+              "createdAt": "2026-09-11T20:11:14.601039+00:00"
+            },
+            {
+              "id": "9889c2bf-f432-4142-b4eb-26c9da2dfb28",
+              "text": "** Basic needs are being met",
+              "author": "You",
+              "createdAt": "2026-09-11T20:12:14.203278+00:00"
+            },
+            {
+              "id": "92fe0ff8-b448-45fe-94e6-e53d519d557b",
+              "text": "*** universal health care",
+              "author": "You",
+              "createdAt": "2026-09-11T20:12:22.372007+00:00"
+            },
+            {
+              "id": "be87ef07-3dc6-4aba-89ae-d33899f6f3e0",
+              "text": "tax revenue decreased",
+              "author": "You",
+              "createdAt": "2026-09-11T20:13:14.295258+00:00"
+            },
+            {
+              "id": "f15bb71c-d0fb-4851-a595-7f17df91b03a",
+              "text": "* innovation is driven by AI instead of by humans.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:13:58.254382+00:00"
+            },
+            {
+              "id": "2d6ee4b2-b48d-4a23-95fa-d1ba27d3b229",
+              "text": "Opportunity for new kinds of connections to replace those lost with loss of workforce.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:15:20.080009+00:00"
+            },
+            {
+              "id": "58e7ea34-c8ba-4932-8973-b7eb3e53ad4c",
+              "text": "Dividend has changed the purpose of work",
+              "author": "You",
+              "createdAt": "2026-09-11T20:16:52.426764+00:00"
+            },
+            {
+              "id": "0e9f7f6b-7ed5-4742-a502-55a6166fa877",
+              "text": "* Dividend had elevated a notable portion of society to not have to worry about meeting basic needs.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:17:32.419175+00:00"
+            },
+            {
+              "id": "438dd1b9-56d5-4ebd-bcf5-24f304173c63",
+              "text": "More dependence on electronic communication.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:19:08.34681+00:00"
+            },
+            {
+              "id": "b235bb28-113e-4a47-8117-c22de8a46734",
+              "text": "The role of the entertainment (movie/sport/music), influencer, and celebrity industry could be different if AI is the source of entertainment options.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:21:32.601579+00:00"
+            },
+            {
+              "id": "ca94937e-a91c-44ae-b944-2ab2ac4dc2bc",
+              "text": "Geographic mobility is limited or at least deincentivised",
+              "author": "You",
+              "createdAt": "2026-09-11T20:22:41.994215+00:00"
+            },
+            {
+              "id": "c9e26727-7b43-4a5f-b865-ac853bb7480a",
+              "text": "If most people live on a subsistence level income, what would that mean for commercialization and advertising?",
+              "author": "You",
+              "createdAt": "2026-09-11T20:23:07.03946+00:00"
+            },
+            {
+              "id": "24867365-2d0d-4262-9b0c-165b0357c136",
+              "text": "Role of academia? Fewer degrees needed, research being conducted by AI.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:24:13.261255+00:00"
+            },
+            {
+              "id": "0e2c6cb8-8d74-4390-b9e1-88b70767017b",
+              "text": "end of consumption economy",
+              "author": "You",
+              "createdAt": "2026-09-11T20:26:21.326894+00:00"
+            },
+            {
+              "id": "eb2cc416-ef9a-43a7-8f62-0d27fad71d1d",
+              "text": "Less demand for knowledge work by humans concentrates that knowledge/power even more than today.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:27:47.426652+00:00"
+            },
+            {
+              "id": "b8756c3f-35bf-4466-9472-572fbe62036f",
+              "text": "*no longer an incentive to provide public goods.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:28:23.507534+00:00"
+            },
+            {
+              "id": "99eda552-14d2-49e0-9d9d-890cb3fc6c4a",
+              "text": "*** Less perceived demand for critical thinking skills limits innovation outside of technology.\n\n* innovation is driven by AI instead of by humans.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:29:58.454682+00:00"
+            },
+            {
+              "id": "4d69502f-6313-4550-b18c-137b5472bd50",
+              "text": "the value of things made or provided by another person",
+              "author": "You",
+              "createdAt": "2026-09-11T20:31:01.563281+00:00"
+            },
+            {
+              "id": "a07b6af3-2706-4481-aa9a-70a572388a17",
+              "text": "What is the purpose of education",
+              "author": "You",
+              "createdAt": "2026-09-11T20:32:13.033686+00:00"
+            }
+          ]
+        },
+        {
+          "key": "six-changes",
+          "label": "Our 6 key changes",
+          "kind": "question",
+          "answers": [
+            {
+              "id": "c13417f2-f235-445a-be62-a1f30708f9ee",
+              "text": "1. Universal healthcare & basic needs being met; although dividend has elevated a notable portion of society to not have to worry about meeting basic needs.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:12:03.84588+00:00"
+            },
+            {
+              "id": "c95adeeb-363f-4e97-8a55-c43b778a9d73",
+              "text": "2. Knowledge base/critical thinking less in demand because AI drives innovation and the purpose of/incentive for education has become less clear.",
+              "author": "You",
+              "createdAt": "2026-09-11T20:38:27.187963+00:00"
+            },
+            {
+              "id": "24929820-8dcd-4aef-a623-aa70ab330e3d",
+              "text": "3. Median age of society is higher; public health operates in a different context with different demographics",
+              "author": "You",
+              "createdAt": "2026-09-11T20:38:39.919153+00:00"
+            },
+            {
+              "id": "5caf1142-ed48-431f-904a-fe32aa2486ca",
+              "text": "4. Reduced incentive to provide public goods",
+              "author": "You",
+              "createdAt": "2026-09-11T20:41:15.464613+00:00"
+            },
+            {
+              "id": "23afb515-f317-487f-9fc1-f44c50dd5f96",
+              "text": "5. Role of federal government becomes less clear over time given the locality of society.  standards of care, education, public health, etc are less easily set or managed.",
+              "author": "You",
+              "createdAt": "2026-09-21T18:13:53.127956+00:00"
+            }
+          ]
+        },
+        {
+          "key": "parking-lot",
+          "label": "Sandbox — good ideas for later",
+          "kind": "brainstorm",
+          "answers": []
+        },
+        {
+          "key": "sec_236760a8",
+          "label": "How unresolved questions or research needs will be handled?",
+          "kind": "question",
+          "answers": []
+        },
+        {
+          "key": "sec_d6133353",
+          "label": "Who is responsible for recording information, notes, discussion items that may need to live outside of the tool?",
+          "kind": "question",
+          "answers": []
+        },
+        {
+          "key": "sec_cb5789c0",
+          "label": "Any other expectations needed for the group to work effectively?",
+          "kind": "question",
+          "answers": []
+        }
+      ]
+    },
+    {
+      "kind": "implications",
+      "exerciseId": "0efe0941-167d-4668-9c03-831003ff3abf",
+      "title": "Session 2 · Implication Mapping",
+      "scenarioTitle": "The Living Floor",
+      "cards": [
+        {
+          "id": "0cb5d932-0575-4747-a4c1-5c73dce57920",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "1. Universal healthcare & basic needs being met; although dividend has elevated a notable portion of society to not have to worry about meeting basic needs.",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "c13417f2-f235-445a-be62-a1f30708f9ee",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 2,
+          "impact": 5,
+          "createdTime": "2026-09-25T13:47:33.087+00:00"
+        },
+        {
+          "id": "fee9d809-40ad-4fe9-82ba-f84ba22ff89d",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "2. Knowledge base/critical thinking less in demand because AI drives innovation and the purpose of/incentive for education has become less clear.",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "c95adeeb-363f-4e97-8a55-c43b778a9d73",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 5,
+          "impact": 5,
+          "createdTime": "2026-09-25T13:47:33.088+00:00"
+        },
+        {
+          "id": "5cab91e0-bbef-4830-bc5f-976ff1131c45",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "3. Median age of society is higher; public health operates in a different context with different demographics",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "24929820-8dcd-4aef-a623-aa70ab330e3d",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 5,
+          "impact": 4,
+          "createdTime": "2026-09-25T13:47:33.089+00:00"
+        },
+        {
+          "id": "618677b7-65b3-416c-9433-f77d14d18829",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "4. Reduced incentive to provide public goods",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "5caf1142-ed48-431f-904a-fe32aa2486ca",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 5,
+          "impact": 5,
+          "createdTime": "2026-09-25T13:47:33.09+00:00"
+        },
+        {
+          "id": "a8469bd7-1ee2-4be4-bc73-a1e15e7867b7",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": null,
+          "order": "FIRST",
+          "parentId": null,
+          "text": "5. Role of federal government becomes less clear over time given the locality of society.  standards of care, education, public health, etc are less easily set or managed.",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": "23afb515-f317-487f-9fc1-f44c50dd5f96",
+          "sourceLabel": "Session 1 - Scenario Assessment",
+          "plausibility": 3,
+          "impact": 4,
+          "createdTime": "2026-09-25T13:47:33.091+00:00"
+        },
+        {
+          "id": "e31e8955-1bb7-48da-87c8-5be5a99b906e",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "fee9d809-40ad-4fe9-82ba-f84ba22ff89d",
+          "text": "Less clear case for why to fund education",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T19:43:19.40532+00:00"
+        },
+        {
+          "id": "a9595fdd-ddc8-4477-be68-42828b2f04e3",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "fee9d809-40ad-4fe9-82ba-f84ba22ff89d",
+          "text": "Public Health innovations would decline",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T19:44:05.066081+00:00"
+        },
+        {
+          "id": "9bb4fc07-bfb3-44d3-b913-eda02e72ec3a",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "fee9d809-40ad-4fe9-82ba-f84ba22ff89d",
+          "text": "Less demand for university degrees",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T19:44:37.968113+00:00"
+        },
+        {
+          "id": "d928a450-71b8-4cdd-80d0-50718d85fdfa",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "9bb4fc07-bfb3-44d3-b913-eda02e72ec3a",
+          "text": "less need for academic jobs",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:02:00.347441+00:00"
+        },
+        {
+          "id": "c9ed2ee7-8dec-4a14-bc38-0081583739a1",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "e31e8955-1bb7-48da-87c8-5be5a99b906e",
+          "text": "Universities shut down",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:02:17.306252+00:00"
+        },
+        {
+          "id": "c3fe9fdd-8aae-412d-86a0-4a6bdb47be6a",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "a9595fdd-ddc8-4477-be68-42828b2f04e3",
+          "text": "public health work would become stagnant",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:04:24.677745+00:00"
+        },
+        {
+          "id": "5b9d21bc-b941-4b4a-aa40-a76f35c28708",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "c3fe9fdd-8aae-412d-86a0-4a6bdb47be6a",
+          "text": "our ability to respond to new threats would be reduced",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:04:51.010265+00:00"
+        },
+        {
+          "id": "be1baed8-2b4c-4ab7-8e65-02f17100f793",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "e31e8955-1bb7-48da-87c8-5be5a99b906e",
+          "text": "Opportunities for k12 education decreased",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:05:56.570267+00:00"
+        },
+        {
+          "id": "7c01f9b3-dff4-4804-97db-e8b0356b6d1a",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "e31e8955-1bb7-48da-87c8-5be5a99b906e",
+          "text": "dispairity in quality of k12 education increases",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:07:11.436983+00:00"
+        },
+        {
+          "id": "b6835998-ece8-4ee5-9275-cc6bb339dc6a",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "e31e8955-1bb7-48da-87c8-5be5a99b906e",
+          "text": "Less people go to school/gain education",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:08:40.730963+00:00"
+        },
+        {
+          "id": "e3e8dd58-2946-4076-9ab0-b737216764f1",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "b6835998-ece8-4ee5-9275-cc6bb339dc6a",
+          "text": "less skill to dessent, challenge, affect change",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:09:21.32277+00:00"
+        },
+        {
+          "id": "7c3c4e3d-9ddf-4b4d-a1fe-f85eb976d6f6",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "fee9d809-40ad-4fe9-82ba-f84ba22ff89d",
+          "text": "Higher competition for elite/knowledge-based jobs",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:11:15.643486+00:00"
+        },
+        {
+          "id": "0aa016b6-e95d-4f49-a71d-a550cfe816b7",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "7c3c4e3d-9ddf-4b4d-a1fe-f85eb976d6f6",
+          "text": "enhanced disparities in job availability",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:12:26.118976+00:00"
+        },
+        {
+          "id": "54509be9-14b0-45f4-89b4-3a02d32702fd",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "7c3c4e3d-9ddf-4b4d-a1fe-f85eb976d6f6",
+          "text": "Higher skill levels for those who ultimately attain these positions",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:13:13.724543+00:00"
+        },
+        {
+          "id": "9167519f-0748-44ae-8d72-5cfce0d4f3dc",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "fee9d809-40ad-4fe9-82ba-f84ba22ff89d",
+          "text": "Lower level of education leads to poorer mental and physical health",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:17:02.903648+00:00"
+        },
+        {
+          "id": "1d6fe47e-70ee-41eb-b853-a3eb464a2f36",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "c9ed2ee7-8dec-4a14-bc38-0081583739a1",
+          "text": "large ripple effect of having less jobs",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:18:31.710372+00:00"
+        },
+        {
+          "id": "eb8b5d77-3647-4a6e-82cd-577c02553e1d",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "c9ed2ee7-8dec-4a14-bc38-0081583739a1",
+          "text": "leads to the end of innovative research",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:18:48.005325+00:00"
+        },
+        {
+          "id": "fe28526c-1d9e-4af5-ba6d-38e3da37b59a",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "c9ed2ee7-8dec-4a14-bc38-0081583739a1",
+          "text": "people with enough knowledge and innovation to train AI to manage society",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:20:04.094901+00:00"
+        },
+        {
+          "id": "9378d804-6670-431b-bb72-12277ee4516b",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "be1baed8-2b4c-4ab7-8e65-02f17100f793",
+          "text": "Less prepared workforce",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:20:38.262894+00:00"
+        },
+        {
+          "id": "a673a9ac-2eb2-498e-9db0-56fdd1c7d2ea",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "be1baed8-2b4c-4ab7-8e65-02f17100f793",
+          "text": "society less able to dissent",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:21:00.173098+00:00"
+        },
+        {
+          "id": "92030d76-8e6b-4806-8191-acfe119d5303",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "be1baed8-2b4c-4ab7-8e65-02f17100f793",
+          "text": "Social structures and community connections crumble",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:21:24.475968+00:00"
+        },
+        {
+          "id": "d11b023b-d66a-4a03-8c5c-577a9f6919b6",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "be1baed8-2b4c-4ab7-8e65-02f17100f793",
+          "text": "communication skils diminish",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:21:48.647353+00:00"
+        },
+        {
+          "id": "8e858ebb-3cc7-486a-84cc-b2f33b5785b2",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "be1baed8-2b4c-4ab7-8e65-02f17100f793",
+          "text": "increased susceptibility to mis and dis information",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:22:44.268465+00:00"
+        },
+        {
+          "id": "58443327-22c9-4307-b18f-4e80fc88debc",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "7c3c4e3d-9ddf-4b4d-a1fe-f85eb976d6f6",
+          "text": "More opportunity for jobs in skilled trades",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:26:09.576213+00:00"
+        },
+        {
+          "id": "fbd2182d-c162-4f29-bd85-856dfb1a6d73",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "58443327-22c9-4307-b18f-4e80fc88debc",
+          "text": "While financial incentives may be decreases, opportunities for bartering or trading increase",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:27:09.230046+00:00"
+        },
+        {
+          "id": "a134b082-9c32-4b60-a519-aa9b96266108",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "618677b7-65b3-416c-9433-f77d14d18829",
+          "text": "Less tax base",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:28:34.162332+00:00"
+        },
+        {
+          "id": "fee36f84-fc3a-4fd5-900f-a88b8eab3041",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "618677b7-65b3-416c-9433-f77d14d18829",
+          "text": "Accessibily decreases in communities",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:29:35.37636+00:00"
+        },
+        {
+          "id": "407ea878-0141-49f1-bdfc-83bfc912e518",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "618677b7-65b3-416c-9433-f77d14d18829",
+          "text": "Infrastructure for public utility is no longer supported",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:30:26.10874+00:00"
+        },
+        {
+          "id": "71effe4e-89ba-4391-a84e-441cc5201f46",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "618677b7-65b3-416c-9433-f77d14d18829",
+          "text": "Weaken trust in public institutions",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:31:36.805605+00:00"
+        },
+        {
+          "id": "84effdaf-124b-419b-aae4-9be1a5a77550",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "618677b7-65b3-416c-9433-f77d14d18829",
+          "text": "Privatization of public goods becomes more common",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:33:03.952273+00:00"
+        },
+        {
+          "id": "8ffd8f1f-fd7a-4828-ac4a-328291d14362",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "84effdaf-124b-419b-aae4-9be1a5a77550",
+          "text": "Citizens lose say in services",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:33:49.114717+00:00"
+        },
+        {
+          "id": "c9a3a40f-2ad9-4399-9322-76067fd6c9c0",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "84effdaf-124b-419b-aae4-9be1a5a77550",
+          "text": "Loss of accountability to the public",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:34:07.017052+00:00"
+        },
+        {
+          "id": "5bcd9e06-3cdd-436c-aae3-4fcf5769ab23",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "84effdaf-124b-419b-aae4-9be1a5a77550",
+          "text": "Centralized data/surveillance goes away",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:34:55.431746+00:00"
+        },
+        {
+          "id": "88dc05f4-3f86-4f23-8e79-990be5f227b7",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "5bcd9e06-3cdd-436c-aae3-4fcf5769ab23",
+          "text": "Public health workforce becomes less effective",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:35:44.318551+00:00"
+        },
+        {
+          "id": "654442e6-7481-4d62-b671-ce6934b4bf9d",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "fee36f84-fc3a-4fd5-900f-a88b8eab3041",
+          "text": "less inperson socilization",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:37:38.689093+00:00"
+        },
+        {
+          "id": "c0511cc1-1d8c-4b90-a1aa-7b9e577e6996",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "fee36f84-fc3a-4fd5-900f-a88b8eab3041",
+          "text": "less physical activity",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:37:49.721168+00:00"
+        },
+        {
+          "id": "5d25f3bf-08b3-4eda-9789-e650cff07acb",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "fee36f84-fc3a-4fd5-900f-a88b8eab3041",
+          "text": "less inclusion of those with different abilities",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:38:09.910221+00:00"
+        },
+        {
+          "id": "15079f6a-b26b-4e68-88b4-654e04d06945",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "407ea878-0141-49f1-bdfc-83bfc912e518",
+          "text": "privatization of utilities",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:38:55.112875+00:00"
+        },
+        {
+          "id": "4761956b-6a1c-4ba4-a704-470515295b6f",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "654442e6-7481-4d62-b671-ce6934b4bf9d",
+          "text": "increase in ACEs/trauma",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:40:41.982414+00:00"
+        },
+        {
+          "id": "37df8ead-3675-4df7-9126-f678700795bd",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "654442e6-7481-4d62-b671-ce6934b4bf9d",
+          "text": "increase in burden of chronic disease and mental health concerns",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:41:11.611473+00:00"
+        },
+        {
+          "id": "f617f591-a870-4a11-948d-444a87594a7a",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "c0511cc1-1d8c-4b90-a1aa-7b9e577e6996",
+          "text": "increase in burden of chronic disease and mental health concerns",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:41:34.340703+00:00"
+        },
+        {
+          "id": "2547bacb-cdc0-48f9-9e5b-9b773b34b0f5",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_4",
+          "parentId": "15079f6a-b26b-4e68-88b4-654e04d06945",
+          "text": "reliance on data center contract\n\n✎\n✕",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:42:56.996025+00:00"
+        },
+        {
+          "id": "ed713912-4539-4097-9706-805675667dfc",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "ORDER_5",
+          "parentId": "2547bacb-cdc0-48f9-9e5b-9b773b34b0f5",
+          "text": "increase geographic disparities",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:44:01.920435+00:00"
+        },
+        {
+          "id": "72a73bce-8f99-4233-932f-65716b35183f",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "0cb5d932-0575-4747-a4c1-5c73dce57920",
+          "text": "no medical debt/medical bankrupcies",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:46:16.195725+00:00"
+        },
+        {
+          "id": "e26c0dc9-0429-47b8-b19e-f219e30c1894",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "0cb5d932-0575-4747-a4c1-5c73dce57920",
+          "text": "impacts of significant poverty would be decreased",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:46:59.504691+00:00"
+        },
+        {
+          "id": "e94d450d-cb3b-45dd-a9f4-a7505cab514b",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "TERMINAL",
+          "parentId": "e26c0dc9-0429-47b8-b19e-f219e30c1894",
+          "text": "less houselessness",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:47:16.182383+00:00"
+        },
+        {
+          "id": "9b37932b-2cbd-4117-9bba-0a5119cd794e",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "0cb5d932-0575-4747-a4c1-5c73dce57920",
+          "text": "Food security increases",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:48:12.71635+00:00"
+        },
+        {
+          "id": "a47310db-b736-4f49-8bad-0059a479a365",
+          "teamId": "9c21625e-2a50-4b88-937c-0676ed8cc6a5",
+          "authorPlayerId": "5087f9bb-34a0-4a77-acc4-3012964a79b6",
+          "order": "SECOND",
+          "parentId": "0cb5d932-0575-4747-a4c1-5c73dce57920",
+          "text": "Charitable philanthropy is able to invest in other things than medical care",
+          "lensId": null,
+          "flagged": false,
+          "greyed": false,
+          "sort": 0,
+          "section": null,
+          "sourceCardId": null,
+          "sourceLabel": null,
+          "plausibility": null,
+          "impact": null,
+          "createdTime": "2026-09-25T20:49:13.686419+00:00"
+        }
+      ],
+      "brainstorm": [],
+      "questions": [
+        {
+          "key": "implication-sandbox",
+          "label": "Sandbox — good ideas for later",
+          "kind": "brainstorm",
+          "answers": []
+        }
+      ]
+    },
+    {
+      "kind": "worksheet",
+      "exerciseId": "ae685539-590b-4d06-a744-5fc9ecbc4bf7",
+      "title": "Session 3 · Opportunities, Risks & Challenges",
+      "questions": []
+    },
+    {
+      "kind": "worksheet",
+      "exerciseId": "326ea08c-9d4b-4255-a0a5-1595d9d61be9",
+      "title": "Session 4 · Synthesis",
+      "questions": []
+    }
+  ]
+}

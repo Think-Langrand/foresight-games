@@ -477,6 +477,12 @@ export function AdminProjectsManager({ projects }: { projects: AdminProject[] })
                     Dashboard →
                   </a>
                   <a
+                    href={`/admin/projects/${p.slug}/activity`}
+                    className="text-[11px] font-bold uppercase tracking-[0.06em] text-blue underline hover:text-ink"
+                  >
+                    Activity →
+                  </a>
+                  <a
                     href={`/project/${p.slug}`}
                     target="_blank"
                     rel="noreferrer"

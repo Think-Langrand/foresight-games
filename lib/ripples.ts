@@ -5,8 +5,11 @@ import { getForesightDrivers, getScenario, foresightConfigured } from "@/lib/for
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import { TEAM_COLORS, type WorkshopSession } from "@/lib/workshop-types";
 import {
+  isCardKind,
   resolveConfig,
+  type CardKind,
   type CardOrder,
+  type ReparentMove,
   type RippleArtImage,
   type RippleCard,
   type RippleChip,
@@ -54,6 +57,11 @@ interface CardRow {
   source_label: string | null;
   plausibility: number | null;
   impact: number | null;
+  card_kind: string | null;
+  parked: boolean | null;
+  description: string | null;
+  shortlisted: boolean | null;
+  twin_key: string | null;
   created_at: string;
 }
 interface ChipRow {
@@ -97,6 +105,13 @@ function mapCard(r: CardRow): RippleCard {
     lensId: r.lens_id ?? null,
     flagged: r.flagged ?? false,
     greyed: r.greyed ?? false,
+    // Tolerant, like the card_order cast above: an unrecognised kind reads as a plain
+    // implication rather than breaking the board.
+    cardKind: isCardKind(r.card_kind) ? r.card_kind : null,
+    parked: r.parked === true,
+    description: r.description ?? null,
+    shortlisted: r.shortlisted === true,
+    twinKey: r.twin_key ?? null,
     sort: r.sort ?? 0,
     section: r.section ?? null,
     sourceCardId: r.source_card_id ?? null,
@@ -471,6 +486,10 @@ export async function addCard(input: {
   text: string;
   sort?: number;
   section?: string | null; // worksheet area key (STICKY only)
+  cardKind?: CardKind | null; // Week 3: theme / hope / fear. null = a plain implication.
+  description?: string | null;
+  // Groups copies of one implication living in several themes (0023).
+  twinKey?: string | null;
 }): Promise<RippleCard> {
   const row = await withRetry(async () => {
     const { data, error } = await supabaseAdmin()
@@ -485,6 +504,9 @@ export async function addCard(input: {
         text: input.text,
         sort: input.sort ?? 0,
         section: input.section ?? null,
+        card_kind: input.cardKind ?? null,
+        description: input.description || null,
+        twin_key: input.twinKey ?? null,
       })
       .select("*")
       .single();
@@ -514,7 +536,194 @@ export async function updateCardText(code: string, cardId: string, text: string)
   if (error) throw error;
 }
 
+// Edit every copy of one implication at once (0023: copies in several themes share a
+// twin_key). The copies are one implication shown in several places, so a text edit on
+// any of them is an edit of all of them — otherwise the same implication would read
+// differently from theme to theme.
+export async function updateTwinText(code: string, twinKey: string, text: string): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update({ text })
+    .eq("code", up(code))
+    .eq("twin_key", twinKey);
+  if (error) throw error;
+}
+
+// Hand one card's Week 2 link (source_card_id) to another card of the same implication —
+// the copy that is about to outlive the seeded original. Only one row per board may hold
+// a given source (0018's unique), so the giver is cleared before the receiver is set.
+//
+// Returns whether the receiver actually took it. The receiver can have been deleted in
+// the meantime (two copies removed at once): an update of zero rows is not an error to
+// PostgREST, so the row count is checked and, on a miss or a failure, the link is handed
+// back to the giver and the caller tries the next sibling.
+export async function moveCardSource(
+  code: string,
+  fromId: string,
+  toId: string,
+  sourceCardId: string
+): Promise<boolean> {
+  const db = supabaseAdmin();
+  const clear = await db
+    .from("ripple_cards")
+    .update({ source_card_id: null })
+    .eq("code", up(code))
+    .eq("id", fromId);
+  if (clear.error) throw clear.error;
+  const set = await db
+    .from("ripple_cards")
+    .update({ source_card_id: sourceCardId })
+    .eq("code", up(code))
+    .eq("id", toId)
+    .select("id");
+  if (!set.error && (set.data?.length ?? 0) > 0) return true;
+  await db.from("ripple_cards").update({ source_card_id: sourceCardId }).eq("code", up(code)).eq("id", fromId);
+  if (set.error) throw set.error;
+  return false;
+}
+
+// Postgres unique-violation, as PostgREST surfaces it. The twin index (0024) is the one
+// constraint a well-formed request can still trip, by racing another writer.
+export function isUniqueViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505";
+}
+
+// Every card on one board. Cheaper than getRipplesView (one query, no teams / players /
+// chips / answers) and enough for the whole-board checks reparenting needs.
+export async function listBoardCards(code: string): Promise<RippleCard[]> {
+  const rows = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("ripple_cards")
+      .select("*")
+      .eq("code", up(code))
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as CardRow[];
+  });
+  return rows.map(mapCard);
+}
+
+// Apply a reparent plan from planReparent (lib/ripples-types.ts): re-point the moved card
+// and rewrite the `card_order` of its whole subtree.
+//
+// Descendants go first, batched one update per distinct order, and the moved card's parent
+// pointer goes LAST — so a partial failure leaves it un-moved rather than half-moved. Either
+// way the board still RENDERS correctly, because every view walks depth rather than trusting
+// the stored order; the only symptom of drift is a later add-a-child being refused, and a
+// retry heals it because planReparent recomputes from the board and re-emits corrective
+// moves. supabase-js has no transaction; if that ever proves not good enough, a plpgsql
+// function is the escape hatch.
+export async function applyReparent(
+  code: string,
+  cardId: string,
+  parentId: string | null,
+  moves: ReparentMove[]
+): Promise<void> {
+  const byOrder = new Map<string, string[]>();
+  for (const m of moves) {
+    if (m.cardId === cardId) continue; // the moved card is written last, with its parent
+    const arr = byOrder.get(m.order);
+    if (arr) arr.push(m.cardId);
+    else byOrder.set(m.order, [m.cardId]);
+  }
+
+  for (const [order, ids] of byOrder) {
+    await withRetry(async () => {
+      const { error } = await supabaseAdmin()
+        .from("ripple_cards")
+        .update({ card_order: order })
+        .eq("code", up(code))
+        .in("id", ids);
+      if (error) throw error;
+    });
+  }
+
+  const own = moves.find((m) => m.cardId === cardId);
+  await withRetry(async () => {
+    const { error } = await supabaseAdmin()
+      .from("ripple_cards")
+      .update({ parent_card_id: parentId, ...(own ? { card_order: own.order } : {}) })
+      .eq("code", up(code))
+      .eq("id", cardId);
+    if (error) throw error;
+  });
+}
+
+// A theme's optional note about what it means. An empty string clears it.
+export async function updateCardDescription(
+  code: string,
+  cardId: string,
+  description: string | null
+): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update({ description })
+    .eq("code", up(code))
+    .eq("id", cardId);
+  if (error) throw error;
+}
+
+// Week 3 step 4: pick a risk or opportunity out for the committee, or unpick it.
+export async function setCardShortlisted(
+  code: string,
+  cardId: string,
+  shortlisted: boolean
+): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update({ shortlisted })
+    .eq("code", up(code))
+    .eq("id", cardId);
+  if (error) throw error;
+}
+
+// Week 3's Parked tray: set a card aside without deleting it. Unlike flagCard this toggles
+// BOTH ways — nothing is destroyed, so a parked card can always be dragged back out.
+// Stamp a card with the twin key that groups it with its copies. Called once, on the
+// original, the first time it is copied — after that every copy is created carrying it.
+export async function setCardTwinKey(code: string, cardId: string, twinKey: string): Promise<void> {
+  await withRetry(async () => {
+    const { error } = await supabaseAdmin()
+      .from("ripple_cards")
+      .update({ twin_key: twinKey })
+      .eq("code", up(code))
+      .eq("id", cardId);
+    if (error) throw error;
+  });
+}
+
+export async function setCardParked(code: string, cardId: string, parked: boolean): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update({ parked })
+    .eq("code", up(code))
+    .eq("id", cardId);
+  if (error) throw error;
+}
+
 // Delete a card (its children cascade via parent_card_id on delete cascade).
+// Delete a Week 3 card in ONE transaction (0026, public.delete_ripple_card): refuse a theme
+// that still holds implications, hand a twin's Week 2 link to a surviving sibling, then
+// delete — with the row locked across all three, so nothing can be clustered into the
+// theme or delete the chosen sibling in between. Returns null when the function is not
+// installed yet (the migration has to be applied by hand), so the route can fall back to
+// the same steps as separate requests.
+export type AtomicDelete = { ok: true } | { ok: false; held: number };
+export async function deleteCardAtomically(code: string, cardId: string): Promise<AtomicDelete | null> {
+  const { data, error } = await supabaseAdmin().rpc("delete_ripple_card", {
+    p_code: up(code),
+    p_card_id: cardId,
+  });
+  if (error) {
+    // PostgREST: no such function (PGRST202), or Postgres: undefined_function (42883).
+    const code = (error as { code?: string }).code;
+    if (code === "PGRST202" || code === "42883") return null;
+    throw error;
+  }
+  const r = (data ?? {}) as { ok?: boolean; held?: number };
+  return r.ok === false ? { ok: false, held: r.held ?? 1 } : { ok: true };
+}
+
 export async function deleteCard(code: string, cardId: string): Promise<void> {
   const { error } = await supabaseAdmin()
     .from("ripple_cards")

@@ -48,3 +48,8 @@ next-env.d.ts
 # test artifacts
 .playwright-mcp/
 /*.png
+
+# browser automation scratch — a headless Chrome profile is generated here by test runs
+# and must never be committed (it carries machine identifiers and caches)
+/chrome-profile/
+/*-profile/
