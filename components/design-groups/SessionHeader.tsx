@@ -12,13 +12,22 @@ import { createPortal } from "react-dom";
 // this context: `slot` is the element to portal into. Outside SessionTabs (the standalone
 // /workshop pages) there is no context, so a board keeps drawing its own header.
 
-const SessionHeaderContext = createContext<{ slot: HTMLElement | null } | null>(null);
+// `hidden`: an earlier week's tab is open, so the live board is mounted but not shown.
+const SessionHeaderContext = createContext<{ slot: HTMLElement | null; hidden: boolean } | null>(null);
 
 export const SessionHeaderProvider = SessionHeaderContext.Provider;
 
 // Is this board inside a SessionTabs page? Decides whether it draws its own header.
 export function useInSessionTabs(): boolean {
   return useContext(SessionHeaderContext) !== null;
+}
+
+// Is the live board hidden behind an earlier week's tab right now? The board stays
+// mounted (its header portal would otherwise draw into nothing), so anything it does to
+// the PAGE rather than to itself — the rails' body attributes, which pad the whole column
+// — has to stand down while it cannot be seen. Outside SessionTabs: never hidden.
+export function useSessionTabsHidden(): boolean {
+  return useContext(SessionHeaderContext)?.hidden ?? false;
 }
 
 // Render children at the right-hand end of the session header line. Until the slot element

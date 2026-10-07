@@ -68,7 +68,7 @@ export function SessionTabs({
   };
 
   return (
-    <SessionHeaderProvider value={{ slot }}>
+    <SessionHeaderProvider value={{ slot, hidden: active !== null }}>
       {/* `session-tabs` lets globals.css widen this row to the full column while a theme
           rail is mounted (Week 3's first two steps), so the header spans what the board
           spans. */}

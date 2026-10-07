@@ -549,6 +549,34 @@ export async function updateTwinText(code: string, twinKey: string, text: string
   if (error) throw error;
 }
 
+// Hand one card's Week 2 link (source_card_id) to another card of the same implication —
+// the copy that is about to outlive the seeded original. Only one row per board may hold
+// a given source (0018's unique), so the giver is cleared before the receiver is set; if
+// the second write fails the link is handed back, and the caller's delete does not run.
+export async function moveCardSource(
+  code: string,
+  fromId: string,
+  toId: string,
+  sourceCardId: string
+): Promise<void> {
+  const db = supabaseAdmin();
+  const clear = await db
+    .from("ripple_cards")
+    .update({ source_card_id: null })
+    .eq("code", up(code))
+    .eq("id", fromId);
+  if (clear.error) throw clear.error;
+  const set = await db
+    .from("ripple_cards")
+    .update({ source_card_id: sourceCardId })
+    .eq("code", up(code))
+    .eq("id", toId);
+  if (set.error) {
+    await db.from("ripple_cards").update({ source_card_id: sourceCardId }).eq("code", up(code)).eq("id", fromId);
+    throw set.error;
+  }
+}
+
 // Postgres unique-violation, as PostgREST surfaces it. The twin index (0024) is the one
 // constraint a well-formed request can still trip, by racing another writer.
 export function isUniqueViolation(err: unknown): boolean {

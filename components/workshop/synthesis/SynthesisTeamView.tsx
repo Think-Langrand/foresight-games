@@ -165,7 +165,7 @@ export function SynthesisTeamView({
   const liveSummaryHash = useMemo(() => {
     if (!view) return "";
     const shaped = shapeFromView({ id: "live", title: title || "Synthesis", type: "synthesis", sections }, view);
-    return shaped.kind === "synthesis" ? summaryInputHash(shaped) : "";
+    return shaped.kind === "synthesis" ? summaryInputHash(shaped, view.config.scenarioTitle) : "";
   }, [view, title, sections]);
 
   if (loading && !view) return <Centered>Loading session…</Centered>;

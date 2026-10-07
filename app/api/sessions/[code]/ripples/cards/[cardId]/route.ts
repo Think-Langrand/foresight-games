@@ -8,6 +8,7 @@ import {
   getRippleCard,
   isUniqueViolation,
   listBoardCards,
+  moveCardSource,
   scoreCard,
   setCardParked,
   setCardShortlisted,
@@ -381,6 +382,18 @@ export async function DELETE(
           { status: 409 }
         );
       }
+    }
+
+    // Of an implication's copies (0023), only the seeded original carries the Week 2 link
+    // (source_card_id). Deleting that one — "remove from this theme" on the copy that
+    // happened to come first — would leave the surviving copies with no way back to the
+    // map: no lineage, and the circle would read "not on this board". Hand the link to a
+    // sibling first, so whichever copy survives is the one the map finds.
+    if (card.twinKey && card.sourceCardId) {
+      const sibling = (await listBoardCards(session.code)).find(
+        (c) => c.id !== cardId && c.teamId === card.teamId && c.twinKey === card.twinKey
+      );
+      if (sibling) await moveCardSource(session.code, cardId, sibling.id, card.sourceCardId);
     }
 
     await deleteCard(session.code, cardId);

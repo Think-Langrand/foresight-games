@@ -32,11 +32,14 @@ export interface SynthesisSummary {
   inputHash?: string;
 }
 
-// A hash of what the model is given (summaryDigest(ex).text), as a short hex string.
-// FNV-1a over UTF-16 code units: no crypto needed, this only has to answer "same input
-// or not" and be identical on the server that writes it and the client that compares.
-export function summaryInputHash(ex: SynthesisExercise): string {
-  const text = summaryDigest(ex).text;
+// A hash of what the model is given — the scenario title it is framed with and
+// summaryDigest(ex).text — as a short hex string. FNV-1a over UTF-16 code units: no crypto
+// needed, this only has to answer "same input or not" and be identical on the server that
+// writes it and the client that compares. The title is in because re-snapshotting a board
+// onto another scenario keeps the summary (lib/design-group-exercises.ts) while changing
+// what it was written about; with the cards untouched, only the title says it is stale.
+export function summaryInputHash(ex: SynthesisExercise, scenarioTitle = ""): string {
+  const text = `Scenario: ${scenarioTitle.trim()}\n\n${summaryDigest(ex).text}`;
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     h ^= text.charCodeAt(i);

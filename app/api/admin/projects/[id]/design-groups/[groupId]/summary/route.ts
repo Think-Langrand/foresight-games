@@ -75,10 +75,16 @@ export async function POST(
       generatedAt: new Date().toISOString(),
       cardCount: summaryCardCount(indexSynthesisBoard(view.cards)),
       // Exactly what the model read, so the client can tell an edit from no change.
-      inputHash: summaryInputHash(shaped),
+      inputHash: summaryInputHash(shaped, view.config.scenarioTitle),
     };
-    const stored = (session.config ?? {}) as Record<string, unknown>;
-    await updateSession(session.id, session.code, { config: { ...stored, summary } });
+    // Merge over the config as it is NOW, not as it was before a model call that can take
+    // most of a minute: a phase change or a re-snapshot made meanwhile would otherwise be
+    // written back over. The merge itself is still read-then-write — a change landing in
+    // the milliseconds between these two lines could still be lost — but the window is
+    // that, not the length of the model call.
+    const fresh = (await getSessionByCode(session.code)) ?? session;
+    const stored = (fresh.config ?? {}) as Record<string, unknown>;
+    await updateSession(fresh.id, fresh.code, { config: { ...stored, summary } });
 
     return NextResponse.json({ summary });
   } catch (err) {
