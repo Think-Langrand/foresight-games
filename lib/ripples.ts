@@ -702,6 +702,28 @@ export async function setCardParked(code: string, cardId: string, parked: boolea
 }
 
 // Delete a card (its children cascade via parent_card_id on delete cascade).
+// Delete a Week 3 card in ONE transaction (0026, public.delete_ripple_card): refuse a theme
+// that still holds implications, hand a twin's Week 2 link to a surviving sibling, then
+// delete — with the row locked across all three, so nothing can be clustered into the
+// theme or delete the chosen sibling in between. Returns null when the function is not
+// installed yet (the migration has to be applied by hand), so the route can fall back to
+// the same steps as separate requests.
+export type AtomicDelete = { ok: true } | { ok: false; held: number };
+export async function deleteCardAtomically(code: string, cardId: string): Promise<AtomicDelete | null> {
+  const { data, error } = await supabaseAdmin().rpc("delete_ripple_card", {
+    p_code: up(code),
+    p_card_id: cardId,
+  });
+  if (error) {
+    // PostgREST: no such function (PGRST202), or Postgres: undefined_function (42883).
+    const code = (error as { code?: string }).code;
+    if (code === "PGRST202" || code === "42883") return null;
+    throw error;
+  }
+  const r = (data ?? {}) as { ok?: boolean; held?: number };
+  return r.ok === false ? { ok: false, held: r.held ?? 1 } : { ok: true };
+}
+
 export async function deleteCard(code: string, cardId: string): Promise<void> {
   const { error } = await supabaseAdmin()
     .from("ripple_cards")

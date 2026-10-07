@@ -286,6 +286,17 @@ textarea:focus-visible {
   body[data-theme-rail][data-right-rail="closed"] {
     padding-right: 3.5rem;
   }
+  /* The prompt rail on its own — Week 3's hopes & fears and flip steps have no theme rail.
+     It is fixed to the right edge all the same, so the page still has to yield to it, or
+     at lg widths the 15rem panel sits over the right end of the centred column. */
+  body[data-right-rail="open"]:not([data-theme-rail]) {
+    padding-right: 16rem;
+    transition: padding 200ms ease-out;
+  }
+  body[data-right-rail="closed"]:not([data-theme-rail]) {
+    padding-right: 3.5rem;
+    transition: padding 200ms ease-out;
+  }
   /* With a rail on each side the board fills the column between them (Shell `fluid`), so
      the session row above it spans the same width rather than a centred 1100px band.
      Unlayered on purpose: it has to beat the utility class on the nav. */

@@ -128,3 +128,21 @@ describe("classifyCard · Week 3 kinds", () => {
     expect(sumTallies([t, emptyTally()])).toMatchObject({ themes: 1, synthesis: 1, total: 3 });
   });
 });
+
+describe("classifyCard · a synthesis board's tray", () => {
+  // A Week 3 board has no key changes of its own. Its plain roots are implications waiting
+  // in the tray, and must count the same before and after they are clustered.
+  it("counts an unclustered tray implication as an implication, not a key change", () => {
+    const tray = row("A", "FIRST");
+    expect(classifyCard(tray, true)).toBe("implications");
+    expect(classifyCard(tray, false)).toBe("keyChanges"); // the same row on a Week 2 board
+    expect(classifyCard(row("A", "SECOND", { parentId: "t1" }), true)).toBe("implications");
+  });
+
+  it("tallies by board kind", () => {
+    const rows = [row("w3", "FIRST", { seq: 1 }), row("w2", "FIRST", { seq: 2 })];
+    const t = tallyCards(rows, new Set(["W3"]));
+    expect(t.get("W3")).toMatchObject({ implications: 1, keyChanges: 0 });
+    expect(t.get("W2")).toMatchObject({ implications: 0, keyChanges: 1 });
+  });
+});
