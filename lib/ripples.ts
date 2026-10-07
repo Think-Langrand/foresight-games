@@ -536,6 +536,25 @@ export async function updateCardText(code: string, cardId: string, text: string)
   if (error) throw error;
 }
 
+// Edit every copy of one implication at once (0023: copies in several themes share a
+// twin_key). The copies are one implication shown in several places, so a text edit on
+// any of them is an edit of all of them — otherwise the same implication would read
+// differently from theme to theme.
+export async function updateTwinText(code: string, twinKey: string, text: string): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update({ text })
+    .eq("code", up(code))
+    .eq("twin_key", twinKey);
+  if (error) throw error;
+}
+
+// Postgres unique-violation, as PostgREST surfaces it. The twin index (0024) is the one
+// constraint a well-formed request can still trip, by racing another writer.
+export function isUniqueViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505";
+}
+
 // Every card on one board. Cheaper than getRipplesView (one query, no teams / players /
 // chips / answers) and enough for the whole-board checks reparenting needs.
 export async function listBoardCards(code: string): Promise<RippleCard[]> {

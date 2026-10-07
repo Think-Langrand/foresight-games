@@ -49,6 +49,7 @@ import {
 import type { WorksheetSection } from "@/lib/exercise-types";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 import { requestSummary } from "@/lib/analysis/implication-cluster-client";
+import { summaryInputHash } from "@/lib/synthesis-summary-shape";
 
 // WEEK 3 — Synthesis. Four steps on one shared board:
 //   1 · Cluster            — drag Week 2's implications into themes, and name each
@@ -156,6 +157,16 @@ export function SynthesisTeamView({
 
   // One index for all four steps; every Week 3 selector reads it.
   const board = useMemo(() => indexSynthesisBoard(cards), [cards]);
+  // What the facilitator's summary would be written from right now, hashed — the same
+  // shaping and hash the summary route uses, so SummaryPanel's "the board has changed
+  // since this was written" means an edit the model did not see, not merely a different
+  // card count. From the server's view rather than the optimistic cards: that is what the
+  // route reads too.
+  const liveSummaryHash = useMemo(() => {
+    if (!view) return "";
+    const shaped = shapeFromView({ id: "live", title: title || "Synthesis", type: "synthesis", sections }, view);
+    return shaped.kind === "synthesis" ? summaryInputHash(shaped) : "";
+  }, [view, title, sections]);
 
   if (loading && !view) return <Centered>Loading session…</Centered>;
   if (error && !view)
@@ -746,6 +757,7 @@ export function SynthesisTeamView({
           busy={busy}
           admin={admin}
           summary={config.summary}
+          summaryHash={liveSummaryHash}
           summarizing={summarizing}
           summaryError={summaryError}
           onSummarize={summarize}

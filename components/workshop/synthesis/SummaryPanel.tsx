@@ -30,6 +30,7 @@ export function SummaryPanel({
   summary,
   admin,
   currentCount,
+  currentHash,
   hasThemes,
   running,
   error,
@@ -38,7 +39,11 @@ export function SummaryPanel({
   summary: SynthesisSummary | null;
   admin?: AdminTools;
   // summaryCardCount(board) now — differs from summary.cardCount once the board has moved on.
+  // The fallback for a summary written before inputHash existed.
   currentCount: number;
+  // summaryInputHash of the live board — differs from summary.inputHash once anything the
+  // model read (a title, an answer, a risk) has been added, removed or edited.
+  currentHash: string;
   hasThemes: boolean;
   running: boolean;
   error: string | null;
@@ -51,7 +56,9 @@ export function SummaryPanel({
 
   if (!summary && !admin) return null;
 
-  const stale = Boolean(summary && summary.cardCount !== currentCount);
+  const stale = Boolean(
+    summary && (summary.inputHash ? summary.inputHash !== currentHash : summary.cardCount !== currentCount)
+  );
   const button = admin && (
     <button
       onClick={onGenerate}

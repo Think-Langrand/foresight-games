@@ -23,10 +23,26 @@ export interface SynthesisSummary {
   themes: SynthesisSummaryTheme[];
   tensions: string[]; // disagreements and pulls in different directions, left unresolved
   generatedAt: string; // ISO
-  // summaryCardCount(board) when it was written — the UI says "the board has changed
-  // since" when the live count differs. A count, not a hash: cheap, and "changed" is all
-  // the facilitator needs to know.
+  // summaryCardCount(board) when it was written. Kept for summaries written before
+  // inputHash existed; the UI falls back to comparing counts for those.
   cardCount: number;
+  // summaryInputHash(ex) when it was written: a hash of exactly the text the model read.
+  // The UI says "the board has changed since" when the live hash differs — so an edited
+  // answer or a renamed theme counts as a change, where a count alone would miss it.
+  inputHash?: string;
+}
+
+// A hash of what the model is given (summaryDigest(ex).text), as a short hex string.
+// FNV-1a over UTF-16 code units: no crypto needed, this only has to answer "same input
+// or not" and be identical on the server that writes it and the client that compares.
+export function summaryInputHash(ex: SynthesisExercise): string {
+  const text = summaryDigest(ex).text;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${text.length.toString(16)}-${h.toString(16).padStart(8, "0")}`;
 }
 
 // Clamps applied to whatever the model returns. Strict JSON schema cannot express maxLength,
@@ -77,6 +93,7 @@ export function coerceSummary(raw: unknown): SynthesisSummary | null {
     tensions: strList(r.tensions, SUMMARY_LIMITS.item, SUMMARY_LIMITS.items),
     generatedAt,
     cardCount: typeof r.cardCount === "number" && Number.isFinite(r.cardCount) ? r.cardCount : 0,
+    ...(typeof r.inputHash === "string" && r.inputHash.length > 0 ? { inputHash: r.inputHash } : {}),
   };
 }
 

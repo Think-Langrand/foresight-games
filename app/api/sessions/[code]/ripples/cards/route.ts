@@ -4,6 +4,7 @@ import {
   addCard,
   getPlayerByParticipant,
   getRippleCard,
+  isUniqueViolation,
   listBoardCards,
   setCardTwinKey,
 } from "@/lib/ripples";
@@ -189,7 +190,10 @@ export async function POST(
       }
       // Only plain implications travel. A theme is the container, and a hope or fear is
       // written about one theme in particular — neither is the same thing in two places.
-      if (original.cardKind !== null) {
+      // …and the copy is one too: the kind is the original's, never the request's. A
+      // body carrying {copyOfCardId, cardKind:"risk"} would otherwise mint a risk that
+      // shares a twin key with an implication.
+      if (original.cardKind !== null || kind !== null) {
         return NextResponse.json(
           { error: "Only an implication can be in more than one theme." },
           { status: 400 }
@@ -233,6 +237,15 @@ export async function POST(
     });
     return NextResponse.json({ card });
   } catch (err) {
+    // Two people copying the same implication into the same theme at once: the sibling
+    // check above passed for both, and the unique index (0024) stopped the second. The
+    // same answer the check gives, because it is the same situation.
+    if (isUniqueViolation(err)) {
+      return NextResponse.json(
+        { error: "That implication is already in this theme." },
+        { status: 409 }
+      );
+    }
     console.error("[POST ripples/cards]", err);
     return NextResponse.json({ error: "Failed to add card." }, { status: 500 });
   }

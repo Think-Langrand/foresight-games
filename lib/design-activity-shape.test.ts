@@ -104,3 +104,27 @@ describe("sumTallies", () => {
     expect(sumTallies([emptyTally(), emptyTally()]).lastAt).toBeNull();
   });
 });
+
+describe("classifyCard · Week 3 kinds", () => {
+  // A theme is a tree root and a risk has a parent, so without card_kind a synthesis
+  // board reported "key changes" and "implications" it does not have.
+  it("buckets a theme as a theme and anything else with a kind as synthesis", () => {
+    expect(classifyCard({ ...row("A", "FIRST"), cardKind: "theme" })).toBe("themes");
+    expect(classifyCard({ ...row("A", "SECOND", { parentId: "t1" }), cardKind: "risk" })).toBe("synthesis");
+    expect(classifyCard({ ...row("A", "FIRST"), cardKind: "hope" })).toBe("synthesis");
+  });
+
+  it("still counts a Week 2 implication clustered under a theme as an implication", () => {
+    expect(classifyCard({ ...row("A", "SECOND", { parentId: "t1" }), cardKind: null })).toBe("implications");
+  });
+
+  it("tallies and sums the new buckets", () => {
+    const t = tallyCards([
+      { ...row("abc", "FIRST", { seq: 1 }), cardKind: "theme" },
+      { ...row("abc", "SECOND", { parentId: "t1", seq: 2 }), cardKind: null },
+      { ...row("abc", "SECOND", { parentId: "t1", seq: 3 }), cardKind: "opportunity" },
+    ]).get("ABC")!;
+    expect(t).toMatchObject({ themes: 1, implications: 1, synthesis: 1, keyChanges: 0, total: 3 });
+    expect(sumTallies([t, emptyTally()])).toMatchObject({ themes: 1, synthesis: 1, total: 3 });
+  });
+});

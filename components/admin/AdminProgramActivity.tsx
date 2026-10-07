@@ -23,10 +23,14 @@ export interface WeekDetail {
   groups: { groupId: string; exerciseId: string; answers: ExerciseAnswers }[];
 }
 
-// The four buckets, in the order they're built on a board.
+// The buckets, in the order they're built on a board. Only the non-empty ones print, so
+// a Week 2 cell reads "key changes / implications" and a Week 3 cell "themes /
+// implications / synthesis cards".
 const KINDS = [
   { key: "keyChanges", label: "key changes" },
+  { key: "themes", label: "themes" },
   { key: "implications", label: "implications" },
+  { key: "synthesis", label: "answers, risks, hopes & fears" },
   { key: "brainstorm", label: "brainstorm" },
   { key: "answers", label: "answers" },
 ] as const;
