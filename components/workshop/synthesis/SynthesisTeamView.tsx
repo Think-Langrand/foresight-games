@@ -310,6 +310,18 @@ export function SynthesisTeamView({
       if (!already) await writeCopy(card, themeId);
       return;
     }
+    // A parked card ticked on the map: unpark it first, as a drag out of the drawer does.
+    // Reparenting alone would move the row and leave the flag, and the board would still
+    // file it under Parked rather than in the theme it was just put in.
+    if (card.parked) {
+      parkLocal(card.id, false);
+      try {
+        await parkRippleCard(code, card.id, { participantId: pid, parked: false });
+      } catch (e) {
+        dropParkLocal(card.id);
+        throw e;
+      }
+    }
     if (predicted) reparentLocal(card.id, themeId, predicted);
     try {
       await reparentRippleCard(code, card.id, { participantId: pid, parentCardId: themeId });

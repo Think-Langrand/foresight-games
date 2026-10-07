@@ -527,7 +527,11 @@ export function ClusterBoard({
   // deleted theme or a deleted hope. A card someone else files into their theme meanwhile
   // STAYS selected: adding a selection to a theme copies a clustered card rather than
   // moving it, so nothing is yanked back out of their theme.
-  const liveIds = new Set([...board.unclustered, ...[...board.clusters.values()].flat()].map((c) => c.id));
+  // Parked cards included: a parked circle on the map can be ticked and placed, and
+  // placing it unparks it (SynthesisTeamView.placeInTheme).
+  const liveIds = new Set(
+    [...board.unclustered, ...board.parked, ...[...board.clusters.values()].flat()].map((c) => c.id)
+  );
   const picked = new Set([...rawPicked].filter((id) => liveIds.has(id)));
 
   // --- the rail's read-out on the map -----------------------------------------

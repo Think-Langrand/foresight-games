@@ -22,16 +22,24 @@ export type CardKind = "themes" | "synthesis" | "keyChanges" | "implications" | 
 // The buckets are mutually exclusive and exhaustive — every card lands in exactly one.
 // Mirrors isTreeRoot + the STICKY/section filters in RipplesTeamView and
 // lib/group-answers-shape.ts; keep them in step.
-export function classifyCard(card: {
-  order: string;
-  parentId: string | null;
-  section: string | null;
-  cardKind?: string | null;
-}): CardKind {
+//
+// `synthesis`: the card is on a Week 3 board. A plain root there (kind null, no parent,
+// not a sticky) is an implication waiting in the tray, not a key change — a Week 3 board
+// has no key changes of its own. Without the flag a synthesis week counted every tray
+// card as a key change and moved it to "implications" the moment it was clustered.
+export function classifyCard(
+  card: {
+    order: string;
+    parentId: string | null;
+    section: string | null;
+    cardKind?: string | null;
+  },
+  synthesis = false
+): CardKind {
   if (card.cardKind === "theme") return "themes";
   if (card.cardKind) return "synthesis";
   if (card.parentId !== null) return "implications";
-  if (card.order !== "STICKY") return "keyChanges";
+  if (card.order !== "STICKY") return synthesis ? "implications" : "keyChanges";
   return card.section ? "answers" : "brainstorm";
 }
 
@@ -73,8 +81,9 @@ export function emptyTally(): CardTally {
 }
 
 // Tally rows by session code. Codes are uppercased so lookups match the rest of the app
-// (every ripple_* read upper-cases the code before querying).
-export function tallyCards(rows: ActivityCardRow[]): Map<string, CardTally> {
+// (every ripple_* read upper-cases the code before querying). `synthesisCodes` names the
+// Week 3 boards, whose plain roots are tray implications rather than key changes.
+export function tallyCards(rows: ActivityCardRow[], synthesisCodes?: Set<string>): Map<string, CardTally> {
   const out = new Map<string, CardTally>();
   for (const row of rows) {
     const code = row.code.toUpperCase();
@@ -83,7 +92,7 @@ export function tallyCards(rows: ActivityCardRow[]): Map<string, CardTally> {
       t = emptyTally();
       out.set(code, t);
     }
-    t[classifyCard(row)] += 1;
+    t[classifyCard(row, synthesisCodes?.has(code) ?? false)] += 1;
     t.total += 1;
     if (row.createdAt && (t.lastAt === null || row.createdAt > t.lastAt)) t.lastAt = row.createdAt;
     if (row.authorPlayerId) t.byAuthor[row.authorPlayerId] = (t.byAuthor[row.authorPlayerId] ?? 0) + 1;

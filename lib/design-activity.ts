@@ -3,6 +3,7 @@ import "server-only";
 import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import { listDesignGroups, type DesignGroup } from "@/lib/design-groups";
 import { listExercises, type DesignGroupExercise } from "@/lib/design-group-exercises";
+import { getExerciseType } from "@/lib/exercise-types";
 import { toProgramDTO, type ProgramDTO } from "@/lib/design-program-shape";
 import { tallyCards, type ActivityCardRow, type CardTally } from "@/lib/design-activity-shape";
 
@@ -68,6 +69,16 @@ export async function getProgramActivity(projectId: string): Promise<ProgramActi
 
   const { cards, players } = await loadBoardRows(codes);
 
+  // Which boards are Week 3's: their plain root cards are tray implications, not key
+  // changes, and the tally has to know that from the exercise, not the rows.
+  const synthesisCodes = new Set(
+    perGroup
+      .flat()
+      .filter((e) => getExerciseType(e.type)?.render === "synthesis")
+      .map((e) => e.sessionCode?.trim().toUpperCase() ?? "")
+      .filter(Boolean)
+  );
+
   const tallies = tallyCards(
     cards.map(
       (c): ActivityCardRow => ({
@@ -79,7 +90,8 @@ export async function getProgramActivity(projectId: string): Promise<ProgramActi
         createdAt: c.created_at,
         authorPlayerId: c.author_player_id,
       })
-    )
+    ),
+    synthesisCodes
   );
 
   const peopleByCode: Record<string, BoardPeople> = {};

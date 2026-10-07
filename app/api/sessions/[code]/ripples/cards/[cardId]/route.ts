@@ -3,6 +3,7 @@ import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import {
   applyReparent,
   deleteCard,
+  deleteCardAtomically,
   flagCard,
   getPlayerByParticipant,
   getRippleCard,
@@ -365,11 +366,26 @@ export async function DELETE(
       return NextResponse.json({ error: "You can only delete your own card." }, { status: 403 });
     }
 
+    const refuseHeld = (held: number) =>
+      NextResponse.json(
+        {
+          error: `This theme still holds ${held} implication${held === 1 ? "" : "s"}, parked ones included. Move them out first.`,
+        },
+        { status: 409 }
+      );
+
+    // The whole delete as one transaction (0026): the theme guard, the twin's lineage
+    // hand-over and the delete itself, with the row locked across them. Null = the
+    // function is not installed on this database yet, and the same steps run below as
+    // separate requests — correct in every case but a race measured in milliseconds.
+    const atomic = await deleteCardAtomically(session.code, cardId);
+    if (atomic) return atomic.ok ? NextResponse.json({ ok: true }) : refuseHeld(atomic.held);
+
     // parent_card_id is ON DELETE CASCADE (migration 0007), so deleting a Week 3 theme
     // would silently take its whole subtree with it — every implication seeded in from
     // Week 2 and every hope/fear chain hanging off it. Refuse while it still holds
-    // implications; the group drags them out or parks them first. (Hope/fear children are
-    // the theme's own work and go with it — the client confirm names the count.)
+    // implications; the group drags them out first. (Hope/fear children are the theme's
+    // own work and go with it — the client confirm names the count.)
     if (card.cardKind === "theme") {
       const board = await listBoardCards(session.code);
       // Every implication still hanging off the theme — PARKED ones included. Parking
@@ -379,14 +395,7 @@ export async function DELETE(
       const held = board.filter(
         (c) => c.teamId === card.teamId && c.parentId === cardId && c.cardKind === null
       ).length;
-      if (held > 0) {
-        return NextResponse.json(
-          {
-            error: `This theme still holds ${held} implication${held === 1 ? "" : "s"}, parked ones included. Move them out first.`,
-          },
-          { status: 409 }
-        );
-      }
+      if (held > 0) return refuseHeld(held);
     }
 
     // Of an implication's copies (0023), only the seeded original carries the Week 2 link
