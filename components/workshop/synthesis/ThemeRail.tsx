@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSessionTabsHidden } from "@/components/design-groups/SessionHeader";
 import type { RippleCard } from "@/lib/ripples-types";
 import type { SynthesisBoard, ThemeProgress } from "@/lib/synthesis-shape";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
@@ -81,14 +82,17 @@ export function ThemeRail({
   const [hover, setHover] = useState<{ id: string; top: number } | null>(null);
 
   // Tell the page a rail is on the left, so the header and the board both yield to it.
-  // A DOM side effect in an effect is exactly what effects are for; the alternative was
-  // threading a flag through SessionTabs, which every other week also uses.
+  // A DOM side effect in an effect is exactly what effects are for. Not while the board
+  // is hidden behind an earlier week's tab, though: the rail is hidden with it, and the
+  // read-only panel on show would be padded for a rail that is not there.
+  const hidden = useSessionTabsHidden();
   useEffect(() => {
+    if (hidden) return;
     document.body.dataset.themeRail = wide ? "wide" : "1";
     return () => {
       delete document.body.dataset.themeRail;
     };
-  }, [wide]);
+  }, [wide, hidden]);
 
   const hovered = hover ? (board.themes.find((t) => t.id === hover.id) ?? null) : null;
 

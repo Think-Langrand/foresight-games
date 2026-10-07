@@ -120,6 +120,10 @@ describe("summaryInputHash", () => {
     expect(
       summaryInputHash(ex([theme("t1", "Access", { risks: [stake("r1", "Longer waits")] }), theme("t2", "Trust")]))
     ).not.toBe(summaryInputHash(a));
+    // The same cards under another scenario: the summary was written about a different
+    // world, so it is stale too.
+    expect(summaryInputHash(a, "The public works")).not.toBe(summaryInputHash(a, "The living floor"));
+    expect(summaryInputHash(a, "The public works")).toBe(summaryInputHash(a, "The public works"));
   });
 
   it("round-trips through coerceSummary, and is absent on an older summary", () => {

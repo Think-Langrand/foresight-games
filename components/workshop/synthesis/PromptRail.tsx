@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useSessionTabsHidden } from "@/components/design-groups/SessionHeader";
 import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
 
 // The right rail: the questions the group is meant to be holding while it works, in the
@@ -26,12 +27,15 @@ export function PromptRail({
   children: React.ReactNode;
 }) {
   const open = usePref(rightRailPref) === "open";
+  // Stands down while the board is hidden behind an earlier week's tab — see ThemeRail.
+  const hidden = useSessionTabsHidden();
   useEffect(() => {
+    if (hidden) return;
     document.body.dataset.rightRail = open ? "open" : "closed";
     return () => {
       delete document.body.dataset.rightRail;
     };
-  }, [open]);
+  }, [open, hidden]);
   const toggle = () => rightRailPref.write(open ? "closed" : "open");
 
   return (
