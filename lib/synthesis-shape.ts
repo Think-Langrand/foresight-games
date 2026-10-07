@@ -64,6 +64,10 @@ export type ValuesField = (typeof VALUES_FIELDS)[number];
 // board's role answer, under a theme = a wall card.
 export const ROLE_FIELDS = ["desired_role", "opportunity", "risk", "investigate"] as const;
 export type RoleField = (typeof ROLE_FIELDS)[number];
+// The role fields that are only ever answers when read ON A THEME. `opportunity` and `risk`
+// under a theme are wall cards, listed by the walls; reading them as answers too put the
+// first of each on the sheet twice.
+export const THEME_ROLE_FIELDS = ["desired_role", "investigate"] as const;
 
 // Every kind that is "an answer to a question about the theme", with the one-line label the
 // viewer and the CSV print for it. One map, so the three never disagree.

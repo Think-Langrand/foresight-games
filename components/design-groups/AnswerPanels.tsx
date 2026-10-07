@@ -274,6 +274,21 @@ export function ImplicationsPanel({
     return d === undefined || d === 0 ? null : d;
   };
   const dimmed = (id: string) => orderFilter !== null && orderOf(id) !== orderFilter;
+  // The order chips count what is IN VIEW: the picked branch's cards when one is picked,
+  // the whole map otherwise — as the live Cluster board's do. Counting the whole map under
+  // a branch read "All 146" over a wheel of 57.
+  const shown = useMemo(() => {
+    const cards = sub ? sub.subtree.filter((c) => c.id !== sub.root.id) : model.tree;
+    const counts = new Map<number, number>();
+    for (const c of cards) {
+      const o = orderOf(c.id);
+      if (o !== null) counts.set(o, (counts.get(o) ?? 0) + 1);
+    }
+    const orders = [...counts.keys()].sort((a, b) => a - b).map((o) => ({ order: o, count: counts.get(o)! }));
+    return { orders, total: orders.reduce((n, o) => n + o.count, 0) };
+    // orderOf closes over model.depths, which model already covers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub, model]);
   const stepBranch = (step: -1 | 1) => {
     // Same order as the chips: the key changes, then "any" last.
     const stops: (string | null)[] = [...model.roots.map((r) => r.id), null];
@@ -317,9 +332,9 @@ export function ImplicationsPanel({
             />
           )}
         </div>
-        {hasTree && spatial && model.orders.length > 1 && (
+        {hasTree && spatial && shown.orders.length > 1 && (
           <div className="mb-2">
-            <OrderChips orders={model.orders} allCount={model.total} value={orderFilter} onChange={setOrderFilter} />
+            <OrderChips orders={shown.orders} allCount={shown.total} value={orderFilter} onChange={setOrderFilter} />
           </div>
         )}
         {!hasTree ? (
@@ -330,7 +345,7 @@ export function ImplicationsPanel({
               <MapToolbar
                 zoom={zoom}
                 onZoom={onZoom}
-                orders={model.orders.map((o) => o.order)}
+                orders={shown.orders.map((o) => o.order)}
                 branch={{
                   label: branchRoot ? branchRoot.text : "All key changes",
                   index: branchRoot ? branchAt : null,

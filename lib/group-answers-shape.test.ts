@@ -317,6 +317,24 @@ describe("shapeFromView — synthesis weeks", () => {
     expect(out.themes[0].risks.map((r) => r.id)).toEqual(["R1"]);
     expect(out.themes[0].opportunities[0]).toMatchObject({ id: "O1", mechanism: "via x" });
     expect(out.role).toEqual([]);
+    // …and ONLY as its risks and opportunities. `risk` and `opportunity` are also two of
+    // the retired role step's answer kinds, and reading them as answers as well listed the
+    // first of each twice on the sheet and in the CSV.
+    expect(out.themes[0].answers).toEqual([]);
+  });
+
+  it("still reads the retired role step's other two answers on a theme", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("D1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "desired_role" }),
+        card("R1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "risk" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    expect(out.themes[0].answers.map((a) => a.kind)).toEqual(["desired_role"]);
+    expect(out.themes[0].risks.map((r) => r.id)).toEqual(["R1"]);
   });
 
   it("surfaces unplaceable cards rather than dropping them", () => {
