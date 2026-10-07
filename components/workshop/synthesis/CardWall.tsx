@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import {
+  type AddResult,
   AddCardForm,
   CardMenu,
   CardMenuItem,
@@ -84,7 +85,7 @@ export function CardWall({
   // The question the slot asks, shown on the add slot and above the open composer, so the
   // placeholder can be the sentence-starter rather than carry the whole prompt.
   slotQuestion?: string;
-  onAdd: (text: string) => void;
+  onAdd: (text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
   onRequestDelete: (card: RippleCard) => void;
   // A small line under a card's text, e.g. "↩ flipped from a fear". Null for none.
@@ -134,9 +135,12 @@ export function CardWall({
                 label={addLabel}
                 busy={busy}
                 autoFocus
-                onAdd={(text) => {
-                  onAdd(text);
-                  if (closeAfterAdd) setAdding(false);
+                onAdd={async (text) => {
+                  // Close only once the write landed; a failed add keeps the composer and
+                  // its draft (see AddCardForm).
+                  const ok = await onAdd(text);
+                  if (ok !== false && closeAfterAdd) setAdding(false);
+                  return ok;
                 }}
                 onDone={() => setAdding(false)}
               />

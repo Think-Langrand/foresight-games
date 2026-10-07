@@ -35,7 +35,15 @@ export function synthesisCsvRows(ex: SynthesisExercise): string[][] {
     const body = c.value ? `${arrow}${c.text} — ${c.value}` : `${arrow}${c.text}`;
     rows.push([ex.title, section, c.cardKind, body, c.author, c.createdAt]);
     if (c.concerns) {
-      rows.push([ex.title, section, "concerns", `${arrow}↳ ${c.concerns}`, c.author, c.createdAt]);
+      // The concern is its own card, so its own author and time.
+      rows.push([
+        ex.title,
+        section,
+        "concerns",
+        `${arrow}↳ ${c.concerns}`,
+        c.concernsBy?.author ?? c.author,
+        c.concernsBy?.createdAt ?? c.createdAt,
+      ]);
     }
     for (const a of c.assumptions) {
       rows.push([ex.title, section, "assumption", `${arrow}◆ ${a.text}`, a.author, a.createdAt]);

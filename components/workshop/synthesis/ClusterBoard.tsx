@@ -17,6 +17,7 @@ import {
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
 import {
+  type AddResult,
   AddCardForm,
   CardMenu,
   CardMenuItem,
@@ -127,8 +128,9 @@ export function ClusterBoard({
   lineage: Record<string, Week2Lineage>;
   editable: boolean;
   busy: boolean;
-  onAddTheme: (text: string) => void;
-  onAddImplication: (text: string, themeId: string | null) => void;
+  // Both may resolve to whether the write landed, so a composer keeps a failed draft.
+  onAddTheme: (text: string) => AddResult;
+  onAddImplication: (text: string, themeId: string | null) => AddResult;
   onEditCard: (card: RippleCard, text: string) => void;
   onDescribeCard: (card: RippleCard, description: string) => void;
   // Put `card` in `themeId` (null = the tray), immediately before `beforeId` (null = last).
@@ -2100,7 +2102,13 @@ export function ClusterBoard({
       <DeleteThemeModal
         open={pendingDelete !== null}
         themeText={pendingDelete?.text ?? ""}
-        implications={pendingDelete ? (board.clusters.get(pendingDelete.id)?.length ?? 0) : 0}
+        // Parked ones included: they still hang off the theme and would go with it.
+        implications={
+          pendingDelete
+            ? (board.clusters.get(pendingDelete.id)?.length ?? 0) +
+              board.parked.filter((c) => c.parentId === pendingDelete.id).length
+            : 0
+        }
         chainCards={pendingDelete ? chainCountOf(pendingDelete.id) : 0}
         busy={busy}
         onCancel={() => setPendingDelete(null)}

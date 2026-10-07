@@ -115,14 +115,20 @@ export function shapeFromView(
 
     // A hope or fear as a row. Who it concerns and the older boards' assumptions ride ON
     // the row rather than becoming rows of their own.
-    const toChainRow = (c: RippleCard, depth: number, kind: "hope" | "fear"): ChainRow => ({
-      ...toRow(c),
-      cardKind: kind,
-      depth,
-      concerns: answerOf(board, c.id, "concerns")?.text ?? null,
-      value: c.description,
-      assumptions: (board.assumptions.get(c.id) ?? []).map(toRow),
-    });
+    const toChainRow = (c: RippleCard, depth: number, kind: "hope" | "fear"): ChainRow => {
+      // Its own card, so its own author and time — the CSV prints them, not the hope's.
+      const concerns = answerOf(board, c.id, "concerns");
+      const concernsRow = concerns ? toRow(concerns) : null;
+      return {
+        ...toRow(c),
+        cardKind: kind,
+        depth,
+        concerns: concerns?.text ?? null,
+        concernsBy: concernsRow ? { author: concernsRow.author, createdAt: concernsRow.createdAt } : null,
+        value: c.description,
+        assumptions: (board.assumptions.get(c.id) ?? []).map(toRow),
+      };
+    };
 
     // Everything chained under `parentId`, flattened depth-first so the panel's
     // indentation reads as the chain itself.

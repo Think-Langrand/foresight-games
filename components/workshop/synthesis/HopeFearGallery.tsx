@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import type { ChainEntry, HopeFear } from "@/lib/synthesis-shape";
 import {
+  type AddResult,
   AddCardForm,
   CardMenu,
   CardMenuItem,
@@ -57,7 +58,7 @@ export function HopeFearGallery({
   busy: boolean;
   onSelect: (card: RippleCard) => void;
   onRequestDelete: (card: RippleCard) => void;
-  onQuickAdd: (kind: HopeFear, text: string) => void;
+  onQuickAdd: (kind: HopeFear, text: string) => AddResult;
   heading?: string;
   lead?: string;
   // Which add slots to offer. Empty when the gallery is a picker over cards written

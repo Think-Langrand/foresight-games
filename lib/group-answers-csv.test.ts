@@ -48,6 +48,7 @@ const chainRow = (
   cardKind,
   depth,
   concerns: extra.concerns ?? null,
+  concernsBy: null,
   value: extra.value ?? null,
   assumptions: extra.assumptions ?? [],
 });

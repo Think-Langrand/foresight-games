@@ -59,6 +59,8 @@ export interface ChainRow extends AnswerRow {
   cardKind: "hope" | "fear";
   depth: number; // 1 = written straight on (the board, or an older board's theme), 2 = its flip side, …
   concerns: string | null; // who it concerns — the `concerns` card under it (older boards)
+  // That card's own author and time, since it may have been written by someone else later.
+  concernsBy: { author: string; createdAt: string } | null;
   value: string | null; // why it matters — the card's description (older boards)
   assumptions: AnswerRow[]; // assumptions written under it (older boards)
 }
