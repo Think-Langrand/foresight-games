@@ -52,6 +52,9 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  // Outside the try: the catch needs to know whether a unique violation came from a copy
+  // (0024) or from a one-answer question (0025) to say the right thing.
+  let copyOfId: string | null = null;
   try {
     const session = await getSessionByCode(code);
     if (!session) return NextResponse.json({ error: "Session not found." }, { status: 404 });
@@ -101,7 +104,7 @@ export async function POST(
 
     // A copy carries no text of its own — it is read from the original below, so that two
     // cards showing one implication can never drift apart by being typed twice.
-    const copyOfId =
+    copyOfId =
       typeof body.copyOfCardId === "string" && body.copyOfCardId.length > 0
         ? body.copyOfCardId
         : null;
@@ -237,12 +240,17 @@ export async function POST(
     });
     return NextResponse.json({ card });
   } catch (err) {
-    // Two people copying the same implication into the same theme at once: the sibling
-    // check above passed for both, and the unique index (0024) stopped the second. The
-    // same answer the check gives, because it is the same situation.
+    // Two writers at once, and the database kept the first: a second copy of an
+    // implication in one theme (0024), or a second answer to a one-answer question (0025)
+    // — two members answering "who benefits?" on the same theme in the same moment. The
+    // client refreshes on a 409, so the answer that landed is what everyone then sees.
     if (isUniqueViolation(err)) {
       return NextResponse.json(
-        { error: "That implication is already in this theme." },
+        {
+          error: copyOfId
+            ? "That implication is already in this theme."
+            : "Someone answered this a moment ago — refreshing to show it.",
+        },
         { status: 409 }
       );
     }

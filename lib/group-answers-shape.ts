@@ -19,6 +19,7 @@ import {
   themeAnswers,
   READING_FIELDS,
   ROLE_FIELDS,
+  THEME_ROLE_FIELDS,
   VALUES_FIELDS,
   type ThemeAnswerKind,
 } from "@/lib/synthesis-shape";
@@ -154,13 +155,17 @@ export function shapeFromView(
       const found: Partial<Record<ThemeAnswerKind, RippleCard>> = {
         ...themeAnswers(board, themeId),
         ...answersOf(board, themeId, VALUES_FIELDS),
-        ...answersOf(board, themeId, ROLE_FIELDS),
+        // Of the role step's four, `risk` and `opportunity` are step 2's wall kinds when
+        // they sit under a theme, and the walls (`risks` / `opportunities` below) already
+        // list every one of them. Reading them here as well put the first of each on the
+        // sheet twice — once as a "role" answer, once on its wall.
+        ...answersOf(board, themeId, THEME_ROLE_FIELDS),
         ...answersOf(board, themeId, ["assumed_role", "question"] as const),
       };
       const order: readonly ThemeAnswerKind[] = [
         ...READING_FIELDS,
         ...VALUES_FIELDS,
-        ...ROLE_FIELDS,
+        ...THEME_ROLE_FIELDS,
         "assumed_role",
         "question",
       ];

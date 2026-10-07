@@ -400,14 +400,22 @@ export function SynthesisTeamView({
     run(async () => {
       const order = childOrderOf(parent.order);
       if (!order) throw new Error("That chain is already as deep as it goes.");
-      const res = await postRippleCard(code, {
-        participantId: pid,
-        cardOrder: order,
-        parentCardId: parent.id,
-        cardKind: kind,
-        text,
-      });
-      if (res?.card) addLocal(res.card as RippleCard);
+      try {
+        const res = await postRippleCard(code, {
+          participantId: pid,
+          cardOrder: order,
+          parentCardId: parent.id,
+          cardKind: kind,
+          text,
+        });
+        if (res?.card) addLocal(res.card as RippleCard);
+      } catch (e) {
+        // A one-answer question (step 2's four, a hope's "who it concerns") that someone
+        // else answered in the same moment: the database kept theirs (0025) and refused
+        // ours. Refetch so theirs is on screen before the message says so.
+        refresh();
+        throw e;
+      }
     });
 
   const editCard = (card: RippleCard, text: string) => {
