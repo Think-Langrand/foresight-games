@@ -551,14 +551,18 @@ export async function updateTwinText(code: string, twinKey: string, text: string
 
 // Hand one card's Week 2 link (source_card_id) to another card of the same implication —
 // the copy that is about to outlive the seeded original. Only one row per board may hold
-// a given source (0018's unique), so the giver is cleared before the receiver is set; if
-// the second write fails the link is handed back, and the caller's delete does not run.
+// a given source (0018's unique), so the giver is cleared before the receiver is set.
+//
+// Returns whether the receiver actually took it. The receiver can have been deleted in
+// the meantime (two copies removed at once): an update of zero rows is not an error to
+// PostgREST, so the row count is checked and, on a miss or a failure, the link is handed
+// back to the giver and the caller tries the next sibling.
 export async function moveCardSource(
   code: string,
   fromId: string,
   toId: string,
   sourceCardId: string
-): Promise<void> {
+): Promise<boolean> {
   const db = supabaseAdmin();
   const clear = await db
     .from("ripple_cards")
@@ -570,11 +574,12 @@ export async function moveCardSource(
     .from("ripple_cards")
     .update({ source_card_id: sourceCardId })
     .eq("code", up(code))
-    .eq("id", toId);
-  if (set.error) {
-    await db.from("ripple_cards").update({ source_card_id: sourceCardId }).eq("code", up(code)).eq("id", fromId);
-    throw set.error;
-  }
+    .eq("id", toId)
+    .select("id");
+  if (!set.error && (set.data?.length ?? 0) > 0) return true;
+  await db.from("ripple_cards").update({ source_card_id: sourceCardId }).eq("code", up(code)).eq("id", fromId);
+  if (set.error) throw set.error;
+  return false;
 }
 
 // Postgres unique-violation, as PostgREST surfaces it. The twin index (0024) is the one

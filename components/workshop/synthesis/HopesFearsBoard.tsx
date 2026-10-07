@@ -1,5 +1,6 @@
 "use client";
 
+import type { AddResult } from "@/components/workshop/synthesis/SynthesisCard";
 import { useMemo, useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import {
@@ -55,7 +56,7 @@ export function HopesFearsBoard({
   summarizing: boolean;
   summaryError: string | null;
   onSummarize: () => void;
-  onAdd: (kind: HopeFear, text: string) => void;
+  onAdd: (kind: HopeFear, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
   onDelete: (card: RippleCard) => void;
 }) {

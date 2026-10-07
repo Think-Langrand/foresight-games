@@ -128,6 +128,11 @@ export function InlineText({
   );
 }
 
+// What an add callback may hand back: nothing (fire and forget), or whether the write
+// landed — `false`, now or later, means it did not, and the composer keeps the draft so
+// the person can retry rather than retype. The board's `run` resolves to exactly this.
+export type AddResult = void | boolean | Promise<void | boolean>;
+
 // A one-line "add a card" composer. Stays open after a successful add so a group can type
 // several in a row, which is how these boards actually get used.
 export function AddCardForm({
@@ -139,23 +144,32 @@ export function AddCardForm({
 }: {
   label: string;
   busy?: boolean;
-  onAdd: (text: string) => void;
+  onAdd: (text: string) => AddResult;
   autoFocus?: boolean;
   onDone?: () => void;
 }) {
   const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
   const ref = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (autoFocus) ref.current?.focus();
   }, [autoFocus]);
 
-  const submit = () => {
+  // The draft is cleared only once the add has not failed: a timeout or a refusal leaves
+  // the text where it was, under the flash that says why.
+  const submit = async () => {
     const next = text.trim();
-    if (!next) return;
-    onAdd(next);
-    setText("");
-    ref.current?.focus();
+    if (!next || sending) return;
+    setSending(true);
+    try {
+      const ok = await onAdd(next);
+      if (ok === false) return;
+      setText("");
+    } finally {
+      setSending(false);
+      ref.current?.focus();
+    }
   };
 
   return (
@@ -164,12 +178,12 @@ export function AddCardForm({
         ref={ref}
         value={text}
         maxLength={CARD_TEXT_MAX}
-        disabled={busy}
+        disabled={busy || sending}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            submit();
+            void submit();
           } else if (e.key === "Escape") {
             e.preventDefault();
             onDone?.();
@@ -181,8 +195,8 @@ export function AddCardForm({
       />
       <div className="flex items-center gap-1.5">
         <button
-          onClick={submit}
-          disabled={busy || !text.trim()}
+          onClick={() => void submit()}
+          disabled={busy || sending || !text.trim()}
           className="rounded-[2px] border border-ink bg-lime px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em] disabled:opacity-40"
         >
           Add

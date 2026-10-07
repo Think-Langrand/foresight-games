@@ -1,10 +1,13 @@
 "use client";
 
+import type { AddResult } from "@/components/workshop/synthesis/SynthesisCard";
 import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import {
   descendantsOf,
   exploreProgress,
+  implicationKey,
+  twinIndex,
   type ReadingField,
   type StakeKind,
   type SynthesisBoard,
@@ -52,7 +55,7 @@ export function ExploreBoard({
   // A first answer to one of the four questions; later saves edit the answer's card.
   onAnswer: (theme: RippleCard, field: ReadingField, text: string) => void;
   // A card on one of the two walls.
-  onAddStake: (theme: RippleCard, kind: WallKind, text: string) => void;
+  onAddStake: (theme: RippleCard, kind: WallKind, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
   onDescribe: (card: RippleCard, description: string) => void;
   onDelete: (card: RippleCard) => void;
@@ -122,17 +125,24 @@ export function ExploreBoard({
   }
 
   const theme = active;
+  const twins = twinIndex(board);
 
   return (
     <>
       {rail}
       {prompts}
 
-      <section ref={setSheetEl} className="flex flex-col gap-4 border-t border-ink pt-3 lg:-mx-9 lg:px-9">
+      {/* Keyed by theme: the question editors and the two wall composers hold drafts in
+          local state, and a subtree reused across themes would carry one theme's
+          half-typed answer into the next — and save it there. */}
+      <section key={theme.id} ref={setSheetEl} className="flex flex-col gap-4 border-t border-ink pt-3 lg:-mx-9 lg:px-9">
         <ThemeLineagePanel
           theme={theme}
           implications={board.clusters.get(theme.id) ?? []}
           lineage={lineage}
+          // A copy in a second theme carries no Week 2 link of its own (0023); its trail
+          // is read through the twin that does.
+          sourceIdOf={(c) => c.sourceCardId ?? twins.get(implicationKey(c))?.sourceCardId ?? null}
           editable={editable}
           busy={busy}
           onEditTheme={(t) => onEdit(theme, t)}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { childOrderOf, type RippleCard } from "@/lib/ripples-types";
 import { flipOf, oppositeOf, type HopeFear, type SynthesisBoard } from "@/lib/synthesis-shape";
-import { AddCardForm } from "@/components/workshop/synthesis/SynthesisCard";
+import { AddCardForm, type AddResult } from "@/components/workshop/synthesis/SynthesisCard";
 import { HopeFearFocus } from "@/components/workshop/synthesis/HopeFearFocus";
 
 // A hope and its fear, side by side — the pair, not a card plus a button.
@@ -63,7 +63,7 @@ export function HopeFearPair({
   onEdit: (card: RippleCard, text: string) => void;
   onDescribe?: (card: RippleCard, description: string) => void;
   onConcern?: (card: RippleCard, text: string) => void;
-  onFlip: (parent: RippleCard, kind: HopeFear, text: string) => void;
+  onFlip: (parent: RippleCard, kind: HopeFear, text: string) => AddResult;
   // Deleting asks first: a card takes whatever was flipped from it along.
   onRequestDelete: (card: RippleCard) => void;
   // Both faces show just their text — see HopeFearFocus.
@@ -140,9 +140,10 @@ export function HopeFearPair({
               label={otherFace.ask}
               busy={busy}
               autoFocus
-              onAdd={(text) => {
-                onFlip(card, other, text);
-                setWriting(false);
+              onAdd={async (text) => {
+                const ok = await onFlip(card, other, text);
+                if (ok !== false) setWriting(false);
+                return ok;
               }}
               onDone={() => setWriting(false)}
             />

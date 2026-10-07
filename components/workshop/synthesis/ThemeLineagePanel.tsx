@@ -20,6 +20,7 @@ export function ThemeLineagePanel({
   theme,
   implications,
   lineage,
+  sourceIdOf,
   editable,
   busy,
   onEditTheme,
@@ -34,6 +35,9 @@ export function ThemeLineagePanel({
   theme: RippleCard;
   implications: RippleCard[];
   lineage: Record<string, Week2Lineage>;
+  // Which Week 2 card an implication came from. Defaults to its own sourceCardId; the
+  // explore step passes a twin-aware resolver, since a copy's link lives on its sibling.
+  sourceIdOf?: (card: RippleCard) => string | null;
   editable: boolean;
   busy: boolean;
   onEditTheme: (text: string) => void;
@@ -102,7 +106,8 @@ export function ThemeLineagePanel({
           </summary>
           <ul className="mt-2.5 flex flex-col gap-2.5">
             {implications.map((c) => {
-              const from = c.sourceCardId ? lineage[c.sourceCardId] : undefined;
+              const sourceId = sourceIdOf ? sourceIdOf(c) : c.sourceCardId;
+              const from = sourceId ? lineage[sourceId] : undefined;
               return (
                 <li key={c.id} className="border-l-2 border-black/15 pl-3">
                   <div className="text-[12.5px] leading-[1.4]">{c.text}</div>

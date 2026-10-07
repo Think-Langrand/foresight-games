@@ -143,13 +143,18 @@ export function SynthesisTeamView({
   // goes up into it. Standalone, the board draws its own header as before.
   const inTabs = useInSessionTabs();
 
-  const run = useCallback(async (fn: () => Promise<void>) => {
+  // Runs one board action, showing a failure as the flash. Resolves to whether it
+  // succeeded, so a composer can keep its draft when the write did not land (AddCardForm)
+  // instead of clearing the text and leaving only the toast.
+  const run = useCallback(async (fn: () => Promise<void>): Promise<boolean> => {
     setBusy(true);
     setFlash(null);
     try {
       await fn();
+      return true;
     } catch (e) {
       setFlash(e instanceof Error ? e.message : "Something went wrong");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -470,7 +475,13 @@ export function SynthesisTeamView({
   //           rather than working around it.
   const deleteTheme = (theme: RippleCard, mode: DeleteThemeMode) =>
     run(async () => {
-      const held = board.clusters.get(theme.id) ?? [];
+      // The theme's implications, parked ones included: parking keeps the row under the
+      // theme, so they would go with it on the cascade. "Move" hands them to the tray
+      // still parked; "purge" deletes them with the rest.
+      const held = [
+        ...(board.clusters.get(theme.id) ?? []),
+        ...board.parked.filter((c) => c.parentId === theme.id),
+      ];
 
       for (const card of held) {
         if (mode === "move") {

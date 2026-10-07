@@ -26,7 +26,7 @@ import {
   resolveConfig,
   type ReparentRefusal,
 } from "@/lib/ripples-types";
-import { indexSynthesisBoard, placementError } from "@/lib/synthesis-shape";
+import { placementError } from "@/lib/synthesis-shape";
 
 // One human sentence per refusal planReparent can return — the reasons exist so the
 // message can name the real cause, like the POST route's three distinct parent refusals.
@@ -372,12 +372,17 @@ export async function DELETE(
     // the theme's own work and go with it — the client confirm names the count.)
     if (card.cardKind === "theme") {
       const board = await listBoardCards(session.code);
-      const cluster = indexSynthesisBoard(board.filter((c) => c.teamId === card.teamId)).clusters;
-      const held = cluster.get(cardId)?.length ?? 0;
+      // Every implication still hanging off the theme — PARKED ones included. Parking
+      // only sets a flag; the row keeps its parent, so the cascade would take it too.
+      // The clusters index leaves parked cards out, which is right for the board and
+      // wrong here.
+      const held = board.filter(
+        (c) => c.teamId === card.teamId && c.parentId === cardId && c.cardKind === null
+      ).length;
       if (held > 0) {
         return NextResponse.json(
           {
-            error: `This theme still holds ${held} implication${held === 1 ? "" : "s"}. Move them out or park them first.`,
+            error: `This theme still holds ${held} implication${held === 1 ? "" : "s"}, parked ones included. Move them out first.`,
           },
           { status: 409 }
         );
@@ -390,10 +395,16 @@ export async function DELETE(
     // map: no lineage, and the circle would read "not on this board". Hand the link to a
     // sibling first, so whichever copy survives is the one the map finds.
     if (card.twinKey && card.sourceCardId) {
-      const sibling = (await listBoardCards(session.code)).find(
+      const siblings = (await listBoardCards(session.code)).filter(
         (c) => c.id !== cardId && c.teamId === card.teamId && c.twinKey === card.twinKey
       );
-      if (sibling) await moveCardSource(session.code, cardId, sibling.id, card.sourceCardId);
+      // The first sibling still there takes it. One deleted between our read and our
+      // write (two copies removed at once) is skipped — moveCardSource says so — and the
+      // next is tried; with none left the link goes with this card, as it would have
+      // anyway.
+      for (const s of siblings) {
+        if (await moveCardSource(session.code, cardId, s.id, card.sourceCardId)) break;
+      }
     }
 
     await deleteCard(session.code, cardId);

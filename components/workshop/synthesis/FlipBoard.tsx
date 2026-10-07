@@ -1,5 +1,6 @@
 "use client";
 
+import type { AddResult } from "@/components/workshop/synthesis/SynthesisCard";
 import { useMemo, useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import {
@@ -39,7 +40,7 @@ export function FlipBoard({
   // Which fear is open. Owned by the view so leaving and returning keeps your place.
   focusId: string | null;
   onFocus: (id: string | null) => void;
-  onFlip: (parent: RippleCard, kind: HopeFear, text: string) => void;
+  onFlip: (parent: RippleCard, kind: HopeFear, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
   onDelete: (card: RippleCard) => void;
   onGoToHopes: () => void;
