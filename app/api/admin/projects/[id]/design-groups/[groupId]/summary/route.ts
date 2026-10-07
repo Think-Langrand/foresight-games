@@ -10,7 +10,7 @@ import { getRipplesView } from "@/lib/ripples";
 import { shapeFromView } from "@/lib/group-answers-shape";
 import { indexSynthesisBoard, summaryCardCount } from "@/lib/synthesis-shape";
 import { summarizeSynthesis } from "@/lib/analysis/synthesis-summary";
-import type { SynthesisSummary } from "@/lib/synthesis-summary-shape";
+import { summaryInputHash, type SynthesisSummary } from "@/lib/synthesis-summary-shape";
 
 export const dynamic = "force-dynamic";
 // One model call over the whole board. The comparable whole-board call (clustering) measured
@@ -74,6 +74,8 @@ export async function POST(
       ...generated,
       generatedAt: new Date().toISOString(),
       cardCount: summaryCardCount(indexSynthesisBoard(view.cards)),
+      // Exactly what the model read, so the client can tell an edit from no change.
+      inputHash: summaryInputHash(shaped),
     };
     const stored = (session.config ?? {}) as Record<string, unknown>;
     await updateSession(session.id, session.code, { config: { ...stored, summary } });

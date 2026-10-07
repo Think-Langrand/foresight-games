@@ -118,24 +118,29 @@ export async function summarizeSynthesis(
 
     const overview = str(parsed.overview, SUMMARY_LIMITS.overview);
     if (!overview) return null;
-    const byKey = new Map(digest.themes.map((t) => [t.key, t]));
-    const themes = (Array.isArray(parsed.themes) ? parsed.themes : [])
-      .filter((t): t is Record<string, unknown> => typeof t === "object" && t !== null)
-      .flatMap((t) => {
-        const source = byKey.get(str(t.themeId, 16));
-        if (!source) return [];
-        return [
-          {
-            themeId: source.themeId,
-            title: str(t.title, SUMMARY_LIMITS.item) || source.title,
-            about: str(t.about, SUMMARY_LIMITS.field),
-            atStake: str(t.atStake, SUMMARY_LIMITS.field),
-            risks: list(t.risks),
-            opportunities: list(t.opportunities),
-          },
-        ];
-      })
-      .slice(0, SUMMARY_LIMITS.themes);
+    // One block per digest theme, in digest order, whatever the model did: the schema can
+    // say "themeId is one of these keys" but not "each exactly once", so a valid reply can
+    // still skip a theme or name one twice. The first block for a key wins; a theme the
+    // model left out gets a block that carries its title and nothing else, so the
+    // facilitator sees the gap rather than a summary that quietly has fewer themes than
+    // the board.
+    const written = new Map<string, Record<string, unknown>>();
+    for (const t of Array.isArray(parsed.themes) ? parsed.themes : []) {
+      if (typeof t !== "object" || t === null) continue;
+      const key = str((t as Record<string, unknown>).themeId, 16);
+      if (!written.has(key)) written.set(key, t as Record<string, unknown>);
+    }
+    const themes = digest.themes.slice(0, SUMMARY_LIMITS.themes).map((source) => {
+      const t = written.get(source.key) ?? {};
+      return {
+        themeId: source.themeId,
+        title: str(t.title, SUMMARY_LIMITS.item) || source.title,
+        about: str(t.about, SUMMARY_LIMITS.field),
+        atStake: str(t.atStake, SUMMARY_LIMITS.field),
+        risks: list(t.risks),
+        opportunities: list(t.opportunities),
+      };
+    });
     return { overview, themes, tensions: list(parsed.tensions) };
   } catch (err) {
     console.error("[summarizeSynthesis]", err);

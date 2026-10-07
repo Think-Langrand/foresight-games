@@ -66,12 +66,16 @@ export function ThemeDeck({ board }: { board: SynthesisBoard }) {
           <button disabled={at === 0} onClick={() => go(at - 1)} className={navBtn} aria-label="Previous theme">
             ← Prev
           </button>
-          <span className="mx-1 flex items-center gap-1" aria-hidden>
+          {/* One dot per theme. Exposed to assistive tech, since they are focusable: each
+              names its theme, and the current one says so. */}
+          <span className="mx-1 flex items-center gap-1" role="group" aria-label="Go to theme">
             {themes.map((t, i) => (
               <button
                 key={t.id}
                 onClick={() => go(i)}
                 title={t.text}
+                aria-label={`Theme ${i + 1} of ${themes.length}: ${t.text}`}
+                aria-current={i === at ? "true" : undefined}
                 className={
                   "h-[8px] w-[8px] rounded-full border border-ink " + (i === at ? "bg-ink" : "bg-paper hover:bg-lime")
                 }

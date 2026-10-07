@@ -35,6 +35,7 @@ interface CardRow {
   card_order: string;
   section: string | null;
   parent_card_id: string | null;
+  card_kind: string | null;
   created_at: string;
   author_player_id: string | null;
 }
@@ -74,6 +75,7 @@ export async function getProgramActivity(projectId: string): Promise<ProgramActi
         order: c.card_order,
         parentId: c.parent_card_id,
         section: c.section,
+        cardKind: c.card_kind,
         createdAt: c.created_at,
         authorPlayerId: c.author_player_id,
       })
@@ -135,7 +137,7 @@ async function loadBoardRows(codes: string[]): Promise<{ cards: CardRow[]; playe
   const [cards, players] = await Promise.all([
     selectAllByCode<CardRow>(
       "ripple_cards",
-      "code, card_order, section, parent_card_id, created_at, author_player_id",
+      "code, card_order, section, parent_card_id, card_kind, created_at, author_player_id",
       codes
     ),
     selectAllByCode<PlayerRow>("ripple_players", "code, id, display_name, submitted_at", codes),

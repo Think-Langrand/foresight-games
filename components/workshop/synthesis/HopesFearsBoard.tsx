@@ -37,6 +37,7 @@ export function HopesFearsBoard({
   busy,
   admin,
   summary,
+  summaryHash,
   summarizing,
   summaryError,
   onSummarize,
@@ -49,6 +50,8 @@ export function HopesFearsBoard({
   busy: boolean;
   admin?: AdminTools;
   summary: SynthesisSummary | null;
+  // summaryInputHash of the live board, for "the board has changed since this was written".
+  summaryHash: string;
   summarizing: boolean;
   summaryError: string | null;
   onSummarize: () => void;
@@ -93,6 +96,7 @@ export function HopesFearsBoard({
           summary={summary}
           admin={admin}
           currentCount={summaryCardCount(board)}
+          currentHash={summaryHash}
           hasThemes={board.themes.length > 0}
           running={summarizing}
           error={summaryError}

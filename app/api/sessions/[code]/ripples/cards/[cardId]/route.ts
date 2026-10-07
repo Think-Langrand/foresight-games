@@ -6,6 +6,7 @@ import {
   flagCard,
   getPlayerByParticipant,
   getRippleCard,
+  isUniqueViolation,
   listBoardCards,
   scoreCard,
   setCardParked,
@@ -13,6 +14,7 @@ import {
   updateCardDescription,
   updateCardSort,
   updateCardText,
+  updateTwinText,
   voteCard,
 } from "@/lib/ripples";
 import {
@@ -190,6 +192,20 @@ export async function PATCH(
         if (misplaced) return NextResponse.json({ error: misplaced }, { status: 400 });
       }
       const boardCards = await listBoardCards(session.code);
+      // A copy of an implication (0023) dragged into a theme that already holds another
+      // copy of it would put the same note in that theme twice. Same rule, and the same
+      // answer, as the add-card route gives a second copy; the unique index (0024) is
+      // the backstop for the race.
+      if (
+        card.twinKey &&
+        parentId !== null &&
+        boardCards.some((c) => c.id !== cardId && c.twinKey === card.twinKey && c.parentId === parentId)
+      ) {
+        return NextResponse.json(
+          { error: "That implication is already in this theme." },
+          { status: 409 }
+        );
+      }
       const plan = planReparent(
         boardCards.filter((c) => c.teamId === card.teamId),
         cardId,
@@ -198,7 +214,17 @@ export async function PATCH(
       if (!plan.ok) {
         return NextResponse.json({ error: REPARENT_MESSAGES[plan.reason] }, { status: 400 });
       }
-      await applyReparent(session.code, cardId, parentId, plan.moves);
+      try {
+        await applyReparent(session.code, cardId, parentId, plan.moves);
+      } catch (err) {
+        if (isUniqueViolation(err)) {
+          return NextResponse.json(
+            { error: "That implication is already in this theme." },
+            { status: 409 }
+          );
+        }
+        throw err;
+      }
       const own = plan.moves.find((m) => m.cardId === cardId);
       return NextResponse.json({ ok: true, parentCardId: parentId, cardOrder: own?.order });
     }
@@ -265,7 +291,10 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      await updateCardText(session.code, cardId, text);
+      // Copies of one implication in several themes (0023) are one implication: editing
+      // any copy edits them all, so the same note never reads differently per theme.
+      if (card.twinKey) await updateTwinText(session.code, card.twinKey, text);
+      else await updateCardText(session.code, cardId, text);
       return NextResponse.json({ ok: true });
     }
 

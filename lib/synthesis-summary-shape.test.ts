@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { SynthesisExercise } from "@/components/design-groups/AnswerPanels";
-import { coerceSummary, summaryDigest, SUMMARY_LIMITS } from "./synthesis-summary-shape";
+import { coerceSummary, summaryDigest, summaryInputHash, SUMMARY_LIMITS } from "./synthesis-summary-shape";
 
 const row = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
 const stake = (id: string, text: string) => ({ ...row(id, text), mechanism: null, shortlisted: false });
@@ -107,5 +107,23 @@ describe("summaryDigest", () => {
 
   it("is empty for a board with no themes", () => {
     expect(summaryDigest(ex([]))).toEqual({ themes: [], text: "", keyToId: {} });
+  });
+});
+
+describe("summaryInputHash", () => {
+  it("is stable for the same board and changes when anything the model reads changes", () => {
+    const a = ex([theme("t1", "Access"), theme("t2", "Trust")]);
+    expect(summaryInputHash(a)).toBe(summaryInputHash(ex([theme("t1", "Access"), theme("t2", "Trust")])));
+    // A renamed theme: same card count, different input.
+    expect(summaryInputHash(ex([theme("t1", "Access to care"), theme("t2", "Trust")]))).not.toBe(summaryInputHash(a));
+    // An added risk.
+    expect(
+      summaryInputHash(ex([theme("t1", "Access", { risks: [stake("r1", "Longer waits")] }), theme("t2", "Trust")]))
+    ).not.toBe(summaryInputHash(a));
+  });
+
+  it("round-trips through coerceSummary, and is absent on an older summary", () => {
+    expect(coerceSummary({ ...valid, inputHash: "1f-0a1b2c3d" })?.inputHash).toBe("1f-0a1b2c3d");
+    expect(coerceSummary(valid)?.inputHash).toBeUndefined();
   });
 });
