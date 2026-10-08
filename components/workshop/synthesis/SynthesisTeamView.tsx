@@ -832,10 +832,12 @@ export function SynthesisTeamView({
     />
   );
 
-  // The two theme steps have a rail on both sides, so the column between them is the
-  // whole board: no cap. Not while the scenario is showing — toggling to it unmounts the
-  // rails, and a scenario spread across the full viewport is unreadable.
-  const fluid = !showScenario && (step === "cluster" || step === "explore");
+  // Every step with a rail on BOTH sides gets the whole board between them: no cap. Step 3
+  // joined them when the theme rail went back on it. Not while the scenario is showing —
+  // toggling to it unmounts the rails, and a scenario spread across the full viewport is
+  // unreadable.
+  const fluid =
+    !showScenario && (step === "cluster" || step === "explore" || step === "hopes");
 
   return (
     <Shell wide fluid={fluid}>
