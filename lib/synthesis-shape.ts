@@ -499,13 +499,13 @@ export function childrenOf(board: SynthesisBoard, cardId: string): RippleCard[] 
   ];
 }
 
-// --- One answer per question ---------------------------------------------------------
+// --- Reading a question's answers ----------------------------------------------------
 
 // The card answering `kind` under `parentId`, whichever bucket holds it — a theme's
 // condition in `answers`, its risk in `risks`, a hope's "who does this concern" in
-// `concerns`. First card of the kind wins, as everywhere else: a second card of one kind is
-// a duplicate the UI never creates, and keeping the earlier one means a stray never
-// displaces what the group actually wrote.
+// `concerns`. For the kinds that still hold one answer each: 0027 freed step 2's four to
+// repeat, and those are read through `answersOf`/`themeAnswers` instead. First card of the
+// kind wins, so for a singleton kind a stray never displaces what the group actually wrote.
 export function answerOf(board: SynthesisBoard, parentId: string, kind: CardKind): RippleCard | null {
   return childrenOf(board, parentId).find((c) => c.cardKind === kind) ?? null;
 }

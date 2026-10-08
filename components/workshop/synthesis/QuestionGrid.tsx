@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CARD_TEXT_MAX, type RippleCard } from "@/lib/ripples-types";
+import type { AddResult } from "@/components/workshop/synthesis/SynthesisCard";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
 // A set of questions as a grid of boxes. Each box carries its question, a checkbox that
@@ -68,7 +69,8 @@ export function QuestionGrid<K extends string>({
   // Later steps show earlier answers for context; there the boxes read rather than invite.
   readOnly?: boolean;
   // Another answer to a question — a card of its own, so two people adding at once both land.
-  onAnswer: (key: K, text: string) => void;
+  // Hands back whether the write landed, so a refused add keeps the composer and its draft.
+  onAnswer: (key: K, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
   // Either the ✕ on an answer, or saving one empty rather than leaving a blank card.
   onDelete: (card: RippleCard) => void;
@@ -199,10 +201,17 @@ export function QuestionGrid<K extends string>({
                     hint={f.hint}
                     initial=""
                     busy={busy}
-                    onSave={(next) => {
+                    onSave={async (next) => {
                       const t = next.trim();
-                      if (t) onAnswer(f.key, t);
-                      setOpen(null);
+                      if (!t) {
+                        setOpen(null);
+                        return;
+                      }
+                      // Close only once the write landed. A refused add — the step moved on,
+                      // the session closed, the connection dropped — keeps the composer open
+                      // with the text in it, so the person retries rather than retypes.
+                      const landed = await onAnswer(f.key, t);
+                      if (landed !== false) setOpen(null);
                     }}
                     onCancel={() => setOpen(null)}
                   />
@@ -260,7 +269,7 @@ function AnswerEditor({
   hint?: string;
   initial: string;
   busy: boolean;
-  onSave: (text: string) => void;
+  onSave: (text: string) => void | Promise<void>;
   onCancel: () => void;
 }) {
   const [text, setText] = useState(initial);
