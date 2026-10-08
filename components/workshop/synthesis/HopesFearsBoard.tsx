@@ -118,9 +118,10 @@ export function HopesFearsBoard({
       </PromptRail>
 
       <div className="flex flex-col gap-5">
-        {/* The walls first: this step is the writing, and the two panels under them are
-            what it is written FROM. They used to sit above it, so a group opening step 3
-            met two things to read before anything to do. */}
+        {/* The walls first: this step is the writing, and what is under them is what it
+            is written FROM — the themes, then the facilitator's summary of them. They used
+            to sit above it, so a group opening step 3 met two things to read before
+            anything to do. */}
         <section className="grid gap-4 lg:grid-cols-2">
           <CardWall
             tone="hope"
@@ -154,6 +155,8 @@ export function HopesFearsBoard({
           />
         </section>
 
+        <ThemeDeck board={board} activeId={active?.id ?? null} onPick={setThemeId} />
+
         <SummaryPanel
           summary={summary}
           admin={admin}
@@ -164,8 +167,6 @@ export function HopesFearsBoard({
           error={summaryError}
           onGenerate={onSummarize}
         />
-
-        <ThemeDeck board={board} activeId={active?.id ?? null} onPick={setThemeId} />
       </div>
 
       <ConfirmModal
