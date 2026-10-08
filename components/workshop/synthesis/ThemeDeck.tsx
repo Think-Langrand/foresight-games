@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import { themeAnswers, type SynthesisBoard } from "@/lib/synthesis-shape";
 import { READING_QUESTIONS } from "@/components/workshop/synthesis/ReadingBoard";
 import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
 
 // The themes, one card at a time, to read while writing hopes and fears. Step 3 is the
-// board's, not a theme's, so the rail is gone — but a hope or fear is meant to come off
-// what the group worked out in steps 1–2, and this keeps that within reach without
-// leaving the step. Prev/Next, the dots, or the arrow keys turn the deck.
+// board's, not a theme's, but a hope or fear is meant to come off what the group worked
+// out in steps 1–2, and this keeps that within reach without leaving the step. Prev/Next,
+// the dots, or the arrow keys turn the deck — and so does the theme rail, which is why
+// which theme is showing is the caller's state rather than this deck's.
 //
 // Folds to one line, remembered per browser like the other rails: once the group has read
 // through, the walls want the room back.
@@ -19,20 +19,28 @@ const deckPref = makePrefStore("synthesis.themeDeck", "open", ["open", "closed"]
 const navBtn =
   "rounded-[2px] border border-ink bg-paper px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-30";
 
-export function ThemeDeck({ board }: { board: SynthesisBoard }) {
+export function ThemeDeck({
+  board,
+  activeId,
+  onPick,
+}: {
+  board: SynthesisBoard;
+  // Which theme is showing. Shared with the rail, so picking on either moves both.
+  activeId: string | null;
+  onPick: (id: string) => void;
+}) {
   const open = usePref(deckPref) === "open";
-  const [index, setIndex] = useState(0);
   const themes = board.themes;
   if (themes.length === 0) return null;
 
-  // Clamped on every render, not synced: a theme deleted live out from under the deck
-  // simply shows the last one.
-  const at = Math.min(index, themes.length - 1);
+  // A theme deleted live out from under the deck, or nothing picked yet, simply shows the
+  // first one — resolved on every render rather than synced.
+  const at = Math.max(0, themes.findIndex((t) => t.id === activeId));
   const theme: RippleCard = themes[at];
   const answers = themeAnswers(board, theme.id);
   const risks = board.risks.get(theme.id) ?? [];
   const opportunities = board.opportunities.get(theme.id) ?? [];
-  const go = (n: number) => setIndex(Math.max(0, Math.min(themes.length - 1, n)));
+  const go = (n: number) => onPick(themes[Math.max(0, Math.min(themes.length - 1, n))].id);
 
   return (
     <section
@@ -97,9 +105,6 @@ export function ThemeDeck({ board }: { board: SynthesisBoard }) {
         <div className="border-t-2 border-dashed border-black/15 px-5 py-4">
           <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">What is this theme about</div>
           <h3 className="mt-1 text-[18px] font-extrabold uppercase leading-[1.1] tracking-tight">{theme.text}</h3>
-          {theme.description && (
-            <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.5] text-ink/80">{theme.description}</p>
-          )}
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {READING_QUESTIONS.map((q) => {

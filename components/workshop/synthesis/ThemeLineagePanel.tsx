@@ -1,15 +1,20 @@
 "use client";
 
-import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
+import type { RippleCard } from "@/lib/ripples-types";
 import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { InlineText } from "@/components/workshop/synthesis/SynthesisCard";
 
-// The theme's head card, everywhere a theme is worked on: its name, what the group said it
-// means — and, folded away, the implications it was built from.
+// The theme's head card, everywhere a theme is worked on: its name — and, folded away, the
+// implications it was built from.
 //
-// The name and description are the point, so they are plain and open. The implications are
-// reference material you dip into, so they are the one thing behind a disclosure; step 1
-// shows them as full cards instead and turns the disclosure off.
+// The name is the point, so it is plain and open: this is where a theme minted by a drop
+// gets named, and an unnamed one says so in its place. The implications are reference
+// material you dip into, so they are the one thing behind a disclosure; step 1 shows them
+// as full cards instead and turns the disclosure off.
+//
+// A description used to be asked for under the name. Groups wrote the name and left it
+// blank, so the ask is gone; one already written still shows, and the export and the
+// facilitator's summary still read it.
 //
 // Each implication carries its Week 2 trail where there is one. Three cases legitimately
 // have none, and each simply shows no trail: a card typed here by hand, a seed whose Week 2
@@ -24,12 +29,10 @@ export function ThemeLineagePanel({
   editable,
   busy,
   onEditTheme,
-  onDescribeTheme,
   namePlaceholder,
   menu,
   note,
   showImplications = true,
-  showDescription = true,
   children,
 }: {
   theme: RippleCard;
@@ -41,16 +44,12 @@ export function ThemeLineagePanel({
   editable: boolean;
   busy: boolean;
   onEditTheme: (text: string) => void;
-  onDescribeTheme: (description: string) => void;
   namePlaceholder?: string;
   // Drawn top-right of the name — the theme's own actions menu, where a step has one.
   menu?: React.ReactNode;
   // A line under the fields: step 1 uses it to teach what a theme is.
   note?: React.ReactNode;
   showImplications?: boolean;
-  // Step 1's sheet is the statement and the four questions; the description is still
-  // written on the column head and shown on later steps.
-  showDescription?: boolean;
   // Rendered INSIDE the card, edge to edge. Step 1 puts the implications and the readings
   // here so the theme and everything being worked out about it read as one sheet rather
   // than a header and a form.
@@ -72,24 +71,16 @@ export function ThemeLineagePanel({
               text={theme.text}
               editable={editable}
               busy={busy}
+              emptyLabel="＋ Name this theme"
               placeholder={namePlaceholder}
               onSave={onEditTheme}
               editIcon
             />
           </h2>
 
-          {(showDescription || theme.description) && (
-            <div className="mt-1.5 max-w-[70ch] text-[13.5px] leading-[1.5] text-ink/80">
-              <InlineText
-                text={theme.description ?? ""}
-                editable={editable && showDescription}
-                busy={busy}
-                emptyLabel="＋ Describe this theme"
-                placeholder="What does this theme mean?"
-                maxLength={CARD_DESCRIPTION_MAX}
-                rows={3}
-                onSave={onDescribeTheme}
-              />
+          {theme.description && (
+            <div className="mt-1.5 max-w-[70ch] whitespace-pre-wrap break-words text-[13.5px] leading-[1.5] text-ink/80">
+              {theme.description}
             </div>
           )}
         </div>

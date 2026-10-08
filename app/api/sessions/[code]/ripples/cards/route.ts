@@ -109,7 +109,11 @@ export async function POST(
         ? body.copyOfCardId
         : null;
     const text = (body.text ?? "").trim();
-    if ((!copyOfId && text.length < 1) || text.length > CARD_TEXT_MAX) {
+    // A theme is minted with NO name: the group names it once it can see what the pile is
+    // about, and until then the board numbers it by position and nudges (isUnnamedTheme in
+    // lib/synthesis-shape). Every other card IS its text, so a blank one is a mistake.
+    const mayBeBlank = Boolean(copyOfId) || kind === "theme";
+    if ((!mayBeBlank && text.length < 1) || text.length > CARD_TEXT_MAX) {
       return NextResponse.json(
         { error: `Card text must be 1–${CARD_TEXT_MAX} characters.` },
         { status: 400 }
