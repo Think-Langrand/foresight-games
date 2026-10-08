@@ -25,6 +25,12 @@ export interface Region extends Pos {
   shape: "rect" | "ellipse";
 }
 
+// One saved card position, as it crosses the wire. Keyed by implicationKey, not a row id —
+// one implication can be several rows but is only ever one circle on the canvas.
+export interface CanvasCardPos extends Pos {
+  itemId: string;
+}
+
 // How far a card's centre must travel OUTSIDE a region before it stops being a member.
 //
 // Without it, a 3px nudge across an overlap boundary silently deletes a database row —

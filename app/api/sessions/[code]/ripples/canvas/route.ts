@@ -5,10 +5,9 @@ import {
   getPlayerByParticipant,
   listBoardCards,
   upsertCanvasLayout,
-  type CanvasCardPos,
 } from "@/lib/ripples";
 import { implicationKey } from "@/lib/synthesis-shape";
-import type { Region } from "@/lib/canvas-shape";
+import type { CanvasCardPos, Region } from "@/lib/canvas-shape";
 
 export const dynamic = "force-dynamic";
 

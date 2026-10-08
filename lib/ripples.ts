@@ -4,7 +4,7 @@ import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import { getForesightDrivers, getScenario, foresightConfigured } from "@/lib/foresight/client";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import { TEAM_COLORS, type WorkshopSession } from "@/lib/workshop-types";
-import type { Region } from "@/lib/canvas-shape";
+import type { CanvasCardPos, Region } from "@/lib/canvas-shape";
 import {
   isCardKind,
   resolveConfig,
@@ -926,12 +926,6 @@ interface CanvasRegionRow {
   w: number;
   h: number;
   shape: string;
-}
-
-export interface CanvasCardPos {
-  itemId: string;
-  x: number;
-  y: number;
 }
 
 export interface CanvasLayout {
