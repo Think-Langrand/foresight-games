@@ -1394,7 +1394,7 @@ export function ClusterBoard({
         className="flex flex-col gap-1.5 border-b border-t border-[var(--rule)] border-t-ink pb-2.5 pt-3 lg:-mx-9 lg:px-9"
       >
         <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
-          {focus ? "Theme" : "Implications"}
+          {focus ? "Theme" : "Implication filters:"}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           {focus ? (
@@ -1428,7 +1428,7 @@ export function ClusterBoard({
           <span className="ml-auto flex flex-wrap items-center gap-2">
             {(week2Cards.length > 0 || focus) && (
               <span role="group" aria-label="Working in" className="flex items-center gap-1">
-                {(["cards", "map"] as const).map((v) => {
+                {(["map", "cards"] as const).map((v) => {
                   if (v === "map" && week2Cards.length === 0) return null;
                   const on = !focus && view === v;
                   const label = v === "cards" ? "Cards" : "Map";
