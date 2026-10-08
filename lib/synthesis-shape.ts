@@ -534,10 +534,28 @@ export function boardAnswersOf(board: SynthesisBoard): Partial<Record<RoleField,
   return out;
 }
 
-// Step 1 is done once the theme actually holds something. A theme is a grouping; an
-// empty one has not grouped anything yet.
+// A theme nobody has named yet. New themes are minted with no name at all — the group
+// names one once it can see what the pile is about — so the board numbers them by POSITION
+// and this says whether a name has arrived.
+//
+// The second case is older boards, which minted "Theme N" as the real name. A number is
+// exactly what we are asking groups not to settle for, so those read as unnamed too and
+// get the same nudge. Anchored, so a theme genuinely called "Theme parks close" is named.
+const MINTED_NAME = /^theme \s*\d+$/i;
+
+export function isUnnamedTheme(theme: RippleCard): boolean {
+  const name = theme.text.trim();
+  return name.length === 0 || MINTED_NAME.test(name);
+}
+
+// Step 1 is done once the theme holds something AND the group has named it. A theme is a
+// grouping with a claim attached: an empty one has not grouped anything, and an unnamed one
+// has not said what the grouping means. Unnamed but full is "started" rather than "done",
+// which is what puts it under the rail's ◐ and in the way of "Next unfinished →".
 export function clusterProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
-  return (board.clusters.get(themeId)?.length ?? 0) > 0 ? "done" : "empty";
+  if ((board.clusters.get(themeId)?.length ?? 0) === 0) return "empty";
+  const theme = board.themes.find((t) => t.id === themeId);
+  return theme && isUnnamedTheme(theme) ? "started" : "done";
 }
 
 // Step 2 is done when the four questions are answered AND the theme has at least one risk

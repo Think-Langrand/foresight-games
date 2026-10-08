@@ -6,6 +6,7 @@ import type { RippleCard } from "@/lib/ripples-types";
 import {
   boardChainCards,
   descendantsOf,
+  exploreProgress,
   summaryCardCount,
   type HopeFear,
   type SynthesisBoard,
@@ -15,6 +16,7 @@ import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 import { PromptRail, Prompts } from "@/components/workshop/synthesis/PromptRail";
 import { CardWall } from "@/components/workshop/synthesis/CardWall";
 import { ThemeDeck } from "@/components/workshop/synthesis/ThemeDeck";
+import { ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
 import { SummaryPanel } from "@/components/workshop/synthesis/SummaryPanel";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
@@ -61,15 +63,38 @@ export function HopesFearsBoard({
   onDelete: (card: RippleCard) => void;
 }) {
   const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
+  // Which theme the deck is showing. Up here because the rail picks it too — one piece of
+  // state, two pickers, so they can never disagree about which theme is open.
+  const [themeId, setThemeId] = useState<string | null>(null);
   const doomed = pendingDelete ? descendantsOf(board, pendingDelete.id) : [];
 
   const entries = useMemo(() => boardChainCards(board), [board]);
   const hopes = entries.filter((e) => e.card.cardKind === "hope");
   const fears = entries.filter((e) => e.card.cardKind === "fear");
   const flippedFrom = new Map(entries.map((e) => [e.card.id, e.flippedFrom]));
+  // Nothing picked yet, or a theme deleted under us: the first one.
+  const active = board.themes.find((t) => t.id === themeId) ?? board.themes[0] ?? null;
 
   return (
     <>
+      {/* The same rail as every theme step. Step 3 is the board's, not a theme's, so it
+          picks what the deck below READS rather than what is being worked on — and its
+          glyph is steps 1–2's, because that is what there is to write a hope or a fear
+          off. Hidden below lg like always; the deck's own Prev/Next and dots are the
+          picker there, and stay at every width for reading straight through. */}
+      {board.themes.length > 0 && (
+        <ThemeRail
+          board={board}
+          activeId={active?.id ?? null}
+          // Clicking the lit square would close a theme on the other steps; here there is
+          // always one showing, so it stays put.
+          onPick={(id) => setThemeId(id ?? active?.id ?? null)}
+          progressFor={(t) => exploreProgress(board, t.id)}
+          progressLabel="Exploration"
+          hint="Click a theme to read it below."
+        />
+      )}
+
       <PromptRail>
         <Prompts
           heading="Hopes & fears"
@@ -93,19 +118,10 @@ export function HopesFearsBoard({
       </PromptRail>
 
       <div className="flex flex-col gap-5">
-        <SummaryPanel
-          summary={summary}
-          admin={admin}
-          currentCount={summaryCardCount(board)}
-          currentHash={summaryHash}
-          hasThemes={board.themes.length > 0}
-          running={summarizing}
-          error={summaryError}
-          onGenerate={onSummarize}
-        />
-
-        <ThemeDeck board={board} />
-
+        {/* The walls first: this step is the writing, and what is under them is what it
+            is written FROM — the themes, then the facilitator's summary of them. They used
+            to sit above it, so a group opening step 3 met two things to read before
+            anything to do. */}
         <section className="grid gap-4 lg:grid-cols-2">
           <CardWall
             tone="hope"
@@ -138,6 +154,19 @@ export function HopesFearsBoard({
             badgeFor={(c) => (flippedFrom.get(c.id) ? "↩ flipped from a hope" : null)}
           />
         </section>
+
+        <ThemeDeck board={board} activeId={active?.id ?? null} onPick={setThemeId} />
+
+        <SummaryPanel
+          summary={summary}
+          admin={admin}
+          currentCount={summaryCardCount(board)}
+          currentHash={summaryHash}
+          hasThemes={board.themes.length > 0}
+          running={summarizing}
+          error={summaryError}
+          onGenerate={onSummarize}
+        />
       </div>
 
       <ConfirmModal

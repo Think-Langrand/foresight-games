@@ -282,8 +282,10 @@ export function FuturesWheel({
             rims (rimToRim), so nothing runs underneath a circle in the first place. */}
         <svg width={size} height={size} className="absolute inset-0" style={{ pointerEvents: "none" }}>
           {links.map((l) => {
-            // On the picked-out path the line darkens with its circles, so the chain reads
-            // as one lane rather than a row of lit circles on an unlit map.
+            // On the picked-out path the line takes the trail's blue AND thickens with
+            // its circles, so the chain reads as one lane rather than a row of lit circles
+            // on an unlit map. Muted at the same 1.5px was nearly the hairline it was
+            // meant to beat.
             const onPath = highlightIds ? highlightIds.has(l.toId) : false;
             return (
               <line
@@ -292,8 +294,8 @@ export function FuturesWheel({
                 y1={l.y1}
                 x2={l.x2}
                 y2={l.y2}
-                stroke={onPath ? "var(--muted)" : "var(--hairline)"}
-                strokeWidth={1.5}
+                stroke={onPath ? "var(--blue)" : "var(--hairline)"}
+                strokeWidth={onPath ? 3 : 1.5}
               />
             );
           })}
@@ -306,16 +308,37 @@ export function FuturesWheel({
         )}
         {nodes.map((n) => {
           const selected = n.id === selectedId;
+          // A step on the trail to the selected circle. It keeps full-strength text while
+          // the rest of the map dims, and takes a pale BLUE fill and a blue edge so the
+          // chain is visible as a shape before any of it is read — "which lane is this on"
+          // is the question the trail is answering.
+          //
+          // Blue, not lime: lime is this board's "theme" colour — the theme tint, the open
+          // theme's square, a hit in the open theme's ring — so a lime trail read as "these
+          // belong to the theme", which is a different claim entirely.
+          const onPath = highlightIds ? highlightIds.has(n.id) : false;
           return (
             <WheelCircle
               key={n.id}
               x={n.x}
               y={n.y}
               r={NODE_R}
-              bg={selected ? "var(--lime)" : "var(--card)"}
-              border={selected ? "var(--ink)" : branch ? "var(--muted)" : rippleDepthColor(n.depth)}
+              bg={
+                selected
+                  ? "rgba(39,93,226,0.30)"
+                  : onPath
+                    ? "rgba(39,93,226,0.12)"
+                    : "var(--card)"
+              }
+              border={
+                selected || onPath
+                  ? "var(--blue)"
+                  : branch
+                    ? "var(--muted)"
+                    : rippleDepthColor(n.depth)
+              }
               label={n.text}
-              dim={highlightIds ? !highlightIds.has(n.id) : false}
+              dim={highlightIds ? !onPath : false}
               emphasis={selected}
               ring={ringFor?.(n.id, n.depth) ?? null}
               extra={nodeExtra?.(n.id)}
@@ -367,7 +390,7 @@ function WheelCircle({
   const ringWidth = ring?.width ?? 3;
   const shadow = ring
     ? emphasis
-      ? `0 0 0 ${ringWidth}px ${ring.color}, 0 0 0 ${ringWidth + 6}px rgba(196,255,103,0.45)`
+      ? `0 0 0 ${ringWidth}px ${ring.color}, 0 0 0 ${ringWidth + 6}px rgba(39,93,226,0.30)`
       : `0 0 0 ${ringWidth}px ${ring.color}`
     : undefined;
   const { className: extraClass = "", style: extraStyle, ...handlers } = rest;
@@ -378,7 +401,7 @@ function WheelCircle({
         // Crowded rings overlap. The circle under the pointer rises above its neighbours
         // and grows a step, so what you are about to grab is never in doubt.
         "absolute flex items-center justify-center rounded-full text-center shadow-[0_1px_0_rgba(36,36,34,0.08)] transition-transform duration-100 hover:z-20 hover:scale-105 " +
-        (emphasis ? "z-10 shadow-[0_0_0_6px_rgba(196,255,103,0.45)] " : "") +
+        (emphasis ? "z-10 shadow-[0_0_0_6px_rgba(39,93,226,0.30)] " : "") +
         extraClass
       }
       style={{

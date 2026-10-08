@@ -42,7 +42,6 @@ export function ExploreBoard({
   onAnswer,
   onAddStake,
   onEdit,
-  onDescribe,
   onDelete,
   onGoToCluster,
 }: {
@@ -57,7 +56,6 @@ export function ExploreBoard({
   // A card on one of the two walls.
   onAddStake: (theme: RippleCard, kind: WallKind, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
-  onDescribe: (card: RippleCard, description: string) => void;
   onDelete: (card: RippleCard) => void;
   onGoToCluster: () => void;
 }) {
@@ -146,7 +144,6 @@ export function ExploreBoard({
           editable={editable}
           busy={busy}
           onEditTheme={(t) => onEdit(theme, t)}
-          onDescribeTheme={(d) => onDescribe(theme, d)}
           namePlaceholder="What is this theme about?"
         >
           <ReadingBoard

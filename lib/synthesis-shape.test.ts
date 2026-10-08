@@ -12,6 +12,7 @@ import {
   descendantsOf,
   stakeProgress,
   clusterProgress,
+  isUnnamedTheme,
   exploreProgress,
   flipProgress,
   summaryCardCount,
@@ -1298,10 +1299,40 @@ describe("the board's own hopes and fears (steps 3 and 4)", () => {
   });
 });
 
+describe("isUnnamedTheme", () => {
+  it("an empty or blank name is unnamed", () => {
+    expect(isUnnamedTheme(theme("TH", 1, { text: "" }))).toBe(true);
+    expect(isUnnamedTheme(theme("TH", 1, { text: "   " }))).toBe(true);
+  });
+
+  // Boards made before naming was deferred minted "Theme N" as the real name, and the
+  // whole point is that a number is not an answer — so they read as unnamed too.
+  it("a minted Theme N name is unnamed, whatever its case or spacing", () => {
+    expect(isUnnamedTheme(theme("TH", 1, { text: "Theme 3" }))).toBe(true);
+    expect(isUnnamedTheme(theme("TH", 1, { text: "theme 12" }))).toBe(true);
+    expect(isUnnamedTheme(theme("TH", 1, { text: "  THEME 1  " }))).toBe(true);
+  });
+
+  it("a real name is named, even one that happens to carry a number", () => {
+    expect(isUnnamedTheme(theme("TH", 1, { text: "Trust moves to people" }))).toBe(false);
+    expect(isUnnamedTheme(theme("TH", 1, { text: "Theme parks close" }))).toBe(false);
+    expect(isUnnamedTheme(theme("TH", 1, { text: "3 clinics per county" }))).toBe(false);
+  });
+});
+
 describe("clusterProgress / exploreProgress", () => {
   it("step 1 is done once a theme holds an implication, empty until then", () => {
     expect(clusterProgress(indexSynthesisBoard([theme("TH", 1)]), "TH")).toBe("empty");
     expect(clusterProgress(indexSynthesisBoard([theme("TH", 1), card("I", "SECOND", "TH", 2)]), "TH")).toBe("done");
+  });
+
+  it("step 1 is not done while the theme is still unnamed", () => {
+    const cards = [theme("TH", 1, { text: "" }), card("I", "SECOND", "TH", 2)];
+    expect(clusterProgress(indexSynthesisBoard(cards), "TH")).toBe("started");
+  });
+
+  it("an unnamed theme with nothing in it is still empty, not started", () => {
+    expect(clusterProgress(indexSynthesisBoard([theme("TH", 1, { text: "" })]), "TH")).toBe("empty");
   });
 
   const answered = () =>
