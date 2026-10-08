@@ -8,6 +8,7 @@ import {
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
 import { QuestionGrid, type QuestionField } from "@/components/workshop/synthesis/QuestionGrid";
+import type { AddResult } from "@/components/workshop/synthesis/SynthesisCard";
 
 // The theme's four questions — "how does this future work?" — as a 2×2 of boxes.
 //
@@ -63,7 +64,7 @@ export function ReadingBoard({
   editable: boolean;
   busy: boolean;
   readOnly?: boolean;
-  onAnswer: (theme: RippleCard, field: ReadingField, text: string) => void;
+  onAnswer: (theme: RippleCard, field: ReadingField, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
   onDelete: (card: RippleCard) => void;
 }) {
