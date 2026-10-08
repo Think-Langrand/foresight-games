@@ -15,6 +15,10 @@ import { QuestionGrid, type QuestionField } from "@/components/workshop/synthesi
 // Groups did not find the questions in it. The answers are ordinary cards of the question's
 // kind, hung straight off the theme, so the admin viewer, export and delete cascade keep
 // working; an older board's reading still shows its answers through themeAnswers().
+//
+// Each question holds as many answers as the group writes — a breakout reads "who benefits?"
+// several ways and all of those readings are the answer — so onAnswer adds one rather than
+// writing the only one.
 
 export const PROMPTS: Record<ReadingField, { question: string; hint: string; accent: string }> = {
   benefit: {

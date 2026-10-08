@@ -157,9 +157,12 @@ export function shapeFromView(
     // step's four (with an old reading's answers standing in — themeAnswers), then part B,
     // then the role, then the two retired questions older boards may still carry. One
     // list, so the viewer and the CSV can never disagree about what was answered.
+    //
+    // The Themes step's four each hold SEVERAL answers and so contribute a row each; the
+    // other families are still one answer per question, so one row each.
     const answersFor = (themeId: string): ThemeAnswerRow[] => {
+      const reading = themeAnswers(board, themeId);
       const found: Partial<Record<ThemeAnswerKind, RippleCard>> = {
-        ...themeAnswers(board, themeId),
         ...answersOf(board, themeId, VALUES_FIELDS),
         // Of the role step's four, `risk` and `opportunity` are step 2's wall kinds when
         // they sit under a theme, and the walls (`risks` / `opportunities` below) already
@@ -169,13 +172,18 @@ export function shapeFromView(
         ...answersOf(board, themeId, ["assumed_role", "question"] as const),
       };
       const order: readonly ThemeAnswerKind[] = [
-        ...READING_FIELDS,
         ...VALUES_FIELDS,
         ...THEME_ROLE_FIELDS,
         "assumed_role",
         "question",
       ];
       const out: ThemeAnswerRow[] = [];
+      for (const kind of READING_FIELDS) {
+        for (const c of reading[kind] ?? []) {
+          if (!c.text.trim()) continue;
+          out.push({ ...toRow(c), kind, label: ANSWER_LABELS[kind] });
+        }
+      }
       for (const kind of order) {
         const c = found[kind];
         if (!c || !c.text.trim()) continue;

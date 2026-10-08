@@ -99,6 +99,22 @@ describe("summaryDigest", () => {
     expect(d.text).toContain("Theme t2: Clinics shrink");
   });
 
+  it("gives the model every answer to a question, not just the first", () => {
+    const d = summaryDigest(
+      ex([
+        theme("A", "Trust moves to people", {
+          answers: [
+            { ...row("b1", "Livestream hosts"), kind: "benefit", label: "Who benefits, and how?" },
+            { ...row("b2", "The clinics they already use"), kind: "benefit", label: "Who benefits, and how?" },
+          ],
+        }),
+      ])
+    );
+    expect(d.text).toContain("Q: Who benefits, and how? — Livestream hosts");
+    expect(d.text).toContain("Q: Who benefits, and how? — The clinics they already use");
+    expect(d.themes[0].answers).toHaveLength(2);
+  });
+
   it("leaves a theme out whole once the cap is reached, never cutting mid-theme", () => {
     const d = summaryDigest(board(), 60);
     expect(d.themes.map((t) => t.key)).toEqual(["t1"]); // the first always goes in

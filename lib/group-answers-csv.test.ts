@@ -118,6 +118,29 @@ describe("synthesisCsvRows", () => {
     expect(content(rows)).toContain("Q(condition) — Durable funding stays");
   });
 
+  it("gives every answer to one question its own row", () => {
+    const rows = synthesisCsvRows(
+      ex({
+        themes: [
+          theme({
+            answers: [
+              answer("b1", "benefit", "Residents who attend"),
+              answer("b2", "benefit", "The clinics they already use"),
+              answer("b3", "benefit", "Whoever runs the panel"),
+            ],
+          }),
+        ],
+      })
+    );
+    // The theme's own row, then one row per answer — nothing folded into a single cell, so a
+    // group that read "who benefits?" three ways has three rows to sort and filter.
+    expect(rows.slice(1).map((r) => [r[2], r[3]])).toEqual([
+      ["benefit", "Q(benefit) — Residents who attend"],
+      ["benefit", "Q(benefit) — The clinics they already use"],
+      ["benefit", "Q(benefit) — Whoever runs the panel"],
+    ]);
+  });
+
   it("keeps a sandbox note's mechanism on the same row", () => {
     const rows = synthesisCsvRows(
       ex({ themes: [theme({ tensions: [stake("t", "Response stalls", { mechanism: "Through slower sign-off" })] })] })
