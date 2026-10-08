@@ -257,13 +257,46 @@ async function provisionBoard({ exercise, groupRow, title, config }) {
 }
 
 // ---------------------------------------------------------------- seed phases
+// A card's order by how far below the key change it sits: a key change's own children are
+// SECOND ("1st order" to a group), theirs TERMINAL ("2nd"), theirs ORDER_4 ("3rd"). The
+// list stops where lib/ripples-types' TREE_ORDERS does.
+const ORDER_AT_DEPTH = ["FIRST", "SECOND", "TERMINAL", "ORDER_4", "ORDER_5", "ORDER_6"];
+
+// A fixture node is a bare string — a leaf — or { text, children } to carry its own
+// consequences. The two forms nest to any depth the tree allows; the wheel on the co-lead
+// deck runs four rings out, and "children: [string]" could only ever express two.
+const nodeOf = (item) =>
+  typeof item === "string"
+    ? { text: item, children: [] }
+    : { text: item.text, children: item.children ?? [] };
+
 async function seedImplications(entry) {
   const map = entry.boards[WEEK.MAP];
   if (!map) throw new Error(`${entry.group.name} has no Session 2 board.`);
   const { session, team, cards } = map;
-  const have = new Set(cards.map((c) => norm(c.text)));
   const roots = new Map(cards.filter((c) => c.card_order === "FIRST").map((c) => [norm(c.text), c]));
   let added = 0;
+
+  // Matching is by text, anywhere on the board: a node already there is REUSED as the
+  // parent for its children rather than written twice, which is what makes a re-run after
+  // the fixture has grown add only the new tips.
+  const walk = async (items, parentCard, depth) => {
+    const order = ORDER_AT_DEPTH[depth];
+    for (const item of items) {
+      const { text, children } = nodeOf(item);
+      if (!order) {
+        console.log(`    ! "${text}" sits deeper than the tree allows — skipped with its children`);
+        continue;
+      }
+      let node = cards.find((c) => norm(c.text) === norm(text));
+      if (!node) {
+        [node] = await addCards([card({ session, team, order, parentId: parentCard.id, text })]);
+        cards.push(node);
+        added++;
+      }
+      await walk(children, node, depth + 1);
+    }
+  };
 
   for (const [keyChange, items] of Object.entries(fixture.implications)) {
     const rootCard = roots.get(norm(keyChange));
@@ -271,22 +304,7 @@ async function seedImplications(entry) {
       console.log(`    ! no key change "${keyChange}" on the map — its implications skipped`);
       continue;
     }
-    for (const item of items) {
-      let parent = cards.find((c) => norm(c.text) === norm(item.text));
-      if (!parent) {
-        [parent] = await addCards([card({ session, team, order: "SECOND", parentId: rootCard.id, text: item.text })]);
-        cards.push(parent);
-        have.add(norm(item.text));
-        added++;
-      }
-      for (const childText of item.children ?? []) {
-        if (have.has(norm(childText))) continue;
-        const [child] = await addCards([card({ session, team, order: "TERMINAL", parentId: parent.id, text: childText })]);
-        cards.push(child);
-        have.add(norm(childText));
-        added++;
-      }
-    }
+    await walk(items, rootCard, 1);
   }
   console.log(`    Session 2 (${session.code}): +${added} implications`);
 }

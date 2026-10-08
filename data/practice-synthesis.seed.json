@@ -6,7 +6,19 @@
         "text": "Fewer people learn to drive",
         "children": [
           "Fewer young people apply for a licence at all",
-          "Adults who never learned to drive depend on a service they cannot afford to lose"
+          "Adults who never learned to drive depend on a service they cannot afford to lose",
+          {
+            "text": "reduced application for driver's licenses",
+            "children": [
+              "reduced license fees",
+              {
+                "text": "increased demand for alternative forms of ID",
+                "children": [
+                  "fewer fake driver's licenses"
+                ]
+              }
+            ]
+          }
         ]
       },
       {
@@ -34,7 +46,79 @@
         "text": "Fewer accidents",
         "children": [
           "Emergency departments and ambulance services are staffed for a demand that no longer arrives",
-          "Organ donation from road deaths falls, and transplant waiting lists lengthen"
+          "Organ donation from road deaths falls, and transplant waiting lists lengthen",
+          {
+            "text": "less demand for accident response",
+            "children": [
+              "staff reductions in public safety"
+            ]
+          },
+          "no longer need car insurance"
+        ]
+      },
+      {
+        "text": "increased demand on telecom networks",
+        "children": [
+          "laggy internet and cell service",
+          "construction of more high-speed telecom boxes"
+        ]
+      },
+      {
+        "text": "construction of supporting infrastructure",
+        "children": [
+          {
+            "text": "redesign of intersections",
+            "children": [
+              {
+                "text": "lightless intersections",
+                "children": [
+                  "construction of raised crosswalks"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "text": "taxi drivers displaced",
+        "children": [
+          "increased demand on un-employment benefits"
+        ]
+      },
+      {
+        "text": "fewer traffic infractions",
+        "children": [
+          {
+            "text": "reduced revenue from fines",
+            "children": [
+              {
+                "text": "staff cuts in police department",
+                "children": [
+                  "growing crime"
+                ]
+              },
+              "more urban blight",
+              "tax rate increases"
+            ]
+          }
+        ]
+      },
+      {
+        "text": "rise in ridesharing",
+        "children": [
+          "increased carpooling",
+          {
+            "text": "dropping rates of personal car ownership",
+            "children": [
+              "houses don't need garages or driveways"
+            ]
+          },
+          {
+            "text": "increasing car utilization rates",
+            "children": [
+              "no need for parking lots"
+            ]
+          }
         ]
       }
     ],
