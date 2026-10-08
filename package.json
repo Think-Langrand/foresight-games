@@ -11,6 +11,7 @@
     "db:seed": "node scripts/seed-supabase.mjs",
     "db:seed:groups": "node scripts/seed-design-groups.mjs",
     "db:dump:groups": "node scripts/dump-design-groups.mjs",
+    "db:seed:practice": "node scripts/seed-practice-synthesis.mjs",
     "tags:all": "node scripts/tag-all-kernels.mjs"
   },
   "dependencies": {
