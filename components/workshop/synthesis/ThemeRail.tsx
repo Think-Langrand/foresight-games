@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSessionTabsHidden } from "@/components/design-groups/SessionHeader";
 import type { RippleCard } from "@/lib/ripples-types";
-import type { SynthesisBoard, ThemeProgress } from "@/lib/synthesis-shape";
+import { isUnnamedTheme, type SynthesisBoard, type ThemeProgress } from "@/lib/synthesis-shape";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
 
 // The theme rail: a fixed panel at the LEFT screen edge, outside the 1100px column, that
@@ -42,10 +42,13 @@ export function ThemeRail({
   progressFor,
   progressLabel,
   hint,
+  badge,
   wide = false,
   dragging = false,
   squareProps,
   squareLit,
+  squareReorderProps,
+  squareInsert,
   pickedCount = 0,
   onAddPicked,
   footer,
@@ -60,12 +63,21 @@ export function ThemeRail({
   // Names what the glyph measures, e.g. "Reading", for the square's tooltip.
   progressLabel: string;
   hint: string;
+  // A line under the hint: step 1's "aim for 3–5" counter, which used to sit over the
+  // board's columns.
+  badge?: React.ReactNode;
   wide?: boolean;
   // A card is being dragged: the popover gets out of the way.
   dragging?: boolean;
   // Step 1's drop-zone wiring on each square, and whether that square is lit by a drag.
   squareProps?: (theme: RippleCard) => React.HTMLAttributes<HTMLButtonElement>;
   squareLit?: (theme: RippleCard) => boolean;
+  // Step 1's drag-to-reorder. The squares are the only place themes can be put in order
+  // once the board's columns are off at this width, so the square itself is the handle —
+  // there is no room beside it for a grip, and the whole tile is a big enough target.
+  squareReorderProps?: (theme: RippleCard) => React.HTMLAttributes<HTMLButtonElement>;
+  // Which edge of this square a dropped theme would land on, for the insertion bar.
+  squareInsert?: (theme: RippleCard) => "before" | "after" | null;
   // Step 1's tick-and-click: with cards picked, a click adds them instead of opening.
   pickedCount?: number;
   onAddPicked?: (theme: RippleCard) => void;
@@ -115,6 +127,7 @@ export function ThemeRail({
         <div className={"min-h-0 flex-1 overflow-y-auto " + (top !== undefined ? "pt-[13px]" : "")}>
         <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Themes</h2>
         <p className="mt-1 text-[11px] italic leading-[1.35] text-muted">{hint}</p>
+        {badge && <div className="mt-1.5">{badge}</div>}
 
         <div className="mt-3 flex flex-col gap-2.5">
           {board.themes.map((t, i) => {
@@ -122,10 +135,21 @@ export function ThemeRail({
             const lit = squareLit?.(t) ?? false;
             const open = activeId === t.id;
             const state = progressFor(t);
+            const insert = squareInsert?.(t) ?? null;
             return (
+              <div key={t.id} className="relative">
+                {insert && (
+                  <span
+                    aria-hidden
+                    className={
+                      "absolute inset-x-0 h-1 rounded bg-[var(--lime-deep)] " +
+                      (insert === "before" ? "-top-1.5" : "-bottom-1.5")
+                    }
+                  />
+                )}
               <button
-                key={t.id}
                 {...(squareProps?.(t) ?? {})}
+                {...(squareReorderProps?.(t) ?? {})}
                 onClick={() => {
                   // With nothing picked, a square opens its theme — or closes it, if it
                   // is the one already open: the rail is where your pointer is, so going
@@ -175,6 +199,15 @@ export function ThemeRail({
                   </span>
                   <span className="shrink-0 text-[9.5px] font-bold text-muted">{held.length}</span>
                 </span>
+                {/* A theme minted by a drop has no name, and an older one has a number for
+                    one. Either way the square says so and opening it is the fix — which is
+                    the click this square already is, so this is a cue, not a second button
+                    (a button inside a button is not valid anyway). */}
+                {isUnnamedTheme(t) && (
+                  <span className="mt-0.5 shrink-0 text-[9.5px] font-bold uppercase tracking-[0.05em] text-coral underline">
+                    still unnamed
+                  </span>
+                )}
                 {/* What is actually in it, a line each. The square is the whole budget, so
                     anything past it is cut rather than stretching the rail. */}
                 <span className="mt-1.5 flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
@@ -199,6 +232,7 @@ export function ThemeRail({
                   </span>
                 )}
               </button>
+              </div>
             );
           })}
           {footer}
@@ -224,6 +258,11 @@ export function ThemeRail({
               Theme {n} · {held.length} implication{held.length === 1 ? "" : "s"}
             </div>
             <div className="mt-1 text-[14px] font-extrabold leading-[1.25]">{hovered.text}</div>
+            {isUnnamedTheme(hovered) && (
+              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-coral">
+                still unnamed
+              </div>
+            )}
             {hovered.description && (
               <p className="mt-1.5 text-[12px] leading-[1.45] text-ink/80">{hovered.description}</p>
             )}

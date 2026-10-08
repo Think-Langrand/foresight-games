@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CARD_DESCRIPTION_MAX, type RippleCard } from "@/lib/ripples-types";
+import type { RippleCard } from "@/lib/ripples-types";
 import { sortRootsByRank } from "@/lib/ripples-scoring";
 import {
   childrenOf,
@@ -13,6 +13,7 @@ import {
   keyChangeLabel,
   ordinal,
   clusterProgress,
+  isUnnamedTheme,
   twinIndex,
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
@@ -106,7 +107,6 @@ export function ClusterBoard({
   onAddTheme,
   onAddImplication,
   onEditCard,
-  onDescribeCard,
   onMoveCard,
   onMoveTheme,
   onStartTheme,
@@ -132,7 +132,6 @@ export function ClusterBoard({
   onAddTheme: (text: string) => AddResult;
   onAddImplication: (text: string, themeId: string | null) => AddResult;
   onEditCard: (card: RippleCard, text: string) => void;
-  onDescribeCard: (card: RippleCard, description: string) => void;
   // Put `card` in `themeId` (null = the tray), immediately before `beforeId` (null = last).
   onMoveCard: (card: RippleCard, themeId: string | null, beforeId: string | null) => void;
   onMoveTheme: (theme: RippleCard, beforeId: string | null) => void;
@@ -171,7 +170,6 @@ export function ClusterBoard({
   // The toolbar element, for lining the theme rail's squares up with it — see useRailBand.
   const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
   useRailBand(toolbarEl);
-  const [addingTheme, setAddingTheme] = useState(false);
   const [addingTo, setAddingTo] = useState<string | null>(null); // theme id, or "tray"
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
   // The card whose "also add to…" picker is open. Null when none is.
@@ -292,7 +290,7 @@ export function ClusterBoard({
     // and leaves it where it was. Onto a theme it is already in, or anywhere that is not a
     // theme, nothing happens — the tray and the drawer are for rows, and this is not one.
     if (copy) {
-      if (zone === "newtheme") onStartTheme(card, true);
+      if (zone.startsWith("newtheme")) onStartTheme(card, true);
       else if (zone.startsWith("theme:")) {
         const themeId = zone.slice("theme:".length);
         const already = (twins.get(implicationKey(card))?.themeIds ?? []).includes(themeId);
@@ -306,7 +304,9 @@ export function ClusterBoard({
       return;
     }
     if (card.parked) onPark(card, false); // dragged back out of the drawer
-    if (zone === "newtheme") {
+    // "newtheme:rail" / "newtheme:row" / "newtheme:empty" — one zone id each, so only the
+    // slot under the pointer lights up, whichever of them a breakpoint is showing.
+    if (zone.startsWith("newtheme")) {
       onStartTheme(card);
       return;
     }
@@ -349,18 +349,25 @@ export function ClusterBoard({
     },
   });
 
-  // The new-theme zones take a click as well as a drop, so you can start a theme by naming
-  // it instead of having to drag something first. Keyboard-reachable, because a drop target
-  // that is also the only way to do something must not be mouse-only.
+  // The new-theme zones take a click as well as a drop, so you can start a theme without
+  // having to drag something first. It mints the theme unnamed and leaves it on the board:
+  // naming up front asked the group to say what a pile means before there was a pile, and
+  // "Theme 4" was the answer we got. The name is written in the theme's own sheet.
+  //
+  // Keyboard-reachable, because a drop target that is also the only way to do something
+  // must not be mouse-only.
+  const startEmptyTheme = () => {
+    if (!busy) onAddTheme("");
+  };
   const newThemeClickProps = editable
     ? {
         role: "button" as const,
         tabIndex: 0,
-        onClick: () => setAddingTheme(true),
+        onClick: startEmptyTheme,
         onKeyDown: (e: React.KeyboardEvent) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setAddingTheme(true);
+            startEmptyTheme();
           }
         },
       }
@@ -479,6 +486,7 @@ export function ClusterBoard({
   const orders = [...orderCounts.keys()].sort((a, b) => a - b);
 
   const tray = board.unclustered.filter((c) => matchesOrder(c) && matchesKey(c));
+
 
   // --- the map ----------------------------------------------------------------
   // Which branch is drawn. The key-change chips already in the header pick it; with none
@@ -845,6 +853,54 @@ export function ClusterBoard({
             </div>
           )}
 
+          {/* The trail, in words, directly above the map it is drawn on. The circles are
+              76px across and clamp to four lines, so the chain on the map says WHERE a card
+              sits without being readable as sentences; this says what each step actually
+              was. Only while a card is picked out — the rest of the time the map is the
+              whole branch and there is no trail to tell.
+
+              Blue throughout, matching the lane on the map and staying off lime,
+              which on this board means "theme". */}
+          {focusNode && (lineage[focusNode]?.chain.length ?? 0) > 0 && (
+            <div className="mb-3 rounded-[3px] border border-blue bg-[rgba(39,93,226,0.07)] px-3 py-2.5">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+                  Where this came from
+                </span>
+                <button
+                  onClick={() => setFocusNode(null)}
+                  className="text-[10px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+                >
+                  Show the whole map
+                </button>
+              </div>
+              <ol className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                {lineage[focusNode]!.chain.map((text, i, all) => {
+                  const here = i === all.length - 1;
+                  return (
+                    <li key={`${i}-${text}`} className="flex items-center gap-1.5">
+                      {i > 0 && (
+                        <span aria-hidden className="text-[12px] leading-none text-muted">
+                          →
+                        </span>
+                      )}
+                      <span
+                        className={
+                          "rounded-[2px] border px-1.5 py-0.5 text-[12.5px] leading-[1.35] " +
+                          (here
+                            ? "border-blue bg-[rgba(39,93,226,0.18)] font-bold"
+                            : "border-[var(--rule)] bg-paper text-ink/80")
+                        }
+                      >
+                        {text}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          )}
+
           <div className="max-h-[70vh] overflow-auto">
             <FuturesWheel
               key={mapBranch ? mapBranch.root.id : "all"}
@@ -860,7 +916,12 @@ export function ClusterBoard({
               zoom={zoom}
               onFitScale={(v) => (fitScaleRef.current = v)}
               selectedId={focusNode ?? undefined}
-              highlightIds={focusNode ? (mapBranch ?? focusBranch)?.pathIds : undefined}
+              // The chain from the picked node UP to its key change — focusBranch, always.
+              // It used to prefer mapBranch, whose path is rooted at the key change and so
+              // holds exactly one id: the root, which branch view draws as the hub rather
+              // than as a node. Nothing ever matched, so "where this came from" dimmed the
+              // whole map including the card you had just asked about.
+              highlightIds={focusNode ? focusBranch?.pathIds : undefined}
               // Every circle wears its order's colour; a picked one goes blue and a member
               // of the open theme lime, thicker, so the selection still reads over the
               // order rings.
@@ -1117,7 +1178,9 @@ export function ClusterBoard({
         activeId={focus?.id ?? null}
         onPick={onPickTheme}
         progressFor={(t) => clusterProgress(board, t.id)}
-        progressLabel="Cards"
+        // Not "Cards": the glyph now reads the NAME as well as what is in the theme, so a
+        // full-but-unnamed theme showing "Cards: in progress" pointed at the wrong thing.
+        progressLabel="Step 1"
         wide={Boolean(admin)}
         dragging={drag !== null}
         // The step, said once and large, where the eye starts. The band ends in a rule the
@@ -1132,11 +1195,54 @@ export function ClusterBoard({
             ? `Click one to add ${picked.size}.`
             : focus
               ? "Click the lit theme again to go back to the board."
-              : "Click a theme to open it. Drag cards in, or tick and click."
+              : board.themes.length === 0
+                ? "No themes yet. Drag an implication onto the slot below, or click it, to start one."
+                : "Click a theme to open it. Drag cards in, or tick and click. Drag a theme itself to reorder."
         }
         // The squares are drop targets here, and a click with cards ticked adds them.
         squareProps={(t) => zoneProps(`theme:${t.id}`)}
         squareLit={(t) => zoneLit(`theme:${t.id}`)}
+        // ...and, at this width, the only place themes can be put in order: the board's
+        // columns carried the ⠿⠿ grip and they are off above lg. The rail runs down the
+        // screen, so the insertion edge is top/bottom rather than left/right.
+        squareReorderProps={(t) => ({
+          ...dragProps(t.id, "theme"),
+          onDragOverCapture: (e: React.DragEvent) => {
+            if (!editable || drag?.kind !== "theme") return;
+            e.preventDefault();
+            setOver({ zone: "themes", anchorId: t.id, after: isFarSide(e, "y") });
+          },
+          onDropCapture: (e: React.DragEvent) => {
+            if (!editable || drag?.kind !== "theme") return;
+            e.stopPropagation();
+            dropTheme(insertionPoint(board.themes, t.id, isFarSide(e, "y"), drag.id));
+          },
+        })}
+        squareInsert={(t) =>
+          drag?.kind === "theme" && over?.zone === "themes" && over.anchorId === t.id
+            ? over.after
+              ? "after"
+              : "before"
+            : null
+        }
+        badge={
+          board.themes.length > 0 ? (
+            <span
+              className={
+                "inline-block rounded-[2px] border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.06em] " +
+                (board.themes.length >= 3 && board.themes.length <= 5
+                  ? "border-ink bg-lime text-ink"
+                  : "border-[var(--rule)] text-muted")
+              }
+            >
+              {board.themes.length < 3
+                ? `Aim 3–5 · ${3 - board.themes.length} to go`
+                : board.themes.length <= 5
+                  ? "3–5 · good range"
+                  : `${board.themes.length} — consider merging`}
+            </span>
+          ) : null
+        }
         pickedCount={picked.size}
         onAddPicked={(t) => {
           onMoveManyToTheme([...picked], t.id);
@@ -1147,17 +1253,22 @@ export function ClusterBoard({
             {/* ONE empty slot, always, never a pre-created theme. A real blank theme would
                 exist on the board from the moment anyone opened it: a "nothing yet" chip on
                 later steps, one to delete if the group changes its mind, and a race to make
-                one per person. The slot mints its theme on drop — onStartTheme — and stays,
-                so the next theme (yours or a teammate's, dropped in the same moment) has
-                the same place to start. It used to be three that counted down to none,
-                which left no drop target at all once a group had three themes. */}
+                one per person. The slot mints its theme on drop — onStartTheme — or on a
+                click, and stays, so the next theme (yours or a teammate's, dropped in the
+                same moment) has the same place to start. It used to be three that counted
+                down to none, which left no drop target at all once a group had three
+                themes.
+
+                Above lg this is the ONLY drop-to-start target — the row's copy is hidden
+                there — so it has to take a click and a keypress too, not just a drag. */}
             {editable && (
               <div
                 key="slot"
-                {...zoneProps("newtheme")}
+                {...zoneProps("newtheme:rail")}
+                {...newThemeClickProps}
                 className={
-                  "flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-[6px] border-2 border-dashed p-3 text-center transition-all " +
-                  (zoneLit("newtheme")
+                  "flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[6px] border-2 border-dashed p-3 text-center transition-all " +
+                  (zoneLit("newtheme:rail")
                     ? "scale-[1.02] border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)]"
                     : "border-black/25 hover:border-ink")
                 }
@@ -1166,22 +1277,21 @@ export function ClusterBoard({
                   ⊕
                 </span>
                 <span className="text-[10.5px] font-bold uppercase leading-[1.3] tracking-[0.05em] text-muted">
-                  Drop to start a theme
+                  Drop or click to start a theme
                 </span>
               </div>
             )}
 
-            {/* The rail button mints a theme straight away, named the way a dropped card
-                or a ticked set would name it — "Theme N". Naming can wait until the group
-                knows what the pile is about; the form in the body is still there for when
-                it does. */}
+            {/* The rail button mints a theme straight away, unnamed, the way a dropped card
+                or a ticked set does. Naming waits until the group knows what the pile is
+                about, and happens in the theme's own sheet. */}
             {editable && (
               <button
                 onClick={() => {
                   if (picked.size > 0) {
                     onCreateThemeFrom([...picked]);
                     setPicked(new Set());
-                  } else onAddTheme(`Theme ${board.themes.length + 1}`);
+                  } else onAddTheme("");
                 }}
                 disabled={busy}
                 className="rounded-[2px] border border-ink bg-paper px-2 py-2 text-[10.5px] font-bold uppercase tracking-[0.05em] hover:bg-lime disabled:opacity-40"
@@ -1230,6 +1340,11 @@ export function ClusterBoard({
           <li>Which implications support or complicate that reading?</li>
         </ul>
         <p className="mt-4 border-t border-[var(--hairline)] pt-3 text-[14.5px] italic leading-[1.4] text-muted">
+          Every theme needs a name, and &ldquo;Theme 1&rdquo; is not one. Open a theme and say
+          what its implications have in common — every later step reads that name as what
+          the group meant.
+        </p>
+        <p className="mt-2.5 text-[14.5px] italic leading-[1.4] text-muted">
           If a theme is too broad, split it. If it repeats one note, look for related
           implications.
         </p>
@@ -1326,14 +1441,18 @@ export function ClusterBoard({
                         onPickTheme(null); // leaving a theme, if one is open
                       }}
                       aria-pressed={on}
-                      aria-label={label}
                       title={label}
+                      // Named, not just drawn. From inside a theme these two are the way
+                      // back out to the map, and an unlabelled icon pair does not say that
+                      // — nobody found the map again. The row wraps, so the words cost
+                      // nothing that matters.
                       className={
-                        "rounded-[2px] border p-1.5 leading-none transition-colors " +
+                        "flex items-center gap-1.5 rounded-[2px] border px-2 py-1 text-[10.5px] font-bold uppercase leading-none tracking-[0.05em] transition-colors " +
                         (on ? "border-ink bg-ink text-paper" : "border-ink bg-paper text-ink hover:bg-lime")
                       }
                     >
                       {viewIcon(v)}
+                      {label}
                     </button>
                   );
                 })}
@@ -1451,10 +1570,8 @@ export function ClusterBoard({
               editable={editable}
               busy={busy}
               onEditTheme={(t) => onEditCard(theme, t)}
-              onDescribeTheme={(d) => onDescribeCard(theme, d)}
               namePlaceholder="What is this theme about?"
               showImplications={false}
-              showDescription={false}
               menu={
                 editable ? (
                   <CardMenu label="Theme actions">
@@ -1475,7 +1592,9 @@ export function ClusterBoard({
               note={
                 editable ? (
                   <p className="mt-3 border-t border-black/10 pt-2.5 text-[11.5px] italic leading-[1.4] text-muted">
-                    Click ✎ to edit the name. Say what these implications have in common.
+                    {isUnnamedTheme(theme)
+                      ? "This theme still has no name, so step 1 is not finished for it. Say what these implications have in common — a number is not an answer."
+                      : "Click ✎ to edit the name. Say what these implications have in common."}
                   </p>
                 ) : undefined
               }
@@ -1686,8 +1805,14 @@ export function ClusterBoard({
         )}
       </section>
 
-      {/* ---- the themes ---- */}
-      <section>
+      {/* ---- the themes ----
+           Below lg ONLY. The rail is `hidden lg:flex` and shows the same themes with the
+           same implications listed in them, so above lg this was the whole list twice: two
+           places to drop into theme 3, two places reading as "the themes". The rail wins
+           because it stays put while the tray scrolls, and it carries what the columns
+           alone used to — the 3–5 counter, the new-theme slot, and dragging themes into
+           order. A theme is opened to work on it, which is what the sheet is for. */}
+      <section className="lg:hidden">
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <h2 className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
             Themes ({board.themes.length})
@@ -1711,50 +1836,37 @@ export function ClusterBoard({
           </span>
           {editable && (
             <button
-              onClick={() => setAddingTheme((v) => !v)}
-              className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+              onClick={startEmptyTheme}
+              disabled={busy}
+              className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline disabled:opacity-40"
             >
               ＋ New theme
             </button>
           )}
         </div>
 
-        {board.themes.length === 0 && !addingTheme ? (
+        {board.themes.length === 0 ? (
           <div
-            {...zoneProps("newtheme")}
-            {...(addingTheme ? {} : newThemeClickProps)}
+            {...zoneProps("newtheme:empty")}
+            {...newThemeClickProps}
             className={
               "flex min-h-[12rem] w-full flex-col items-center justify-center gap-2 rounded-[4px] border-2 border-dashed p-6 text-center transition-colors " +
-              (zoneLit("newtheme")
+              (zoneLit("newtheme:empty")
                 ? "border-ink bg-lime/50 "
                 : "border-black/25 bg-[rgba(196,255,103,0.10)] ") +
-              (editable && !addingTheme ? "cursor-pointer hover:border-ink " : "")
+              (editable ? "cursor-pointer hover:border-ink " : "")
             }
           >
-            {addingTheme ? (
-              <div className="w-72" onClick={(e) => e.stopPropagation()}>
-                <AddCardForm
-                  label="What is this theme about?"
-                  busy={busy}
-                  autoFocus
-                  onAdd={onAddTheme}
-                  onDone={() => setAddingTheme(false)}
-                />
-              </div>
-            ) : (
-              <>
-                <span aria-hidden className="text-[26px] leading-none text-black/25">
-                  ⤓
-                </span>
-                <p className="text-[14px] font-bold uppercase tracking-[0.06em]">
-                  Drag an implication here to start your first theme
-                </p>
-                <p className="mx-auto max-w-[58ch] text-[12.5px] leading-[1.45] text-muted">
-                  Or click to name one yourself. Say what the implications in it have in
-                  common.
-                </p>
-              </>
-            )}
+            <span aria-hidden className="text-[26px] leading-none text-black/25">
+              ⤓
+            </span>
+            <p className="text-[14px] font-bold uppercase tracking-[0.06em]">
+              Drag an implication here to start your first theme
+            </p>
+            <p className="mx-auto max-w-[58ch] text-[12.5px] leading-[1.45] text-muted">
+              Or click to start an empty one. You name a theme once you can see what is in
+              it — open it and say what its implications have in common.
+            </p>
           </div>
         ) : (
           <div
@@ -1841,27 +1953,35 @@ export function ClusterBoard({
                         {board.themes.indexOf(theme) + 1}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="text-[13.5px] font-bold">
+                        <div className="flex flex-wrap items-baseline gap-x-2 text-[13.5px] font-bold">
                           <InlineText
                             text={theme.text}
                             editable={editable}
                             busy={busy}
+                            placeholder="What is this theme about?"
                             onSave={(next) => onEditCard(theme, next)}
                           />
+                          {/* A theme with no name, or with a number for one. Naming happens
+                              in the theme's own sheet, where the implications it has to
+                              describe are in front of you — so this opens it rather than
+                              starting an edit on a column you cannot read from. */}
+                          {isUnnamedTheme(theme) && (
+                            <button
+                              onClick={() => onPickTheme(theme.id)}
+                              className="shrink-0 text-[9.5px] font-bold uppercase tracking-[0.05em] text-coral underline hover:no-underline"
+                            >
+                              still unnamed
+                            </button>
+                          )}
                         </div>
-                        {/* What the group means by this theme — the thing that settles
-                            whether a borderline implication belongs here or next door. */}
-                        <div className="mt-0.5 text-[11.5px] leading-[1.4] text-muted">
-                          <InlineText
-                            text={theme.description ?? ""}
-                            editable={editable}
-                            busy={busy}
-                            emptyLabel="＋ Describe this theme"
-                            placeholder="What does this theme mean?"
-                            maxLength={CARD_DESCRIPTION_MAX}
-                            onSave={(next) => onDescribeCard(theme, next)}
-                          />
-                        </div>
+                        {/* Groups wrote the name and left this blank, so it is no longer
+                            asked for. Whatever earlier boards put here still shows, and the
+                            export and the summary still read it. */}
+                        {theme.description && (
+                          <div className="mt-0.5 whitespace-pre-wrap break-words text-[11.5px] leading-[1.4] text-muted">
+                            {theme.description}
+                          </div>
+                        )}
                       </div>
                       {editable && (
                         <CardMenu label="Theme actions">
@@ -1942,40 +2062,31 @@ export function ClusterBoard({
               );
             })}
 
-            {/* Always available at the end of the row: drop a card here and it becomes a
-                new theme, so grouping never requires naming something first. */}
+            {/* Drop a card here and it becomes a new theme, so grouping never requires
+                making an empty one first.
+
+                Below lg only — the whole section is — because the theme rail carries the
+                identical slot. Two of them on screen at once was the confusion: they do the
+                same thing, they used to share a zone id so they lit in unison, and a group
+                could not tell which one the board wanted. */}
             {editable && (
               <div
-                {...zoneProps("newtheme")}
-                {...(addingTheme ? {} : newThemeClickProps)}
+                {...zoneProps("newtheme:row")}
+                {...newThemeClickProps}
                 className={
                   "flex w-64 min-h-[17rem] flex-col items-center justify-center gap-2 rounded-[4px] border-2 border-dashed p-4 text-center transition-colors " +
-                  (zoneLit("newtheme")
+                  (zoneLit("newtheme:row")
                     ? "border-ink bg-lime/50 "
                     : "border-black/20 bg-transparent ") +
-                  (addingTheme ? "" : "cursor-pointer hover:border-ink hover:bg-[rgba(196,255,103,0.10)] ")
+                  "cursor-pointer hover:border-ink hover:bg-[rgba(196,255,103,0.10)] "
                 }
               >
-                {addingTheme ? (
-                  <div className="w-full" onClick={(e) => e.stopPropagation()}>
-                    <AddCardForm
-                      label="What is this theme about?"
-                      busy={busy}
-                      autoFocus
-                      onAdd={onAddTheme}
-                      onDone={() => setAddingTheme(false)}
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <span aria-hidden className="text-[22px] leading-none text-black/25">
-                      ⤓
-                    </span>
-                    <p className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">
-                      Drop a card here, or click to name a new theme
-                    </p>
-                  </>
-                )}
+                <span aria-hidden className="text-[22px] leading-none text-black/25">
+                  ⤓
+                </span>
+                <p className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">
+                  Drop a card here, or click to start a theme
+                </p>
               </div>
             )}
           </div>

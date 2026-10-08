@@ -18,7 +18,6 @@ import {
   useRipplesView,
   useOptimisticCards,
   deleteRippleCard,
-  describeRippleCard,
   editRippleCard,
   parkRippleCard,
   postRippleCard,
@@ -121,7 +120,6 @@ export function SynthesisTeamView({
     dropReparentLocal,
     parkLocal,
     dropParkLocal,
-    describeLocal,
   } = useOptimisticCards(view?.cards ?? NO_CARDS);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -341,7 +339,9 @@ export function SynthesisTeamView({
         participantId: pid,
         cardOrder: "FIRST",
         cardKind: "theme",
-        text: `Theme ${board.themes.length + 1}`,
+        // Minted with no name. Naming is the group's job once the pile says something, and
+        // a stored "Theme 4" would drift from the position the board numbers it by.
+        text: "",
         sort: endSort(board.themes),
       });
       const created = res?.card as RippleCard | undefined;
@@ -376,7 +376,7 @@ export function SynthesisTeamView({
   // recoverable by dragging, where rolling back would mean undoing writes that succeeded.
   //
   // `text` is optional: a suggested theme from the admin's clustering tool arrives with a
-  // name, a ticked set does not and gets "Theme N" like a dropped card would.
+  // name; a ticked set does not and starts unnamed, like a dropped card does.
   const createThemeFrom = (cardIds: string[], text?: string) =>
     run(async () => {
       if (cardIds.length === 0) return;
@@ -384,7 +384,7 @@ export function SynthesisTeamView({
         participantId: pid,
         cardOrder: "FIRST",
         cardKind: "theme",
-        text: text?.trim().slice(0, CARD_TEXT_MAX) || `Theme ${board.themes.length + 1}`,
+        text: text?.trim().slice(0, CARD_TEXT_MAX) ?? "",
         sort: endSort(board.themes),
       });
       const created = res?.card as RippleCard | undefined;
@@ -445,19 +445,6 @@ export function SynthesisTeamView({
         await editRippleCard(code, card.id, { participantId: pid, text });
       } catch (e) {
         editLocal(card.id, prev);
-        throw e;
-      }
-    });
-  };
-
-  const describeCard = (card: RippleCard, description: string) => {
-    const prev = card.description ?? null;
-    describeLocal(card.id, description || null);
-    run(async () => {
-      try {
-        await describeRippleCard(code, card.id, { participantId: pid, description });
-      } catch (e) {
-        describeLocal(card.id, prev);
         throw e;
       }
     });
@@ -747,7 +734,6 @@ export function SynthesisTeamView({
           onAddTheme={addTheme}
           onAddImplication={addImplication}
           onEditCard={editCard}
-          onDescribeCard={describeCard}
           onMoveCard={moveCard}
           onMoveTheme={moveTheme}
           onStartTheme={startThemeWith}
@@ -777,7 +763,6 @@ export function SynthesisTeamView({
           onAnswer={answerTheme}
           onAddStake={addChildCard}
           onEdit={editCard}
-          onDescribe={describeCard}
           onDelete={removeCard}
           onGoToCluster={() => setStep("cluster")}
         />
