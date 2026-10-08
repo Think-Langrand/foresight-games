@@ -5,25 +5,36 @@
       {
         "text": "Fewer people learn to drive",
         "children": [
-          "Fewer young people apply for a licence at all"
+          "Fewer young people apply for a licence at all",
+          "Adults who never learned to drive depend on a service they cannot afford to lose"
         ]
       },
       {
         "text": "People who cannot drive today — older adults, people with disabilities, teenagers — can travel alone",
         "children": [
-          "Appointment no-show rates fall where rides are reliable and free at the point of use"
+          "Appointment no-show rates fall where rides are reliable and free at the point of use",
+          "Carers get hours back, and some of the isolation that came with needing a lift goes too"
         ]
       },
       {
         "text": "Crash injuries fall overall, but new kinds of collision appear at the edge of the software's competence",
         "children": [
-          "Trauma teams see fewer cases and lose the volume that keeps them sharp"
+          "Trauma teams see fewer cases and lose the volume that keeps them sharp",
+          "Liability for a crash moves from a driver to a manufacturer, and so does the evidence"
         ]
       },
       {
         "text": "Driving work disappears as a first rung into the labour market",
         "children": [
-          "The health coverage attached to those jobs goes with them"
+          "The health coverage attached to those jobs goes with them",
+          "Workers without a degree lose the job that used to be available in every town"
+        ]
+      },
+      {
+        "text": "Fewer accidents",
+        "children": [
+          "Emergency departments and ambulance services are staffed for a demand that no longer arrives",
+          "Organ donation from road deaths falls, and transplant waiting lists lengthen"
         ]
       }
     ],
@@ -31,47 +42,59 @@
       {
         "text": "Tailpipe pollution drops first in the neighbourhoods that get the new vehicles first",
         "children": [
-          "Childhood asthma rates diverge between neighbourhoods on the same road network"
+          "Childhood asthma rates diverge between neighbourhoods on the same road network",
+          "The cleanest air arrives where the air was already cleanest"
         ]
       },
       {
         "text": "Charging depots and substations are sited where land is cheap",
         "children": [
-          "The communities that hosted the highway now host the grid build-out"
+          "The communities that hosted the highway now host the grid build-out",
+          "A neighbourhood's power reliability starts to depend on what the depot next door is drawing"
         ]
       },
       {
         "text": "Streets get quieter, so what people hear coming changes",
         "children": [
-          "Pedestrians who are blind or low-vision lose the cue they navigate by"
+          "Pedestrians who are blind or low-vision lose the cue they navigate by",
+          "Sleep improves along the roads that were loudest"
         ]
       },
       {
         "text": "Brake, tyre and road-wear particulates stay even after the exhaust goes",
-        "children": []
+        "children": [
+          "Heavier batteries put more of it on the same streets as before",
+          "The clean-air message stops matching what people are still breathing"
+        ]
       }
     ],
     "Transportation as a service": [
       {
         "text": "Fewer households own a car, so every trip becomes a purchase decision",
         "children": [
-          "People ration trips they would once have taken, including some to care"
+          "People ration trips they would once have taken, including some to care",
+          "Surge pricing lands hardest on the shifts that cannot be moved"
         ]
       },
       {
         "text": "Service levels follow demand density rather than need",
         "children": [
-          "Rural and low-density areas get the thinnest service at exactly the hours shift workers travel"
+          "Rural and low-density areas get the thinnest service at exactly the hours shift workers travel",
+          "A clinic twenty minutes away is still unreachable on a Sunday"
         ]
       },
       {
         "text": "Being unbanked or without a smartphone becomes a barrier to leaving the house",
-        "children": []
+        "children": [
+          "Cash fares disappear from the system that replaced the bus",
+          "Older adults travel on a relative's account, and on that relationship holding"
+        ]
       },
       {
         "text": "Transit agencies become buyers of private service rather than operators of their own",
         "children": [
-          "The public loses the staff and the standing to set service levels"
+          "The public loses the staff and the standing to set service levels",
+          "When an operator withdraws there is no fleet and no driver roster to fall back on"
         ]
       }
     ],
@@ -86,13 +109,22 @@
       {
         "text": "Signal priority is allocated by algorithm",
         "children": [
-          "Streets optimised for throughput become harder to cross on foot"
+          "Streets optimised for throughput become harder to cross on foot",
+          "Ambulances get through faster, and so do the vehicles that pay for priority"
         ]
       },
       {
         "text": "A software fault or outage is now a region-wide transport failure",
         "children": [
-          "Dialysis and chemotherapy patients and shift workers are stranded first"
+          "Dialysis and chemotherapy patients and shift workers are stranded first",
+          "There is no manual fallback left to switch to"
+        ]
+      },
+      {
+        "text": "Maintaining a street becomes a software contract rather than a public works budget",
+        "children": [
+          "A vendor's end-of-support date decides when a junction stops working",
+          "The skills to fix the street are no longer held by anyone the city employs"
         ]
       }
     ],
@@ -100,19 +132,29 @@
       {
         "text": "One app plans and pays for the whole journey",
         "children": [
-          "People without the app, or the languages it speaks, are outside the system"
+          "People without the app, or the languages it speaks, are outside the system",
+          "One company's outage strands every mode at once"
         ]
       },
       {
         "text": "Walking and cycling become legs of most trips",
         "children": [
-          "Daily physical activity rises for people whose routes are safe, and not for others"
+          "Daily physical activity rises for people whose routes are safe, and not for others",
+          "Injury patterns shift from car crashes to falls and cycle collisions"
         ]
       },
       {
         "text": "Curb space is reallocated from parking to pick-up and drop-off",
         "children": [
-          "Conflict between people walking, cycling and waiting concentrates at the curb"
+          "Conflict between people walking, cycling and waiting concentrates at the curb",
+          "Step-free drop-off becomes something to compete for rather than something reserved"
+        ]
+      },
+      {
+        "text": "Trips are planned door to door, so the gaps between modes become visible",
+        "children": [
+          "The journeys nobody can complete are finally countable",
+          "Places left off the network find out that they were left off"
         ]
       }
     ],
@@ -120,23 +162,29 @@
       {
         "text": "Driverless trucks run freight corridors at all hours",
         "children": [
-          "Noise and vibration become a night-time sleep problem along those routes"
+          "Noise and vibration become a night-time sleep problem along those routes",
+          "Rest stops, diners and the towns built around them lose their trade"
         ]
       },
       {
         "text": "Neighbourhood delivery hubs put industrial activity on residential streets",
-        "children": []
+        "children": [
+          "Children walk to school past loading bays that were not there last year",
+          "The jobs arrive with the traffic, and go to people from somewhere else"
+        ]
       },
       {
         "text": "Almost anything can be delivered, so some people stop going out",
         "children": [
-          "Isolation deepens among the people who already left the house least"
+          "Isolation deepens among the people who already left the house least",
+          "The shops that were a reason to walk somewhere close"
         ]
       },
       {
         "text": "Food and pharmacy delivery reaches places a store never did",
         "children": [
-          "Access improves for the people who can pay the delivery fee"
+          "Access improves for the people who can pay the delivery fee",
+          "A pharmacist stops being someone you can ask a question"
         ]
       }
     ]

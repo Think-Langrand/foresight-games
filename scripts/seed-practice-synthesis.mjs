@@ -430,8 +430,15 @@ async function seedWorkedBoard(entry) {
 // tray. Its weeks mirror the demo group's so the project's program stays in lockstep — the
 // admin program editor treats every group's weeks as copies of one canonical program.
 async function createPlayGroup(world) {
-  if (group(world, PLAY_GROUP, { required: false })) {
-    console.log(`    "${PLAY_GROUP}" already exists — left alone`);
+  // Already there: its shape is its own — a co-lead may have worked in it — but its map
+  // and tray are still topped up from the fixture, the same additive pass the demo group
+  // gets. Without this, growing the fixture reached the demo group only, and the two
+  // groups' Session 2 maps drifted apart.
+  const existing = group(world, PLAY_GROUP, { required: false });
+  if (existing) {
+    console.log(`    "${PLAY_GROUP}" already exists — topping up its map and tray`);
+    await seedImplications(existing);
+    await seedTray(existing);
     return;
   }
   const demo = group(world, DEMO_GROUP);
