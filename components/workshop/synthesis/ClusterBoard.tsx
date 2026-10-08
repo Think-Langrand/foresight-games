@@ -1141,7 +1141,7 @@ export function ClusterBoard({
                         "flex items-start gap-1.5 text-[11.5px] leading-[1.35] " +
                         (level.order === 0
                           ? "font-bold uppercase tracking-[0.04em] text-ink"
-                          : level.here && text === peekCard.text
+                          : level.here
                             ? "rounded-[2px] bg-paper px-1.5 py-1 font-bold text-ink shadow-[1px_1px_0_rgba(39,93,226,0.25)]"
                             : "text-ink/65")
                       }
@@ -1149,10 +1149,15 @@ export function ClusterBoard({
                       {/* No bullet on the key change — it is the head of the chain, not an
                           item in a list — nor on the hovered node, which is marked as the
                           place in the chain. The bullets are for the levels that hold
-                          several siblings and would otherwise run together. */}
-                      {level.order > 0 && !(level.here && text === peekCard.text) && <Dot />}
+                          several siblings and would otherwise run together.
+
+                          `here` alone, never a text match: only the chain's own levels
+                          carry it and each holds exactly one entry, so comparing text as
+                          well was redundant — and wrong once the chain started showing the
+                          group's renamed words against the Week 2 text on the card. */}
+                      {level.order > 0 && !level.here && <Dot />}
                       <span className={level.order === 0 ? "line-clamp-2" : "min-w-0"}>
-                        {level.here && text === peekCard.text ? "◀ this one" : text}
+                        {level.here ? "◀ this one" : text}
                       </span>
                     </p>
                   ))}
