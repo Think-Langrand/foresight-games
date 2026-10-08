@@ -1072,33 +1072,45 @@ describe("a theme's four questions — placement, answers and progress", () => {
 
   it("keys the answers by question", () => {
     const got = themeAnswers(indexSynthesisBoard(full()), "TH");
-    expect(got.benefit?.id).toBe("BE");
-    expect(got.cost?.id).toBe("CO");
-    expect(got.experience?.id).toBe("EX");
-    expect(got.mechanism?.id).toBe("ME");
+    expect(got.benefit?.map((c) => c.id)).toEqual(["BE"]);
+    expect(got.cost?.map((c) => c.id)).toEqual(["CO"]);
+    expect(got.experience?.map((c) => c.id)).toEqual(["EX"]);
+    expect(got.mechanism?.map((c) => c.id)).toEqual(["ME"]);
   });
 
-  it("keeps the first card when a question somehow has two answers", () => {
+  it("returns every answer to a question, in board order", () => {
     const got = themeAnswers(
-      indexSynthesisBoard([...full(), card("EX2", "SECOND", "TH", 7, { cardKind: "experience", text: "later" })]),
+      indexSynthesisBoard([
+        ...full(),
+        card("EX2", "SECOND", "TH", 7, { cardKind: "experience", text: "A commuter reads it as a gain" }),
+        card("EX3", "SECOND", "TH", 8, { cardKind: "experience", text: "A clinic reads it as more work" }),
+      ]),
       "TH"
     );
-    expect(got.experience?.id).toBe("EX");
+    expect(got.experience?.map((c) => c.id)).toEqual(["EX", "EX2", "EX3"]);
+    // The other three are untouched by the one that grew.
+    expect(got.benefit?.map((c) => c.id)).toEqual(["BE"]);
   });
 
   it("lets a legacy reading's answer stand in where the theme has none of its own", () => {
     const got = themeAnswers(indexSynthesisBoard(legacy()), "TH");
-    expect(got.experience?.id).toBe("EX");
-    expect(got.mechanism?.id).toBe("ME");
+    expect(got.experience?.map((c) => c.id)).toEqual(["EX"]);
+    expect(got.mechanism?.map((c) => c.id)).toEqual(["ME"]);
     expect(got.benefit).toBeUndefined();
   });
 
-  it("prefers the theme's own answer over a legacy reading's", () => {
+  it("prefers the theme's own answers over a legacy reading's, and does not mix them", () => {
     const got = themeAnswers(
-      indexSynthesisBoard([...legacy(), card("EX9", "SECOND", "TH", 9, { cardKind: "experience", text: "newer" })]),
+      indexSynthesisBoard([
+        ...legacy(),
+        card("EX9", "SECOND", "TH", 9, { cardKind: "experience", text: "newer" }),
+        card("EX10", "SECOND", "TH", 10, { cardKind: "experience", text: "newer still" }),
+      ]),
       "TH"
     );
-    expect(got.experience?.id).toBe("EX9");
+    expect(got.experience?.map((c) => c.id)).toEqual(["EX9", "EX10"]);
+    // The reading's own mechanism still stands in — the theme wrote none.
+    expect(got.mechanism?.map((c) => c.id)).toEqual(["ME"]);
   });
 
   it("still shapes a legacy reading, example and all", () => {
@@ -1114,6 +1126,16 @@ describe("a theme's four questions — placement, answers and progress", () => {
 
   it("is started with three of four", () => {
     expect(readingProgress(indexSynthesisBoard(full().filter((c) => c.id !== "ME")), "TH")).toBe("started");
+  });
+
+  it("counts a question once however many answers it holds", () => {
+    const piled = [
+      ...full().filter((c) => c.id !== "ME"),
+      card("BE2", "SECOND", "TH", 7, { cardKind: "benefit", text: "And the clinics they already use" }),
+      card("BE3", "SECOND", "TH", 8, { cardKind: "benefit", text: "And whoever runs the panel" }),
+    ];
+    // Three answers to "who benefits?" do not stand in for the mechanism nobody wrote.
+    expect(readingProgress(indexSynthesisBoard(piled), "TH")).toBe("started");
   });
 
   it("treats a blank answer as unanswered", () => {
@@ -1310,6 +1332,24 @@ describe("clusterProgress / exploreProgress", () => {
     ];
     expect(summaryCardCount(indexSynthesisBoard(cards))).toBe(1 + 4 + 2);
     expect(summaryCardCount(indexSynthesisBoard([]))).toBe(0);
+  });
+
+  it("summaryCardCount counts every answer, so a second one reads as more on the board", () => {
+    const cards = [theme("TH", 1), ...answered(), ...stakes()];
+    const plusOne = [
+      ...cards,
+      card("Q0b", "SECOND", "TH", 14, { cardKind: READING_FIELDS[0], text: "a second reading of it" }),
+    ];
+    expect(summaryCardCount(indexSynthesisBoard(plusOne))).toBe(summaryCardCount(indexSynthesisBoard(cards)) + 1);
+  });
+
+  it("summaryCardCount ignores a blank answer", () => {
+    const cards = [theme("TH", 1), ...answered(), ...stakes()];
+    const blank = [
+      ...cards,
+      card("Q0b", "SECOND", "TH", 14, { cardKind: READING_FIELDS[0], text: "   " }),
+    ];
+    expect(summaryCardCount(indexSynthesisBoard(blank))).toBe(summaryCardCount(indexSynthesisBoard(cards)));
   });
 });
 

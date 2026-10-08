@@ -103,12 +103,28 @@ export function ThemeDeck({ board }: { board: SynthesisBoard }) {
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {READING_QUESTIONS.map((q) => {
-              const text = (answers[q.key]?.text ?? "").trim();
+              // Every answer the group gave, not the first: a question read three ways is
+              // three things to write a hope or a fear off.
+              const given = (answers[q.key] ?? []).filter((c) => c.text.trim().length > 0);
+              const single = given.length === 1;
               return (
                 <div key={q.key} className={"rounded-[3px] border border-black/15 border-l-4 bg-paper p-2.5 " + q.accent}>
                   <div className="text-[10.5px] font-bold leading-[1.3] text-ink/70">{q.question}</div>
-                  {text ? (
-                    <p className="mt-1 whitespace-pre-wrap text-[12.5px] leading-[1.45]">{text}</p>
+                  {given.length > 0 ? (
+                    <ul className="mt-1 flex flex-col gap-1">
+                      {given.map((c) => (
+                        <li key={c.id} className="flex items-start gap-1.5">
+                          {!single && (
+                            <span aria-hidden className="mt-[1px] shrink-0 select-none text-[12.5px] leading-[1.45] text-muted">
+                              •
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1 whitespace-pre-wrap text-[12.5px] leading-[1.45]">
+                            {c.text.trim()}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   ) : (
                     <p className="mt-1 text-[11.5px] italic text-muted">Not answered yet.</p>
                   )}

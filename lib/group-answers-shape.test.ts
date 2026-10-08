@@ -253,6 +253,46 @@ describe("shapeFromView — synthesis weeks", () => {
     expect(out.role[0]).toMatchObject({ text: "D1-text", label: "A desirable role for public health" });
   });
 
+  it("lists every answer to one of the theme's four questions, in board order", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("B1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "benefit" }),
+        card("M1", "SECOND", { seq: 3, parentId: "TH1", cardKind: "mechanism" }),
+        card("B2", "SECOND", { seq: 4, parentId: "TH1", cardKind: "benefit" }),
+        card("B3", "SECOND", { seq: 5, parentId: "TH1", cardKind: "benefit" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    const t = out.themes[0];
+    // Three answers to "who benefits?", each its own row, still ahead of the mechanism:
+    // step order between questions, board order within one.
+    expect(t.answers.map((a) => [a.id, a.kind])).toEqual([
+      ["B1", "benefit"],
+      ["B2", "benefit"],
+      ["B3", "benefit"],
+      ["M1", "mechanism"],
+    ]);
+    // Every row carries the question's label, so the viewer and the CSV can group them.
+    expect(new Set(t.answers.slice(0, 3).map((a) => a.label)).size).toBe(1);
+  });
+
+  it("keeps the one-answer questions to one row each", () => {
+    const out = shapeFromView(
+      ex("synthesis"),
+      view([
+        card("TH1", "FIRST", { seq: 1, cardKind: "theme" }),
+        card("C1", "SECOND", { seq: 2, parentId: "TH1", cardKind: "condition" }),
+        card("C2", "SECOND", { seq: 3, parentId: "TH1", cardKind: "condition" }),
+      ])
+    );
+    if (out.kind !== "synthesis") return;
+    // Part B is still one answer per question (the 0027 index still covers `condition`),
+    // so a stray second card does not double the row.
+    expect(out.themes[0].answers.map((a) => a.id)).toEqual(["C1"]);
+  });
+
   it("carries who a hope concerns beside it", () => {
     const out = shapeFromView(
       ex("synthesis"),
