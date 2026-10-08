@@ -1144,13 +1144,16 @@ export function ClusterBoard({
         }}
         footer={
           <>
-            {/* Empty slots, never pre-created themes. A real blank theme would exist on the
-                board from the moment anyone opened it: three "nothing yet" chips on later
-                steps, three to delete if the group wants two, and a race to make three per
-                person. A slot mints its theme on first drop — onStartTheme already did. */}
-            {Array.from({ length: Math.max(0, 3 - board.themes.length) }).map((_, i) => (
+            {/* ONE empty slot, always, never a pre-created theme. A real blank theme would
+                exist on the board from the moment anyone opened it: a "nothing yet" chip on
+                later steps, one to delete if the group changes its mind, and a race to make
+                one per person. The slot mints its theme on drop — onStartTheme — and stays,
+                so the next theme (yours or a teammate's, dropped in the same moment) has
+                the same place to start. It used to be three that counted down to none,
+                which left no drop target at all once a group had three themes. */}
+            {editable && (
               <div
-                key={`slot-${i}`}
+                key="slot"
                 {...zoneProps("newtheme")}
                 className={
                   "flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-[6px] border-2 border-dashed p-3 text-center transition-all " +
@@ -1166,7 +1169,7 @@ export function ClusterBoard({
                   Drop to start a theme
                 </span>
               </div>
-            ))}
+            )}
 
             {/* The rail button mints a theme straight away, named the way a dropped card
                 or a ticked set would name it — "Theme N". Naming can wait until the group
