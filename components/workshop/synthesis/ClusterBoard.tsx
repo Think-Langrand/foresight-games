@@ -14,6 +14,8 @@ import {
   ordinal,
   clusterProgress,
   isUnnamedTheme,
+  labelOnBoard,
+  chainOnBoard,
   twinIndex,
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
@@ -529,6 +531,20 @@ export function ClusterBoard({
   // find the row it is allowed to move. Absent = never seeded = nothing to do with it.
   const seeded = seededIndex(board);
 
+  // A Week 2 node's name ON THIS BOARD — the group's current wording where they have
+  // renamed the Week 3 copy. The rule and its fallbacks live in lib/synthesis-shape.
+  const labelOf = (w2id: string, fallback: string) => labelOnBoard(seeded, w2id, fallback);
+  const chainOf = (w2id: string) =>
+    chainOnBoard(week2Cards, seeded, w2id, lineage[w2id]?.chain ?? []);
+  const relabel = (cards: RippleCard[]) =>
+    cards.map((c) => {
+      const text = labelOf(c.id, c.text);
+      return text === c.text ? c : { ...c, text };
+    });
+
+  // The open node's chain, computed once: the strip above the map reads it twice.
+  const focusChain = focusNode ? chainOf(focusNode) : [];
+
   // DERIVED, not synced. Several people cluster this board at once, so a card you ticked
   // can be deleted between the tick and the click; intersecting with the live board means
   // it silently drops out of your selection — the same fallback the other steps use for a
@@ -571,15 +587,16 @@ export function ClusterBoard({
       if (at) at.push(c);
       else kids.set(c.parentId, [c]);
     }
-    const last = peekLineage.chain.length - 1;
-    const out = peekLineage.chain.map((text, i) => ({
+    const chain = chainOf(peek);
+    const last = chain.length - 1;
+    const out = chain.map((text, i) => ({
       texts: [text],
       order: i,
       here: i === last,
     }));
     let frontier = kids.get(peek) ?? [];
     while (frontier.length > 0 && out.length < last + 1 + 6) {
-      out.push({ texts: frontier.map((c) => c.text), order: out.length, here: false });
+      out.push({ texts: frontier.map((c) => labelOf(c.id, c.text)), order: out.length, here: false });
       frontier = frontier.flatMap((c) => kids.get(c.id) ?? []);
     }
     return out;
@@ -861,7 +878,7 @@ export function ClusterBoard({
 
               Blue throughout, matching the lane on the map and staying off lime,
               which on this board means "theme". */}
-          {focusNode && (lineage[focusNode]?.chain.length ?? 0) > 0 && (
+          {focusNode && focusChain.length > 0 && (
             <div className="mb-3 rounded-[3px] border border-blue bg-[rgba(39,93,226,0.07)] px-3 py-2.5">
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
@@ -875,7 +892,7 @@ export function ClusterBoard({
                 </button>
               </div>
               <ol className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                {lineage[focusNode]!.chain.map((text, i, all) => {
+                {focusChain.map((text, i, all) => {
                   const here = i === all.length - 1;
                   return (
                     <li key={`${i}-${text}`} className="flex items-center gap-1.5">
@@ -904,14 +921,16 @@ export function ClusterBoard({
           <div className="max-h-[70vh] overflow-auto">
             <FuturesWheel
               key={mapBranch ? mapBranch.root.id : "all"}
-              cards={
+              cards={relabel(
                 mapBranch
                   ? mapBranch.subtree
                       .filter((c) => c.id !== mapBranch.root.id)
                       .map((c) => (c.parentId === mapBranch.root.id ? { ...c, parentId: null } : c))
                   : week2Cards
+              )}
+              centerLabel={
+                mapBranch ? labelOf(mapBranch.root.id, mapBranch.root.text) : scenarioTitle || "This future"
               }
-              centerLabel={mapBranch ? mapBranch.root.text : scenarioTitle || "This future"}
               variant={mapBranch ? "branch" : "map"}
               zoom={zoom}
               onFitScale={(v) => (fitScaleRef.current = v)}
@@ -1059,7 +1078,9 @@ export function ClusterBoard({
           {/* The circle's text first, in full: that is what the hover was for, and the
               band is only as tall as the header stack beside it. The chain it sits in
               scrolls beneath. */}
-          <p className="mt-1.5 text-[12.5px] font-bold leading-[1.3] text-ink">{peekCard.text}</p>
+          <p className="mt-1.5 text-[12.5px] font-bold leading-[1.3] text-ink">
+            {labelOf(peekCard.id, peekCard.text)}
+          </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {peekLineage && implicationOrder(peekLineage) !== null && (
               <span

@@ -13,6 +13,8 @@ import {
   stakeProgress,
   clusterProgress,
   isUnnamedTheme,
+  labelOnBoard,
+  chainOnBoard,
   exploreProgress,
   flipProgress,
   summaryCardCount,
@@ -1296,6 +1298,53 @@ describe("the board's own hopes and fears (steps 3 and 4)", () => {
 
   it("a hope flipped from a fear deletes with it", () => {
     expect(descendantsOf(indexSynthesisBoard(b()), "F1").map((c) => c.id)).toEqual(["H2"]);
+  });
+});
+
+describe("labelOnBoard / chainOnBoard", () => {
+  // A Week 2 map: K (key change) → I1 → I2.
+  const w2 = [
+    card("K", "FIRST", null, 1),
+    card("I1", "SECOND", "K", 2),
+    card("I2", "TERMINAL", "I1", 3),
+  ];
+  // The Week 3 board holds COPIES, linked by sourceCardId. I1's copy has been renamed.
+  const seededFor = (...week3: RippleCard[]) =>
+    seededIndex(indexSynthesisBoard([theme("TH", 1), ...week3]));
+
+  const renamedI1 = card("w3-I1", "SECOND", "TH", 10, {
+    text: "the group's own words",
+    sourceCardId: "I1",
+  });
+
+  it("a renamed Week 3 copy gives the node its new name", () => {
+    expect(labelOnBoard(seededFor(renamedI1), "I1", "I1-text")).toBe("the group's own words");
+  });
+
+  it("a node with no Week 3 copy keeps what Week 2 wrote", () => {
+    expect(labelOnBoard(seededFor(renamedI1), "K", "K-text")).toBe("K-text");
+  });
+
+  // Clearing a card is not how it is renamed, and a blank circle says nothing at all.
+  it("a blank Week 3 copy falls back rather than showing nothing", () => {
+    const blank = card("w3-I1", "SECOND", "TH", 10, { text: "   ", sourceCardId: "I1" });
+    expect(labelOnBoard(seededFor(blank), "I1", "I1-text")).toBe("I1-text");
+  });
+
+  it("the chain reads root first, in the words this board uses", () => {
+    expect(chainOnBoard(w2, seededFor(renamedI1), "I2", [])).toEqual([
+      "K-text",
+      "the group's own words",
+      "I2-text",
+    ]);
+  });
+
+  it("a node the map does not hold falls back to the chain it was given", () => {
+    expect(chainOnBoard(w2, seededFor(renamedI1), "nope", ["from", "the", "server"])).toEqual([
+      "from",
+      "the",
+      "server",
+    ]);
   });
 });
 

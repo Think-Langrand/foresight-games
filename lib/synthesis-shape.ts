@@ -986,6 +986,41 @@ export function branchOf(cards: RippleCard[], cardId: string): Week2Branch | nul
   return { root, subtree, pathIds };
 }
 
+// What a Week 2 node is CALLED on a Week 3 board. A Week 3 implication is a COPY of its
+// Week 2 card (source_card_id), so renaming it on the cluster board left the map saying
+// what Session 2 wrote — one node under two names, with nothing to say why. The Week 3
+// board shows the group's current words; Session 2's own board is never written to, so
+// that session's record stays what that session produced.
+//
+// A blank copy falls back: clearing a card is not how it gets renamed, and a circle with
+// nothing in it says less than the old words did.
+export function labelOnBoard(
+  seeded: Map<string, SeededCard>,
+  w2id: string,
+  fallback: string
+): string {
+  return seeded.get(w2id)?.card.text.trim() || fallback;
+}
+
+// The chain down to a Week 2 node, root first, in the words that board uses. Read off the
+// map by id rather than from Week2Lineage.chain, which is text only and so cannot be
+// relabelled; `fallback` is that server-shaped chain, for a node this map does not hold.
+export function chainOnBoard(
+  week2Cards: RippleCard[],
+  seeded: Map<string, SeededCard>,
+  w2id: string,
+  fallback: string[]
+): string[] {
+  const branch = branchOf(week2Cards, w2id);
+  if (!branch) return fallback;
+  const byId = new Map(week2Cards.map((c) => [c.id, c]));
+  return [...branch.pathIds]
+    .reverse()
+    .map((id) => byId.get(id))
+    .filter((c): c is RippleCard => Boolean(c))
+    .map((c) => labelOnBoard(seeded, c.id, c.text));
+}
+
 export function implicationOrder(lineage: Week2Lineage | undefined): number | null {
   if (!lineage || lineage.chain.length < 2) return null;
   return lineage.chain.length - 1;
