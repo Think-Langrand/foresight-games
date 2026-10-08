@@ -30,6 +30,10 @@ export interface SynthesisSummary {
   // The UI says "the board has changed since" when the live hash differs — so an edited
   // answer or a renamed theme counts as a change, where a count alone would miss it.
   inputHash?: string;
+  // Titles of themes the digest could not fit, in board order — the model never saw these,
+  // so the summary is silent on them. The panel says so: a facilitator reading a summary
+  // that skips a theme the group worked hard on would otherwise have no way to know.
+  omittedThemes?: string[];
 }
 
 // A hash of what the model is given — the scenario title it is framed with and
@@ -76,6 +80,7 @@ export function coerceSummary(raw: unknown): SynthesisSummary | null {
   const overview = str(r.overview, SUMMARY_LIMITS.overview);
   const generatedAt = typeof r.generatedAt === "string" && Number.isFinite(Date.parse(r.generatedAt)) ? r.generatedAt : "";
   if (!overview || !generatedAt) return null;
+  const omitted = strList(r.omittedThemes, SUMMARY_LIMITS.item, SUMMARY_LIMITS.themes);
   const themes: SynthesisSummaryTheme[] = Array.isArray(r.themes)
     ? r.themes
         .filter((t): t is Record<string, unknown> => typeof t === "object" && t !== null)
@@ -97,6 +102,7 @@ export function coerceSummary(raw: unknown): SynthesisSummary | null {
     generatedAt,
     cardCount: typeof r.cardCount === "number" && Number.isFinite(r.cardCount) ? r.cardCount : 0,
     ...(typeof r.inputHash === "string" && r.inputHash.length > 0 ? { inputHash: r.inputHash } : {}),
+    ...(omitted.length > 0 ? { omittedThemes: omitted } : {}),
   };
 }
 
@@ -116,6 +122,9 @@ export interface SummaryDigest {
   themes: SummaryDigestTheme[];
   text: string; // the prompt body
   keyToId: Record<string, string>;
+  // The themes that did not fit in maxChars, in board order. Not in `text`, so the model
+  // is silent on them and the facilitator has to be told.
+  dropped: { themeId: string; title: string }[];
 }
 
 const CLIP = 400;
@@ -124,11 +133,16 @@ const clip = (s: string) => (s.length > CLIP ? s.slice(0, CLIP - 1).trimEnd() + 
 // Themes as short keys with everything steps 1–2 wrote on them. Short keys rather than
 // uuids, as the clustering tool does: the model copies them back exactly, and they cost a
 // token each. Capped by total length — a theme past the cap is left out whole rather than
-// cut mid-answer, so what the model reads is always complete per theme.
+// cut mid-answer, so what the model reads is always complete per theme. A theme that does
+// not fit is skipped and the next one still tried, so the budget is spent on as many whole
+// themes as it holds; whatever was skipped comes back in `dropped` to be reported, because
+// a question now takes as many answers as a group writes (0027) and a board of well-worked
+// themes can reach the cap where the old four-answer ceiling could not.
 export function summaryDigest(ex: SynthesisExercise, maxChars = 12000): SummaryDigest {
   const themes: SummaryDigestTheme[] = [];
   const keyToId: Record<string, string> = {};
   const parts: string[] = [];
+  const dropped: { themeId: string; title: string }[] = [];
   let used = 0;
 
   ex.themes.forEach((t, i) => {
@@ -150,12 +164,15 @@ export function summaryDigest(ex: SynthesisExercise, maxChars = 12000): SummaryD
       ...theme.opportunities.map((o) => `Opportunity: ${o}`),
     ].filter((l): l is string => Boolean(l));
     const block = lines.join("\n");
-    if (used + block.length + 2 > maxChars && themes.length > 0) return;
+    if (used + block.length + 2 > maxChars && themes.length > 0) {
+      dropped.push({ themeId: t.id, title: theme.title });
+      return;
+    }
     used += block.length + 2;
     themes.push(theme);
     keyToId[key] = t.id;
     parts.push(block);
   });
 
-  return { themes, text: parts.join("\n\n"), keyToId };
+  return { themes, text: parts.join("\n\n"), keyToId, dropped };
 }

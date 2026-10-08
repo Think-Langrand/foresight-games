@@ -112,6 +112,17 @@ export function SummaryPanel({
         )}
       </div>
       {error && <p className="text-[12px] text-coral">{error}</p>}
+      {summary.omittedThemes && summary.omittedThemes.length > 0 && (
+        <p className="rounded-[3px] border border-dashed border-black/25 px-3 py-2 text-[12px] leading-[1.45] text-muted">
+          <span className="font-bold text-ink">
+            {summary.omittedThemes.length === 1 ? "One theme is not in this summary" : `${summary.omittedThemes.length} themes are not in this summary`}
+          </span>{" "}
+          — the board had more writing on it than one summary can read, so{" "}
+          {summary.omittedThemes.length === 1 ? "it was" : "they were"} left out whole rather than
+          cut short: {summary.omittedThemes.map((t) => `“${t}”`).join(", ")}. Read{" "}
+          {summary.omittedThemes.length === 1 ? "that theme" : "those themes"} from the board itself.
+        </p>
+      )}
       {open && <SummaryBlock summary={summary} />}
     </div>
   );

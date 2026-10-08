@@ -95,8 +95,14 @@ export function QuestionGrid<K extends string>({
         <span className="text-[11px] italic text-muted">
           {answered} of {fields.length} answered
           {total > answered && ` · ${total} answers in all`}
-          {canEdit && answered < fields.length && " · a question takes as many as you have"}
-          {answered === fields.length && " · all done"}
+          {/* While the group can still write, the hint stays up even once every question has
+              an answer: one answer each is the floor, not the finish, and that is exactly the
+              moment a breakout benefits from knowing a second reading is welcome. "All done"
+              belongs to the read-only recap, where the sheet is a record rather than an
+              invitation — beside the hint it would argue with it. */}
+          {canEdit
+            ? " · a question takes as many as you have"
+            : answered === fields.length && " · all done"}
         </span>
       </div>
       {lead && <div className="mt-2">{lead}</div>}
