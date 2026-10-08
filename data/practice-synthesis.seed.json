@@ -1,0 +1,471 @@
+{
+  "_about": "Week 3 (synthesis) seed for the Future of Transportation practice project. Replayed by scripts/seed-practice-synthesis.mjs. `implications` are keyed by the Session 2 key change they hang under; `themes` reference tray implications by their exact text.",
+  "implications": {
+    "Driverless Cars": [
+      {
+        "text": "Fewer people learn to drive",
+        "children": [
+          "Fewer young people apply for a licence at all",
+          "Adults who never learned to drive depend on a service they cannot afford to lose",
+          {
+            "text": "reduced application for driver's licenses",
+            "children": [
+              "reduced license fees",
+              {
+                "text": "increased demand for alternative forms of ID",
+                "children": [
+                  "fewer fake driver's licenses"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "text": "People who cannot drive today — older adults, people with disabilities, teenagers — can travel alone",
+        "children": [
+          "Appointment no-show rates fall where rides are reliable and free at the point of use",
+          "Carers get hours back, and some of the isolation that came with needing a lift goes too"
+        ]
+      },
+      {
+        "text": "Crash injuries fall overall, but new kinds of collision appear at the edge of the software's competence",
+        "children": [
+          "Trauma teams see fewer cases and lose the volume that keeps them sharp",
+          "Liability for a crash moves from a driver to a manufacturer, and so does the evidence"
+        ]
+      },
+      {
+        "text": "Driving work disappears as a first rung into the labour market",
+        "children": [
+          "The health coverage attached to those jobs goes with them",
+          "Workers without a degree lose the job that used to be available in every town"
+        ]
+      },
+      {
+        "text": "Fewer accidents",
+        "children": [
+          "Emergency departments and ambulance services are staffed for a demand that no longer arrives",
+          "Organ donation from road deaths falls, and transplant waiting lists lengthen",
+          {
+            "text": "less demand for accident response",
+            "children": [
+              "staff reductions in public safety"
+            ]
+          },
+          "no longer need car insurance"
+        ]
+      },
+      {
+        "text": "increased demand on telecom networks",
+        "children": [
+          "laggy internet and cell service",
+          "construction of more high-speed telecom boxes"
+        ]
+      },
+      {
+        "text": "construction of supporting infrastructure",
+        "children": [
+          {
+            "text": "redesign of intersections",
+            "children": [
+              {
+                "text": "lightless intersections",
+                "children": [
+                  "construction of raised crosswalks"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "text": "taxi drivers displaced",
+        "children": [
+          "increased demand on un-employment benefits"
+        ]
+      },
+      {
+        "text": "fewer traffic infractions",
+        "children": [
+          {
+            "text": "reduced revenue from fines",
+            "children": [
+              {
+                "text": "staff cuts in police department",
+                "children": [
+                  "growing crime"
+                ]
+              },
+              "more urban blight",
+              "tax rate increases"
+            ]
+          }
+        ]
+      },
+      {
+        "text": "rise in ridesharing",
+        "children": [
+          "increased carpooling",
+          {
+            "text": "dropping rates of personal car ownership",
+            "children": [
+              "houses don't need garages or driveways"
+            ]
+          },
+          {
+            "text": "increasing car utilization rates",
+            "children": [
+              "no need for parking lots"
+            ]
+          }
+        ]
+      }
+    ],
+    "Electrification": [
+      {
+        "text": "Tailpipe pollution drops first in the neighbourhoods that get the new vehicles first",
+        "children": [
+          "Childhood asthma rates diverge between neighbourhoods on the same road network",
+          "The cleanest air arrives where the air was already cleanest"
+        ]
+      },
+      {
+        "text": "Charging depots and substations are sited where land is cheap",
+        "children": [
+          "The communities that hosted the highway now host the grid build-out",
+          "A neighbourhood's power reliability starts to depend on what the depot next door is drawing"
+        ]
+      },
+      {
+        "text": "Streets get quieter, so what people hear coming changes",
+        "children": [
+          "Pedestrians who are blind or low-vision lose the cue they navigate by",
+          "Sleep improves along the roads that were loudest"
+        ]
+      },
+      {
+        "text": "Brake, tyre and road-wear particulates stay even after the exhaust goes",
+        "children": [
+          "Heavier batteries put more of it on the same streets as before",
+          "The clean-air message stops matching what people are still breathing"
+        ]
+      }
+    ],
+    "Transportation as a service": [
+      {
+        "text": "Fewer households own a car, so every trip becomes a purchase decision",
+        "children": [
+          "People ration trips they would once have taken, including some to care",
+          "Surge pricing lands hardest on the shifts that cannot be moved"
+        ]
+      },
+      {
+        "text": "Service levels follow demand density rather than need",
+        "children": [
+          "Rural and low-density areas get the thinnest service at exactly the hours shift workers travel",
+          "A clinic twenty minutes away is still unreachable on a Sunday"
+        ]
+      },
+      {
+        "text": "Being unbanked or without a smartphone becomes a barrier to leaving the house",
+        "children": [
+          "Cash fares disappear from the system that replaced the bus",
+          "Older adults travel on a relative's account, and on that relationship holding"
+        ]
+      },
+      {
+        "text": "Transit agencies become buyers of private service rather than operators of their own",
+        "children": [
+          "The public loses the staff and the standing to set service levels",
+          "When an operator withdraws there is no fleet and no driver roster to fall back on"
+        ]
+      }
+    ],
+    "Connected, intelligent infrastructure": [
+      {
+        "text": "Every trip leaves a record of who went where, and when",
+        "children": [
+          "Movement data becomes attractive to employers, insurers and immigration enforcement",
+          "Public health gains near-real-time exposure and mobility data it has never had"
+        ]
+      },
+      {
+        "text": "Signal priority is allocated by algorithm",
+        "children": [
+          "Streets optimised for throughput become harder to cross on foot",
+          "Ambulances get through faster, and so do the vehicles that pay for priority"
+        ]
+      },
+      {
+        "text": "A software fault or outage is now a region-wide transport failure",
+        "children": [
+          "Dialysis and chemotherapy patients and shift workers are stranded first",
+          "There is no manual fallback left to switch to"
+        ]
+      },
+      {
+        "text": "Maintaining a street becomes a software contract rather than a public works budget",
+        "children": [
+          "A vendor's end-of-support date decides when a junction stops working",
+          "The skills to fix the street are no longer held by anyone the city employs"
+        ]
+      }
+    ],
+    "Seamless multimodal travel": [
+      {
+        "text": "One app plans and pays for the whole journey",
+        "children": [
+          "People without the app, or the languages it speaks, are outside the system",
+          "One company's outage strands every mode at once"
+        ]
+      },
+      {
+        "text": "Walking and cycling become legs of most trips",
+        "children": [
+          "Daily physical activity rises for people whose routes are safe, and not for others",
+          "Injury patterns shift from car crashes to falls and cycle collisions"
+        ]
+      },
+      {
+        "text": "Curb space is reallocated from parking to pick-up and drop-off",
+        "children": [
+          "Conflict between people walking, cycling and waiting concentrates at the curb",
+          "Step-free drop-off becomes something to compete for rather than something reserved"
+        ]
+      },
+      {
+        "text": "Trips are planned door to door, so the gaps between modes become visible",
+        "children": [
+          "The journeys nobody can complete are finally countable",
+          "Places left off the network find out that they were left off"
+        ]
+      }
+    ],
+    "Reinvented freight and delivery,": [
+      {
+        "text": "Driverless trucks run freight corridors at all hours",
+        "children": [
+          "Noise and vibration become a night-time sleep problem along those routes",
+          "Rest stops, diners and the towns built around them lose their trade"
+        ]
+      },
+      {
+        "text": "Neighbourhood delivery hubs put industrial activity on residential streets",
+        "children": [
+          "Children walk to school past loading bays that were not there last year",
+          "The jobs arrive with the traffic, and go to people from somewhere else"
+        ]
+      },
+      {
+        "text": "Almost anything can be delivered, so some people stop going out",
+        "children": [
+          "Isolation deepens among the people who already left the house least",
+          "The shops that were a reason to walk somewhere close"
+        ]
+      },
+      {
+        "text": "Food and pharmacy delivery reaches places a store never did",
+        "children": [
+          "Access improves for the people who can pay the delivery fee",
+          "A pharmacist stops being someone you can ask a question"
+        ]
+      }
+    ]
+  },
+  "themes": [
+    {
+      "text": "Getting there stops depending on owning or driving a car",
+      "description": "For people who cannot drive today, travel becomes possible without a licence or a vehicle — as long as service reaches them and they can pay for it.",
+      "implications": [
+        "People who cannot drive today — older adults, people with disabilities, teenagers — can travel alone",
+        "Appointment no-show rates fall where rides are reliable and free at the point of use",
+        "Fewer people learn to drive",
+        "Fewer households own a car, so every trip becomes a purchase decision",
+        "People ration trips they would once have taken, including some to care",
+        "Food and pharmacy delivery reaches places a store never did",
+        "Being unbanked or without a smartphone becomes a barrier to leaving the house",
+        "Rural and low-density areas get the thinnest service at exactly the hours shift workers travel"
+      ],
+      "benefit": [
+        "Older adults, people with disabilities and teenagers can reach work, care and each other without asking someone for a lift.",
+        "Clinics see fewer missed appointments wherever the ride is reliable and free at the point of use."
+      ],
+      "cost": [
+        "People who are unbanked, phoneless, or outside the app's languages lose the only way the system works.",
+        "Households that ration trips by price take fewer of them, and some of those were trips to care."
+      ],
+      "experience": [
+        "A rural shift worker reads this as service that is not there at five in the morning.",
+        "A parent with three children reads it as three fares rather than one car."
+      ],
+      "mechanism": [
+        "Someone has to fund rides as a public service rather than a product, and set a floor on where and when service runs.",
+        "The ride has to be bookable without a smartphone, a bank account or English."
+      ],
+      "risks": [
+        "Travel becomes something you buy by the trip, so the people with the least money travel least.",
+        "A ride you cannot book without a smartphone is not access, however good the coverage map looks."
+      ],
+      "opportunities": [
+        "Non-emergency medical transport stops being a separate, under-funded programme and becomes part of the system.",
+        "Public health can argue for ride subsidies as a clinical access measure, with attendance data to show for it."
+      ]
+    },
+    {
+      "text": "The air gets cleaner unevenly, and the new infrastructure lands where it always has",
+      "description": "Electrification removes the tailpipe, but the vehicles arrive first in the wealthiest neighbourhoods while depots, hubs and substations go where land is cheap.",
+      "implications": [
+        "Tailpipe pollution drops first in the neighbourhoods that get the new vehicles first",
+        "Childhood asthma rates diverge between neighbourhoods on the same road network",
+        "Charging depots and substations are sited where land is cheap",
+        "The communities that hosted the highway now host the grid build-out",
+        "Brake, tyre and road-wear particulates stay even after the exhaust goes",
+        "Driverless trucks run freight corridors at all hours",
+        "Noise and vibration become a night-time sleep problem along those routes",
+        "Neighbourhood delivery hubs put industrial activity on residential streets"
+      ],
+      "benefit": [
+        "Neighbourhoods that get electric fleets early see measurable drops in NO2 and in childhood asthma."
+      ],
+      "cost": [
+        "Communities along freight corridors trade exhaust for night-time noise, vibration and a substation.",
+        "Anyone whose exposure is brake and tyre particulate sees no improvement at all."
+      ],
+      "experience": [
+        "A family on a truck route reads 'clean transportation' as a change in which pollutant keeps them awake."
+      ],
+      "mechanism": [
+        "Siting decisions for depots, hubs and substations would have to carry a health review with the standing to say no.",
+        "Fleet replacement would have to be scheduled by asthma burden rather than by who buys first."
+      ],
+      "risks": [
+        "A city hits its emissions target while the asthma gap inside it widens, and the target is what gets reported.",
+        "Noise and sleep loss are not counted, so they are not mitigated."
+      ],
+      "opportunities": [
+        "Fleet electrification schedules are a lever public health can ask to see, and to reorder.",
+        "Neighbourhood-scale air monitoring becomes cheap enough to be routine rather than a study."
+      ]
+    },
+    {
+      "text": "Every trip is recorded, and the record is both a tool and a threat",
+      "description": "Connected infrastructure produces continuous data on who moved where and when. The same record that would transform exposure surveillance is attractive to employers, insurers and enforcement.",
+      "implications": [
+        "Every trip leaves a record of who went where, and when",
+        "Movement data becomes attractive to employers, insurers and immigration enforcement",
+        "Public health gains near-real-time exposure and mobility data it has never had",
+        "One app plans and pays for the whole journey",
+        "People without the app, or the languages it speaks, are outside the system"
+      ],
+      "benefit": [
+        "Public health could see exposure, access and mobility in near real time instead of once a decade."
+      ],
+      "cost": [
+        "People with reason to avoid being tracked avoid the system, and then avoid the trip.",
+        "Anyone outside the app is invisible in the data as well as outside the service."
+      ],
+      "experience": [
+        "The same dataset reads as a public good to an epidemiologist and as a risk register to someone without papers."
+      ],
+      "mechanism": [
+        "Clear limits on who may query movement data, for what, with a public record of every request.",
+        "A legal basis that survives a change of administration, not a policy that does not."
+      ],
+      "risks": [
+        "Public health is handed the data and the reputational cost of how it was collected.",
+        "Trust lost to a single enforcement request does not come back."
+      ],
+      "opportunities": [
+        "A chance to write the governance rules before the data is routine rather than after.",
+        "Exposure surveillance that does not depend on asking people to recall their week."
+      ]
+    },
+    {
+      "text": "The system gains new single points of failure, and the people least able to absorb them",
+      "description": "When movement depends on software, a service contract and a working app, an outage is not an inconvenience but a region-wide failure — and the first people stranded are the ones with appointments they cannot miss.",
+      "implications": [
+        "A software fault or outage is now a region-wide transport failure",
+        "Dialysis and chemotherapy patients and shift workers are stranded first",
+        "Service levels follow demand density rather than need",
+        "Rural and low-density areas get the thinnest service at exactly the hours shift workers travel",
+        "Transit agencies become buyers of private service rather than operators of their own",
+        "The public loses the staff and the standing to set service levels",
+        "Driving work disappears as a first rung into the labour market",
+        "The health coverage attached to those jobs goes with them"
+      ],
+      "benefit": [
+        "A system that can be instrumented can also be held to a measurable service standard."
+      ],
+      "cost": [
+        "Dialysis patients, shift workers and anyone on a treatment schedule carry the failures.",
+        "A workforce that lost driving jobs lost the health coverage attached to them at the same time."
+      ],
+      "experience": [
+        "An agency that buys service rather than running it reads an outage as a vendor problem, not a public health emergency."
+      ],
+      "mechanism": [
+        "Continuity-of-service requirements written into the procurement contract, with public health at the table when it is written.",
+        "A minimum service floor set in public, for hours and places that demand alone would not pay for."
+      ],
+      "risks": [
+        "Emergency planning assumes a transport system that nobody in government operates.",
+        "By the time an outage happens, there is no public capacity left to run service instead."
+      ],
+      "opportunities": [
+        "Transport continuity becomes part of emergency preparedness rather than an afterthought.",
+        "Procurement is a public health lever, if we are in the room when it is drafted."
+      ]
+    }
+  ],
+  "hopesFears": [
+    {
+      "kind": "hope",
+      "text": "We hope that getting to care stops depending on whether someone in the household can drive.",
+      "why": "Because the appointments people miss are not the ones they do not value, they are the ones they cannot reach.",
+      "concerns": "Older adults, people with disabilities, and households without a car."
+    },
+    {
+      "kind": "hope",
+      "text": "We hope that the health effects of a transport decision are visible before the concrete is poured.",
+      "why": "Because siting is where the next thirty years of asthma and sleep loss get decided, and we are usually told afterwards.",
+      "concerns": "Communities along freight corridors and near new depots and substations."
+    },
+    {
+      "kind": "fear",
+      "text": "We fear that clean air arrives as a neighbourhood amenity rather than a public standard.",
+      "why": "Because a city can meet its emissions target while the gap inside it widens, and the target is what gets reported.",
+      "concerns": "Low-income neighbourhoods on freight and highway corridors.",
+      "flip": {
+        "text": "We hope that the first electric fleets go where the asthma burden is highest, not where the buyers are.",
+        "why": "Because the same investment can close the gap or widen it, and the order it happens in is the whole decision."
+      }
+    },
+    {
+      "kind": "fear",
+      "text": "We fear that movement data reaches enforcement before it reaches epidemiology.",
+      "why": "Because the first time a trip record is subpoenaed, the people we most need to reach stop travelling in the system.",
+      "concerns": "Undocumented residents, people fleeing violence, anyone with reason to avoid a record.",
+      "flip": {
+        "text": "We hope that the rules on who may query a trip record are written, public and in force before the data is routine.",
+        "why": "Because trust is cheaper to keep than to rebuild, and we are early enough to ask."
+      }
+    },
+    {
+      "kind": "fear",
+      "text": "We fear that nobody in government will be able to say what the service level is, let alone change it.",
+      "why": "Because when agencies buy service instead of running it, an outage becomes a vendor's problem and a patient's emergency.",
+      "concerns": "Dialysis and chemotherapy patients, shift workers, rural residents.",
+      "flip": {
+        "text": "We hope that a minimum service standard is something the public sets and can hold someone to.",
+        "why": "Because the people who cannot miss a trip are the reason a floor exists at all."
+      }
+    },
+    {
+      "kind": "fear",
+      "text": "We fear that a quieter, emptier street is read as a safer one.",
+      "why": "Because the street that no longer has traffic noise may also no longer have anybody on it, and isolation does not show up in a crash statistic.",
+      "concerns": "People living alone, and anyone whose daily contact was incidental."
+    }
+  ]
+}
