@@ -28,6 +28,15 @@ import {
 } from "@/components/workshop/synthesis/SynthesisCard";
 import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
+import { CanvasBoard, type CanvasNode } from "@/components/workshop/synthesis/CanvasBoard";
+import { layout as wheelLayout } from "@/lib/wheel-layout";
+import {
+  resolvePositions,
+  type CanvasCardPos,
+  type Pos,
+  type Rect,
+  type Region,
+} from "@/lib/canvas-shape";
 import {
   KeyChangeChips,
   MapToolbar,
@@ -45,6 +54,12 @@ import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStor
 import { Dot, ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
 import { PromptRail } from "@/components/workshop/synthesis/PromptRail";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
+
+// Cards, the Week 2 wheel, or the freeform canvas — the three places step 1's body can be.
+type ClusterView = "cards" | "map" | "canvas";
+
+// Stable, so the no-canvas path allocates nothing per render.
+const EMPTY_WHEEL = { nodes: [] as { id: string; x: number; y: number }[], size: 0 };
 import {
   DeleteThemeModal,
   type DeleteThemeMode,
@@ -124,6 +139,7 @@ export function ClusterBoard({
   admin,
   themeId,
   onPickTheme,
+  canvas,
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -166,6 +182,19 @@ export function ClusterBoard({
   // exploration step, so moving between steps keeps you on the theme you were working on.
   themeId: string | null;
   onPickTheme: (id: string | null) => void;
+  // The freeform canvas, wired from the view that owns the writes. Absent = no Canvas tab.
+  // What crosses this boundary is geometry and keys; the twin rules stay on the other side.
+  canvas?: {
+    // Saved positions only. The fallback ladder is applied here, where the board and the
+    // wheel both are.
+    saved: Map<string, Pos>;
+    regions: Map<string, Region>;
+    onOpen: (open: boolean) => void;
+    onHold: (key: string, pos: Pos | null) => void;
+    onDropCard: (key: string, pos: Pos, themeIds: string[]) => void;
+    onDrawRegion: (rect: Rect, claimed: CanvasCardPos[]) => void;
+    onSaveMany: (cards: CanvasCardPos[]) => void;
+  };
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
@@ -179,7 +208,7 @@ export function ClusterBoard({
   // Cards or the Week 2 map, in the same place. The map is the way in: a branch is usually
   // already a theme, so grabbing one beats picking its members out of a list of 146. Cards
   // only when there is no Week 2 map to draw (a group whose Week 2 is still a placeholder).
-  const [view, setView] = useState<"cards" | "map">(week2Cards.length > 0 ? "map" : "cards");
+  const [view, setView] = useState<ClusterView>(week2Cards.length > 0 ? "map" : "cards");
   // The Week 2 card the map was opened ON, if it was opened from a card. Highlights its
   // path and scrolls to it; cleared as soon as you change branch.
   const [focusNode, setFocusNode] = useState<string | null>(null);
@@ -530,6 +559,85 @@ export function ClusterBoard({
   // draws Week 2 cards but themes hold Week 3 ones, so this is the only way a node can
   // find the row it is allowed to move. Absent = never seeded = nothing to do with it.
   const seeded = seededIndex(board);
+
+  // --- the canvas -------------------------------------------------------------
+  //
+  // It draws WEEK 3 implications, one circle per implicationKey — an implication twinned
+  // into three themes is still ONE circle, because the canvas shows the implication, not
+  // any one row of it. Each reaches its opening position through its Week 2 source: the
+  // node the wheel would have drawn for it. That is what makes the canvas open looking
+  // like the map instead of like an empty page.
+  // Only while the canvas is the thing on screen. Nothing below is memoized by hand —
+  // this component has no manual memoization anywhere and leans on the React Compiler,
+  // and a useMemo here makes the compiler skip the whole file. The guard is what keeps
+  // the cost off the map view, which is already laying out the same wheel itself.
+  const canvasOn = view === "canvas" && !focus ? (canvas ?? null) : null;
+  const canvasWheel = canvasOn ? wheelLayout(week2Cards) : EMPTY_WHEEL;
+  const wheelAt = new Map(canvasWheel.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+
+  // The key-change filter is the scale guard that turns Group 1's 146 into about 25 — but
+  // it is applied to the TRAY only. Hiding clustered cards would leave a theme's box
+  // holding some of its members and not others, and the whole claim of this view is that
+  // the picture is the data.
+  const canvasNodes: CanvasNode[] = [];
+  const canvasItems: { key: string; themeId: string | null; wheel: Pos | null }[] = [];
+  if (canvasOn) {
+    for (const [key, info] of twins) {
+      const card = info.cards[0];
+      const themed = info.themeIds.length > 0;
+      if (!themed && !matchesKey(card)) continue;
+      const w2 = info.sourceCardId;
+      const order = orderOf(card);
+      canvasItems.push({
+        key,
+        themeId: info.themeIds[0] ?? null,
+        wheel: w2 ? (wheelAt.get(w2) ?? null) : null,
+      });
+      canvasNodes.push({
+        key,
+        label: card.text || "Untitled",
+        depth: order ?? 0,
+        themeIds: info.themeIds,
+        dim: !matchesOrder(card),
+      });
+    }
+  }
+
+  // Not memoized, deliberately: it is O(n) over ~150 items and depends on the board, the
+  // regions, the saved rows and both filters — a dep list honest enough to be correct
+  // would never hit. The expensive part, the wheel layout above, is the thing memoized.
+  const canvasPositions = canvasOn
+    ? resolvePositions({
+        items: canvasItems,
+        regions: canvasOn.regions,
+        saved: canvasOn.saved,
+        // Hand-typed cards have no Week 2 node, so they pile up below the wheel rather
+        // than all landing on the hub.
+        strip: { x: 60, y: canvasWheel.size + 80 },
+      })
+    : new Map<string, Pos>();
+
+  // Big enough for the wheel, the strip, and anything dragged past either.
+  const canvasSize = (() => {
+    let max = canvasWheel.size;
+    for (const p of canvasPositions.values()) max = Math.max(max, p.x + 160, p.y + 160);
+    for (const r of canvas?.regions.values() ?? []) max = Math.max(max, r.x + r.w + 160, r.y + r.h + 160);
+    return Math.ceil(max);
+  })();
+
+  // "Spread out": a loose grid for the visible set, so there is room to sort them. The
+  // wheel packs 76px circles 12px apart, and you cannot draw a box through a dense ring.
+  const spreadOut = () => {
+    if (!canvas) return;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(canvasNodes.length)));
+    canvas.onSaveMany(
+      canvasNodes.map((n, i) => ({
+        itemId: n.key,
+        x: 120 + (i % cols) * 120,
+        y: 120 + Math.floor(i / cols) * 120,
+      }))
+    );
+  };
 
   // A Week 2 node's name ON THIS BOARD — the group's current wording where they have
   // renamed the Week 3 copy. The rule and its fallbacks live in lib/synthesis-shape.
@@ -1178,13 +1286,22 @@ export function ClusterBoard({
 
   // The two places the body can be, as icons: a grid of cards, and the wheel. Drawn
   // inline — the repo has no icon set, and these two shapes are the things themselves.
-  const viewIcon = (v: "cards" | "map") =>
+  const viewIcon = (v: ClusterView) =>
     v === "cards" ? (
       <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden fill="currentColor">
         <rect x="1" y="1" width="5" height="5" rx="1" />
         <rect x="8" y="1" width="5" height="5" rx="1" />
         <rect x="1" y="8" width="5" height="5" rx="1" />
         <rect x="8" y="8" width="5" height="5" rx="1" />
+      </svg>
+    ) : v === "canvas" ? (
+      // Loose circles with a box drawn round some of them — the gesture itself.
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden fill="currentColor">
+        <rect x="0.6" y="4" width="8" height="7" rx="1" fill="none" stroke="currentColor" strokeWidth="1.1" strokeDasharray="2 1.4" />
+        <circle cx="3.1" cy="7" r="1.5" />
+        <circle cx="6.3" cy="8.4" r="1.5" />
+        <circle cx="11.4" cy="2.6" r="1.5" />
+        <circle cx="11.9" cy="9.6" r="1.5" />
       </svg>
     ) : (
       <svg width="14" height="14" viewBox="-1 -1 16 16" aria-hidden fill="currentColor">
@@ -1454,15 +1571,20 @@ export function ClusterBoard({
           <span className="ml-auto flex flex-wrap items-center gap-2">
             {(week2Cards.length > 0 || focus) && (
               <span role="group" aria-label="Working in" className="flex items-center gap-1">
-                {(["map", "cards"] as const).map((v) => {
+                {(["map", "canvas", "cards"] as const).map((v) => {
                   if (v === "map" && week2Cards.length === 0) return null;
+                  if (v === "canvas" && !canvas) return null;
                   const on = !focus && view === v;
-                  const label = v === "cards" ? "Cards" : "Map";
+                  const label = v === "cards" ? "Cards" : v === "canvas" ? "Canvas" : "Map";
                   return (
                     <button
                       key={v}
                       onClick={() => {
                         setView(v);
+                        // Said out loud rather than watched with an effect: the layout
+                        // channel costs a subscription per client, so it opens with the
+                        // view and closes with it.
+                        canvas?.onOpen(v === "canvas");
                         if (v === "cards") setFocusNode(null);
                         onPickTheme(null); // leaving a theme, if one is open
                       }}
@@ -1798,7 +1920,25 @@ export function ClusterBoard({
       {/* ---- the tray ----
            Its filters, add button and view toggle are in the toolbar above. */}
       <section aria-label="Implications not yet in a theme">
-        {view === "map" ? renderMap(null) : (
+        {view === "map" ? (
+          renderMap(null)
+        ) : view === "canvas" && canvas ? (
+          <CanvasBoard
+            nodes={canvasNodes}
+            positions={canvasPositions}
+            regions={canvas.regions}
+            themeLabel={(id) =>
+              board.themes.find((th) => th.id === id)?.text?.trim() ||
+              `Theme ${board.themes.findIndex((th) => th.id === id) + 1}`
+            }
+            size={canvasSize}
+            editable={editable}
+            onHold={canvas.onHold}
+            onDropCard={canvas.onDropCard}
+            onDrawRegion={canvas.onDrawRegion}
+            onSpreadOut={spreadOut}
+          />
+        ) : (
         <div
           {...zoneProps("tray")}
           className={

@@ -23,6 +23,7 @@ import {
   postRippleCard,
   reorderRippleCard,
   reparentRippleCard,
+  useCanvasLayout,
 } from "@/components/workshop/hooks";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
@@ -49,6 +50,12 @@ import type { WorksheetSection } from "@/lib/exercise-types";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 import { requestSummary } from "@/lib/analysis/implication-cluster-client";
 import { summaryInputHash } from "@/lib/synthesis-summary-shape";
+import {
+  planMembership,
+  type CanvasCardPos,
+  type Pos,
+  type Rect,
+} from "@/lib/canvas-shape";
 
 // WEEK 3 — Synthesis. Four steps on one shared board:
 //   1 · Cluster            — drag Week 2's implications into themes, and name each
@@ -133,6 +140,12 @@ export function SynthesisTeamView({
   const [themeId, setThemeId] = useState<string | null>(null);
   // Which fear step 4 has open. Hoisted for the same hook-order reason.
   const [focusId, setFocusId] = useState<string | null>(null);
+  // Positions and regions live in their own tables on their own channel (0028), and this
+  // hook only subscribes while the canvas is actually open — a board with 76 players
+  // should not hold 76 channels for a view nobody has opened.
+  const [canvasOpen, setCanvasOpen] = useState(false);
+  const canvasLayout = useCanvasLayout(code, pid, canvasOpen);
+
   // The facilitator's summary call (step 3). Owned here, not by the step: it takes about
   // half a minute, and the step unmounts if the facilitator looks at another one meanwhile.
   const [summarizing, setSummarizing] = useState(false);
@@ -223,6 +236,12 @@ export function SynthesisTeamView({
   // of every card that has ever been dragged. New cards get a sort past the end of the
   // list they are joining, so they simply append.
   const endSort = (list: RippleCard[]) => (list.length + 1) * SORT_STEP;
+
+  // 0024's unique index, surfaced by both card routes as a 409 with this wording. The wire
+  // helpers throw an Error carrying the body's message, so the message is what there is to
+  // match on.
+  const alreadyThere = (e: unknown) =>
+    e instanceof Error && e.message.includes("already in this theme");
 
   const addTheme = (text: string) =>
     run(async () => {
@@ -409,6 +428,112 @@ export function SynthesisTeamView({
       for (const id of cardIds) {
         const card = cards.find((c) => c.id === id);
         if (card) await placeInTheme(card, themeId, predicted, clustered);
+      }
+    });
+
+  // --- the clustering canvas (step 1's third view) ----------------------------
+  //
+  // A drop on the canvas is two independent writes, in this order on purpose. Position is
+  // cosmetic and goes first, on its own and unawaited: a membership failure must never
+  // snap the card back across the surface. Membership is the real write, and it goes
+  // through planMembership so the twin rules stay in one place that has tests.
+  const canvasDropCard = (key: string, pos: Pos, themeIds: string[]) => {
+    void canvasLayout.save([{ itemId: key, x: pos.x, y: pos.y }]).catch(() => {});
+
+    const steps = planMembership({
+      cards,
+      key,
+      desired: themeIds,
+      liveThemeIds: new Set(board.themes.map((th) => th.id)),
+      childCount: (id) => childrenOf(board, id).length,
+    });
+    if (steps.length === 0) return;
+
+    run(async () => {
+      for (const s of steps) {
+        switch (s.kind) {
+          case "refuse":
+            throw new Error(s.reason);
+          case "unpark": {
+            parkLocal(s.cardId, false);
+            try {
+              await parkRippleCard(code, s.cardId, { participantId: pid, parked: false });
+            } catch (e) {
+              dropParkLocal(s.cardId);
+              throw e;
+            }
+            break;
+          }
+          case "reparent":
+          case "untheme": {
+            const parentCardId = s.kind === "reparent" ? s.parentId : null;
+            const predicted = orderAtDepth(parentCardId ? 1 : 0);
+            if (predicted) reparentLocal(s.cardId, parentCardId, predicted);
+            try {
+              await reparentRippleCard(code, s.cardId, { participantId: pid, parentCardId });
+            } catch (e) {
+              dropReparentLocal(s.cardId);
+              throw e;
+            }
+            break;
+          }
+          case "copy": {
+            const from = cards.find((c) => c.id === s.fromId);
+            if (!from) break;
+            try {
+              await writeCopy(from, s.parentId);
+            } catch (e) {
+              // A teammate put a copy in that theme in the same moment (0024). That IS the
+              // membership we were asking for, so it is a success, not a failure.
+              if (!alreadyThere(e)) throw e;
+            }
+            break;
+          }
+          case "delete": {
+            removeLocal(s.cardId);
+            try {
+              await deleteRippleCard(code, s.cardId, { participantId: pid });
+            } catch (e) {
+              unremoveLocal(s.cardId);
+              throw e;
+            }
+            break;
+          }
+        }
+      }
+    });
+  };
+
+  // Marquee then "create theme": mint the theme, record its box, then claim what the box
+  // caught. createThemeFrom cannot be reused as-is because the region write needs the new
+  // theme's id, which that helper keeps to itself.
+  const canvasDrawRegion = (rect: Rect, claimed: CanvasCardPos[]) =>
+    run(async () => {
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "FIRST",
+        cardKind: "theme",
+        text: "",
+        sort: endSort(board.themes),
+      });
+      const created = res?.card as RippleCard | undefined;
+      if (!created) return;
+      addLocal(created);
+
+      // Box and positions first, so the theme is never on the board without a box — an
+      // unboxed theme is invisible on the very canvas that just drew it. Writing the
+      // claimed cards' current positions is what keeps them where the box was drawn,
+      // rather than letting them snap to packed seats once they have a region.
+      await canvasLayout.save(claimed, [
+        { themeId: created.id, x: rect.x, y: rect.y, w: rect.w, h: rect.h, shape: "rect" },
+      ]);
+
+      const predicted = orderAtDepth(1);
+      const clustered = clusteredIds();
+      for (const c of claimed) {
+        // `itemId` is an implicationKey, so find the row that represents it.
+        const card = cards.find((k) => k.cardKind === null && implicationKey(k) === c.itemId);
+        if (card) await placeInTheme(card, created.id, predicted, clustered);
       }
     });
 
@@ -749,6 +874,17 @@ export function SynthesisTeamView({
           admin={admin}
           themeId={themeId}
           onPickTheme={setThemeId}
+          canvas={{
+            saved: canvasLayout.positions,
+            regions: canvasLayout.regions,
+            onOpen: setCanvasOpen,
+            onHold: canvasLayout.hold,
+            onDropCard: canvasDropCard,
+            onDrawRegion: canvasDrawRegion,
+            onSaveMany: (rows) => {
+              void canvasLayout.save(rows).catch(() => {});
+            },
+          }}
         />
       )}
 
