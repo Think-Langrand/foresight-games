@@ -251,12 +251,13 @@ export function SynthesisTeamView({
       if (res?.card) addLocal(res.card as RippleCard);
     });
 
-  // A first answer to one of a theme's four questions (step 2). An answer's card does not
-  // exist until the group writes it, so the first save creates it (here) and every later
-  // one edits it (editCard) — which is why the grid asks for "answer" rather than "add".
+  // Another answer to one of a theme's four questions (step 2). Each answer is a card of
+  // its own and a question holds as many as the group writes, so every save adds one; the
+  // ✎ on an answer already there edits that card (editCard). Hands back whether the write
+  // landed so the grid's composer can keep the draft when it did not.
   const answerTheme = (theme: RippleCard, field: CardKind, text: string) => {
-    if (!text.trim()) return;
-    addChildCard(theme, field, text);
+    if (!text.trim()) return true;
+    return addChildCard(theme, field, text);
   };
 
   // Step 3's hopes and fears are the board's own: root cards, no parent. Appended, like
@@ -427,9 +428,10 @@ export function SynthesisTeamView({
         });
         if (res?.card) addLocal(res.card as RippleCard);
       } catch (e) {
-        // A one-answer question (step 2's four, a hope's "who it concerns") that someone
-        // else answered in the same moment: the database kept theirs (0025) and refused
-        // ours. Refetch so theirs is on screen before the message says so.
+        // A still-one-answer question — a hope or fear's "who it concerns", and the
+        // retired steps' kinds (0027 left step 2's four free to repeat) — that someone else
+        // answered in the same moment: the database kept theirs and refused ours. Refetch
+        // so theirs is on screen before the message says so.
         refresh();
         throw e;
       }

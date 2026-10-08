@@ -37,7 +37,8 @@ export function isStake(kind: CardKind | null): kind is StakeKind {
 }
 
 // The four questions a theme is asked, in the order the 2×2 shows them. Each answer is a
-// card of that kind hung straight off the theme.
+// card of that kind hung straight off the theme, and a question takes as many as the group
+// writes — see themeAnswers().
 //
 // Earlier the questions were asked of a `reading` — a concrete example card under the theme
 // — with two different questions (`assumed_role`, `question`). Those cards stay readable:
@@ -498,13 +499,13 @@ export function childrenOf(board: SynthesisBoard, cardId: string): RippleCard[] 
   ];
 }
 
-// --- One answer per question ---------------------------------------------------------
+// --- Reading a question's answers ----------------------------------------------------
 
 // The card answering `kind` under `parentId`, whichever bucket holds it — a theme's
 // condition in `answers`, its risk in `risks`, a hope's "who does this concern" in
-// `concerns`. First card of the kind wins, as everywhere else: a second card of one kind is
-// a duplicate the UI never creates, and keeping the earlier one means a stray never
-// displaces what the group actually wrote.
+// `concerns`. For the kinds that still hold one answer each: 0027 freed step 2's four to
+// repeat, and those are read through `answersOf`/`themeAnswers` instead. First card of the
+// kind wins, so for a singleton kind a stray never displaces what the group actually wrote.
 export function answerOf(board: SynthesisBoard, parentId: string, kind: CardKind): RippleCard | null {
   return childrenOf(board, parentId).find((c) => c.cardKind === kind) ?? null;
 }
@@ -562,8 +563,9 @@ export function flipProgress(board: SynthesisBoard): { flipped: number; total: n
 export function summaryCardCount(board: SynthesisBoard): number {
   let n = board.themes.length;
   for (const t of board.themes) {
-    const a = themeAnswers(board, t.id);
-    n += READING_FIELDS.filter((k) => (a[k]?.text ?? "").trim().length > 0).length;
+    // Every answer, not every answered question: one question can hold several, and a board
+    // that has gained a second reading of "who benefits?" has more on it than it did.
+    n += themeAnswerCards(board, t.id).length;
     n += board.risks.get(t.id)?.length ?? 0;
     n += board.opportunities.get(t.id)?.length ?? 0;
   }
@@ -718,30 +720,41 @@ export function readingsFor(board: SynthesisBoard, themeId: string): ThemeReadin
   });
 }
 
-// The theme's answers, keyed by question. Its own answers first; where it has none for a
-// question, the first legacy reading's answer of that kind stands in, so a board worked
-// before the example was dropped still shows what it wrote. First card of a kind wins, as
-// in readingsFor.
+// The theme's answers, keyed by question — EVERY answer to each, in board order, because
+// several members answer one question in a breakout and all of their readings belong on the
+// sheet (0027 dropped the database's one-answer rule for these four kinds). Its own answers
+// first; a question it has none of falls back to the first legacy reading's single answer,
+// so a board worked before the example was dropped still shows what it wrote.
 export function themeAnswers(
   board: SynthesisBoard,
   themeId: string
-): Partial<Record<ReadingField, RippleCard>> {
-  const out: Partial<Record<ReadingField, RippleCard>> = {};
+): Partial<Record<ReadingField, RippleCard[]>> {
+  const out: Partial<Record<ReadingField, RippleCard[]>> = {};
   for (const f of board.readingFields.get(themeId) ?? []) {
-    if (isReadingField(f.cardKind) && !out[f.cardKind]) out[f.cardKind] = f;
+    if (isReadingField(f.cardKind)) (out[f.cardKind] ??= []).push(f);
   }
   for (const r of readingsFor(board, themeId)) {
-    for (const k of READING_FIELDS) if (!out[k] && r.fields[k]) out[k] = r.fields[k];
+    for (const k of READING_FIELDS) if (!out[k]?.length && r.fields[k]) out[k] = [r.fields[k]];
   }
   return out;
 }
 
-// Done when all four questions have a non-blank answer; started once anything has been
-// written on the theme's questions (including a legacy reading); empty otherwise. Three of
-// four is not finished — the step exists to make a group work a theme all the way through.
+// Every non-blank answer a theme's four questions hold, flattened in question order. The
+// count of them is what "how much is on this theme" means now that one question can hold
+// several.
+function themeAnswerCards(board: SynthesisBoard, themeId: string): RippleCard[] {
+  const answers = themeAnswers(board, themeId);
+  return READING_FIELDS.flatMap((f) => (answers[f] ?? []).filter((c) => c.text.trim().length > 0));
+}
+
+// Done when all four questions have at least one non-blank answer; started once anything has
+// been written on the theme's questions (including a legacy reading); empty otherwise. Three
+// of four is not finished — the step exists to make a group work a theme all the way through.
 export function readingProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
   const answers = themeAnswers(board, themeId);
-  const answered = READING_FIELDS.filter((f) => (answers[f]?.text ?? "").trim().length > 0);
+  const answered = READING_FIELDS.filter((f) =>
+    (answers[f] ?? []).some((c) => c.text.trim().length > 0)
+  );
   if (answered.length === READING_FIELDS.length) return "done";
   if (answered.length > 0) return "started";
   const legacy = (board.readings.get(themeId) ?? []).length > 0;

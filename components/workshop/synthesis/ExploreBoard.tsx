@@ -52,8 +52,8 @@ export function ExploreBoard({
   busy: boolean;
   themeId: string | null;
   onPickTheme: (id: string | null) => void;
-  // A first answer to one of the four questions; later saves edit the answer's card.
-  onAnswer: (theme: RippleCard, field: ReadingField, text: string) => void;
+  // Another answer to one of the four questions — each takes as many as the group writes.
+  onAnswer: (theme: RippleCard, field: ReadingField, text: string) => AddResult;
   // A card on one of the two walls.
   onAddStake: (theme: RippleCard, kind: WallKind, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;

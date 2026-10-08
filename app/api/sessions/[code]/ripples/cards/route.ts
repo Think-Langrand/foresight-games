@@ -240,10 +240,12 @@ export async function POST(
     });
     return NextResponse.json({ card });
   } catch (err) {
-    // Two writers at once, and the database kept the first: a second copy of an
-    // implication in one theme (0024), or a second answer to a one-answer question (0025)
-    // — two members answering "who benefits?" on the same theme in the same moment. The
-    // client refreshes on a 409, so the answer that landed is what everyone then sees.
+    // Two writers at once, and the database kept the first: a second copy of an implication
+    // in one theme (0024), or a second answer to one of the still-singleton questions —
+    // a hope's "who does this concern", part B, the retired steps (0025, narrowed by 0027).
+    // Step 2's four theme questions are NOT among them any more: several answers to "who
+    // benefits?" is the point there, and they never reach this branch. The client refreshes
+    // on a 409, so the answer that landed is what everyone then sees.
     if (isUniqueViolation(err)) {
       return NextResponse.json(
         {

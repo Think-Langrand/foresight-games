@@ -10,7 +10,7 @@ import { getRipplesView } from "@/lib/ripples";
 import { shapeFromView } from "@/lib/group-answers-shape";
 import { indexSynthesisBoard, summaryCardCount } from "@/lib/synthesis-shape";
 import { summarizeSynthesis } from "@/lib/analysis/synthesis-summary";
-import { summaryInputHash, type SynthesisSummary } from "@/lib/synthesis-summary-shape";
+import { summaryDigest, summaryInputHash, type SynthesisSummary } from "@/lib/synthesis-summary-shape";
 
 export const dynamic = "force-dynamic";
 // One model call over the whole board. The comparable whole-board call (clustering) measured
@@ -70,12 +70,16 @@ export async function POST(
     if (!generated)
       return NextResponse.json({ error: "The model did not return a summary." }, { status: 502 });
 
+    // What the digest could not fit. Recomputed here rather than threaded out of the model
+    // call: it is pure and cheap, and keeps the OpenAI module to the model.
+    const omitted = summaryDigest(shaped).dropped.map((d) => d.title);
     const summary: SynthesisSummary = {
       ...generated,
       generatedAt: new Date().toISOString(),
       cardCount: summaryCardCount(indexSynthesisBoard(view.cards)),
       // Exactly what the model read, so the client can tell an edit from no change.
       inputHash: summaryInputHash(shaped, view.config.scenarioTitle),
+      ...(omitted.length > 0 ? { omittedThemes: omitted } : {}),
     };
     // Merge over the config as it is NOW, not as it was before a model call that can take
     // most of a minute: a phase change or a re-snapshot made meanwhile would otherwise be

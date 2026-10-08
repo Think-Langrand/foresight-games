@@ -59,20 +59,39 @@ function DeleteButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-// A group of answered questions: the question small above each answer.
+// A group of answered questions: the question small above its answers. Step 2's four each
+// take several answers, so the label is printed once and its answers listed under it —
+// repeating the question above every answer read as four separate questions.
 function AnswerBlock({ title, rows, ...opts }: { title: string; rows: ThemeAnswerRow[] } & PanelOpts) {
   if (rows.length === 0) return null;
+  // Rows arrive grouped by question already (group-answers-shape walks the kinds in order),
+  // so folding consecutive runs keeps the week's sequence.
+  const asked: { label: string; rows: ThemeAnswerRow[] }[] = [];
+  for (const r of rows) {
+    const last = asked[asked.length - 1];
+    if (last && last.rows[0].kind === r.kind) last.rows.push(r);
+    else asked.push({ label: r.label, rows: [r] });
+  }
   return (
     <div className="mt-3">
       <Eyebrow>{title}</Eyebrow>
       <ul className="mt-1.5 flex flex-col gap-2">
-        {rows.map((r) => (
-          <li key={r.id} className="group flex items-start gap-2 text-[13px] leading-[1.4]">
-            <div className="min-w-0 flex-1">
-              <div className="text-[10.5px] font-bold leading-[1.3] text-ink/70">{r.label}</div>
-              <div className="mt-0.5 whitespace-pre-wrap">{r.text}</div>
-            </div>
-            {opts.onDelete && <DeleteButton onClick={() => opts.onDelete?.(r)} />}
+        {asked.map((q) => (
+          <li key={q.rows[0].id} className="text-[13px] leading-[1.4]">
+            <div className="text-[10.5px] font-bold leading-[1.3] text-ink/70">{q.label}</div>
+            <ul className="mt-0.5 flex flex-col gap-1">
+              {q.rows.map((r) => (
+                <li key={r.id} className="group flex items-start gap-1.5">
+                  {q.rows.length > 1 && (
+                    <span aria-hidden className="shrink-0 select-none text-muted">
+                      •
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1 whitespace-pre-wrap">{r.text}</div>
+                  {opts.onDelete && <DeleteButton onClick={() => opts.onDelete?.(r)} />}
+                </li>
+              ))}
+            </ul>
           </li>
         ))}
       </ul>

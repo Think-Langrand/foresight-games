@@ -8,6 +8,7 @@ import {
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
 import { QuestionGrid, type QuestionField } from "@/components/workshop/synthesis/QuestionGrid";
+import type { AddResult } from "@/components/workshop/synthesis/SynthesisCard";
 
 // The theme's four questions — "how does this future work?" — as a 2×2 of boxes.
 //
@@ -15,6 +16,10 @@ import { QuestionGrid, type QuestionField } from "@/components/workshop/synthesi
 // Groups did not find the questions in it. The answers are ordinary cards of the question's
 // kind, hung straight off the theme, so the admin viewer, export and delete cascade keep
 // working; an older board's reading still shows its answers through themeAnswers().
+//
+// Each question holds as many answers as the group writes — a breakout reads "who benefits?"
+// several ways and all of those readings are the answer — so onAnswer adds one rather than
+// writing the only one.
 
 export const PROMPTS: Record<ReadingField, { question: string; hint: string; accent: string }> = {
   benefit: {
@@ -59,7 +64,7 @@ export function ReadingBoard({
   editable: boolean;
   busy: boolean;
   readOnly?: boolean;
-  onAnswer: (theme: RippleCard, field: ReadingField, text: string) => void;
+  onAnswer: (theme: RippleCard, field: ReadingField, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
   onDelete: (card: RippleCard) => void;
 }) {

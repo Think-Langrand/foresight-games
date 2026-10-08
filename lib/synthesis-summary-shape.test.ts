@@ -99,14 +99,93 @@ describe("summaryDigest", () => {
     expect(d.text).toContain("Theme t2: Clinics shrink");
   });
 
+  it("gives the model every answer to a question, not just the first", () => {
+    const d = summaryDigest(
+      ex([
+        theme("A", "Trust moves to people", {
+          answers: [
+            { ...row("b1", "Livestream hosts"), kind: "benefit", label: "Who benefits, and how?" },
+            { ...row("b2", "The clinics they already use"), kind: "benefit", label: "Who benefits, and how?" },
+          ],
+        }),
+      ])
+    );
+    expect(d.text).toContain("Q: Who benefits, and how? — Livestream hosts");
+    expect(d.text).toContain("Q: Who benefits, and how? — The clinics they already use");
+    expect(d.themes[0].answers).toHaveLength(2);
+  });
+
   it("leaves a theme out whole once the cap is reached, never cutting mid-theme", () => {
     const d = summaryDigest(board(), 60);
     expect(d.themes.map((t) => t.key)).toEqual(["t1"]); // the first always goes in
     expect(d.text).not.toContain("t2");
   });
 
+  it("never halves an emoji when clipping a long field", () => {
+    // CLIP counts UTF-16 units; a surrogate pair split in two renders as �. Walk the clip
+    // boundary across every offset so no alignment of pad and glyph slips through.
+    const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+    for (let pad = 0; pad < 8; pad++) {
+      for (const glyph of ["😀", "👩‍⚕️", "🏥"]) {
+        const text = "x".repeat(pad) + glyph.repeat(400);
+        const d = summaryDigest(
+          ex([
+            theme("T", text, {
+              description: text,
+              answers: [{ ...row("a", text), kind: "benefit", label: "Who benefits, and how?" }],
+              risks: [stake("r", text)],
+            }),
+          ])
+        );
+        expect(lone.test(d.text), `pad ${pad}`).toBe(false);
+        expect(lone.test(d.themes[0].title), `title pad ${pad}`).toBe(false);
+      }
+    }
+  });
+
+  it("names what it left out, so the panel can say so", () => {
+    const d = summaryDigest(board(), 60);
+    expect(d.dropped).toEqual([{ themeId: "B", title: "Clinics shrink" }]);
+  });
+
+  it("drops nothing when the whole board fits", () => {
+    expect(summaryDigest(board()).dropped).toEqual([]);
+  });
+
+  it("keeps spending the budget after a theme too big to fit", () => {
+    // A fat theme between two lean ones: it is skipped and the one after it still read,
+    // so the gap a facilitator sees can be in the middle rather than the tail.
+    const d = summaryDigest(
+      ex([
+        theme("A", "Lean"),
+        theme("B", "Fat", { risks: [stake("r", "x".repeat(300))] }),
+        theme("C", "Also lean"),
+      ]),
+      120
+    );
+    expect(d.themes.map((t) => t.title)).toEqual(["Lean", "Also lean"]);
+    expect(d.dropped.map((x) => x.title)).toEqual(["Fat"]);
+  });
+
   it("is empty for a board with no themes", () => {
-    expect(summaryDigest(ex([]))).toEqual({ themes: [], text: "", keyToId: {} });
+    expect(summaryDigest(ex([]))).toEqual({ themes: [], text: "", keyToId: {}, dropped: [] });
+  });
+});
+
+describe("coerceSummary and omitted themes", () => {
+  it("keeps the omitted titles through a store-and-read round trip", () => {
+    const got = coerceSummary({ ...valid, omittedThemes: ["Clinics shrink", "Care at home"] });
+    expect(got?.omittedThemes).toEqual(["Clinics shrink", "Care at home"]);
+  });
+
+  it("leaves the key off entirely when nothing was omitted", () => {
+    expect(coerceSummary(valid)).not.toHaveProperty("omittedThemes");
+    expect(coerceSummary({ ...valid, omittedThemes: [] })).not.toHaveProperty("omittedThemes");
+  });
+
+  it("drops junk in the omitted list rather than rendering it", () => {
+    const got = coerceSummary({ ...valid, omittedThemes: ["Real", "", 7, null] });
+    expect(got?.omittedThemes).toEqual(["Real"]);
   });
 });
 
