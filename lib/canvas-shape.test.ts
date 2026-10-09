@@ -3,6 +3,7 @@ import {
   HYSTERESIS,
   containsPoint,
   coveredBy,
+  defaultRegions,
   growToFit,
   planMembership,
   regionsAt,
@@ -433,5 +434,81 @@ describe("resolvePositions", () => {
       strip,
     };
     expect(resolvePositions(args)).toEqual(resolvePositions(args));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// defaultRegions — a box for every theme that has never had one
+// ---------------------------------------------------------------------------
+
+describe("defaultRegions", () => {
+  const band = { x: 0, y: 1000 };
+  const themes = [
+    { themeId: "TH1", memberCount: 10 },
+    { themeId: "TH2", memberCount: 9 },
+    { themeId: "TH3", memberCount: 10 },
+    { themeId: "TH4", memberCount: 5 },
+    { themeId: "TH5", memberCount: 0 },
+  ];
+
+  it("gives every theme a box, in the order given", () => {
+    const out = defaultRegions(themes, band, 2000);
+    expect(out.map((r) => r.themeId)).toEqual(["TH1", "TH2", "TH3", "TH4", "TH5"]);
+  });
+
+  it("gives an empty theme a box you can still see and drop into", () => {
+    const empty = defaultRegions(themes, band, 2000).find((r) => r.themeId === "TH5")!;
+    expect(empty.w).toBeGreaterThan(0);
+    expect(empty.h).toBeGreaterThan(0);
+  });
+
+  // The whole point: a box has to be able to hold its own members, or the view opens
+  // showing a theme in violation of itself.
+  it("makes a box big enough to seat every member inside it", () => {
+    for (const r of defaultRegions(themes, band, 2000)) {
+      const n = themes.find((t) => t.themeId === r.themeId)!.memberCount;
+      const seats = resolvePositions({
+        items: Array.from({ length: n }, (_, i) => ({
+          key: `${r.themeId}-${i}`,
+          themeId: r.themeId,
+          wheel: null,
+        })),
+        regions: new Map([[r.themeId, r]]),
+        saved: new Map(),
+        strip: { x: 0, y: 0 },
+      });
+      expect(seats.size).toBe(n);
+      for (const p of seats.values()) expect(containsPoint(r, p)).toBe(true);
+    }
+  });
+
+  it("never overlaps two boxes, so a card is never in two themes by accident", () => {
+    const out = defaultRegions(themes, band, 900);
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        const a = out[i];
+        const b = out[j];
+        const apart =
+          a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+        expect(apart).toBe(true);
+      }
+    }
+  });
+
+  it("wraps onto a new row rather than running off to the right forever", () => {
+    const out = defaultRegions(themes, band, 900);
+    expect(out.every((r) => r.x + r.w <= band.x + 900)).toBe(true);
+    expect(new Set(out.map((r) => r.y)).size).toBeGreaterThan(1);
+  });
+
+  it("starts at the band and never above it", () => {
+    for (const r of defaultRegions(themes, band, 2000)) {
+      expect(r.x).toBeGreaterThanOrEqual(band.x);
+      expect(r.y).toBeGreaterThanOrEqual(band.y);
+    }
+  });
+
+  it("is deterministic, since every client derives it independently", () => {
+    expect(defaultRegions(themes, band, 900)).toEqual(defaultRegions(themes, band, 900));
   });
 });

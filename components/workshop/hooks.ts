@@ -838,6 +838,10 @@ const CANVAS_HEAL_MS = 60000;
 export interface CanvasLayoutApi {
   positions: Map<string, Pos>;
   regions: Map<string, Region>;
+  // False until the first fetch lands. The caller must not draw before it is true:
+  // positions fall back to the wheel while `saved` is empty, so painting early shows the
+  // map arrangement and then visibly snaps once the real layout arrives.
+  ready: boolean;
   loading: boolean;
   error: string | null;
   // Pointer-down tier: while a card is held, incoming positions for it are kept out of
@@ -860,6 +864,9 @@ export function useCanvasLayout(
   // canvas: resolvePositions gives every card a seat without the server, so an unsettled
   // fetch shows cards at their fallback positions rather than an empty page.
   const [loading, setLoading] = useState(enabled);
+  // Set once, on the first layout that arrives, and left set: reopening the canvas still
+  // has the last layout in state, so only the very first open needs holding back.
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Three tiers, read in this order: held > pending > server.
@@ -881,6 +888,7 @@ export function useCanvasLayout(
       if (!alive.current) return;
       setServerCards(new Map(data.cards.map((c) => [c.itemId, { x: c.x, y: c.y }])));
       setServerRegions(new Map(data.regions.map((r) => [r.themeId, r])));
+      setReady(true);
       setError(null);
     } catch (e) {
       if (alive.current) setError(e instanceof Error ? e.message : "Failed to load the canvas");
@@ -1092,5 +1100,5 @@ export function useCanvasLayout(
     [code, participantId]
   );
 
-  return { positions, regions, loading, error, hold, save, refresh: fetchOnce };
+  return { positions, regions, ready, loading, error, hold, save, refresh: fetchOnce };
 }

@@ -353,3 +353,57 @@ export function resolvePositions(args: ResolveArgs): Map<string, Pos> {
 
   return out;
 }
+
+// Air inside a default box, around its seated members.
+const REGION_PAD = 26;
+
+// Air BETWEEN two default boxes. Comfortably more than 2 * HYSTERESIS, so a card held at
+// the very edge of one box can never also be caught by its neighbour.
+const REGION_GAP = 40;
+
+// A theme is never narrower than this, so an empty one is still a visible, droppable box.
+const MIN_COLS = 2;
+
+// Boxes for themes that have never had one.
+//
+// Every board that existed before the canvas did has themes made in the rail or on the
+// map, which carry no geometry at all. Without this, their members would be drawn loose
+// with no box around them — a theme holding ten implications would look like ten
+// unclustered cards, and the view would open contradicting the one thing it claims.
+//
+// Laid out left to right and wrapped, in board order, each box sized to seat its own
+// members. Pure and deterministic, because every client derives these independently and
+// they must agree before anyone has written anything.
+export function defaultRegions(
+  themes: { themeId: string; memberCount: number }[],
+  band: Pos,
+  maxWidth: number
+): Region[] {
+  const out: Region[] = [];
+  let x = band.x;
+  let y = band.y;
+  let rowHeight = 0;
+
+  for (const t of themes) {
+    // An empty theme is sized as though it held one card, so it has somewhere to drop.
+    const n = Math.max(1, t.memberCount);
+    const cols = Math.max(MIN_COLS, Math.ceil(Math.sqrt(n)));
+    const rows = Math.max(1, Math.ceil(n / cols));
+    // seatInRegion derives its grid as floor(w / PITCH), so this sizing is exactly what
+    // gives it `cols` by `rows` seats — the box can always hold everything in it.
+    const w = cols * PITCH + REGION_PAD * 2;
+    const h = rows * PITCH + REGION_PAD * 2;
+
+    if (x > band.x && x + w > band.x + maxWidth) {
+      x = band.x;
+      y += rowHeight + REGION_GAP;
+      rowHeight = 0;
+    }
+
+    out.push({ themeId: t.themeId, x, y, w, h, shape: "rect" });
+    x += w + REGION_GAP;
+    rowHeight = Math.max(rowHeight, h);
+  }
+
+  return out;
+}

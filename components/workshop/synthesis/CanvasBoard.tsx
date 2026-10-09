@@ -63,7 +63,9 @@ export function CanvasBoard({
   positions,
   regions,
   themeLabel,
-  size,
+  memberCount,
+  width,
+  height,
   editable,
   onHold,
   onDropCard,
@@ -76,8 +78,12 @@ export function CanvasBoard({
   positions: Map<string, Pos>;
   regions: Map<string, Region>;
   themeLabel: (themeId: string) => string;
-  // The surface's extent in model pixels.
-  size: number;
+  memberCount: (themeId: string) => number;
+  // The surface's extent in model pixels. Width and height are independent: the board is
+  // a pile with a band of theme boxes under it, not a square, and squaring it off would
+  // waste most of the viewport.
+  width: number;
+  height: number;
   editable: boolean;
   // Pointer-down tier: the caller holds this card still against incoming realtime.
   onHold: (key: string, pos: Pos | null) => void;
@@ -103,16 +109,22 @@ export function CanvasBoard({
   const scale = typeof zoom === "number" ? zoom : fitScale;
   const regionList = useMemo(() => [...regions.values()], [regions]);
 
-  // Zoom-to-fit, measured rather than assumed — same approach as the wheel.
+  // Zoom-to-fit, measured rather than assumed. Unlike the wheel's, this fits BOTH
+  // dimensions: the whole point of opening the canvas is seeing the pile and the theme
+  // boxes at once, and a width-only fit drops the boxes below the fold. The scroller has
+  // a fixed height rather than a max-height so this measurement cannot chase itself.
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    const measure = () => setFitScale(Math.min(1, (el.clientWidth || size) / size));
+    const measure = () =>
+      setFitScale(
+        Math.min(1, (el.clientWidth || width) / width, (el.clientHeight || height) / height)
+      );
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [size]);
+  }, [width, height]);
 
   // Model space, always. Converting the pointer once and doing the arithmetic against
   // stored x/y/w/h is the only way the geometry and the database agree at a region's
@@ -312,10 +324,10 @@ export function CanvasBoard({
 
       <div
         ref={scrollerRef}
-        className="relative max-h-[70vh] select-none overflow-auto rounded-[3px] border border-[var(--rule)] bg-paper"
+        className="relative h-[70vh] select-none overflow-auto rounded-[3px] border border-[var(--rule)] bg-paper"
         style={{ WebkitTouchCallout: "none" as React.CSSProperties["WebkitTouchCallout"] }}
       >
-        <div style={{ width: size * scale, height: size * scale }}>
+        <div style={{ width: width * scale, height: height * scale }}>
           <div
             ref={boxRef}
             onPointerDown={startBackground}
@@ -324,8 +336,8 @@ export function CanvasBoard({
             onPointerCancel={endBackground}
             className="relative"
             style={{
-              width: size,
-              height: size,
+              width,
+              height,
               transform: `scale(${scale})`,
               transformOrigin: "top left",
               cursor: armed ? "crosshair" : mode.kind === "pan" ? "grabbing" : "grab",
@@ -350,6 +362,13 @@ export function CanvasBoard({
               >
                 <span className="absolute -top-[9px] left-2 bg-paper px-1 text-[10px] font-bold uppercase tracking-[0.05em] text-muted">
                   {themeLabel(r.themeId)}
+                  {/* Its real membership, which can exceed the circles drawn inside it:
+                      an implication sitting in two themes is still ONE circle, and that
+                      circle can only be in one box at a time. Saying the number is what
+                      stops a box that is short a twin from looking like a bug. */}
+                  {memberCount(r.themeId) > 0 && (
+                    <span className="ml-1 font-normal">· {memberCount(r.themeId)}</span>
+                  )}
                 </span>
               </div>
             ))}
@@ -406,6 +425,11 @@ export function CanvasBoard({
                   {/* The consequence, before you let go. The twin mechanic is the
                       cleverest thing here and the most invisible; this is what makes a
                       drop into an overlap legible rather than magic. */}
+                  {!dragging && n.themeIds.length > 1 && (
+                    <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-0.5 -translate-x-1/2 whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.05em] text-muted">
+                      also in {n.themeIds.slice(1).map(themeLabel).join(", ")}
+                    </span>
+                  )}
                   {dragging && showThemes.length > 0 && (
                     <span className="pointer-events-none absolute left-1/2 top-full z-40 mt-1 -translate-x-1/2 whitespace-nowrap rounded-[2px] bg-ink px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.05em] text-paper">
                       {showThemes.map(themeLabel).join(" · ")}

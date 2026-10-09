@@ -877,12 +877,13 @@ export function SynthesisTeamView({
           canvas={{
             saved: canvasLayout.positions,
             regions: canvasLayout.regions,
+            ready: canvasLayout.ready,
             onOpen: setCanvasOpen,
             onHold: canvasLayout.hold,
             onDropCard: canvasDropCard,
             onDrawRegion: canvasDrawRegion,
-            onSaveMany: (rows) => {
-              void canvasLayout.save(rows).catch(() => {});
+            onSaveMany: (rows, regions) => {
+              void canvasLayout.save(rows, regions).catch(() => {});
             },
           }}
         />

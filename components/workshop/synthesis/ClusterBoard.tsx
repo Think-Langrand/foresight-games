@@ -31,6 +31,7 @@ import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { CanvasBoard, type CanvasNode } from "@/components/workshop/synthesis/CanvasBoard";
 import { layout as wheelLayout } from "@/lib/wheel-layout";
 import {
+  defaultRegions,
   resolvePositions,
   type CanvasCardPos,
   type Pos,
@@ -60,6 +61,9 @@ type ClusterView = "cards" | "map" | "canvas";
 
 // Stable, so the no-canvas path allocates nothing per render.
 const EMPTY_WHEEL = { nodes: [] as { id: string; x: number; y: number }[], size: 0 };
+
+// Air between the bottom of the loose pile and the band of theme boxes below it.
+const CANVAS_BAND = 200;
 import {
   DeleteThemeModal,
   type DeleteThemeMode,
@@ -189,11 +193,13 @@ export function ClusterBoard({
     // wheel both are.
     saved: Map<string, Pos>;
     regions: Map<string, Region>;
+    // False until the first layout arrives; drawing before it snaps the board.
+    ready: boolean;
     onOpen: (open: boolean) => void;
     onHold: (key: string, pos: Pos | null) => void;
     onDropCard: (key: string, pos: Pos, themeIds: string[]) => void;
     onDrawRegion: (rect: Rect, claimed: CanvasCardPos[]) => void;
-    onSaveMany: (cards: CanvasCardPos[]) => void;
+    onSaveMany: (cards: CanvasCardPos[], regions?: Region[]) => void;
   };
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -603,35 +609,127 @@ export function ClusterBoard({
     }
   }
 
+  // Themes made before the canvas existed — every theme on every real board — carry no
+  // geometry at all. Give each one a box derived from its member count, so a theme
+  // holding ten implications opens as a box with ten cards in it rather than as ten
+  // loose cards. Deterministic, so every client draws the same thing before anyone has
+  // written anything.
+  const unboxedThemes = canvasOn ? board.themes.filter((th) => !canvasOn.regions.has(th.id)) : [];
+
+  // Where the adopted boxes go has to be worked out from where the content ACTUALLY is,
+  // not from the wheel's extent. The wheel is laid out from all 146 Week 2 cards even
+  // when the key-change filter is showing 25 of them, and any card dragged earlier has a
+  // saved position of its own — so pinning the band under `wheel.size` leaves a screen of
+  // dead space above it, and turns every drag from the pile into a box into a 2000px
+  // haul. One throwaway pass to find the bottom of everything that is NOT being adopted.
+  const adoptedKeys = new Set<string>();
+  for (const th of unboxedThemes) {
+    for (const c of board.clusters.get(th.id) ?? []) adoptedKeys.add(implicationKey(c));
+  }
+  const savedForLayout = adoptedKeys.size
+    ? new Map([...(canvasOn?.saved ?? [])].filter(([k]) => !adoptedKeys.has(k)))
+    : (canvasOn?.saved ?? new Map<string, Pos>());
+
+  let bandY = CANVAS_BAND;
+  if (canvasOn && unboxedThemes.length > 0) {
+    const base = resolvePositions({
+      items: canvasItems.filter((it) => !adoptedKeys.has(it.key)),
+      regions: canvasOn.regions,
+      saved: savedForLayout,
+      strip: { x: 60, y: canvasWheel.size + 60 },
+    });
+    let bottom = 0;
+    for (const pos of base.values()) bottom = Math.max(bottom, pos.y);
+    for (const r of canvasOn.regions.values()) bottom = Math.max(bottom, r.y + r.h);
+    bandY = bottom + CANVAS_BAND;
+  }
+
+  const adoptedRegions = canvasOn
+    ? defaultRegions(
+        unboxedThemes.map((th) => ({
+          themeId: th.id,
+          memberCount: (board.clusters.get(th.id) ?? []).length,
+        })),
+        { x: 60, y: bandY },
+        1400
+      )
+    : [];
+
+  const canvasRegions = adoptedRegions.length
+    ? new Map([
+        ...(canvasOn?.regions ?? new Map<string, Region>()),
+        ...adoptedRegions.map((r) => [r.themeId, r] as const),
+      ])
+    : (canvasOn?.regions ?? new Map<string, Region>());
+
   // Not memoized, deliberately: it is O(n) over ~150 items and depends on the board, the
   // regions, the saved rows and both filters — a dep list honest enough to be correct
   // would never hit. The expensive part, the wheel layout above, is the thing memoized.
   const canvasPositions = canvasOn
     ? resolvePositions({
         items: canvasItems,
-        regions: canvasOn.regions,
-        saved: canvasOn.saved,
+        regions: canvasRegions,
+        saved: savedForLayout,
         // Hand-typed cards have no Week 2 node, so they pile up below the wheel rather
-        // than all landing on the hub.
-        strip: { x: 60, y: canvasWheel.size + 80 },
+        // than all landing on the hub — and above the band of theme boxes.
+        strip: { x: 60, y: canvasWheel.size + 60 },
       })
     : new Map<string, Pos>();
 
-  // Big enough for the wheel, the strip, and anything dragged past either.
-  const canvasSize = (() => {
-    let max = canvasWheel.size;
-    for (const p of canvasPositions.values()) max = Math.max(max, p.x + 160, p.y + 160);
-    for (const r of canvas?.regions.values() ?? []) max = Math.max(max, r.x + r.w + 160, r.y + r.h + 160);
-    return Math.ceil(max);
+  // Write the derived boxes down, with their members' seats, the first time the canvas
+  // sees a theme without one. The seats go too: a card left holding a stale position from
+  // before would otherwise win over its seat the moment the box became real, and leave
+  // its own theme. Guarded by signature rather than by a mount flag, so a failed write is
+  // retried on reload and a theme created later is adopted in its turn.
+  const adoptedSig = adoptedRegions.map((r) => r.themeId).join(",");
+  const adoptedRef = useRef("");
+  useEffect(() => {
+    if (!canvasOn || !editable || !adoptedSig || adoptedRef.current === adoptedSig) return;
+    adoptedRef.current = adoptedSig;
+    canvasOn.onSaveMany(
+      [...adoptedKeys]
+        .map((k) => {
+          const p = canvasPositions.get(k);
+          return p ? { itemId: k, x: p.x, y: p.y } : null;
+        })
+        .filter((v): v is CanvasCardPos => v !== null),
+      adoptedRegions
+    );
+    // Everything else here is rebuilt every render by design; the signature is what decides.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adoptedSig, editable]);
+
+  // Big enough for everything on it, measured per axis. A single square extent would make
+  // the surface as tall as the wheel is wide and leave most of it empty.
+  const canvasExtent = (() => {
+    let w = 0;
+    let h = 0;
+    for (const p of canvasPositions.values()) {
+      w = Math.max(w, p.x + 160);
+      h = Math.max(h, p.y + 160);
+    }
+    for (const r of canvasRegions.values()) {
+      w = Math.max(w, r.x + r.w + 160);
+      h = Math.max(h, r.y + r.h + 160);
+    }
+    return { width: Math.ceil(Math.max(w, 600)), height: Math.ceil(Math.max(h, 400)) };
   })();
 
-  // "Spread out": a loose grid for the visible set, so there is room to sort them. The
-  // wheel packs 76px circles 12px apart, and you cannot draw a box through a dense ring.
+  // "Spread out": a loose grid for the implications still in the tray, so there is room to
+  // sort them. The wheel packs 76px circles 12px apart, and you cannot draw a box through
+  // a dense ring.
+  //
+  // THEMED CARDS ARE LEFT ALONE, deliberately. This writes positions and not membership,
+  // so sweeping a themed card onto the grid would carry it out of its own box while it
+  // still belonged to that theme — the picture would say one thing and the data another.
+  // Spreading out is for the pile you are still sorting.
   const spreadOut = () => {
-    if (!canvas) return;
-    const cols = Math.max(1, Math.ceil(Math.sqrt(canvasNodes.length)));
-    canvas.onSaveMany(
-      canvasNodes.map((n, i) => ({
+    if (!canvasOn) return;
+    const loose = canvasNodes.filter((n) => n.themeIds.length === 0);
+    if (loose.length === 0) return;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(loose.length)));
+    canvasOn.onSaveMany(
+      loose.map((n, i) => ({
         itemId: n.key,
         x: 120 + (i % cols) * 120,
         y: 120 + Math.floor(i / cols) * 120,
@@ -1923,21 +2021,31 @@ export function ClusterBoard({
         {view === "map" ? (
           renderMap(null)
         ) : view === "canvas" && canvas ? (
+          !canvas.ready ? (
+            // Positions fall back to the wheel while `saved` is empty, so painting now
+            // would show the map and then visibly snap once the real layout lands.
+            <div className="flex h-[40vh] items-center justify-center rounded-[3px] border border-[var(--rule)] bg-paper text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+              Laying out the board…
+            </div>
+          ) : (
           <CanvasBoard
             nodes={canvasNodes}
             positions={canvasPositions}
-            regions={canvas.regions}
+            regions={canvasRegions}
             themeLabel={(id) =>
               board.themes.find((th) => th.id === id)?.text?.trim() ||
               `Theme ${board.themes.findIndex((th) => th.id === id) + 1}`
             }
-            size={canvasSize}
+            memberCount={(id) => (board.clusters.get(id) ?? []).length}
+            width={canvasExtent.width}
+            height={canvasExtent.height}
             editable={editable}
             onHold={canvas.onHold}
             onDropCard={canvas.onDropCard}
             onDrawRegion={canvas.onDrawRegion}
             onSpreadOut={spreadOut}
           />
+          )
         ) : (
         <div
           {...zoneProps("tray")}
