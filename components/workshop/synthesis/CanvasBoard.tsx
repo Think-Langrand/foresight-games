@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapToolbar, orderColor, stepZoom, type Zoom } from "@/components/workshop/MapControls";
 import {
+  NODE_RADIUS as NODE_R,
   coveredBy,
   regionsAt,
   type CanvasCardPos,
@@ -29,11 +30,6 @@ import {
 // native HTML5 DnD they already use; free positioning needs continuous position feedback,
 // which native drag does not give. The two systems never share an element — canvas nodes
 // are not `draggable` and spread no dragProps — so there is nothing to arbitrate.
-
-// Matches the wheel's NODE_R, deliberately: an unpositioned card opens at the node the
-// wheel would have drawn for it, so the two views have to agree about how big a node is.
-// It is also what makes 146 implications fit on one surface at all — a w-56 card would not.
-const NODE_R = 38;
 
 // How close to the viewport edge a drag has to get before the surface starts following.
 // Native DnD auto-scrolls for free; pointer events do not, and Group 1's canvas is 2217px.

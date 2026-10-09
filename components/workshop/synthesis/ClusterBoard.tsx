@@ -32,6 +32,7 @@ import { CanvasBoard, type CanvasNode } from "@/components/workshop/synthesis/Ca
 import { layout as wheelLayout } from "@/lib/wheel-layout";
 import {
   defaultRegions,
+  freeGrid,
   resolvePositions,
   type CanvasCardPos,
   type Pos,
@@ -715,25 +716,24 @@ export function ClusterBoard({
     return { width: Math.ceil(Math.max(w, 600)), height: Math.ceil(Math.max(h, 400)) };
   })();
 
-  // "Spread out": a loose grid for the implications still in the tray, so there is room to
-  // sort them. The wheel packs 76px circles 12px apart, and you cannot draw a box through
-  // a dense ring.
+  // "Spread out": a roomy grid for the implications still in the tray, so there is space
+  // to push them around. The wheel packs 76px circles 12px apart, and you can neither
+  // grab one cleanly nor draw a boundary through a dense ring.
   //
-  // THEMED CARDS ARE LEFT ALONE, deliberately. This writes positions and not membership,
-  // so sweeping a themed card onto the grid would carry it out of its own box while it
-  // still belonged to that theme — the picture would say one thing and the data another.
-  // Spreading out is for the pile you are still sorting.
+  // Two things it must not do, both for the same reason — it moves cards and nothing
+  // else, while membership only ever changes on a drag:
+  //
+  //   THEMED CARDS ARE LEFT ALONE. Sweeping one onto the grid would carry it out of its
+  //   own box while it still belonged to that theme.
+  //   IT ROUTES AROUND EVERY BOX. A loose card parked inside a theme's box would read as
+  //   a member of that theme without being one.
   const spreadOut = () => {
     if (!canvasOn) return;
     const loose = canvasNodes.filter((n) => n.themeIds.length === 0);
     if (loose.length === 0) return;
-    const cols = Math.max(1, Math.ceil(Math.sqrt(loose.length)));
+    const slots = freeGrid(loose.length, [...canvasRegions.values()], { x: 120, y: 120 });
     canvasOn.onSaveMany(
-      loose.map((n, i) => ({
-        itemId: n.key,
-        x: 120 + (i % cols) * 120,
-        y: 120 + Math.floor(i / cols) * 120,
-      }))
+      loose.map((n, i) => ({ itemId: n.key, x: slots[i].x, y: slots[i].y }))
     );
   };
 

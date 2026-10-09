@@ -3,7 +3,9 @@ import {
   HYSTERESIS,
   containsPoint,
   coveredBy,
+  NODE_RADIUS,
   defaultRegions,
+  freeGrid,
   growToFit,
   planMembership,
   regionsAt,
@@ -510,5 +512,53 @@ describe("defaultRegions", () => {
 
   it("is deterministic, since every client derives it independently", () => {
     expect(defaultRegions(themes, band, 900)).toEqual(defaultRegions(themes, band, 900));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// freeGrid — "Spread out" has to miss every box
+// ---------------------------------------------------------------------------
+
+describe("freeGrid", () => {
+  const regions = [rect("TH1", 300, 0, 400, 400), rect("TH2", 0, 600, 500, 300)];
+
+  it("returns exactly as many slots as asked for", () => {
+    expect(freeGrid(25, [], { x: 120, y: 120 })).toHaveLength(25);
+    expect(freeGrid(25, regions, { x: 120, y: 120 })).toHaveLength(25);
+    expect(freeGrid(0, regions, { x: 120, y: 120 })).toHaveLength(0);
+  });
+
+  // The whole point. A loose card dropped inside a theme's box would read as a member of
+  // that theme without being one, and membership only changes on a drag.
+  it("never puts a card where it would touch a theme's box", () => {
+    for (const p of freeGrid(60, regions, { x: 120, y: 120 })) {
+      for (const r of regions) {
+        expect(containsPoint(r, p, NODE_RADIUS)).toBe(false);
+      }
+    }
+  });
+
+  it("gives every card its own slot", () => {
+    const out = freeGrid(60, regions, { x: 120, y: 120 });
+    expect(new Set(out.map((p) => `${p.x},${p.y}`)).size).toBe(out.length);
+  });
+
+  it("lays out a plain grid when nothing is in the way", () => {
+    const out = freeGrid(4, [], { x: 100, y: 100 });
+    expect(out[0]).toEqual({ x: 100, y: 100 });
+    expect(out.every((p) => p.x >= 100 && p.y >= 100)).toBe(true);
+  });
+
+  it("is deterministic", () => {
+    expect(freeGrid(40, regions, { x: 120, y: 120 })).toEqual(
+      freeGrid(40, regions, { x: 120, y: 120 })
+    );
+  });
+
+  it("gets out of the way even when a box sits right on the origin", () => {
+    const over = [rect("TH1", 0, 0, 1200, 500)];
+    for (const p of freeGrid(12, over, { x: 120, y: 120 })) {
+      expect(containsPoint(over[0], p, NODE_RADIUS)).toBe(false);
+    }
   });
 });

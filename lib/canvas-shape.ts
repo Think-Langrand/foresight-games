@@ -354,6 +354,14 @@ export function resolvePositions(args: ResolveArgs): Map<string, Pos> {
   return out;
 }
 
+// A node's radius on the canvas. Shared with the component that draws them, so "does this
+// card overlap that box" means the same thing to the geometry and to the eye.
+export const NODE_RADIUS = 38;
+
+// How far apart "Spread out" sets cards: roomier than PITCH, because the point of the
+// gesture is having space to push things around and draw a box between them.
+const SPREAD_PITCH = 120;
+
 // Air inside a default box, around its seated members.
 const REGION_PAD = 26;
 
@@ -403,6 +411,37 @@ export function defaultRegions(
     out.push({ themeId: t.themeId, x, y, w, h, shape: "rect" });
     x += w + REGION_GAP;
     rowHeight = Math.max(rowHeight, h);
+  }
+
+  return out;
+}
+
+
+// Slots for "Spread out": a tidy grid that MISSES every theme box.
+//
+// The wheel packs 76px circles 12px apart, so a freshly opened branch is too dense to
+// grab a single card from or draw a boundary through. This hands back room — but it has
+// to route around the boxes, because spreading out moves cards and nothing else. A loose
+// card parked inside a theme's box would read as a member of that theme without being
+// one, and the only thing that makes a card a member is a drag that ends there.
+export function freeGrid(count: number, regions: Region[], origin: Pos): Pos[] {
+  const out: Pos[] = [];
+  if (count <= 0) return out;
+
+  const cols = Math.max(4, Math.ceil(Math.sqrt(count)));
+  // Generous, and only a backstop: the grid marches downward forever, and the boxes are
+  // finite, so it always finds room. The bound just refuses to hang on absurd input.
+  const limit = count * 8 + 1000;
+
+  for (let slot = 0; out.length < count && slot < limit; slot++) {
+    const p = {
+      x: origin.x + (slot % cols) * SPREAD_PITCH,
+      y: origin.y + Math.floor(slot / cols) * SPREAD_PITCH,
+    };
+    // NODE_RADIUS of clearance, so a card does not merely miss a box's centre but clears
+    // its edge — half a circle poking into a theme reads as being in it.
+    if (regions.some((r) => containsPoint(r, p, NODE_RADIUS))) continue;
+    out.push(p);
   }
 
   return out;
