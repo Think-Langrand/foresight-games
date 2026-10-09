@@ -4,10 +4,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ZoomControls, orderColor, stepZoom, type Zoom } from "@/components/workshop/MapControls";
 import {
   NODE_RADIUS as NODE_R,
+  blockers,
+  cardsInRegion,
+  containsPoint,
+  containsRect,
   coveredBy,
+  REGION_CLEARANCE,
+  rectsOverlap,
   regionsAt,
+  resizeFloor,
+  resizeTo,
   type CanvasCardPos,
   type CanvasItem,
+  type Corner,
+  type GatherClump,
   type Pos,
   type Rect,
   type Region,
@@ -51,8 +61,46 @@ export interface CanvasNode {
 type Mode =
   | { kind: "idle" }
   | { kind: "pan"; fromX: number; fromY: number; scrollX: number; scrollY: number }
-  | { kind: "marquee"; from: Pos; to: Pos }
-  | { kind: "drag"; key: string; pos: Pos; dx: number; dy: number; themes: string[] };
+  | { kind: "marquee"; from: Pos; to: Pos; blocked: string[] }
+  | { kind: "drag"; key: string; pos: Pos; dx: number; dy: number; themes: string[] }
+  // Moving or resizing a theme's box. `shown` is where it is DRAWN this frame — always
+  // under the pointer — and `legal` is the last position that tested legal. Keeping the
+  // two apart is what lets a blocked gesture say so instead of sticking, and it is also
+  // the one-line switch to a hard clamp if the settle ever reads as a teleport.
+  | {
+      kind: "movebox";
+      themeId: string;
+      origin: Region;
+      grab: Pos;
+      shown: Pos;
+      legal: Pos;
+      blocked: string[];
+      // Overlaps inherited at pointerdown, so a box drawn over another before the rule
+      // existed is still movable. See `blockers`.
+      tolerated: Set<string>;
+      // Frozen at pointerdown: recomputing per frame would make the result depend on the
+      // path the pointer took.
+      travellers: string[];
+      loose: CanvasItem[];
+      adopt: string[];
+    }
+  | {
+      kind: "sizebox";
+      themeId: string;
+      corner: Corner;
+      origin: Region;
+      shown: Region;
+      legal: Region;
+      blocked: string[];
+      below: boolean;
+      // Computed once at pointerdown — members do not move during a resize.
+      floor: Rect | null;
+      tolerated: Set<string>;
+      loose: CanvasItem[];
+      adopt: string[];
+    };
+
+const NO_IDS: ReadonlySet<string> = new Set();
 
 export function CanvasBoard({
   nodes,
@@ -67,6 +115,11 @@ export function CanvasBoard({
   onDropCard,
   onDrawRegion,
   onSpreadOut,
+  onGather,
+  clumps,
+  movable,
+  onMoveRegion,
+  onResizeRegion,
   trailing,
   nodeProps,
 }: {
@@ -90,6 +143,20 @@ export function CanvasBoard({
   // would jump to packed seats the moment the theme existed.
   onDrawRegion: (rect: Rect, claimed: CanvasCardPos[]) => void;
   onSpreadOut: () => void;
+  onGather: () => void;
+  // Transient captions over the piles Gather just made. Not persisted: there is nowhere
+  // to put them, and a derived caption would drift and then lie the moment someone moved
+  // a card out of its pile.
+  clumps: GatherClump[];
+  // A box can only be grabbed once its region row is REAL. A box that is still only
+  // derived has nothing to write to, an adoption write in flight that would overwrite
+  // anything we wrote, and a position two clients do not yet agree on.
+  movable: (themeId: string) => boolean;
+  // `moved` carries every traveller's new position; `adopt` is the loose cards the box
+  // has come to sit over, which are the only membership change a move can make.
+  onMoveRegion: (region: Region, moved: CanvasCardPos[], adopt: string[]) => void;
+  // No card rows: a resize does not move anybody.
+  onResizeRegion: (region: Region, adopt: string[]) => void;
   // Pinned right on the toolbar row: state about the surface, not about the view.
   trailing?: React.ReactNode;
   nodeProps?: (key: string) => React.HTMLAttributes<HTMLDivElement>;
@@ -153,7 +220,7 @@ export function CanvasBoard({
 
   // Follow the pointer when a drag reaches the edge of the viewport.
   useEffect(() => {
-    if (mode.kind !== "drag") {
+    if (mode.kind !== "drag" && mode.kind !== "movebox" && mode.kind !== "sizebox") {
       edgeRef.current = null;
       return;
     }
@@ -229,6 +296,154 @@ export function CanvasBoard({
     setMode({ kind: "idle" });
   };
 
+  // ---------------- moving and resizing a box ----------------
+  //
+  // Both gestures are membership-SAFE by construction. A box can never overlap another,
+  // so moving one cannot carry a card out of a neighbour; a box can never shrink past its
+  // own members, so resizing cannot leave one outside. The only membership change either
+  // can make is additive — the loose cards the box has come to sit over.
+
+  const looseKeys = useMemo(
+    () => new Set(nodes.filter((n) => n.themeIds.length === 0).map((n) => n.key)),
+    [nodes]
+  );
+  const looseItems = () => items.filter((it) => looseKeys.has(it.key));
+
+  const grab = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Mandatory: the pan and marquee handlers are on the ancestor, so without this a grab
+    // also starts a pan underneath.
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const letGo = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const startMove = (r: Region) => (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!editable || !movable(r.themeId) || e.button !== 0 || !e.isPrimary) return;
+    grab(e);
+    const pt = toModel(e.clientX, e.clientY);
+    setMode({
+      kind: "movebox",
+      themeId: r.themeId,
+      origin: r,
+      grab: { x: pt.x - r.x, y: pt.y - r.y },
+      shown: { x: r.x, y: r.y },
+      legal: { x: r.x, y: r.y },
+      blocked: [],
+      tolerated: new Set(blockers(r, regionList, NO_IDS)),
+      travellers: cardsInRegion(r, items),
+      loose: looseItems(),
+      adopt: [],
+    });
+  };
+
+  const moveBox = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (mode.kind !== "movebox") return;
+    e.stopPropagation();
+    const pt = toModel(e.clientX, e.clientY);
+    // Clamped at the origin: the surface has no negative space, and a box dragged past it
+    // is drawn outside the scroll area and can never be grabbed again.
+    const shown = { x: Math.max(0, pt.x - mode.grab.x), y: Math.max(0, pt.y - mode.grab.y) };
+    const hits = blockers({ ...mode.origin, ...shown }, regionList, mode.tolerated);
+    const legal = hits.length === 0 ? shown : mode.legal;
+    edgeRef.current = { x: e.clientX, y: e.clientY };
+    setMode({
+      ...mode,
+      shown,
+      legal,
+      blocked: hits,
+      // From `legal`, never `shown`: the preview has to describe what will be committed.
+      adopt: cardsInRegion({ ...mode.origin, ...legal }, mode.loose),
+    });
+  };
+
+  const endMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (mode.kind !== "movebox") return;
+    letGo(e);
+    const { origin, legal, travellers, adopt } = mode;
+    setMode({ kind: "idle" });
+    // A mis-grab, or a drag that was blocked the whole way, must not rewrite forty rows.
+    if (legal.x === origin.x && legal.y === origin.y) return;
+    const dx = legal.x - origin.x;
+    const dy = legal.y - origin.y;
+    onMoveRegion(
+      { ...origin, ...legal },
+      travellers
+        .map((key) => {
+          const at = positions.get(key);
+          return at ? { itemId: key, x: at.x + dx, y: at.y + dy } : null;
+        })
+        .filter((v): v is CanvasCardPos => v !== null),
+      adopt
+    );
+  };
+
+  const startSize = (r: Region, corner: Corner) => (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!editable || !movable(r.themeId) || e.button !== 0 || !e.isPrimary) return;
+    grab(e);
+    // Only this theme's OWN members hold the floor. A card drawn in this box while
+    // belonging to another theme is a twin seated elsewhere — it travels, but it must not
+    // stop this box being made smaller.
+    const mine = new Set(
+      nodes.filter((n) => n.themeIds.includes(r.themeId)).map((n) => n.key)
+    );
+    const members = items.filter((it) => mine.has(it.key) && containsPoint(r, it));
+    setMode({
+      kind: "sizebox",
+      themeId: r.themeId,
+      corner,
+      origin: r,
+      shown: r,
+      legal: r,
+      blocked: [],
+      below: false,
+      floor: resizeFloor(r, members),
+      tolerated: new Set(blockers(r, regionList, NO_IDS)),
+      loose: looseItems(),
+      adopt: [],
+    });
+  };
+
+  const sizeBox = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (mode.kind !== "sizebox") return;
+    e.stopPropagation();
+    const shown = resizeTo(mode.origin, mode.corner, toModel(e.clientX, e.clientY));
+    const hits = blockers(shown, regionList, mode.tolerated);
+    const below = mode.floor !== null && !containsRect(shown, mode.floor);
+    const legal = hits.length === 0 && !below ? shown : mode.legal;
+    edgeRef.current = { x: e.clientX, y: e.clientY };
+    setMode({
+      ...mode,
+      shown,
+      legal,
+      blocked: hits,
+      below,
+      adopt: cardsInRegion(legal, mode.loose),
+    });
+  };
+
+  const endSize = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (mode.kind !== "sizebox") return;
+    letGo(e);
+    const { origin, legal, adopt } = mode;
+    setMode({ kind: "idle" });
+    if (legal.x === origin.x && legal.y === origin.y && legal.w === origin.w && legal.h === origin.h) {
+      return;
+    }
+    onResizeRegion(legal, adopt);
+  };
+
+  // pointercancel commits NOTHING. iOS fires it for the long-press callout, a second
+  // finger, or scroll handoff, and a forty-row write nobody released is the worst thing
+  // this gesture could do.
+  const abandonBox = () => {
+    if (mode.kind === "movebox" || mode.kind === "sizebox") setMode({ kind: "idle" });
+  };
+
   // ---------------- background: pan, or marquee when armed ----------------
 
   const startBackground = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -237,7 +452,7 @@ export function CanvasBoard({
     if (armed && editable) {
       e.currentTarget.setPointerCapture(e.pointerId);
       const at = toModel(e.clientX, e.clientY);
-      setMode({ kind: "marquee", from: at, to: at });
+      setMode({ kind: "marquee", from: at, to: at, blocked: [] });
       return;
     }
     if (!el) return;
@@ -253,7 +468,17 @@ export function CanvasBoard({
 
   const moveBackground = (e: React.PointerEvent<HTMLDivElement>) => {
     if (mode.kind === "marquee") {
-      setMode({ ...mode, to: toModel(e.clientX, e.clientY) });
+      const to = toModel(e.clientX, e.clientY);
+      // Boxes never overlap, and a drawn box is a box: refusing here rather than at the
+      // drop is what stops a theme being minted somewhere it cannot legally sit.
+      const r = rectOf(mode.from, to);
+      setMode({
+        ...mode,
+        to,
+        blocked: regionList
+          .filter((x) => rectsOverlap(r, x, REGION_CLEARANCE))
+          .map((x) => x.themeId),
+      });
       return;
     }
     if (mode.kind === "pan") {
@@ -267,8 +492,10 @@ export function CanvasBoard({
   const endBackground = () => {
     if (mode.kind === "marquee") {
       const r = rectOf(mode.from, mode.to);
-      // A tap, not a box. Don't mint a theme from a stray click.
-      if (r.w > 8 && r.h > 8) {
+      // A tap, not a box. Don't mint a theme from a stray click. And never over another
+      // box — the overlap rule has to hold for the gesture that CREATES boxes too, or the
+      // board can be put back into a state move and resize forbid.
+      if (r.w > 8 && r.h > 8 && mode.blocked.length === 0) {
         const live = items.filter((it) => !dimmed.has(it.key));
         // The >=50%-coverage rule for SELECTION, which is what a Miro-trained hand expects
         // from a box: clipping a corner does not take a card, covering most of it does.
@@ -285,6 +512,11 @@ export function CanvasBoard({
   };
 
   const marquee = mode.kind === "marquee" ? rectOf(mode.from, mode.to) : null;
+  const travelling = mode.kind === "movebox" ? new Set(mode.travellers) : null;
+  const travelDelta =
+    mode.kind === "movebox"
+      ? { x: mode.shown.x - mode.origin.x, y: mode.shown.y - mode.origin.y }
+      : null;
 
   return (
     <div>
@@ -311,6 +543,13 @@ export function CanvasBoard({
               }
             >
               {armed ? "Drag a box…" : "＋ Draw a theme"}
+            </button>
+            <button
+              onClick={onGather}
+              title="Bring the loose implications back together by key change — shows every key change"
+              className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-muted hover:border-ink hover:text-ink"
+            >
+              Gather
             </button>
             <button
               onClick={onSpreadOut}
@@ -348,29 +587,163 @@ export function CanvasBoard({
             {/* Regions sit under the nodes and take no pointer events: in this version a
                 box only ever changes by cards moving, never by being moved or resized —
                 which is what makes it impossible for the picture to drift from the data. */}
-            {regionList.map((r) => (
-              <div
-                key={r.themeId}
-                className="pointer-events-none absolute rounded-[6px] border-2 border-dashed"
-                style={{
-                  left: r.x,
-                  top: r.y,
-                  width: r.w,
-                  height: r.h,
-                  borderColor: "var(--rule)",
-                  background: "color-mix(in srgb, var(--lime) 14%, var(--card))",
-                  borderRadius: r.shape === "ellipse" ? "50%" : undefined,
-                }}
-              >
-                <span className="absolute -top-[9px] left-2 bg-paper px-1 text-[10px] font-bold uppercase tracking-[0.05em] text-muted">
-                  {themeLabel(r.themeId)}
-                  {/* Its real membership, which can exceed the circles drawn inside it:
-                      an implication sitting in two themes is still ONE circle, and that
-                      circle can only be in one box at a time. Saying the number is what
-                      stops a box that is short a twin from looking like a bug. */}
-                  {memberCount(r.themeId) > 0 && (
-                    <span className="ml-1 font-normal">· {memberCount(r.themeId)}</span>
+            {regionList.map((r) => {
+              // The box mid-gesture, if it is this one.
+              const live =
+                (mode.kind === "movebox" || mode.kind === "sizebox") && mode.themeId === r.themeId
+                  ? mode
+                  : null;
+              const shown: Region =
+                live === null
+                  ? r
+                  : live.kind === "movebox"
+                    ? { ...r, ...live.shown }
+                    : live.shown;
+              const ghost: Region | null =
+                live === null
+                  ? null
+                  : live.kind === "movebox"
+                    ? { ...r, ...live.legal }
+                    : live.legal;
+              const bad =
+                live !== null &&
+                (live.blocked.length > 0 || (live.kind === "sizebox" && live.below));
+              const grippable = editable && movable(r.themeId);
+
+              return (
+                <div key={r.themeId}>
+                  {/* Where it will actually land. Without this the settle reads as a
+                      teleport; with it, the blocked box is visibly a preview. */}
+                  {ghost && bad && (
+                    <div
+                      className="pointer-events-none absolute rounded-[6px] border-2"
+                      style={{
+                        left: ghost.x,
+                        top: ghost.y,
+                        width: ghost.w,
+                        height: ghost.h,
+                        borderColor: "var(--rule)",
+                        borderRadius: r.shape === "ellipse" ? "50%" : undefined,
+                      }}
+                    />
                   )}
+
+                  <div
+                    className="pointer-events-none absolute rounded-[6px] border-2 border-dashed"
+                    style={{
+                      left: shown.x,
+                      top: shown.y,
+                      width: shown.w,
+                      height: shown.h,
+                      borderColor: bad ? "var(--coral)" : "var(--rule)",
+                      background: bad
+                        ? "color-mix(in srgb, var(--coral) 12%, var(--card))"
+                        : "color-mix(in srgb, var(--lime) 14%, var(--card))",
+                      borderRadius: r.shape === "ellipse" ? "50%" : undefined,
+                    }}
+                  >
+                    {/* The label strip doubles as the grip. Everything inside the scaled
+                        surface scales with it, and Fit can be 0.3 on a big board, so the
+                        grip and the handles are sized in INVERSE scale to stay a constant
+                        size on screen — otherwise they are 4px and unusable in the room. */}
+                    <span
+                      onPointerDown={grippable ? startMove(r) : undefined}
+                      onPointerMove={grippable ? moveBox : undefined}
+                      onPointerUp={grippable ? endMove : undefined}
+                      onPointerCancel={grippable ? abandonBox : undefined}
+                      onLostPointerCapture={grippable ? abandonBox : undefined}
+                      className="absolute bg-paper font-bold uppercase tracking-[0.05em] text-muted"
+                      style={{
+                        top: -9 / scale,
+                        left: 8 / scale,
+                        paddingInline: 4 / scale,
+                        fontSize: 10 / scale,
+                        lineHeight: 1.6,
+                        pointerEvents: grippable ? "auto" : "none",
+                        touchAction: "none",
+                        cursor: grippable ? (live ? "grabbing" : "grab") : "default",
+                        color: bad ? "var(--coral)" : undefined,
+                      }}
+                    >
+                      {grippable && <span aria-hidden>⠿ </span>}
+                      {themeLabel(r.themeId)}
+                      {/* Its real membership, which can exceed the circles drawn inside
+                          it: an implication sitting in two themes is still ONE circle,
+                          and that circle can only be in one box at a time. Saying the
+                          number is what stops a box short a twin from looking like a bug. */}
+                      {memberCount(r.themeId) > 0 && (
+                        <span className="font-normal"> · {memberCount(r.themeId)}</span>
+                      )}
+                      {live && live.blocked.length > 0 && (
+                        <span className="font-normal">
+                          {" "}
+                          · blocked by {live.blocked.map(themeLabel).join(", ")}
+                        </span>
+                      )}
+                      {live && live.kind === "sizebox" && live.below && live.blocked.length === 0 && (
+                        <span className="font-normal"> · as small as it goes</span>
+                      )}
+                      {live && !bad && live.adopt.length > 0 && (
+                        <span className="font-normal"> · +{live.adopt.length} loose</span>
+                      )}
+                    </span>
+
+                    {grippable &&
+                      (["nw", "ne", "sw", "se"] as const).map((corner) => (
+                        <div
+                          key={corner}
+                          onPointerDown={startSize(r, corner)}
+                          onPointerMove={sizeBox}
+                          onPointerUp={endSize}
+                          onPointerCancel={abandonBox}
+                          onLostPointerCapture={abandonBox}
+                          aria-label={`Resize ${themeLabel(r.themeId)}`}
+                          // The hit area is deliberately bigger than the mark: 22px is a
+                          // usable target on a tablet, but four solid squares per box is
+                          // a lot of furniture on a board that may hold ten of them.
+                          style={{
+                            position: "absolute",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 22 / scale,
+                            height: 22 / scale,
+                            [corner[0] === "n" ? "top" : "bottom"]: -11 / scale,
+                            [corner[1] === "w" ? "left" : "right"]: -11 / scale,
+                            pointerEvents: "auto",
+                            touchAction: "none",
+                            cursor: corner === "nw" || corner === "se" ? "nwse-resize" : "nesw-resize",
+                          }}
+                        >
+                          <span
+                            aria-hidden
+                            style={{
+                              width: 9 / scale,
+                              height: 9 / scale,
+                              background: "var(--paper)",
+                              border: `${1.5 / scale}px solid var(--rule)`,
+                              borderRadius: 1 / scale,
+                            }}
+                          />
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Transient captions over the piles Gather just made. */}
+            {clumps.map((c) => (
+              <div
+                key={c.groupId}
+                className="pointer-events-none absolute"
+                style={{ left: c.x, top: c.y, width: c.w, height: c.h }}
+              >
+                <span
+                  className="absolute left-0 top-0 whitespace-nowrap font-bold uppercase tracking-[0.05em] text-muted"
+                  style={{ fontSize: 11 / scale }}
+                >
+                  {c.label} · {c.keys.length}
                 </span>
               </div>
             ))}
@@ -378,6 +751,10 @@ export function CanvasBoard({
             {nodes.map((n) => {
               const p = positions.get(n.key);
               if (!p) return null;
+              // Travellers are previewed by offsetting them here, never through onHold:
+              // that would setState in useCanvasLayout and rebuild the whole board's
+              // indexes sixty times a second through a 2400-line component.
+              const travel = travelling?.has(n.key) ? travelDelta : null;
               const dragging = mode.kind === "drag" && mode.key === n.key;
               const showThemes = dragging ? mode.themes : n.themeIds;
               return (
@@ -396,8 +773,8 @@ export function CanvasBoard({
                     (dragging ? "z-30" : "hover:z-20")
                   }
                   style={{
-                    left: p.x - NODE_R,
-                    top: p.y - NODE_R,
+                    left: p.x - NODE_R + (travel?.x ?? 0),
+                    top: p.y - NODE_R + (travel?.y ?? 0),
                     width: NODE_R * 2,
                     height: NODE_R * 2,
                     background: n.dim ? "var(--paper)" : orderColor(n.depth),
@@ -441,15 +818,18 @@ export function CanvasBoard({
               );
             })}
 
-            {marquee && (
+            {marquee && mode.kind === "marquee" && (
               <div
-                className="pointer-events-none absolute border-2 border-ink"
+                className="pointer-events-none absolute border-2"
                 style={{
                   left: marquee.x,
                   top: marquee.y,
                   width: marquee.w,
                   height: marquee.h,
-                  background: "color-mix(in srgb, var(--blue) 12%, transparent)",
+                  borderColor: mode.blocked.length ? "var(--coral)" : "var(--ink)",
+                  background: mode.blocked.length
+                    ? "color-mix(in srgb, var(--coral) 12%, transparent)"
+                    : "color-mix(in srgb, var(--blue) 12%, transparent)",
                 }}
               />
             )}

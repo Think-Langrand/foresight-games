@@ -87,11 +87,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ code: st
     const keys = new Set(cards.filter((c) => c.cardKind === null).map(implicationKey));
     const themes = new Set(cards.filter((c) => c.cardKind === "theme").map((c) => c.id));
 
+    // An unknown implication is DROPPED, not rejected. One gesture can carry forty rows —
+    // moving a theme writes a position for everything inside it — so failing the whole
+    // batch because a teammate deleted one card mid-drag would lose the move, the region
+    // row included. A stale id is a race, not an integrity problem.
     const cardPos: CanvasCardPos[] = [];
     for (const c of body.cards ?? []) {
-      if (!c.itemId || !keys.has(c.itemId)) {
-        return NextResponse.json({ error: "That implication is not on this board." }, { status: 400 });
-      }
+      if (!c.itemId || !keys.has(c.itemId)) continue;
       if (!finite(c.x) || !finite(c.y)) {
         return NextResponse.json({ error: "Invalid position." }, { status: 400 });
       }
@@ -121,6 +123,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ code: st
       });
     }
 
+    // A resize writes a region and no cards at all, so regions-only is legitimate. Only a
+    // body that asked for nothing — or whose every card id was stale — is an error, and
+    // even then only when it also carried no region.
     if (cardPos.length === 0 && regions.length === 0) {
       return NextResponse.json({ error: "Nothing to save." }, { status: 400 });
     }

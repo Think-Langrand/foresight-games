@@ -33,7 +33,9 @@ import { layout as wheelLayout } from "@/lib/wheel-layout";
 import {
   defaultRegions,
   freeGrid,
+  gather,
   resolvePositions,
+  type GatherClump,
   type CanvasCardPos,
   type Pos,
   type Rect,
@@ -201,6 +203,8 @@ export function ClusterBoard({
     onDropCard: (key: string, pos: Pos, themeIds: string[]) => void;
     onDrawRegion: (rect: Rect, claimed: CanvasCardPos[]) => void;
     onSaveMany: (cards: CanvasCardPos[], regions?: Region[]) => void;
+    onMoveRegion: (region: Region, moved: CanvasCardPos[], adopt: string[]) => void;
+    onResizeRegion: (region: Region, adopt: string[]) => void;
   };
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -615,7 +619,10 @@ export function ClusterBoard({
   // holding ten implications opens as a box with ten cards in it rather than as ten
   // loose cards. Deterministic, so every client draws the same thing before anyone has
   // written anything.
-  const unboxedThemes = canvasOn ? board.themes.filter((th) => !canvasOn.regions.has(th.id)) : [];
+  const unboxedThemes =
+    canvasOn && canvasOn.ready
+      ? board.themes.filter((th) => !canvasOn.regions.has(th.id))
+      : [];
 
   // Where the adopted boxes go has to be worked out from where the content ACTUALLY is,
   // not from the wheel's extent. The wheel is laid out from all 146 Week 2 cards even
@@ -685,7 +692,13 @@ export function ClusterBoard({
   const adoptedSig = adoptedRegions.map((r) => r.themeId).join(",");
   const adoptedRef = useRef("");
   useEffect(() => {
-    if (!canvasOn || !editable || !adoptedSig || adoptedRef.current === adoptedSig) return;
+    // `ready` is the whole guard. Before the first layout lands, canvas.regions is empty,
+    // so EVERY theme looks unboxed, defaultRegions derives a box for each, and this effect
+    // writes those derived boxes straight over the real ones — silently resetting every
+    // arrangement on the board each time the canvas is opened. It was invisible while
+    // boxes could not move, because re-deriving produced the same numbers.
+    if (!canvasOn || !canvasOn.ready || !editable) return;
+    if (!adoptedSig || adoptedRef.current === adoptedSig) return;
     adoptedRef.current = adoptedSig;
     canvasOn.onSaveMany(
       [...adoptedKeys]
@@ -698,7 +711,7 @@ export function ClusterBoard({
     );
     // Everything else here is rebuilt every render by design; the signature is what decides.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adoptedSig, editable]);
+  }, [adoptedSig, editable, canvasOn?.ready]);
 
   // Big enough for everything on it, measured per axis. A single square extent would make
   // the surface as tall as the wheel is wide and leave most of it empty.
@@ -715,6 +728,60 @@ export function ClusterBoard({
     }
     return { width: Math.ceil(Math.max(w, 600)), height: Math.ceil(Math.max(h, 400)) };
   })();
+
+  // Transient captions over the piles Gather just made. Deliberately not persisted:
+  // there is nowhere to put a caption, and a derived one would drift and then lie the
+  // moment someone moved a card out of its pile.
+  const [clumps, setClumps] = useState<GatherClump[]>([]);
+  const clumpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (clumpTimer.current) clearTimeout(clumpTimer.current);
+  }, []);
+
+  // "Gather": the reverse of Spread out. Brings the loose implications back together into
+  // the piles their Week 2 branches already imply, one per key change.
+  //
+  // It reads the board directly rather than `canvasNodes`, and clears the key-change
+  // filter: the canvas only shows loose cards matching that filter, which defaults to the
+  // FIRST key change — so gathering what is on screen would reliably produce exactly one
+  // pile, which is not a feature.
+  const gatherUp = () => {
+    if (!canvasOn) return;
+    const groups = new Map<string, { groupId: string; label: string; keys: string[]; text: string }>();
+    for (const [key, info] of twins) {
+      if (info.themeIds.length > 0) continue; // themed cards keep their place
+      const l = lineageOf(info.cards[0]);
+      const groupId = l?.keyChangeId ?? "";
+      const found = groups.get(groupId);
+      if (found) found.keys.push(key);
+      else
+        groups.set(groupId, {
+          groupId,
+          label: l ? keyChangeLabel(l.keyChange) : "No key change",
+          text: l?.keyChange ?? "",
+          keys: [key],
+        });
+    }
+    if (groups.size === 0) return;
+
+    // The board's own ranking — impact then plausibility — so "the first pile" means what
+    // the group meant when it ranked its key changes.
+    const ordered = [...groups.values()].sort((a, b) =>
+      byKeyRank(a.groupId || null, a.text, b.groupId || null, b.text)
+    );
+
+    const plan = gather({
+      groups: ordered,
+      regions: [...canvasRegions.values()],
+      origin: { x: 60, y: 60 },
+      maxWidth: 1600,
+    });
+    canvasOn.onSaveMany(plan.positions);
+    setKeyPick(null);
+    setClumps(plan.clumps);
+    if (clumpTimer.current) clearTimeout(clumpTimer.current);
+    clumpTimer.current = setTimeout(() => setClumps([]), 8000);
+  };
 
   // "Spread out": a roomy grid for the implications still in the tray, so there is space
   // to push them around. The wheel packs 76px circles 12px apart, and you can neither
@@ -1465,9 +1532,14 @@ export function ClusterBoard({
         // The step, said once and large, where the eye starts. The band ends in a rule the
         // toolbar's rule continues — see useRailBand.
         top={
-          <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
-            1. Combine implications into themed clusters
-          </p>
+          <>
+            {/* Which future this board is about. The step says what to do; nothing on
+                this screen said what world it is being done in. */}
+            {scenarioTitle && <p className="eyebrow mb-1 truncate">{scenarioTitle}</p>}
+            <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
+              1. Combine implications into themed clusters
+            </p>
+          </>
         }
         hint={
           picked.size > 0
@@ -2056,6 +2128,15 @@ export function ClusterBoard({
             onDropCard={canvas.onDropCard}
             onDrawRegion={canvas.onDrawRegion}
             onSpreadOut={spreadOut}
+            onGather={gatherUp}
+            clumps={clumps}
+            // Only a box whose region row is REAL can be grabbed. A derived box has
+            // nothing to write to and an adoption write in flight that would overwrite
+            // it; the gate opens the instant that write is issued, because `regions` is
+            // the hook's merged map.
+            movable={(id) => canvas.regions.has(id)}
+            onMoveRegion={canvas.onMoveRegion}
+            onResizeRegion={canvas.onResizeRegion}
             trailing={selectedCluster}
           />
           )

@@ -53,8 +53,10 @@ import { summaryInputHash } from "@/lib/synthesis-summary-shape";
 import {
   planMembership,
   type CanvasCardPos,
+  type MembershipStep,
   type Pos,
   type Rect,
+  type Region,
 } from "@/lib/canvas-shape";
 
 // WEEK 3 — Synthesis. Four steps on one shared board:
@@ -437,20 +439,11 @@ export function SynthesisTeamView({
   // cosmetic and goes first, on its own and unawaited: a membership failure must never
   // snap the card back across the surface. Membership is the real write, and it goes
   // through planMembership so the twin rules stay in one place that has tests.
-  const canvasDropCard = (key: string, pos: Pos, themeIds: string[]) => {
-    void canvasLayout.save([{ itemId: key, x: pos.x, y: pos.y }]).catch(() => {});
-
-    const steps = planMembership({
-      cards,
-      key,
-      desired: themeIds,
-      liveThemeIds: new Set(board.themes.map((th) => th.id)),
-      childCount: (id) => childrenOf(board, id).length,
-    });
-    if (steps.length === 0) return;
-
-    run(async () => {
-      for (const s of steps) {
+  // Executes a membership plan. Shared by every canvas gesture that can change who is in
+  // a theme — a card drop, a box moved over loose cards, a box grown over them — so the
+  // unpark/reparent/copy/delete rules and their optimistic rollbacks live in one place.
+  const applyMembership = async (steps: MembershipStep[]) => {
+    for (const s of steps) {
         switch (s.kind) {
           case "refuse":
             throw new Error(s.reason);
@@ -501,7 +494,69 @@ export function SynthesisTeamView({
           }
         }
       }
+  };
+
+  // The themes this implication is in RIGHT NOW, plus one more, in board order.
+  //
+  // Adoption is additive, so `desired` must only ever be a SUPERSET. Building it from
+  // what the canvas saw instead would move the card out of any theme a teammate put it in
+  // between our pointerdown and our release — a removal, on a gesture specified as
+  // additive-only. Built this way, planMembership returns [] when nothing changed, so
+  // adopting a card that is already there is a no-op.
+  const desiredPlus = (key: string, themeId: string): string[] => {
+    const now = new Set(twinIndex(board).get(key)?.themeIds ?? []);
+    now.add(themeId);
+    return board.themes.map((th) => th.id).filter((id) => now.has(id));
+  };
+
+  const adoptLoose = (adopt: string[], themeId: string) => {
+    if (adopt.length === 0) return;
+    run(async () => {
+      for (const key of adopt) {
+        await applyMembership(
+          planMembership({
+            cards,
+            key,
+            desired: desiredPlus(key, themeId),
+            liveThemeIds: new Set(board.themes.map((th) => th.id)),
+            childCount: (id) => childrenOf(board, id).length,
+          })
+        );
+      }
     });
+  };
+
+  const canvasDropCard = (key: string, pos: Pos, themeIds: string[]) => {
+    void canvasLayout.save([{ itemId: key, x: pos.x, y: pos.y }]).catch(() => {});
+
+    const steps = planMembership({
+      cards,
+      key,
+      desired: themeIds,
+      liveThemeIds: new Set(board.themes.map((th) => th.id)),
+      childCount: (id) => childrenOf(board, id).length,
+    });
+    if (steps.length === 0) return;
+    run(() => applyMembership(steps));
+  };
+
+  // A box moved, with everything inside it. Geometry first and unawaited, as the drop
+  // does: position is cosmetic, and a membership failure must never snap a box and forty
+  // cards back across the surface. Synchronous, so the optimistic overlays are in place
+  // before any membership write re-renders the board through resolvePositions.
+  //
+  // Every traveller gets an explicit position. resolvePositions seats a member with NO
+  // saved row inside its region, so unsaved members would follow the box for free and
+  // saved ones would be left behind — writing all of them makes the rule unconditional.
+  const canvasMoveRegion = (region: Region, moved: CanvasCardPos[], adopt: string[]) => {
+    void canvasLayout.save(moved, [region]).catch(() => {});
+    adoptLoose(adopt, region.themeId);
+  };
+
+  // A resize moves nobody, so it carries no card rows at all.
+  const canvasResizeRegion = (region: Region, adopt: string[]) => {
+    void canvasLayout.save([], [region]).catch(() => {});
+    adoptLoose(adopt, region.themeId);
   };
 
   // Marquee then "create theme": mint the theme, record its box, then claim what the box
@@ -885,6 +940,8 @@ export function SynthesisTeamView({
             onSaveMany: (rows, regions) => {
               void canvasLayout.save(rows, regions).catch(() => {});
             },
+            onMoveRegion: canvasMoveRegion,
+            onResizeRegion: canvasResizeRegion,
           }}
         />
       )}
