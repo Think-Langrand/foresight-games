@@ -6,8 +6,14 @@ import {
   blockers,
   cardsInRegion,
   containsPoint,
+  MIN_PILE,
+  boundsOf,
+  clumpGrid,
   containsRect,
   coveredBy,
+  isPile,
+  pileLabels,
+  rectsOverlap,
   defaultRegions,
   freeGrid,
   gather,
@@ -19,6 +25,7 @@ import {
   type Region,
 } from "./canvas-shape";
 import type { RippleCard } from "./ripples-types";
+import { layout } from "./wheel-layout";
 
 const rect = (themeId: string, x: number, y: number, w: number, h: number): Region => ({
   themeId,
@@ -800,4 +807,183 @@ describe("gather", () => {
       for (const r of regions) expect(containsPoint(r, p, NODE_RADIUS)).toBe(false);
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// pileLabels — a caption only while the cards are still in a pile
+// ---------------------------------------------------------------------------
+
+const pos = (x: number, y: number) => ({ x, y });
+const groupOf = (groupId: string, cards: { x: number; y: number }[]) => ({
+  groupId,
+  label: groupId,
+  cards,
+});
+
+describe("isPile", () => {
+  // Gather's own lattice: PITCH apart, axis-aligned.
+  const lattice = (n: number) => {
+    const { cols } = clumpGrid(n);
+    return Array.from({ length: n }, (_, i) =>
+      pos(500 + (i % cols) * 88, 300 + Math.floor(i / cols) * 88)
+    );
+  };
+
+  it("accepts what Gather lays down, at every size", () => {
+    for (let n = 1; n <= 24; n++) expect(isPile(lattice(n))).toBe(true);
+  });
+
+  it("does not care where the pile sits — only how it is arranged", () => {
+    const moved = lattice(9).map((p) => pos(p.x + 1234.5, p.y - 77.25));
+    expect(isPile(moved)).toBe(true);
+  });
+
+  it("survives a card being nudged, and a card leaving", () => {
+    const nudged = lattice(9).map((p, i) => (i === 4 ? pos(p.x + 20, p.y - 18) : p));
+    expect(isPile(nudged)).toBe(true);
+    expect(isPile(lattice(9).slice(0, 8))).toBe(true);
+  });
+
+  it("breaks when a card is dragged a whole slot out", () => {
+    const broken = lattice(9).map((p, i) => (i === 4 ? pos(p.x + 420, p.y + 260) : p));
+    expect(isPile(broken)).toBe(false);
+  });
+
+  it("refuses two cards stacked in one slot", () => {
+    const stacked = [...lattice(6)];
+    stacked[5] = { ...stacked[0] };
+    expect(isPile(stacked)).toBe(false);
+  });
+
+  it("refuses a Spread out grid, whose pitch and columns are different", () => {
+    for (let n = 4; n <= 24; n++) {
+      expect(isPile(freeGrid(n, [], { x: 120, y: 120 }))).toBe(false);
+    }
+  });
+});
+
+describe("pileLabels", () => {
+  const lattice = (n: number, ox: number, oy: number) => {
+    const { cols } = clumpGrid(n);
+    return Array.from({ length: n }, (_, i) =>
+      pos(ox + (i % cols) * 88, oy + Math.floor(i / cols) * 88)
+    );
+  };
+
+  // The round trip. This is the test that fails if anyone changes PITCH or the clump grid
+  // on one side only — a pile would then be labelled the instant it was made and never
+  // again.
+  it("labels every clump Gather itself produces", () => {
+    for (let n = MIN_PILE; n <= 24; n++) {
+      const keys = Array.from({ length: n }, (_, i) => `c${i}`);
+      const plan = gather({
+        groups: [{ groupId: "K1", label: "Key one", keys }],
+        regions: [],
+        origin: { x: 60, y: 60 },
+        maxWidth: 2000,
+      });
+      const labels = pileLabels([groupOf("K1", plan.positions)]);
+      expect(labels.map((l) => l.groupId)).toEqual(["K1"]);
+      expect(labels[0].count).toBe(n);
+    }
+  });
+
+  it("labels nothing after a Spread out", () => {
+    const slots = freeGrid(18, [], { x: 120, y: 120 });
+    expect(pileLabels([groupOf("K1", slots)])).toEqual([]);
+  });
+
+  it("honours the minimum, so two cards are not a pile", () => {
+    expect(pileLabels([groupOf("K1", lattice(2, 100, 100))])).toEqual([]);
+    expect(pileLabels([groupOf("K1", lattice(3, 100, 100))]).length).toBe(1);
+  });
+
+  it("drops both labels when two piles are pushed into each other", () => {
+    const apart = [groupOf("A", lattice(6, 100, 100)), groupOf("B", lattice(6, 900, 100))];
+    expect(pileLabels(apart).map((l) => l.groupId)).toEqual(["A", "B"]);
+    const overlapping = [groupOf("A", lattice(6, 100, 100)), groupOf("B", lattice(6, 180, 140))];
+    expect(pileLabels(overlapping)).toEqual([]);
+  });
+
+  it("boxes the pile so a caption can sit on its top edge", () => {
+    const [l] = pileLabels([groupOf("K1", lattice(6, 500, 400))]);
+    for (const p of lattice(6, 500, 400)) {
+      expect(p.x).toBeGreaterThanOrEqual(l.box.x);
+      expect(p.y).toBeGreaterThanOrEqual(l.box.y);
+      expect(p.x).toBeLessThanOrEqual(l.box.x + l.box.w);
+      expect(p.y).toBeLessThanOrEqual(l.box.y + l.box.h);
+    }
+    // Grown by a card's radius, so the box is the DRAWN pile, not the centres.
+    expect(l.box.x).toBe(500 - NODE_RADIUS);
+  });
+
+  it("keeps the order it was given, and is deterministic", () => {
+    const gs = [groupOf("B", lattice(5, 100, 100)), groupOf("A", lattice(5, 900, 900))];
+    expect(pileLabels(gs).map((l) => l.groupId)).toEqual(["B", "A"]);
+    expect(pileLabels(gs)).toEqual(pileLabels(gs));
+  });
+});
+
+describe("pileLabels on the opening wheel", () => {
+  // A board of `keys` key changes, each fanning out `orders` levels. Depth is walked from
+  // parentage (depthByCard), so the order string on a descendant does not matter.
+  function wheelBoard(keys: number, orders: number, fanout = 3) {
+    const cards: RippleCard[] = [];
+    const rootOf = new Map<string, string>();
+    let seq = 0;
+    for (let k = 0; k < keys; k++) {
+      const rootId = `K${k}`;
+      cards.push(impl(rootId, null, seq++));
+      let level = [rootId];
+      for (let o = 0; o < orders; o++) {
+        const next: string[] = [];
+        for (const parent of level) {
+          for (let f = 0; f < fanout; f++) {
+            const id = `${parent}_${o}${f}`;
+            cards.push(impl(id, parent, seq++));
+            rootOf.set(id, rootId);
+            next.push(id);
+          }
+        }
+        level = next;
+      }
+    }
+    return { cards, rootOf };
+  }
+
+  // The premise this replaced: that wheel branches would overlap and so stay unlabelled.
+  // They do not — place() puts each node at the MIDPOINT of its angular span, so a branch
+  // hugs its mid-ray and the branches are spokes rather than wedges. Spokes separate
+  // cleanly, and a disjointness test would caption every branch of a small board the
+  // moment the canvas opened. The lattice test is what actually tells the wheel apart
+  // from a gathered pile.
+  for (const [keys, orders] of [
+    [2, 1],
+    [3, 2],
+    [4, 2],
+    [5, 2],
+    [3, 3],
+  ] as const) {
+    it(`says nothing about a ${keys}-key, ${orders}-order wheel`, () => {
+      const { cards, rootOf } = wheelBoard(keys, orders);
+      const nodes = new Map(layout(cards).nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+      const groups = new Map<string, { x: number; y: number }[]>();
+      for (const [id, root] of rootOf) {
+        const at = nodes.get(id);
+        if (at) groups.set(root, [...(groups.get(root) ?? []), at]);
+      }
+      const asGroups = [...groups].map(([root, cardsAt]) => groupOf(root, cardsAt));
+
+      // The teeth of this test: the branches ARE mutually disjoint, so the bounding-box
+      // rule this replaced would have captioned every one of them the moment the canvas
+      // opened. Spokes separate; only the lattice test tells them from a gathered pile.
+      const boxes = asGroups.map((g) => boundsOf(g.cards)!);
+      const someDisjoint = boxes.some((a, i) =>
+        boxes.some((b, j) => i !== j && !rectsOverlap(a, b))
+      );
+      expect(someDisjoint).toBe(true);
+
+      expect(pileLabels(asGroups)).toEqual([]);
+    });
+  }
 });

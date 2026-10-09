@@ -561,8 +561,10 @@ export function resizeTo(
 // Gather — the reverse of Spread out
 // ---------------------------------------------------------------------------
 
-// Room above a clump for its caption.
-const CAPTION_H = 24;
+// Room above a clump for its caption. The caption is inverse-scaled so it stays a constant
+// size on screen, which at Fit (~0.3 on Group 1) makes it about 59 MODEL pixels tall — so
+// 24 would put it straight through whatever sits above the pile.
+const CAPTION_H = 56;
 // Air between two clumps. Comfortably more than PITCH, so the piles read as separate
 // objects rather than as one field with gaps in it.
 const CLUMP_GAP = 120;
@@ -615,8 +617,7 @@ export function gather(args: {
 
   for (const group of live) {
     const n = group.keys.length;
-    const cols = Math.max(2, Math.ceil(Math.sqrt(n)));
-    const rows = Math.ceil(n / cols);
+    const { cols, rows } = clumpGrid(n);
     const w = cols * PITCH;
     const h = CAPTION_H + rows * PITCH;
 
@@ -629,7 +630,7 @@ export function gather(args: {
       }
       const foot = { x, y, w, h };
       const blocked =
-        regions.some((r) => rectsOverlap(foot, r)) ||
+        regions.some((r) => rectsOverlap(foot, r, REGION_CLEARANCE)) ||
         clumps.some((c) => rectsOverlap(foot, c, CLUMP_GAP / 2));
       if (!blocked) {
         placed = true;
@@ -660,4 +661,114 @@ export function gather(args: {
   }
 
   return { positions, clumps };
+}
+
+
+// ---------------------------------------------------------------------------
+// Pile labels — a caption while the cards are still in a pile
+// ---------------------------------------------------------------------------
+
+// Below this, a "pile" is just some cards. It is also where almost every false positive
+// on the opening wheel lives: a lone branch node passes every geometric test there is.
+export const MIN_PILE = 3;
+
+// How far a card may be nudged and still count as being in its slot — a quarter of a card.
+export const PILE_SNAP = PITCH / 4;
+
+export interface PileGroup {
+  groupId: string;
+  // Already shortened by the caller; this module does no text work.
+  label: string;
+  cards: Pos[];
+}
+
+export interface PileLabel {
+  groupId: string;
+  label: string;
+  count: number;
+  // The DRAWN pile — the centres grown by a card's radius. The caption sits on its top edge.
+  box: Rect;
+}
+
+// The grid Gather packs a clump into. Extracted so ONE formula answers both "where do
+// these cards go" and "are these cards still where they were put". If the two ever
+// drifted, a pile would be labelled the instant it was made and never again.
+export function clumpGrid(n: number): { cols: number; rows: number } {
+  const count = Math.max(1, n);
+  const cols = Math.max(2, Math.ceil(Math.sqrt(count)));
+  return { cols, rows: Math.max(1, Math.ceil(count / cols)) };
+}
+
+export function boundsOf(points: Pos[]): Rect | null {
+  if (points.length === 0) return null;
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
+// Do these cards still sit in the block Gather would pack them into?
+//
+// This is the test that tells a gathered pile apart from the opening wheel, and it had to
+// be ARRANGEMENT rather than separation. The obvious rule — "this group's bounding box is
+// disjoint from the others'" — fails, because the wheel's `place()` puts every node at the
+// MIDPOINT of its angular span: a branch hugs its mid-ray and never fills its wedge, so
+// branches are spokes, not wedges, and spokes separate cleanly. A three-key board would
+// open with all three branches captioned. Gather, by contrast, lays cards on an
+// axis-aligned lattice of pitch PITCH, which nothing else on this surface does.
+//
+// Three conditions: no bigger than the block, every centre on a lattice node measured from
+// the group's OWN corner (so a pile dragged bodily is still a pile), and one card per cell.
+export function isPile(cards: Pos[]): boolean {
+  const box = boundsOf(cards);
+  if (!box) return false;
+
+  const { cols, rows } = clumpGrid(cards.length);
+  if (box.w > cols * PITCH || box.h > rows * PITCH) return false;
+
+  const seen = new Set<string>();
+  for (const c of cards) {
+    const col = Math.round((c.x - box.x) / PITCH);
+    const row = Math.round((c.y - box.y) / PITCH);
+    if (Math.abs(c.x - box.x - col * PITCH) > PILE_SNAP) return false;
+    if (Math.abs(c.y - box.y - row * PITCH) > PILE_SNAP) return false;
+    const cell = `${col},${row}`;
+    if (seen.has(cell)) return false;
+    seen.add(cell);
+  }
+  return true;
+}
+
+// Which groups have earned a caption, in the order given.
+//
+// Nothing is stored — call it every render. A label therefore cannot go stale: it is
+// derived from where the cards actually are, so it follows them, and it disappears by
+// itself once the pile it names has been broken up.
+//
+// A pile must be DISTINCT as well as tidy. Every gather() output satisfies that by
+// construction (its footprints are laid out apart), so the test only ever bites when
+// someone has shoved two piles together — which is exactly when a caption would start
+// pointing at a mixture.
+export function pileLabels(groups: PileGroup[], min = MIN_PILE): PileLabel[] {
+  const tidy = groups
+    .filter((g) => g.cards.length >= min && isPile(g.cards))
+    .map((g) => {
+      const b = boundsOf(g.cards)!;
+      return {
+        groupId: g.groupId,
+        label: g.label,
+        count: g.cards.length,
+        box: {
+          x: b.x - NODE_RADIUS,
+          y: b.y - NODE_RADIUS,
+          w: b.w + NODE_RADIUS * 2,
+          h: b.h + NODE_RADIUS * 2,
+        },
+      };
+    });
+
+  return tidy.filter(
+    (c) => !tidy.some((o) => o.groupId !== c.groupId && rectsOverlap(c.box, o.box))
+  );
 }

@@ -581,7 +581,12 @@ export function CanvasBoard({
               height,
               transform: `scale(${scale})`,
               transformOrigin: "top left",
-              cursor: armed ? "crosshair" : mode.kind === "pan" ? "grabbing" : "grab",
+              // A plain finger over the surface, not a grab hand. `grab` is reserved for
+              // the things that actually take a grab — a circle and a box's grip — so the
+              // cursor says what is under it rather than announcing that the whole board
+              // is draggable. Dragging the background still pans, hence `grabbing` while
+              // it is actually happening.
+              cursor: armed ? "crosshair" : mode.kind === "pan" ? "grabbing" : "pointer",
             }}
           >
             {/* Regions sit under the nodes and take no pointer events: in this version a
