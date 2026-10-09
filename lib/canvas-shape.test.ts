@@ -1,14 +1,20 @@
 import { describe, it, expect } from "vitest";
 import {
   HYSTERESIS,
-  containsPoint,
-  coveredBy,
+  MIN_REGION,
   NODE_RADIUS,
+  blockers,
+  cardsInRegion,
+  containsPoint,
+  containsRect,
+  coveredBy,
   defaultRegions,
   freeGrid,
-  growToFit,
+  gather,
   planMembership,
   regionsAt,
+  resizeFloor,
+  resizeTo,
   resolvePositions,
   type Region,
 } from "./canvas-shape";
@@ -310,41 +316,6 @@ describe("coveredBy", () => {
 });
 
 // ---------------------------------------------------------------------------
-// growToFit — regions grow, never shrink
-// ---------------------------------------------------------------------------
-
-describe("growToFit", () => {
-  const r = rect("TH1", 100, 100, 100, 100); // 100..200 both axes
-
-  it("leaves a region alone when every member is already inside", () => {
-    expect(growToFit(r, [{ x: 150, y: 150 }], 0)).toEqual(r);
-  });
-
-  it("stretches to take in a member that has moved outside", () => {
-    const grown = growToFit(r, [{ x: 150, y: 150 }, { x: 400, y: 150 }], 0);
-    expect(containsPoint(grown, { x: 400, y: 150 })).toBe(true);
-    expect(containsPoint(grown, { x: 150, y: 150 })).toBe(true);
-  });
-
-  it("never shrinks, however tightly the members cluster", () => {
-    const grown = growToFit(r, [{ x: 150, y: 150 }], 0);
-    expect(grown.x).toBeLessThanOrEqual(r.x);
-    expect(grown.y).toBeLessThanOrEqual(r.y);
-    expect(grown.w).toBeGreaterThanOrEqual(r.w);
-    expect(grown.h).toBeGreaterThanOrEqual(r.h);
-  });
-
-  it("leaves padding around a newly taken-in member", () => {
-    const grown = growToFit(r, [{ x: 400, y: 150 }], 30);
-    expect(containsPoint(grown, { x: 425, y: 150 })).toBe(true);
-  });
-
-  it("keeps a region drawable when it has no members at all", () => {
-    expect(growToFit(r, [], 20)).toEqual(r);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // resolvePositions — the fallback ladder
 // ---------------------------------------------------------------------------
 
@@ -559,6 +530,274 @@ describe("freeGrid", () => {
     const over = [rect("TH1", 0, 0, 1200, 500)];
     for (const p of freeGrid(12, over, { x: 120, y: 120 })) {
       expect(containsPoint(over[0], p, NODE_RADIUS)).toBe(false);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// blockers — boxes never overlap
+// ---------------------------------------------------------------------------
+
+const NONE: ReadonlySet<string> = new Set();
+
+describe("blockers", () => {
+  const a = rect("A", 0, 0, 200, 200);
+
+  it("never reports the box against itself", () => {
+    expect(blockers(a, [a], NONE)).toEqual([]);
+  });
+
+  it("reports collisions in the order the boxes were given", () => {
+    const near1 = rect("B", 190, 0, 100, 100);
+    const near2 = rect("C", 0, 190, 100, 100);
+    expect(blockers(a, [near2, near1], NONE)).toEqual(["C", "B"]);
+  });
+
+  it("enforces the clearance exactly", () => {
+    // A ends at x=200. A neighbour starting 23px later is too close; 24 is clear.
+    expect(blockers(a, [rect("B", 223, 0, 50, 50)], NONE)).toEqual(["B"]);
+    expect(blockers(a, [rect("B", 224, 0, 50, 50)], NONE)).toEqual([]);
+  });
+
+  it("treats a shared edge as a collision", () => {
+    // containsPoint counts edges as inside, so two boxes meeting exactly would make a
+    // card on that edge a member of both with no gesture at all.
+    expect(blockers(a, [rect("B", 200, 0, 50, 50)], NONE)).toEqual(["B"]);
+  });
+
+  it("ignores an overlap it inherited, so an already-overlapping box stays movable", () => {
+    const sitting = rect("B", 100, 100, 200, 200); // drawn over A before the rule existed
+    expect(blockers(a, [sitting], NONE)).toEqual(["B"]);
+    expect(blockers(a, [sitting], new Set(["B"]))).toEqual([]);
+  });
+
+  it("still reports a NEW collision while tolerating an old one", () => {
+    const old = rect("B", 100, 100, 200, 200);
+    const fresh = rect("C", 190, 0, 100, 100);
+    expect(blockers(a, [old, fresh], new Set(["B"]))).toEqual(["C"]);
+  });
+
+  it("is clear when everything is far away", () => {
+    expect(blockers(a, [rect("B", 900, 900, 50, 50)], NONE)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cardsInRegion — what travels with a box
+// ---------------------------------------------------------------------------
+
+describe("cardsInRegion", () => {
+  const box = rect("TH1", 100, 100, 200, 200);
+  const card = (key: string, x: number, y: number) => ({ key, x, y, w: 76, h: 76 });
+
+  it("takes a card whose CENTRE is inside, and leaves one whose centre is outside", () => {
+    expect(cardsInRegion(box, [card("in", 150, 150), card("out", 500, 500)])).toEqual(["in"]);
+  });
+
+  it("counts a centre exactly on the edge as inside", () => {
+    expect(cardsInRegion(box, [card("edge", 100, 100)])).toEqual(["edge"]);
+  });
+
+  it("keeps the order it was given", () => {
+    const out = cardsInRegion(box, [card("a", 110, 110), card("z", 900, 900), card("m", 200, 200)]);
+    expect(out).toEqual(["a", "m"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resizeFloor / containsRect — a box can never shrink past its members
+// ---------------------------------------------------------------------------
+
+describe("resizeFloor", () => {
+  const box = rect("TH1", 100, 100, 400, 400);
+
+  it("is null when the box holds nothing of its own", () => {
+    expect(resizeFloor(box, [])).toBeNull();
+  });
+
+  it("contains every member it was built from", () => {
+    const members = [{ x: 150, y: 150 }, { x: 420, y: 300 }];
+    const floor = resizeFloor(box, members)!;
+    for (const m of members) {
+      expect(m.x).toBeGreaterThanOrEqual(floor.x);
+      expect(m.x).toBeLessThanOrEqual(floor.x + floor.w);
+      expect(m.y).toBeGreaterThanOrEqual(floor.y);
+      expect(m.y).toBeLessThanOrEqual(floor.y + floor.h);
+    }
+  });
+
+  // Without the intersection, a member drawn hard against an edge pushes the padded floor
+  // outside the box — the floor is unsatisfied the instant the handle is grabbed and the
+  // box cannot be resized in ANY direction, with nothing on screen to say why.
+  it("never escapes the box it came from, even for a member hard against an edge", () => {
+    const floor = resizeFloor(box, [{ x: 100, y: 100 }, { x: 500, y: 500 }])!;
+    expect(containsRect(box, floor)).toBe(true);
+  });
+
+  it("stays inside the box for any members drawn inside it", () => {
+    // Deterministic pseudo-random, so a failure is reproducible.
+    let seed = 12345;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    for (let trial = 0; trial < 200; trial++) {
+      const members = Array.from({ length: 1 + Math.floor(rnd() * 6) }, () => ({
+        x: box.x + rnd() * box.w,
+        y: box.y + rnd() * box.h,
+      }));
+      expect(containsRect(box, resizeFloor(box, members)!)).toBe(true);
+    }
+  });
+});
+
+describe("containsRect", () => {
+  it("is true for a rect wholly within, including flush edges", () => {
+    expect(containsRect({ x: 0, y: 0, w: 100, h: 100 }, { x: 0, y: 0, w: 100, h: 100 })).toBe(true);
+    expect(containsRect({ x: 0, y: 0, w: 100, h: 100 }, { x: 10, y: 10, w: 20, h: 20 })).toBe(true);
+  });
+  it("is false when the inner rect pokes out on any side", () => {
+    const o = { x: 0, y: 0, w: 100, h: 100 };
+    expect(containsRect(o, { x: -1, y: 0, w: 10, h: 10 })).toBe(false);
+    expect(containsRect(o, { x: 95, y: 0, w: 10, h: 10 })).toBe(false);
+    expect(containsRect(o, { x: 0, y: 95, w: 10, h: 10 })).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resizeTo — the opposite corner anchors
+// ---------------------------------------------------------------------------
+
+describe("resizeTo", () => {
+  const box = rect("TH1", 100, 100, 400, 300); // 100..500 x, 100..400 y
+
+  it("holds the opposite corner still, for every corner", () => {
+    expect(resizeTo(box, "se", { x: 700, y: 600 })).toMatchObject({ x: 100, y: 100 });
+    expect(resizeTo(box, "nw", { x: 50, y: 60 })).toMatchObject({ x: 50, y: 60, w: 450, h: 340 });
+    const ne = resizeTo(box, "ne", { x: 700, y: 60 });
+    expect(ne).toMatchObject({ x: 100, y: 60 });
+    expect(ne.x + ne.w).toBe(700);
+    const sw = resizeTo(box, "sw", { x: 50, y: 600 });
+    expect(sw).toMatchObject({ x: 50, y: 100 });
+    expect(sw.y + sw.h).toBe(600);
+  });
+
+  it("never lets the dragged corner cross its anchor", () => {
+    // Dragging SE far past the NW anchor would flip the box through itself and land it
+    // somewhere nobody aimed at.
+    const flipped = resizeTo(box, "se", { x: -500, y: -500 });
+    expect(flipped.w).toBe(MIN_REGION);
+    expect(flipped.h).toBe(MIN_REGION);
+    expect(flipped.x).toBe(100);
+    expect(flipped.y).toBe(100);
+  });
+
+  it("clamps at the origin, because the surface has no negative space", () => {
+    const r = resizeTo(box, "nw", { x: -300, y: -300 });
+    expect(r.x).toBe(0);
+    expect(r.y).toBe(0);
+  });
+
+  it("always returns a drawable box — 0028 has CHECK (w > 0, h > 0)", () => {
+    for (const corner of ["nw", "ne", "sw", "se"] as const) {
+      for (const pt of [{ x: 0, y: 0 }, { x: 1e6, y: 1e6 }, { x: 300, y: 250 }, { x: -1e6, y: 5 }]) {
+        const r = resizeTo(box, corner, pt);
+        expect(r.w).toBeGreaterThan(0);
+        expect(r.h).toBeGreaterThan(0);
+        expect(r.w).toBeGreaterThanOrEqual(MIN_REGION);
+        expect(r.h).toBeGreaterThanOrEqual(MIN_REGION);
+      }
+    }
+  });
+
+  it("keeps the theme it belongs to", () => {
+    expect(resizeTo(box, "se", { x: 600, y: 600 }).themeId).toBe("TH1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// gather — the reverse of Spread out
+// ---------------------------------------------------------------------------
+
+describe("gather", () => {
+  const groups = [
+    { groupId: "K1", label: "Cross-sector work", keys: ["a", "b", "c", "d", "e", "f"] },
+    { groupId: "K2", label: "Decentralization", keys: ["g", "h", "i"] },
+    { groupId: "K3", label: "Funding", keys: ["j", "k"] },
+  ];
+  const origin = { x: 60, y: 60 };
+
+  it("places every key exactly once", () => {
+    const { positions } = gather({ groups, regions: [], origin, maxWidth: 2000 });
+    expect(positions.map((p) => p.itemId).sort()).toEqual(
+      ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"]
+    );
+  });
+
+  it("drops empty groups rather than drawing an empty caption", () => {
+    const { clumps } = gather({
+      groups: [...groups, { groupId: "K4", label: "Unused", keys: [] }],
+      regions: [],
+      origin,
+      maxWidth: 2000,
+    });
+    expect(clumps.map((c) => c.groupId)).toEqual(["K1", "K2", "K3"]);
+  });
+
+  // The same invariant freeGrid holds, but tested at clump granularity so a pile stays a
+  // pile instead of being shredded around the boxes.
+  it("never puts a card where it would touch a theme's box", () => {
+    const regions = [rect("TH1", 0, 0, 600, 400), rect("TH2", 800, 300, 400, 400)];
+    const { positions } = gather({ groups, regions, origin, maxWidth: 2200 });
+    expect(positions).toHaveLength(11);
+    for (const p of positions) {
+      for (const r of regions) {
+        expect(containsPoint(r, p, NODE_RADIUS)).toBe(false);
+      }
+    }
+  });
+
+  it("keeps the clumps apart from each other", () => {
+    const { clumps } = gather({ groups, regions: [], origin, maxWidth: 2000 });
+    for (let i = 0; i < clumps.length; i++) {
+      for (let j = i + 1; j < clumps.length; j++) {
+        const a = clumps[i];
+        const b = clumps[j];
+        const apart = a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+        expect(apart).toBe(true);
+      }
+    }
+  });
+
+  it("puts each clump's own cards inside its own footprint", () => {
+    const { positions, clumps } = gather({ groups, regions: [], origin, maxWidth: 2000 });
+    const at = new Map(positions.map((p) => [p.itemId, p]));
+    for (const clump of clumps) {
+      for (const key of clump.keys) {
+        const p = at.get(key)!;
+        expect(p.x).toBeGreaterThanOrEqual(clump.x);
+        expect(p.x).toBeLessThanOrEqual(clump.x + clump.w);
+        expect(p.y).toBeGreaterThanOrEqual(clump.y);
+        expect(p.y).toBeLessThanOrEqual(clump.y + clump.h);
+      }
+    }
+  });
+
+  it("carries the label through for the caption", () => {
+    const { clumps } = gather({ groups, regions: [], origin, maxWidth: 2000 });
+    expect(clumps.map((c) => c.label)).toEqual(["Cross-sector work", "Decentralization", "Funding"]);
+  });
+
+  it("is deterministic, since every client lays it out independently", () => {
+    const args = { groups, regions: [rect("TH1", 0, 0, 500, 500)], origin, maxWidth: 1400 };
+    expect(gather(args)).toEqual(gather(args));
+  });
+
+  it("still places everything when boxes cover the origin area", () => {
+    const regions = Array.from({ length: 6 }, (_, i) =>
+      rect(`TH${i}`, 0, i * 300, 2000, 280)
+    );
+    const { positions } = gather({ groups, regions, origin, maxWidth: 1800 });
+    expect(positions).toHaveLength(11);
+    for (const p of positions) {
+      for (const r of regions) expect(containsPoint(r, p, NODE_RADIUS)).toBe(false);
     }
   });
 });

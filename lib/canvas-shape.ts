@@ -254,24 +254,6 @@ export function coveredBy(marquee: Rect, items: CanvasItem[]): string[] {
     .map((it) => it.key);
 }
 
-// Stretch a region so it takes in every one of its members — and NEVER shrink it.
-//
-// This is the whole reason a theme can be grown without the drift that free resizing
-// would bring. Area is only ever added, around cards that are already becoming members,
-// so no gesture can leave a member sitting outside its own region and no row is silently
-// unthemed. Shrinking is what v1 refuses to do; a later move-and-resize gesture has to
-// show its consequences through planMembership before it writes.
-export function growToFit(region: Region, members: Pos[], pad: number): Region {
-  if (members.length === 0) return { ...region };
-  const xs = members.map((m) => m.x);
-  const ys = members.map((m) => m.y);
-  const minX = Math.min(region.x, ...xs.map((x) => x - pad));
-  const minY = Math.min(region.y, ...ys.map((y) => y - pad));
-  const maxX = Math.max(region.x + region.w, ...xs.map((x) => x + pad));
-  const maxY = Math.max(region.y + region.h, ...ys.map((y) => y + pad));
-  return { ...region, x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-}
-
 // A deterministic seat inside a region — always inside, however many cards pile in.
 // Columns wrap and then rows wrap, so an overfull theme overlaps rather than spilling out
 // of its own box, which would make the picture contradict the data.
@@ -445,4 +427,237 @@ export function freeGrid(count: number, regions: Region[], origin: Pos): Pos[] {
   }
 
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Moving and resizing a theme's box
+// ---------------------------------------------------------------------------
+
+// Minimum air between two boxes. Two reasons, and the larger one decides the number:
+//
+//   CORRECTNESS needs only > 0. containsPoint counts an edge as inside, and regionsAt
+//   gives the hysteresis margin only to regions a card is ALREADY in — so two boxes
+//   sharing an edge would make a card whose centre sits on that edge a member of both,
+//   silently, with no gesture at all.
+//
+//   LEGIBILITY needs about this much: a box's label strip is drawn 9px ABOVE its own top
+//   edge, so anything much less puts a theme's name on its neighbour's border, and two
+//   dashed edges a few pixels apart read as one box.
+export const REGION_CLEARANCE = 24;
+
+// The smallest a box may be made: one seat plus its air. Below this, seatInRegion's
+// floor(w / PITCH) stops yielding a usable grid, the box is too small to drop into, and
+// 0028's CHECK (w > 0, h > 0) turns a degenerate box into a 500.
+export const MIN_REGION = 140;
+
+export type Corner = "nw" | "ne" | "sw" | "se";
+
+export function rectsOverlap(a: Rect, b: Rect, clearance = 0): boolean {
+  return !(
+    a.x + a.w + clearance <= b.x ||
+    b.x + b.w + clearance <= a.x ||
+    a.y + a.h + clearance <= b.y ||
+    b.y + b.h + clearance <= a.y
+  );
+}
+
+// Which of `others` does `box` collide with that it was NOT already colliding with?
+//
+// `tolerated` is the collision set frozen when the gesture STARTED, and it is the whole
+// reason this is not a plain predicate. Before boxes were forbidden to overlap, the
+// marquee could draw one straight over another — regions are inert, so the drag ran
+// underneath them — and real boards hold such pairs. A strict test would find every
+// position of such a box illegal and leave it permanently stuck with nothing on screen
+// to explain why. Tolerating what you inherited makes the gesture monotone: it can walk
+// a bad board back toward a good one, and can never make it worse.
+//
+// An ellipse is tested by its bounding box, deliberately: "these two do not touch" has to
+// be a rule a hand can predict, and v1 only ever writes 'rect'.
+export function blockers(
+  box: Region,
+  others: Region[],
+  tolerated: ReadonlySet<string>,
+  clearance = REGION_CLEARANCE
+): string[] {
+  return others
+    .filter(
+      (o) =>
+        o.themeId !== box.themeId &&
+        !tolerated.has(o.themeId) &&
+        rectsOverlap(box, o, clearance)
+    )
+    .map((o) => o.themeId);
+}
+
+// Which drawn cards sit inside this box? The CARD'S CENTRE against the region — the same
+// rule membership uses, so "what is in the box" means one thing on this canvas.
+export function cardsInRegion(region: Region, items: CanvasItem[], margin = 0): string[] {
+  return items.filter((it) => containsPoint(region, it, margin)).map((it) => it.key);
+}
+
+export function containsRect(outer: Rect, inner: Rect): boolean {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.w <= outer.x + outer.w &&
+    inner.y + inner.h <= outer.y + outer.h
+  );
+}
+
+// The smallest this box may be shrunk to, so a resize can never put a member outside the
+// region that says it belongs to it.
+//
+// Built from the members drawn inside, grown by a node's radius, and then INTERSECTED
+// with the box as it stands. The intersection is load-bearing: a member drawn hard
+// against an edge would otherwise push the padded floor outside the box, the floor would
+// be unsatisfied the instant the handle was grabbed, and the box would refuse to resize
+// in any direction with nothing on screen to say why. Every member's centre is inside the
+// region, so the intersection always holds every centre and is always satisfied at the
+// moment the gesture starts.
+//
+// `pad` is NODE_RADIUS rather than REGION_PAD because the test that matters for the data
+// is centre-based, but a box cutting a member's circle in half READS as dropping it.
+//
+// null when the box holds no members of its own; then only MIN_REGION applies.
+export function resizeFloor(region: Region, members: Pos[], pad = NODE_RADIUS): Rect | null {
+  if (members.length === 0) return null;
+  const xs = members.map((m) => m.x);
+  const ys = members.map((m) => m.y);
+  const x0 = Math.max(region.x, Math.min(...xs) - pad);
+  const y0 = Math.max(region.y, Math.min(...ys) - pad);
+  const x1 = Math.min(region.x + region.w, Math.max(...xs) + pad);
+  const y1 = Math.min(region.y + region.h, Math.max(...ys) + pad);
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+// The box you get by dragging `corner` to `pointer`. The OPPOSITE corner anchors.
+//
+// The dragged corner is clamped so it can never cross its anchor — a box flipped through
+// its own anchor would jump to the other side of a neighbour and land somewhere nobody
+// aimed at — and x/y are clamped at 0, because the surface has no negative space and a box
+// at x < 0 is drawn outside the scrollable area and can never be grabbed again.
+export function resizeTo(
+  region: Region,
+  corner: Corner,
+  pointer: Pos,
+  min = MIN_REGION
+): Region {
+  const west = corner === "nw" || corner === "sw";
+  const north = corner === "nw" || corner === "ne";
+  const ax = west ? region.x + region.w : region.x; // the anchored edge
+  const ay = north ? region.y + region.h : region.y;
+
+  const x = west ? Math.max(0, Math.min(pointer.x, ax - min)) : ax;
+  const y = north ? Math.max(0, Math.min(pointer.y, ay - min)) : ay;
+  // max(min, …) on the anchored side too: a box jammed against the origin can have less
+  // than `min` of room, and 0028 would reject a degenerate one outright.
+  const w = west ? Math.max(min, ax - x) : Math.max(min, pointer.x - ax);
+  const h = north ? Math.max(min, ay - y) : Math.max(min, pointer.y - ay);
+
+  return { ...region, x, y, w, h };
+}
+
+// ---------------------------------------------------------------------------
+// Gather — the reverse of Spread out
+// ---------------------------------------------------------------------------
+
+// Room above a clump for its caption.
+const CAPTION_H = 24;
+// Air between two clumps. Comfortably more than PITCH, so the piles read as separate
+// objects rather than as one field with gaps in it.
+const CLUMP_GAP = 120;
+
+export interface GatherClump {
+  groupId: string;
+  label: string;
+  keys: string[];
+  // The clump's footprint, caption band included, so the caller can draw the name above
+  // it without re-deriving the box.
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface GatherPlan {
+  positions: CanvasCardPos[];
+  clumps: GatherClump[];
+}
+
+// A few meaningful piles instead of one big grid.
+//
+// `groups` arrives in the order the caller wants them read — key-change rank, which is
+// the board's own ranking, so "the first pile" means what the group meant when it ranked
+// its key changes. Empty groups are dropped rather than drawn as an empty caption.
+//
+// Honours the same constraint freeGrid does — NO PILE LANDS ON A THEME BOX — but at the
+// granularity of a whole clump, so a pile stays a pile instead of being shredded around
+// the boxes. That still satisfies the per-card rule: a card's centre sits at least
+// PITCH / 2 = 44px inside its footprint's edge, and 44 > NODE_RADIUS, so a footprint that
+// clears every box means every card in it clears every box too.
+export function gather(args: {
+  groups: { groupId: string; label: string; keys: string[] }[];
+  regions: Region[];
+  origin: Pos;
+  maxWidth: number;
+}): GatherPlan {
+  const { groups, regions, origin, maxWidth } = args;
+  const live = groups.filter((g) => g.keys.length > 0);
+  const clumps: GatherClump[] = [];
+  const positions: CanvasCardPos[] = [];
+
+  let x = origin.x;
+  let y = origin.y;
+  let rowHeight = 0;
+  // Only a backstop: the cursor marches downward forever and the boxes are finite, so a
+  // free spot always exists. This just refuses to hang on absurd input.
+  const limit = live.length * 64 + 256;
+
+  for (const group of live) {
+    const n = group.keys.length;
+    const cols = Math.max(2, Math.ceil(Math.sqrt(n)));
+    const rows = Math.ceil(n / cols);
+    const w = cols * PITCH;
+    const h = CAPTION_H + rows * PITCH;
+
+    let placed = false;
+    for (let step = 0; step < limit; step++) {
+      if (x > origin.x && x + w > origin.x + maxWidth) {
+        x = origin.x;
+        y += rowHeight + CLUMP_GAP;
+        rowHeight = 0;
+      }
+      const foot = { x, y, w, h };
+      const blocked =
+        regions.some((r) => rectsOverlap(foot, r)) ||
+        clumps.some((c) => rectsOverlap(foot, c, CLUMP_GAP / 2));
+      if (!blocked) {
+        placed = true;
+        break;
+      }
+      x += w + CLUMP_GAP;
+    }
+
+    if (!placed) {
+      // Nowhere this pile fits as a pile. Fall back to the per-card walk, which cannot
+      // land on a box either — better a scattered group than a lost one.
+      const slots = freeGrid(n, regions, { x: origin.x, y: y + rowHeight + CLUMP_GAP });
+      group.keys.forEach((key, i) => positions.push({ itemId: key, ...slots[i] }));
+      continue;
+    }
+
+    clumps.push({ groupId: group.groupId, label: group.label, keys: group.keys, x, y, w, h });
+    group.keys.forEach((key, i) =>
+      positions.push({
+        itemId: key,
+        x: x + ((i % cols) + 0.5) * PITCH,
+        y: y + CAPTION_H + (Math.floor(i / cols) + 0.5) * PITCH,
+      })
+    );
+
+    x += w + CLUMP_GAP;
+    rowHeight = Math.max(rowHeight, h);
+  }
+
+  return { positions, clumps };
 }
