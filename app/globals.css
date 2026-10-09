@@ -11,8 +11,20 @@
   color-scheme: light;
   --paper: #f5f4ec;
   --card: #fbfaf3;
+  /* The working board: the ground under Week 3's clustering steps. Paper is the page and
+     card is a thing ON the page — the two sit 2% apart, which is right for a document and
+     wrong for a workbench, where the point is that implications and themes are objects you
+     push around a surface.
+     Picked rather than mixed with --ink: mixing toward a neutral grey drains the warmth
+     that the rest of the palette is built on, and the board has to read as the same
+     material as the paper, one step down, not as a cooler panel behind it. */
+  --board: #e9e5d7;
   --ink: #242424;
-  --muted: #6b6b5e;
+  /* Nudged down with --board. The ground and its quietest text are a pair: at the old
+     value the 10px bold labels that sit on the working board came out at 4.28:1, under
+     the 4.5:1 floor for small text. This clears it at 4.8:1 on the board, and improves
+     the same labels on paper from 4.8:1 to 5.3:1. */
+  --muted: #636356;
   --hairline: rgba(36, 36, 34, 0.16);
   --rule: #242424;
   --lime: #c4ff67;
@@ -37,6 +49,7 @@
 @theme inline {
   --color-paper: var(--paper);
   --color-card: var(--card);
+  --color-board: var(--board);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-lime: var(--lime);
@@ -271,6 +284,14 @@ textarea:focus-visible {
    the centred `mx-auto` columns then re-centre themselves inside the space that is left,
    instead of being pinned to a fixed offset and still overlapping the rail. Driven by a
    data attribute ClusterBoard sets while it is mounted, so it is inert everywhere else. */
+body[data-theme-rail] {
+  /* Darker ground for the whole working area, so the rail, the filters and the board read
+     as one surface with light objects on it rather than three panels of slightly
+     different off-white. Not inside the 1024px query: the ground should not change when
+     the rail folds away on a narrow screen. */
+  background: var(--board);
+}
+
 @media (min-width: 1024px) {
   body[data-theme-rail] {
     padding-left: 16rem;

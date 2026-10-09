@@ -141,24 +141,20 @@ export function OrderChips({
 
 // Zoom, the order legend, and — when there is more than one branch — which one is drawn
 // and the way through all of them. `branch.index` null = every key change at once.
-export function MapToolbar({
+
+// The zoom cluster on its own, so more than one toolbar can lay it out as part of a
+// single flat row rather than nesting MapToolbar's whole container (and its margin) as a
+// flex item — align-items centres an item's MARGIN box, so a nested toolbar sits visibly
+// higher than the buttons beside it.
+export function ZoomControls({
   zoom,
   onZoom,
-  orders,
-  branch,
 }: {
   zoom: Zoom;
   onZoom: (dir: "in" | "out" | "fit") => void;
-  orders: number[];
-  branch?: {
-    label: string;
-    index: number | null;
-    total: number;
-    onStep: (step: -1 | 1) => void;
-  };
 }) {
   return (
-    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+    <>
       <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">Zoom</span>
       {([
         ["−", "out"],
@@ -188,6 +184,32 @@ export function MapToolbar({
       {typeof zoom === "number" && (
         <span className="text-[10px] font-bold text-muted">{Math.round(zoom * 100)}%</span>
       )}
+    </>
+  );
+}
+
+export function MapToolbar({
+  zoom,
+  onZoom,
+  orders,
+  branch,
+  trailing,
+}: {
+  zoom: Zoom;
+  onZoom: (dir: "in" | "out" | "fit") => void;
+  orders: number[];
+  // Pinned to the right of the row: what is picked, and what can be done with it.
+  trailing?: React.ReactNode;
+  branch?: {
+    label: string;
+    index: number | null;
+    total: number;
+    onStep: (step: -1 | 1) => void;
+  };
+}) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+      <ZoomControls zoom={zoom} onZoom={onZoom} />
 
       {orders.length > 0 && (
         <span className="ml-2 flex items-center gap-1.5" aria-label="Colours by order">
@@ -227,6 +249,8 @@ export function MapToolbar({
           ))}
         </span>
       )}
+
+      {trailing && <span className="ml-auto flex items-center gap-2">{trailing}</span>}
     </div>
   );
 }

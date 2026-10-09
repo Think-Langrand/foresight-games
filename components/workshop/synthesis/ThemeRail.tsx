@@ -110,7 +110,7 @@ export function ThemeRail({
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15rem] flex-col border-r border-ink bg-card px-3 py-4 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15rem] flex-col border-r border-ink bg-board px-3 py-4 lg:flex">
         {top !== undefined && (
           // The band's top edge is the viewport's (the aside's padding is pulled back
           // over), and it is at least as tall as the board's header stack, so the rule it

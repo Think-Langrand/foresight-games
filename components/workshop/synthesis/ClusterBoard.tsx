@@ -1005,6 +1005,7 @@ export function ClusterBoard({
           <MapToolbar
             zoom={zoom}
             onZoom={(dir) => setZoom(dir === "fit" ? "fit" : (z) => stepZoom(z, dir, fitScaleRef.current))}
+            trailing={selectedCluster}
             orders={mapOrders}
             // Which branch, and the way through all of them. The key-change chips in the
             // toolbar can pick one, but they are counted off the TRAY — a key change whose
@@ -1382,6 +1383,43 @@ export function ClusterBoard({
     </div>
   );
 
+  // What is ticked, and what can be done with it. It belongs with the surface it describes
+  // — the toolbar row over the map or the canvas — rather than in the filter bar, which
+  // answers a different question (what is in view). The cards view has no toolbar row, so
+  // there it stays where it was.
+  //
+  // Nothing on the CANVAS can be ticked: the marquee is that surface's selection gesture
+  // and it creates a theme outright, so a permanent "0 selected" there would be a control
+  // for something that cannot happen.
+  const selectedCluster =
+    !focus && editable && (picked.size > 0 || (view !== "canvas" && board.unclustered.length > 0)) ? (
+      <>
+        <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+          {picked.size} selected
+        </span>
+        {picked.size > 0 && (
+          <>
+            <button
+              onClick={() => {
+                onCreateThemeFrom([...picked]);
+                setPicked(new Set());
+              }}
+              disabled={busy}
+              className="rounded-[2px] border border-ink bg-lime px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep disabled:opacity-40"
+            >
+              Create theme from selected
+            </button>
+            <button
+              onClick={() => setPicked(new Set())}
+              className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
+            >
+              Clear
+            </button>
+          </>
+        )}
+      </>
+    ) : null;
+
   // The two places the body can be, as icons: a grid of cards, and the wheel. Drawn
   // inline — the repo has no icon set, and these two shapes are the things themselves.
   const viewIcon = (v: ClusterView) =>
@@ -1704,33 +1742,7 @@ export function ClusterBoard({
                 })}
               </span>
             )}
-            {!focus && editable && (board.unclustered.length > 0 || picked.size > 0) && (
-              <>
-                <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
-                  {picked.size} selected
-                </span>
-                {picked.size > 0 && (
-                  <>
-                    <button
-                      onClick={() => {
-                        onCreateThemeFrom([...picked]);
-                        setPicked(new Set());
-                      }}
-                      disabled={busy}
-                      className="rounded-[2px] border border-ink bg-lime px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep disabled:opacity-40"
-                    >
-                      Create theme from selected
-                    </button>
-                    <button
-                      onClick={() => setPicked(new Set())}
-                      className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
-                    >
-                      Clear
-                    </button>
-                  </>
-                )}
-              </>
-            )}
+            {view === "cards" && selectedCluster}
           </span>
         </div>
 
@@ -2044,6 +2056,7 @@ export function ClusterBoard({
             onDropCard={canvas.onDropCard}
             onDrawRegion={canvas.onDrawRegion}
             onSpreadOut={spreadOut}
+            trailing={selectedCluster}
           />
           )
         ) : (

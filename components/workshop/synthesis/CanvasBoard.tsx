@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MapToolbar, orderColor, stepZoom, type Zoom } from "@/components/workshop/MapControls";
+import { ZoomControls, orderColor, stepZoom, type Zoom } from "@/components/workshop/MapControls";
 import {
   NODE_RADIUS as NODE_R,
   coveredBy,
@@ -67,6 +67,7 @@ export function CanvasBoard({
   onDropCard,
   onDrawRegion,
   onSpreadOut,
+  trailing,
   nodeProps,
 }: {
   nodes: CanvasNode[];
@@ -89,6 +90,8 @@ export function CanvasBoard({
   // would jump to packed seats the moment the theme existed.
   onDrawRegion: (rect: Rect, claimed: CanvasCardPos[]) => void;
   onSpreadOut: () => void;
+  // Pinned right on the toolbar row: state about the surface, not about the view.
+  trailing?: React.ReactNode;
   nodeProps?: (key: string) => React.HTMLAttributes<HTMLDivElement>;
 }) {
   const [zoom, setZoom] = useState<Zoom>("fit");
@@ -285,13 +288,15 @@ export function CanvasBoard({
 
   return (
     <div>
+      {/* One flat row. The zoom cluster is spread in directly rather than nesting
+          MapToolbar, whose own container carries a margin — align-items centres a flex
+          item's MARGIN box, so nesting it sat the zoom controls above these buttons. */}
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
-        <MapToolbar
+        <ZoomControls
           zoom={zoom}
           onZoom={(dir) =>
             setZoom(dir === "fit" ? "fit" : (z) => stepZoom(z, dir, fitScale || 1))
           }
-          orders={[]}
         />
         {editable && (
           <>
@@ -316,11 +321,12 @@ export function CanvasBoard({
             </button>
           </>
         )}
+        {trailing && <span className="ml-auto flex items-center gap-2">{trailing}</span>}
       </div>
 
       <div
         ref={scrollerRef}
-        className="relative h-[70vh] select-none overflow-auto rounded-[3px] border border-[var(--rule)] bg-paper"
+        className="relative h-[70vh] select-none overflow-auto rounded-[3px] border border-[var(--rule)] bg-board"
         style={{ WebkitTouchCallout: "none" as React.CSSProperties["WebkitTouchCallout"] }}
       >
         <div style={{ width: width * scale, height: height * scale }}>
@@ -352,7 +358,7 @@ export function CanvasBoard({
                   width: r.w,
                   height: r.h,
                   borderColor: "var(--rule)",
-                  background: "color-mix(in srgb, var(--lime) 10%, transparent)",
+                  background: "color-mix(in srgb, var(--lime) 14%, var(--card))",
                   borderRadius: r.shape === "ellipse" ? "50%" : undefined,
                 }}
               >
