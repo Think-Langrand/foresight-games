@@ -34,8 +34,8 @@ import {
   defaultRegions,
   freeGrid,
   gather,
+  pileLabels,
   resolvePositions,
-  type GatherClump,
   type CanvasCardPos,
   type Pos,
   type Rect,
@@ -54,13 +54,26 @@ import { ThemeJoinSearch } from "@/components/workshop/synthesis/ThemeJoinSearch
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
 import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
-import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
+import {
+  makePrefStore,
+  makeSetPrefStore,
+  usePref,
+  useSetPref,
+} from "@/components/workshop/synthesis/prefStore";
 import { Dot, ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
 import { PromptRail } from "@/components/workshop/synthesis/PromptRail";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 
 // Cards, the Week 2 wheel, or the freeform canvas — the three places step 1's body can be.
 type ClusterView = "cards" | "map" | "canvas";
+
+// Captions this person has hidden, by key-change id. One key per browser, but the values
+// are uuids, so a dismissal on one board can never match another's.
+const pilesDismissed = makeSetPrefStore("synthesis.canvasPiles.dismissed");
+
+// The bucket for implications with no Week 2 lineage. Its group id is "", which is not a
+// usable storage key, so dismissing it is stored under this literal instead.
+const NO_KEY_CHANGE = "no-key-change";
 
 // Stable, so the no-canvas path allocates nothing per render.
 const EMPTY_WHEEL = { nodes: [] as { id: string; x: number; y: number }[], size: 0 };
@@ -713,6 +726,40 @@ export function ClusterBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adoptedSig, editable, canvasOn?.ready]);
 
+  // Which captions this person has dismissed. The values are key-change uuids, so although
+  // the store is one key per browser the values are naturally board-scoped.
+  const dismissedPiles = useSetPref(pilesDismissed);
+
+  // Captions over the piles, derived every render from where the loose cards actually are.
+  // Nothing is stored, so a caption cannot go stale: it follows its pile, and it goes away
+  // by itself once the pile has been broken up.
+  //
+  // Built from the DRAWN loose nodes, not from the board: canvasNodes drops loose cards
+  // that fail the key-change filter, and that filter defaults to the FIRST key change — so
+  // reading the board here would caption empty space for every key change out of view.
+  const pileGroups = new Map<string, { groupId: string; label: string; cards: Pos[] }>();
+  if (canvasOn) {
+    for (const n of canvasNodes) {
+      if (n.themeIds.length > 0) continue;
+      const at = canvasPositions.get(n.key);
+      const card = twins.get(n.key)?.cards[0];
+      if (!at || !card) continue;
+      const l = lineageOf(card);
+      const groupId = l?.keyChangeId ?? "";
+      const found = pileGroups.get(groupId);
+      if (found) found.cards.push(at);
+      else
+        pileGroups.set(groupId, {
+          groupId,
+          label: l ? keyChangeLabel(l.keyChange) : "No key change",
+          cards: [at],
+        });
+    }
+  }
+  const pileCaptions = pileLabels([...pileGroups.values()]).filter(
+    (l) => !dismissedPiles.has(l.groupId || NO_KEY_CHANGE)
+  );
+
   // Big enough for everything on it, measured per axis. A single square extent would make
   // the surface as tall as the wheel is wide and leave most of it empty.
   const canvasExtent = (() => {
@@ -729,14 +776,6 @@ export function ClusterBoard({
     return { width: Math.ceil(Math.max(w, 600)), height: Math.ceil(Math.max(h, 400)) };
   })();
 
-  // Transient captions over the piles Gather just made. Deliberately not persisted:
-  // there is nowhere to put a caption, and a derived one would drift and then lie the
-  // moment someone moved a card out of its pile.
-  const [clumps, setClumps] = useState<GatherClump[]>([]);
-  const clumpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (clumpTimer.current) clearTimeout(clumpTimer.current);
-  }, []);
 
   // "Gather": the reverse of Spread out. Brings the loose implications back together into
   // the piles their Week 2 branches already imply, one per key change.
@@ -778,9 +817,10 @@ export function ClusterBoard({
     });
     canvasOn.onSaveMany(plan.positions);
     setKeyPick(null);
-    setClumps(plan.clumps);
-    if (clumpTimer.current) clearTimeout(clumpTimer.current);
-    clumpTimer.current = setTimeout(() => setClumps([]), 8000);
+    // Gathering a key change again brings its caption back. `clumps` names precisely the
+    // groups that actually became piles, excluding any the fallback had to scatter — those
+    // have no caption to restore.
+    pilesDismissed.remove(...plan.clumps.map((c) => c.groupId));
   };
 
   // "Spread out": a roomy grid for the implications still in the tray, so there is space
@@ -2129,7 +2169,8 @@ export function ClusterBoard({
             onDrawRegion={canvas.onDrawRegion}
             onSpreadOut={spreadOut}
             onGather={gatherUp}
-            clumps={clumps}
+            clumps={pileCaptions}
+            onDismissClump={(id) => pilesDismissed.add(id || NO_KEY_CHANGE)}
             // Only a box whose region row is REAL can be grabbed. A derived box has
             // nothing to write to and an adoption write in flight that would overwrite
             // it; the gate opens the instant that write is issued, because `regions` is

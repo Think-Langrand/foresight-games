@@ -17,7 +17,7 @@ import {
   type CanvasCardPos,
   type CanvasItem,
   type Corner,
-  type GatherClump,
+  type PileLabel,
   type Pos,
   type Rect,
   type Region,
@@ -117,6 +117,7 @@ export function CanvasBoard({
   onSpreadOut,
   onGather,
   clumps,
+  onDismissClump,
   movable,
   onMoveRegion,
   onResizeRegion,
@@ -144,10 +145,10 @@ export function CanvasBoard({
   onDrawRegion: (rect: Rect, claimed: CanvasCardPos[]) => void;
   onSpreadOut: () => void;
   onGather: () => void;
-  // Transient captions over the piles Gather just made. Not persisted: there is nowhere
-  // to put them, and a derived caption would drift and then lie the moment someone moved
-  // a card out of its pile.
-  clumps: GatherClump[];
+  // Captions over the piles, derived by the caller. Nothing is stored, so they cannot go
+  // stale — they follow the cards and disappear when a pile is broken up.
+  clumps: PileLabel[];
+  onDismissClump: (groupId: string) => void;
   // A box can only be grabbed once its region row is REAL. A box that is still only
   // derived has nothing to write to, an adoption write in flight that would overwrite
   // anything we wrote, and a position two clients do not yet agree on.
@@ -737,22 +738,6 @@ export function CanvasBoard({
               );
             })}
 
-            {/* Transient captions over the piles Gather just made. */}
-            {clumps.map((c) => (
-              <div
-                key={c.groupId}
-                className="pointer-events-none absolute"
-                style={{ left: c.x, top: c.y, width: c.w, height: c.h }}
-              >
-                <span
-                  className="absolute left-0 top-0 whitespace-nowrap font-bold uppercase tracking-[0.05em] text-muted"
-                  style={{ fontSize: 11 / scale }}
-                >
-                  {c.label} · {c.keys.length}
-                </span>
-              </div>
-            ))}
-
             {nodes.map((n) => {
               const p = positions.get(n.key);
               if (!p) return null;
@@ -822,6 +807,59 @@ export function CanvasBoard({
                 </div>
               );
             })}
+
+            {/* Captions over the piles, derived by the caller from where the loose cards
+                actually are — so a caption follows its pile and goes away by itself once
+                the pile is broken up. Drawn AFTER the nodes so the × is never underneath
+                a circle, and shifted by its own height so it sits on the pile's top edge
+                at any zoom without anyone having to know the font metrics. */}
+            {clumps.map((c) => (
+              <div
+                key={c.groupId}
+                className="pointer-events-none absolute flex items-center"
+                style={{
+                  left: c.box.x,
+                  top: c.box.y,
+                  maxWidth: Math.max(c.box.w, 264),
+                  transform: "translateY(-100%)",
+                  gap: 4 / scale,
+                }}
+              >
+                <span
+                  className="bg-board font-bold uppercase tracking-[0.05em] text-muted"
+                  style={{
+                    fontSize: 11 / scale,
+                    lineHeight: 1.6,
+                    paddingInline: 4 / scale,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {c.label} · {c.count}
+                </span>
+                {editable && (
+                  <button
+                    // Mandatory, and the same trap the grip has: the surface beneath calls
+                    // setPointerCapture on pointerdown, which retargets the pointerup and
+                    // means the click never reaches this button at all.
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => onDismissClump(c.groupId)}
+                    aria-label={`Hide the ${c.label} label`}
+                    title="Hide this label"
+                    className="bg-board font-bold leading-none text-muted hover:text-ink"
+                    style={{
+                      pointerEvents: "auto",
+                      fontSize: 12 / scale,
+                      paddingInline: 3 / scale,
+                      cursor: "pointer",
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
 
             {marquee && mode.kind === "marquee" && (
               <div
