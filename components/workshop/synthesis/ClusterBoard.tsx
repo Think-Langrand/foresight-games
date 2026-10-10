@@ -29,13 +29,16 @@ import {
 import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
 import { CanvasBoard, type CanvasNode } from "@/components/workshop/synthesis/CanvasBoard";
-import { layout as wheelLayout } from "@/lib/wheel-layout";
 import {
+  GATHER_ORIGIN,
   defaultRegions,
   freeGrid,
   gather,
+  gatherBottom,
+  gatherSeats,
   pileLabels,
   resolvePositions,
+  type GatherGroup,
   type CanvasCardPos,
   type Pos,
   type Rect,
@@ -77,9 +80,6 @@ const directionsPref = makePrefStore("synthesis.directions", "open", ["open", "c
 // The bucket for implications with no Week 2 lineage. Its group id is "", which is not a
 // usable storage key, so dismissing it is stored under this literal instead.
 const NO_KEY_CHANGE = "no-key-change";
-
-// Stable, so the no-canvas path allocates nothing per render.
-const EMPTY_WHEEL = { nodes: [] as { id: string; x: number; y: number }[], size: 0 };
 
 // Air between the bottom of the loose pile and the band of theme boxes below it.
 const CANVAS_BAND = 200;
@@ -232,10 +232,10 @@ export function ClusterBoard({
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
   // The card whose "also add to…" picker is open. Null when none is.
   const [copyFrom, setCopyFrom] = useState<RippleCard | null>(null);
-  // Cards or the Week 2 map, in the same place. The map is the way in: a branch is usually
-  // already a theme, so grabbing one beats picking its members out of a list of 146. Cards
-  // only when there is no Week 2 map to draw (a group whose Week 2 is still a placeholder).
-  const [view, setView] = useState<ClusterView>(week2Cards.length > 0 ? "map" : "cards");
+  // The CANVAS is the way in: it opens already gathered into piles by key change, which is
+  // the arrangement you would otherwise have had to ask for. The map and the cards are
+  // both a press away. Cards only when there is no canvas to draw on at all.
+  const [view, setView] = useState<ClusterView>(canvas ? "canvas" : "cards");
   // The Week 2 card the map was opened ON, if it was opened from a card. Highlights its
   // path and scrolls to it; cleared as soon as you change branch.
   const [focusNode, setFocusNode] = useState<string | null>(null);
@@ -536,12 +536,32 @@ export function ClusterBoard({
     byKeyRank(keyIds.get(a) ?? null, a, keyIds.get(b) ?? null, b)
   );
 
+  // Is the canvas the thing on screen? Known up here because it decides the filter's
+  // default, two lines down.
+  const onCanvas = view === "canvas" && !focus && Boolean(canvas);
+
+  // The layout channel costs a subscription per client, so it opens with the canvas and
+  // closes with it. Said with an effect rather than at the view button, because the canvas
+  // is now the view you ARRIVE on and there is no press to say it at — without this the
+  // channel never opens and the board sits on "Laying out the board…" forever. The cleanup
+  // also closes a leak the button had: stepping away to step 2 never shut it.
+  useEffect(() => {
+    canvas?.onOpen(onCanvas);
+    return () => canvas?.onOpen(false);
+  }, [onCanvas, canvas]);
+
+
   // The tray's key-change filter: what was picked, or the first key change while nothing
   // has been. A picked key change that has since been clustered away entirely has no chip
   // left to show it lit; fall back to the first so the tray never filters to nothing.
+  //
+  // The CANVAS starts on every key change instead. It opens gathered, and the whole point
+  // of a gather is several piles — filtered to one key change it would open showing one,
+  // which is why the Gather button clears the filter too. The chips still render, so the
+  // scale guard is a press away.
   const keyFilter: string | null =
     keyPick === undefined || (keyPick !== null && !keyCounts.has(keyPick))
-      ? (keyChanges[0] ?? null)
+      ? (onCanvas ? null : (keyChanges[0] ?? null))
       : keyPick;
   const matchesKey = (c: RippleCard) => keyFilter === null || keyOf(c) === keyFilter;
 
@@ -605,29 +625,73 @@ export function ClusterBoard({
   // like the map instead of like an empty page.
   // Only while the canvas is the thing on screen. Nothing below is memoized by hand —
   // this component has no manual memoization anywhere and leans on the React Compiler,
-  // and a useMemo here makes the compiler skip the whole file. The guard is what keeps
-  // the cost off the map view, which is already laying out the same wheel itself.
-  const canvasOn = view === "canvas" && !focus ? (canvas ?? null) : null;
-  const canvasWheel = canvasOn ? wheelLayout(week2Cards) : EMPTY_WHEEL;
-  const wheelAt = new Map(canvasWheel.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+  // and a useMemo here makes the compiler skip the whole file.
+  const canvasOn = onCanvas ? canvas! : null;
+
+  // Every loose implication, bucketed by key change, in the board's own ranking.
+  //
+  // Read from the BOARD, never from canvasNodes: the key-change filter is a per-browser
+  // choice, and geometry every client has to agree on cannot depend on it.
+  //
+  // One definition, two readers — the opening layout below, and the Gather button, which
+  // just writes down the arrangement already on screen. If those two ever computed their
+  // own lattices, isPile would disagree with itself and captions would float over piles
+  // that are not there.
+  const looseGroups: (GatherGroup & { text: string })[] = (() => {
+    if (!canvasOn) return [];
+    const by = new Map<string, GatherGroup & { text: string }>();
+    for (const [key, info] of twins) {
+      if (info.themeIds.length > 0) continue;
+      const l = lineageOf(info.cards[0]);
+      const groupId = l?.keyChangeId ?? "";
+      const found = by.get(groupId);
+      if (found) found.keys.push(key);
+      else
+        by.set(groupId, {
+          groupId,
+          keys: [key],
+          text: l?.keyChange ?? "",
+          label: l ? keyChangeLabel(l.keyChange) : "No key change",
+        });
+    }
+    return [...by.values()].sort((a, b) =>
+      byKeyRank(a.groupId || null, a.text, b.groupId || null, b.text)
+    );
+  })();
+
+  // Against the SAVED boxes only, and worked out before any box is derived. A derived
+  // box's position comes from where the loose cards are, so feeding the derived set back
+  // in would close a loop; with the seats settled first, the band lands below the gathered
+  // content by construction.
+  //
+  // A card this client has only just added is in `twins` before anyone else has it, so two
+  // people can briefly see a clump sized differently. Nothing here is written, so it heals
+  // on the next refetch.
+  const gatherPlan = canvasOn
+    ? gather({ groups: looseGroups, regions: [...canvasOn.regions.values()] })
+    : null;
+  const gatherSeat = gatherPlan ? gatherSeats(gatherPlan) : new Map<string, Pos>();
+  const canvasStrip = {
+    x: GATHER_ORIGIN.x,
+    y: (gatherPlan ? gatherBottom(gatherPlan) : 0) + CANVAS_BAND / 2,
+  };
 
   // The key-change filter is the scale guard that turns Group 1's 146 into about 25 — but
   // it is applied to the TRAY only. Hiding clustered cards would leave a theme's box
   // holding some of its members and not others, and the whole claim of this view is that
   // the picture is the data.
   const canvasNodes: CanvasNode[] = [];
-  const canvasItems: { key: string; themeId: string | null; wheel: Pos | null }[] = [];
+  const canvasItems: { key: string; themeId: string | null; seat: Pos | null }[] = [];
   if (canvasOn) {
     for (const [key, info] of twins) {
       const card = info.cards[0];
       const themed = info.themeIds.length > 0;
       if (!themed && !matchesKey(card)) continue;
-      const w2 = info.sourceCardId;
       const order = orderOf(card);
       canvasItems.push({
         key,
         themeId: info.themeIds[0] ?? null,
-        wheel: w2 ? (wheelAt.get(w2) ?? null) : null,
+        seat: gatherSeat.get(key) ?? null,
       });
       canvasNodes.push({
         key,
@@ -669,7 +733,7 @@ export function ClusterBoard({
       items: canvasItems.filter((it) => !adoptedKeys.has(it.key)),
       regions: canvasOn.regions,
       saved: savedForLayout,
-      strip: { x: 60, y: canvasWheel.size + 60 },
+      strip: canvasStrip,
     });
     let bottom = 0;
     for (const pos of base.values()) bottom = Math.max(bottom, pos.y);
@@ -705,7 +769,7 @@ export function ClusterBoard({
         saved: savedForLayout,
         // Hand-typed cards have no Week 2 node, so they pile up below the wheel rather
         // than all landing on the hub — and above the band of theme boxes.
-        strip: { x: 60, y: canvasWheel.size + 60 },
+        strip: canvasStrip,
       })
     : new Map<string, Pos>();
 
@@ -811,42 +875,14 @@ export function ClusterBoard({
   // FIRST key change — so gathering what is on screen would reliably produce exactly one
   // pile, which is not a feature.
   const gatherUp = () => {
-    if (!canvasOn) return;
-    const groups = new Map<string, { groupId: string; label: string; keys: string[]; text: string }>();
-    for (const [key, info] of twins) {
-      if (info.themeIds.length > 0) continue; // themed cards keep their place
-      const l = lineageOf(info.cards[0]);
-      const groupId = l?.keyChangeId ?? "";
-      const found = groups.get(groupId);
-      if (found) found.keys.push(key);
-      else
-        groups.set(groupId, {
-          groupId,
-          label: l ? keyChangeLabel(l.keyChange) : "No key change",
-          text: l?.keyChange ?? "",
-          keys: [key],
-        });
-    }
-    if (groups.size === 0) return;
-
-    // The board's own ranking — impact then plausibility — so "the first pile" means what
-    // the group meant when it ranked its key changes.
-    const ordered = [...groups.values()].sort((a, b) =>
-      byKeyRank(a.groupId || null, a.text, b.groupId || null, b.text)
-    );
-
-    const plan = gather({
-      groups: ordered,
-      regions: [...canvasRegions.values()],
-      origin: { x: 60, y: 60 },
-      maxWidth: 1600,
-    });
-    canvasOn.onSaveMany(plan.positions);
+    if (!canvasOn || !gatherPlan || gatherPlan.positions.length === 0) return;
+    // Writes down the arrangement already on screen, so pressing this on a board nobody
+    // has touched moves nothing — it pins the derived layout, clears the filter and brings
+    // back any caption that was dismissed. Its job is re-collecting after things have been
+    // pulled apart.
+    canvasOn.onSaveMany(gatherPlan.positions);
     setKeyPick(null);
-    // Gathering a key change again brings its caption back. `clumps` names precisely the
-    // groups that actually became piles, excluding any the fallback had to scatter — those
-    // have no caption to restore.
-    pilesDismissed.remove(...plan.clumps.map((c) => c.groupId));
+    pilesDismissed.remove(...gatherPlan.clumps.map((c) => c.groupId));
   };
 
   // "Spread out": a roomy grid for the implications still in the tray, so there is space
@@ -1961,10 +1997,6 @@ export function ClusterBoard({
                       key={v}
                       onClick={() => {
                         setView(v);
-                        // Said out loud rather than watched with an effect: the layout
-                        // channel costs a subscription per client, so it opens with the
-                        // view and closes with it.
-                        canvas?.onOpen(v === "canvas");
                         if (v === "cards") setFocusNode(null);
                         onPickTheme(null); // leaving a theme, if one is open
                       }}

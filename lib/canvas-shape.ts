@@ -272,9 +272,10 @@ export interface FallbackItem {
   key: string;
   // The theme it is clustered in, in board order; null while it is in the tray.
   themeId: string | null;
-  // Where the futures wheel would have drawn it — null for a card hand-typed on the
-  // Week 3 board, which has no Week 2 source and therefore no node.
-  wheel: Pos | null;
+  // Where a LOOSE card goes when it has no saved position: its seat in its key change's
+  // gathered clump, from gather(). The caller works that out, which is what keeps this
+  // module pure and ignorant of Week 2 lineage.
+  seat: Pos | null;
 }
 
 export interface ResolveArgs {
@@ -282,7 +283,7 @@ export interface ResolveArgs {
   items: FallbackItem[];
   regions: Map<string, Region>;
   saved: Map<string, Pos>;
-  // Top-left of the strip where sourceless cards pile up, below the wheel's bbox.
+  // Top-left of the strip, below everything the gather laid down.
   strip: Pos;
 }
 
@@ -292,13 +293,18 @@ export interface ResolveArgs {
 //
 //   1. a saved position wins outright;
 //   2. clustered under a theme that has a region -> a packed seat INSIDE that region;
-//   3. otherwise, the node the futures wheel would draw -> a fresh board opens as the map;
-//   4. no source at all -> the strip.
+//   3. otherwise, its seat in the gather -> a board opens already gathered by key change;
+//   4. no seat at all -> the strip.
 //
-// Rung 2 is what keeps the view honest. The wheel groups by Week 2 branch and themes cut
-// across branches, so without it a board that has already been clustered would open with
-// every theme's members scattered and no region containing its own members — the canvas
-// would open contradicting itself on the one claim it makes.
+// Rung 2 is what keeps the view honest: themes cut across Week 2 branches, so without it a
+// board that has already been clustered would open with every theme's members scattered
+// and no region containing its own members — the canvas contradicting the one claim it
+// makes.
+//
+// Rung 3 used to be the node the futures wheel would have drawn, so the canvas opened
+// looking like the map. It opens gathered instead, and the seats come from the same
+// gather() the Gather button writes down — if the two ever drifted, isPile would disagree
+// with itself and captions would float over piles that are not there.
 export function resolvePositions(args: ResolveArgs): Map<string, Pos> {
   const { items, regions, saved, strip } = args;
   const out = new Map<string, Pos>();
@@ -320,8 +326,8 @@ export function resolvePositions(args: ResolveArgs): Map<string, Pos> {
       continue;
     }
 
-    if (item.wheel) {
-      out.set(item.key, item.wheel);
+    if (item.seat) {
+      out.set(item.key, item.seat);
       continue;
     }
 
@@ -586,6 +592,33 @@ export interface GatherPlan {
   clumps: GatherClump[];
 }
 
+export interface GatherGroup {
+  groupId: string;
+  label: string;
+  keys: string[];
+}
+
+// Gather's frame. The opening layout and the Gather button must lay down the SAME lattice
+// or isPile disagrees with itself, so the numbers live here rather than as literals at a
+// call site that could quietly gain a second copy.
+export const GATHER_ORIGIN: Pos = { x: 60, y: 60 };
+export const GATHER_WIDTH = 1600;
+
+// The seats a plan hands to resolvePositions.
+export function gatherSeats(plan: GatherPlan): Map<string, Pos> {
+  return new Map(plan.positions.map((p) => [p.itemId, { x: p.x, y: p.y }]));
+}
+
+// The bottom of everything a plan drew — where the strip starts, and what the band of
+// theme boxes is placed below. Derived from the gather rather than from a wheel that is
+// no longer on screen.
+export function gatherBottom(plan: GatherPlan): number {
+  let bottom = 0;
+  for (const c of plan.clumps) bottom = Math.max(bottom, c.y + c.h);
+  for (const p of plan.positions) bottom = Math.max(bottom, p.y + NODE_RADIUS);
+  return bottom;
+}
+
 // A few meaningful piles instead of one big grid.
 //
 // `groups` arrives in the order the caller wants them read — key-change rank, which is
@@ -598,12 +631,12 @@ export interface GatherPlan {
 // PITCH / 2 = 44px inside its footprint's edge, and 44 > NODE_RADIUS, so a footprint that
 // clears every box means every card in it clears every box too.
 export function gather(args: {
-  groups: { groupId: string; label: string; keys: string[] }[];
+  groups: GatherGroup[];
   regions: Region[];
-  origin: Pos;
-  maxWidth: number;
+  origin?: Pos;
+  maxWidth?: number;
 }): GatherPlan {
-  const { groups, regions, origin, maxWidth } = args;
+  const { groups, regions, origin = GATHER_ORIGIN, maxWidth = GATHER_WIDTH } = args;
   const live = groups.filter((g) => g.keys.length > 0);
   const clumps: GatherClump[] = [];
   const positions: CanvasCardPos[] = [];
@@ -643,7 +676,14 @@ export function gather(args: {
       // Nowhere this pile fits as a pile. Fall back to the per-card walk, which cannot
       // land on a box either — better a scattered group than a lost one.
       const slots = freeGrid(n, regions, { x: origin.x, y: y + rowHeight + CLUMP_GAP });
-      group.keys.forEach((key, i) => positions.push({ itemId: key, ...slots[i] }));
+      // Guarded rather than spread blindly: freeGrid can return fewer slots than keys at
+      // its own backstop, and `...undefined` writes a position with no x or y. That was
+      // survivable while this only ran on a button press; as the OPENING layout it would
+      // draw NaN on every client.
+      group.keys.forEach((key, i) => {
+        const at = slots[i];
+        if (at) positions.push({ itemId: key, ...at });
+      });
       continue;
     }
 

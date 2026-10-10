@@ -15,8 +15,12 @@ import {
   pileLabels,
   rectsOverlap,
   defaultRegions,
+  GATHER_ORIGIN,
+  GATHER_WIDTH,
   freeGrid,
   gather,
+  gatherBottom,
+  gatherSeats,
   planMembership,
   regionsAt,
   resizeFloor,
@@ -332,7 +336,7 @@ describe("resolvePositions", () => {
 
   it("prefers a saved position over every fallback", () => {
     const pos = resolvePositions({
-      items: [{ key: "A", themeId: "TH1", wheel: { x: 7, y: 9 } }],
+      items: [{ key: "A", themeId: "TH1", seat: { x: 7, y: 9 } }],
       regions,
       saved: new Map([["A", { x: 42, y: 42 }]]),
       strip,
@@ -345,7 +349,7 @@ describe("resolvePositions", () => {
   // own members.
   it("seats a clustered card inside its theme's region, not at its wheel node", () => {
     const pos = resolvePositions({
-      items: [{ key: "A", themeId: "TH1", wheel: { x: 7, y: 9 } }],
+      items: [{ key: "A", themeId: "TH1", seat: { x: 7, y: 9 } }],
       regions,
       saved: new Map(),
       strip,
@@ -356,8 +360,8 @@ describe("resolvePositions", () => {
   it("gives two cards in one theme different seats, both inside", () => {
     const pos = resolvePositions({
       items: [
-        { key: "A", themeId: "TH1", wheel: null },
-        { key: "B", themeId: "TH1", wheel: null },
+        { key: "A", themeId: "TH1", seat: null },
+        { key: "B", themeId: "TH1", seat: null },
       ],
       regions,
       saved: new Map(),
@@ -368,9 +372,9 @@ describe("resolvePositions", () => {
     expect(containsPoint(regions.get("TH1")!, pos.get("B")!)).toBe(true);
   });
 
-  it("puts an unclustered card at its wheel node, so a fresh board opens as the map", () => {
+  it("puts an unclustered card in the seat the gather gave it, so a board opens gathered", () => {
     const pos = resolvePositions({
-      items: [{ key: "A", themeId: null, wheel: { x: 7, y: 9 } }],
+      items: [{ key: "A", themeId: null, seat: { x: 7, y: 9 } }],
       regions,
       saved: new Map(),
       strip,
@@ -378,9 +382,9 @@ describe("resolvePositions", () => {
     expect(pos.get("A")).toEqual({ x: 7, y: 9 });
   });
 
-  it("falls back to the wheel when the card's theme has no region drawn yet", () => {
+  it("falls back to its gathered seat when the card's theme has no region drawn yet", () => {
     const pos = resolvePositions({
-      items: [{ key: "A", themeId: "TH_NO_REGION", wheel: { x: 7, y: 9 } }],
+      items: [{ key: "A", themeId: "TH_NO_REGION", seat: { x: 7, y: 9 } }],
       regions,
       saved: new Map(),
       strip,
@@ -391,8 +395,8 @@ describe("resolvePositions", () => {
   it("piles hand-typed cards with no Week 2 source into the strip", () => {
     const pos = resolvePositions({
       items: [
-        { key: "A", themeId: null, wheel: null },
-        { key: "B", themeId: null, wheel: null },
+        { key: "A", themeId: null, seat: null },
+        { key: "B", themeId: null, seat: null },
       ],
       regions,
       saved: new Map(),
@@ -406,8 +410,8 @@ describe("resolvePositions", () => {
   it("is deterministic, since every client computes it independently", () => {
     const args = {
       items: [
-        { key: "A", themeId: "TH1", wheel: null },
-        { key: "B", themeId: null, wheel: null },
+        { key: "A", themeId: "TH1", seat: null },
+        { key: "B", themeId: null, seat: null },
       ],
       regions,
       saved: new Map<string, { x: number; y: number }>(),
@@ -451,7 +455,7 @@ describe("defaultRegions", () => {
         items: Array.from({ length: n }, (_, i) => ({
           key: `${r.themeId}-${i}`,
           themeId: r.themeId,
-          wheel: null,
+          seat: null,
         })),
         regions: new Map([[r.themeId, r]]),
         saved: new Map(),
@@ -986,4 +990,66 @@ describe("pileLabels on the opening wheel", () => {
       expect(pileLabels(asGroups)).toEqual([]);
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// The opening layout and the Gather button lay down the same lattice
+// ---------------------------------------------------------------------------
+
+describe("gather feeding resolvePositions", () => {
+  const groups = [
+    { groupId: "K1", label: "Cross-sector work", keys: ["a", "b", "c", "d", "e", "f"] },
+    { groupId: "K2", label: "Decentralization", keys: ["g", "h", "i", "j"] },
+    { groupId: "K3", label: "Funding", keys: ["k", "l", "m"] },
+  ];
+
+  // THE test for this design. A board opens on seats taken straight from gather(), and the
+  // pile rule reads those same seats back. If the two ever drift — a different origin, a
+  // different pitch, a stray literal at one call site — captions float over piles that are
+  // not there. This is the assertion that makes that impossible to do quietly.
+  it("opens gathered, and every pile it draws is one pileLabels recognises", () => {
+    const plan = gather({ groups, regions: [] });
+    const positions = resolvePositions({
+      items: groups.flatMap((g) =>
+        g.keys.map((key) => ({ key, themeId: null, seat: gatherSeats(plan).get(key) ?? null }))
+      ),
+      regions: new Map(),
+      saved: new Map(),
+      strip: { x: 0, y: gatherBottom(plan) },
+    });
+
+    const labels = pileLabels(
+      groups.map((g) => groupOf(g.groupId, g.keys.map((k) => positions.get(k)!)))
+    );
+    expect(labels.map((l) => l.groupId)).toEqual(["K1", "K2", "K3"]);
+  });
+
+  it("seats every key exactly once", () => {
+    const seats = gatherSeats(gather({ groups, regions: [] }));
+    expect([...seats.keys()].sort()).toEqual(groups.flatMap((g) => g.keys).sort());
+  });
+
+  it("takes its frame from the shared constants when none is given", () => {
+    expect(gather({ groups, regions: [] })).toEqual(
+      gather({ groups, regions: [], origin: GATHER_ORIGIN, maxWidth: GATHER_WIDTH })
+    );
+  });
+
+  it("puts the bottom below every card it placed, so the strip and the band clear it", () => {
+    const plan = gather({ groups, regions: [] });
+    const bottom = gatherBottom(plan);
+    for (const p of plan.positions) expect(p.y + NODE_RADIUS).toBeLessThanOrEqual(bottom);
+  });
+
+  it("places everything even when a clump cannot be laid out as a clump", () => {
+    // Boxes tiling the origin area force the freeGrid fallback, which is the path that
+    // used to be able to emit a position with no coordinates.
+    const regions = Array.from({ length: 8 }, (_, i) => rect(`TH${i}`, 0, i * 300, 4000, 280));
+    const plan = gather({ groups, regions });
+    expect(plan.positions).toHaveLength(13);
+    for (const p of plan.positions) {
+      expect(Number.isFinite(p.x)).toBe(true);
+      expect(Number.isFinite(p.y)).toBe(true);
+    }
+  });
 });
