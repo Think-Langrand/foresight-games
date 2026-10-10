@@ -1437,7 +1437,7 @@ export function ClusterBoard({
           ];
 
   const peekPanel = (
-    <div className="rounded-[4px] border border-blue/30 bg-[#e4ecfb] p-3">
+    <div>
       <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue">
         Selected implication
       </h2>
@@ -1477,7 +1477,7 @@ export function ClusterBoard({
               bold one; everything under it keeps going, because a node is almost always
               the middle of a chain rather than the end of one. The text is not repeated
               above — it is already in here, in its place. */}
-          <ol className="mt-2.5 flex flex-col">
+          <ol className="mt-2.5 flex max-h-[13rem] flex-col overflow-y-auto pr-0.5">
             {peekLevels.map((level, i) => (
               <li key={i}>
                 {i === 0 && (
@@ -1780,7 +1780,7 @@ export function ClusterBoard({
         {/* A facilitator's clustering tool, above the prompts: example groupings to read
             beside the real tray. Members never see this — `admin` is decided on the server. */}
         {admin && (
-          <div className="mb-4 border-b border-[var(--rule)] pb-4">
+          <div className="-mx-3 -mt-4 mb-0 border-b border-ink bg-card px-3 pb-4 pt-4">
             <SuggestThemesRail
               admin={admin}
               board={board}
@@ -1790,11 +1790,20 @@ export function ClusterBoard({
             />
           </div>
         )}
-        {/* No panel, no fill — these are the questions the group is meant to be holding,
-            and they read best as plain text in the margin. Set nearly twice the size they
-            were: at 12px they were sized like UI chrome and scanned like it, which is the
-            opposite of what a prompt is for. The same prompts on the board and inside a
-            theme: this step is clustering, wherever you are standing. */}
+        {/* Three bands, and the colour is doing a job rather than decorating: this one is
+            the WORK — lime is what this board already uses for a theme and for the thing
+            you have picked — the next is about the surface, so it takes the surface's own
+            colour, and the last is live data, in the blue this readout has always been.
+            Each runs edge to edge, so the band change is the division and the rules
+            between sections come out: one structural device, not two.
+
+            The questions themselves stay plain text at nearly twice the size they were.
+            At 12px they were sized like UI chrome and scanned like it, which is the
+            opposite of what a prompt is for. */}
+        <section
+          className={"-mx-3 px-3 pb-5 pt-4 " + (admin ? "" : "-mt-4")}
+          style={{ background: "color-mix(in srgb, var(--lime) 26%, var(--card))" }}
+        >
         <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
           As you group and name themes
         </h2>
@@ -1815,6 +1824,7 @@ export function ClusterBoard({
         <p className="mt-2.5 text-[14.5px] italic leading-[1.4] text-muted">
           Aim for 3–5 themes. An implication can sit in more than one.
         </p>
+        </section>
 
         {/* How to work whichever surface is actually on screen. Written per view rather
             than once: "drag across empty space to draw a theme" is true on the canvas and
@@ -1824,7 +1834,7 @@ export function ClusterBoard({
             for, and three sections plus the guidance is more than it holds. Directions are
             the part you stop needing once you know the tool, so they are the part that
             gets out of the way — by choice rather than by scrolling past them. */}
-        <div className="mt-5 border-t border-ink pt-4">
+        <section className="-mx-3 px-3 pb-5 pt-4" style={{ background: "var(--board)" }}>
           <button
             onClick={() => directionsPref.write(directionsOpen ? "closed" : "open")}
             aria-expanded={directionsOpen}
@@ -1851,16 +1861,19 @@ export function ClusterBoard({
               ))}
             </ul>
           )}
-        </div>
+        </section>
 
         {/* Last in reading order — what you are trying to answer, how to work the surface,
             then whatever you are pointing at — but STUCK to the bottom of the rail. Read
             plainly it fell below the fold, and a readout you have to scroll to is no use
             for something that changes as the pointer moves. Sticky keeps the order and
             keeps it on screen. */}
-        <div className="sticky bottom-0 -mx-3 mt-5 border-t border-ink bg-card px-3 pb-1 pt-4">
+        <section
+          className="sticky bottom-0 -mx-3 -mb-4 border-t border-ink px-3 pb-4 pt-3.5"
+          style={{ background: "color-mix(in srgb, var(--blue) 11%, var(--card))" }}
+        >
           {peekPanel}
-        </div>
+        </section>
       </PromptRail>
 
       {/* The rails are fixed at the screen edges, so they eat both gutters. Yield exactly
