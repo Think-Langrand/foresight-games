@@ -730,6 +730,19 @@ export function ClusterBoard({
   // the store is one key per browser the values are naturally board-scoped.
   const dismissedPiles = useSetPref(pilesDismissed);
 
+  // The implication currently under a finger, if any.
+  //
+  // A pile's caption is derived from where its cards ARE, and a held card's position is
+  // live — so without this, picking one up stretches its pile's bounding box out to the
+  // pointer, the pile stops looking like a pile, and its caption vanishes. Worse, the
+  // stretched box then overlaps its neighbours, so the disjointness test drops THEIR
+  // captions too and the whole row flickers off the moment you touch anything.
+  //
+  // Leaving the held card out keeps the caption steady for the length of the drag and
+  // re-reckons it once on release, which is the only moment the answer can have changed.
+  // isPile already tolerates a card having left — that is a tested property, not a hope.
+  const [heldKey, setHeldKey] = useState<string | null>(null);
+
   // Captions over the piles, derived every render from where the loose cards actually are.
   // Nothing is stored, so a caption cannot go stale: it follows its pile, and it goes away
   // by itself once the pile has been broken up.
@@ -740,7 +753,7 @@ export function ClusterBoard({
   const pileGroups = new Map<string, { groupId: string; label: string; cards: Pos[] }>();
   if (canvasOn) {
     for (const n of canvasNodes) {
-      if (n.themeIds.length > 0) continue;
+      if (n.themeIds.length > 0 || n.key === heldKey) continue;
       const at = canvasPositions.get(n.key);
       const card = twins.get(n.key)?.cards[0];
       if (!at || !card) continue;
@@ -2164,7 +2177,10 @@ export function ClusterBoard({
             width={canvasExtent.width}
             height={canvasExtent.height}
             editable={editable}
-            onHold={canvas.onHold}
+            onHold={(key, pos) => {
+              setHeldKey(pos ? key : null);
+              canvas.onHold(key, pos);
+            }}
             onDropCard={canvas.onDropCard}
             onDrawRegion={canvas.onDrawRegion}
             onSpreadOut={spreadOut}

@@ -269,7 +269,14 @@ export function CanvasBoard({
   const moveDrag = (n: CanvasNode) => (e: React.PointerEvent<HTMLDivElement>) => {
     if (mode.kind !== "drag" || mode.key !== n.key) return;
     const pt = toModel(e.clientX, e.clientY);
-    const pos = { x: pt.x - mode.dx, y: pt.y - mode.dy };
+    // Clamped onto the surface, the same way a box move is. The surface has no negative
+    // space and the scroller cannot scroll past its origin, so a card dragged off the top
+    // or left — which edge auto-scroll makes easy to do by accident — would be drawn
+    // outside the scrollable area and could never be grabbed again.
+    const pos = {
+      x: Math.max(NODE_R, pt.x - mode.dx),
+      y: Math.max(NODE_R, pt.y - mode.dy),
+    };
     edgeRef.current = { x: e.clientX, y: e.clientY };
     // Hysteresis lives in regionsAt: leaving a region takes more travel than arriving,
     // because leaving is the destructive direction.
