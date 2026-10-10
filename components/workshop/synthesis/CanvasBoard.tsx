@@ -165,9 +165,6 @@ export function CanvasBoard({
   const [zoom, setZoom] = useState<Zoom>("fit");
   const [fitScale, setFitScale] = useState(1);
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
-  // Drawing a region is an ARMED one-shot button rather than a modifier key, because a
-  // background drag is otherwise ambiguous with panning — and an iPad has no modifiers.
-  const [armed, setArmed] = useState(false);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -452,26 +449,43 @@ export function CanvasBoard({
     if (mode.kind === "movebox" || mode.kind === "sizebox") setMode({ kind: "idle" });
   };
 
-  // ---------------- background: pan, or marquee when armed ----------------
+  // ---------------- background: draw a theme, or pan ----------------
 
+  // Press and drag on empty canvas to draw a theme. No arming step: making a theme is the
+  // thing this surface is for, and a button you had to press first made it two gestures.
+  //
+  // That takes the background drag away from panning, so panning moves to the scroller
+  // itself — two-finger scroll, the wheel, the scrollbars — plus a middle-button drag for
+  // a mouse. A finger on a touch screen still pans natively, because touch-action is set
+  // on the cards and boxes only and never on the surface.
   const startBackground = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || !e.isPrimary) return;
+    if (!e.isPrimary) return;
     const el = scrollerRef.current;
-    if (armed && editable) {
+
+    const pan = () => {
+      if (!el) return;
       e.currentTarget.setPointerCapture(e.pointerId);
-      const at = toModel(e.clientX, e.clientY);
-      setMode({ kind: "marquee", from: at, to: at, blocked: [] });
+      setMode({
+        kind: "pan",
+        fromX: e.clientX,
+        fromY: e.clientY,
+        scrollX: el.scrollLeft,
+        scrollY: el.scrollTop,
+      });
+    };
+
+    // Middle button pans. So does any drag for someone who cannot edit — there is nothing
+    // for them to draw, and the board should still be navigable.
+    if (e.button === 1 || !editable) {
+      if (e.button === 1) e.preventDefault(); // or the browser starts its own autoscroll
+      pan();
       return;
     }
-    if (!el) return;
+    if (e.button !== 0) return;
+
     e.currentTarget.setPointerCapture(e.pointerId);
-    setMode({
-      kind: "pan",
-      fromX: e.clientX,
-      fromY: e.clientY,
-      scrollX: el.scrollLeft,
-      scrollY: el.scrollTop,
-    });
+    const at = toModel(e.clientX, e.clientY);
+    setMode({ kind: "marquee", from: at, to: at, blocked: [] });
   };
 
   const moveBackground = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -500,10 +514,12 @@ export function CanvasBoard({
   const endBackground = () => {
     if (mode.kind === "marquee") {
       const r = rectOf(mode.from, mode.to);
-      // A tap, not a box. Don't mint a theme from a stray click. And never over another
+      // A tap or a twitch, not a box. The threshold is higher than it was now that every
+      // background drag draws: a few stray pixels on the way to clicking something should
+      // never mint a theme. And never over another
       // box — the overlap rule has to hold for the gesture that CREATES boxes too, or the
       // board can be put back into a state move and resize forbid.
-      if (r.w > 8 && r.h > 8 && mode.blocked.length === 0) {
+      if (r.w > 24 && r.h > 24 && mode.blocked.length === 0) {
         const live = items.filter((it) => !dimmed.has(it.key));
         // The >=50%-coverage rule for SELECTION, which is what a Miro-trained hand expects
         // from a box: clipping a corner does not take a card, covering most of it does.
@@ -514,7 +530,6 @@ export function CanvasBoard({
           live.filter((it) => taken.has(it.key)).map((it) => ({ itemId: it.key, x: it.x, y: it.y }))
         );
       }
-      setArmed(false);
     }
     setMode({ kind: "idle" });
   };
@@ -540,18 +555,6 @@ export function CanvasBoard({
         />
         {editable && (
           <>
-            <button
-              onClick={() => setArmed((a) => !a)}
-              aria-pressed={armed}
-              className={
-                "rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] " +
-                (armed
-                  ? "border-ink bg-ink text-paper"
-                  : "border-[var(--rule)] bg-paper text-muted hover:border-ink hover:text-ink")
-              }
-            >
-              {armed ? "Drag a box…" : "＋ Draw a theme"}
-            </button>
             <button
               onClick={onGather}
               title="Bring the loose implications back together by key change — shows every key change"
@@ -594,7 +597,12 @@ export function CanvasBoard({
               // cursor says what is under it rather than announcing that the whole board
               // is draggable. Dragging the background still pans, hence `grabbing` while
               // it is actually happening.
-              cursor: armed ? "crosshair" : mode.kind === "pan" ? "grabbing" : "pointer",
+              cursor:
+                mode.kind === "marquee"
+                  ? "crosshair"
+                  : mode.kind === "pan"
+                    ? "grabbing"
+                    : "pointer",
             }}
           >
             {/* Regions sit under the nodes and take no pointer events: in this version a
@@ -888,9 +896,9 @@ export function CanvasBoard({
       </div>
 
       <p className="mt-1.5 text-[11px] leading-snug text-muted">
-        Drag an implication anywhere. A card inside a theme&rsquo;s box belongs to that
-        theme; inside two overlapping boxes, it belongs to both. Drag it clear of every box
-        to send it back to the tray.
+        Drag an implication anywhere; a card inside a theme&rsquo;s box belongs to that
+        theme, and dragging it clear of every box sends it back to the tray. Drag across
+        empty space to draw a new theme. Scroll to move around the board.
       </p>
     </div>
   );
