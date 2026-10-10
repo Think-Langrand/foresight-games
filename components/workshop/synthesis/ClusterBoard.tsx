@@ -65,6 +65,7 @@ import {
 } from "@/components/workshop/synthesis/prefStore";
 import { Dot, ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
 import { PromptRail } from "@/components/workshop/synthesis/PromptRail";
+import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 
 // Cards, the Week 2 wheel, or the freeform canvas — the three places step 1's body can be.
@@ -75,7 +76,7 @@ type ClusterView = "cards" | "map" | "canvas";
 const pilesDismissed = makeSetPrefStore("synthesis.canvasPiles.dismissed");
 
 // Whether the how-to is unfolded. Open the first time, and whatever you left it after.
-const directionsPref = makePrefStore("synthesis.directions", "open", ["open", "closed"] as const);
+const directionsPref = makePrefStore("synthesis.directions", "open", DIRECTIONS_FOLD);
 
 // The bucket for implications with no Week 2 lineage. Its group id is "", which is not a
 // usable storage key, so dismissing it is stored under this literal instead.
@@ -805,7 +806,6 @@ export function ClusterBoard({
   // Which captions this person has dismissed. The values are key-change uuids, so although
   // the store is one key per browser the values are naturally board-scoped.
   const dismissedPiles = useSetPref(pilesDismissed);
-  const directionsOpen = usePref(directionsPref) === "open";
 
   // The implication currently under a finger, if any.
   //
@@ -1866,38 +1866,19 @@ export function ClusterBoard({
             than once: "drag across empty space to draw a theme" is true on the canvas and
             nonsense on the map, and directions that do not match what is in front of you
             are worse than none. */}
-        {/* Foldable, and remembered: the questions and the readout are what this column is
-            for, and three sections plus the guidance is more than it holds. Directions are
-            the part you stop needing once you know the tool, so they are the part that
-            gets out of the way — by choice rather than by scrolling past them. */}
-        <section className="-mx-3 px-3 pb-5 pt-4" style={{ background: "var(--board)" }}>
-          <button
-            onClick={() => directionsPref.write(directionsOpen ? "closed" : "open")}
-            aria-expanded={directionsOpen}
-            className="flex w-full items-center gap-1.5 text-left text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted hover:text-ink"
-          >
-            <span aria-hidden className="text-[10px] leading-none">
-              {directionsOpen ? "▾" : "▸"}
-            </span>
-            {focus
+        <Directions
+          title={
+            focus
               ? "Working in a theme"
               : view === "canvas"
                 ? "Using the canvas"
                 : view === "map"
                   ? "Using the map"
-                  : "Using the cards"}
-          </button>
-          {directionsOpen && (
-            <ul className="mt-2.5 flex flex-col gap-2 text-[13px] leading-[1.4] text-ink/80">
-              {directions.map((d, i) => (
-                <li key={i} className="flex gap-1.5">
-                  <Dot />
-                  <span className="min-w-0">{d}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                  : "Using the cards"
+          }
+          lines={directions}
+          fold={directionsPref}
+        />
 
         {admin && (
           <section className="rail-dark -mx-3 -mb-4 border-t border-ink px-3 pb-4 pt-4">
@@ -2099,13 +2080,10 @@ export function ClusterBoard({
           <section className="flex flex-col gap-4">
             <ThemeLineagePanel
               theme={theme}
-              implications={held}
-              lineage={lineage}
               editable={editable}
               busy={busy}
               onEditTheme={(t) => onEditCard(theme, t)}
               namePlaceholder="What is this theme about?"
-              showImplications={false}
               menu={
                 editable ? (
                   <CardMenu label="Theme actions">

@@ -274,11 +274,6 @@ export function SynthesisTeamView({
   // its own and a question holds as many as the group writes, so every save adds one; the
   // ✎ on an answer already there edits that card (editCard). Hands back whether the write
   // landed so the grid's composer can keep the draft when it did not.
-  const answerTheme = (theme: RippleCard, field: CardKind, text: string) => {
-    if (!text.trim()) return true;
-    return addChildCard(theme, field, text);
-  };
-
   // Step 3's hopes and fears are the board's own: root cards, no parent. Appended, like
   // a theme, so a new one lands after the ones already there.
   const addBoardCard = (kind: HopeFear, text: string) =>
@@ -954,7 +949,6 @@ export function SynthesisTeamView({
           busy={busy}
           themeId={themeId}
           onPickTheme={setThemeId}
-          onAnswer={answerTheme}
           onAddStake={addChildCard}
           onEdit={editCard}
           onDelete={removeCard}

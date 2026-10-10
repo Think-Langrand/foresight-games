@@ -2,7 +2,7 @@
 
 import type { RippleCard } from "@/lib/ripples-types";
 import { themeAnswers, type SynthesisBoard } from "@/lib/synthesis-shape";
-import { READING_QUESTIONS } from "@/components/workshop/synthesis/ReadingBoard";
+import { READING_QUESTIONS } from "@/components/workshop/synthesis/readingQuestions";
 import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
 
 // The themes, one card at a time, to read while writing hopes and fears. Step 3 is the
