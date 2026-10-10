@@ -1777,19 +1777,19 @@ export function ClusterBoard({
           later step inherits it. Up here it stays readable while you work, instead of
           scrolling away above 146 cards. */}
       <PromptRail wide={Boolean(admin)} label={admin ? "Prompts & suggestions" : "Prompts"}>
+        {/* First: it is the only part of this column that changes as you move, and the
+            top of the column is where the eye already goes for it. It needed pinning when
+            it sat last; at the top it does not. The chain inside it is still bounded, so
+            a deep one scrolls rather than shoving everything below it down the margin. */}
+        <section
+          className="-mx-3 -mt-4 border-b border-ink px-3 pb-4 pt-4"
+          style={{ background: "color-mix(in srgb, var(--blue) 11%, var(--card))" }}
+        >
+          {peekPanel}
+        </section>
+
         {/* A facilitator's clustering tool, above the prompts: example groupings to read
             beside the real tray. Members never see this — `admin` is decided on the server. */}
-        {admin && (
-          <div className="-mx-3 -mt-4 mb-0 border-b border-ink bg-card px-3 pb-4 pt-4">
-            <SuggestThemesRail
-              admin={admin}
-              board={board}
-              editable={editable}
-              busy={busy}
-              onCreateThemeFrom={onCreateThemeFrom}
-            />
-          </div>
-        )}
         {/* Three bands, and the colour is doing a job rather than decorating: this one is
             the WORK — lime is what this board already uses for a theme and for the thing
             you have picked — the next is about the surface, so it takes the surface's own
@@ -1801,7 +1801,7 @@ export function ClusterBoard({
             At 12px they were sized like UI chrome and scanned like it, which is the
             opposite of what a prompt is for. */}
         <section
-          className={"-mx-3 px-3 pb-5 pt-4 " + (admin ? "" : "-mt-4")}
+          className="-mx-3 px-3 pb-5 pt-4"
           style={{ background: "color-mix(in srgb, var(--lime) 26%, var(--card))" }}
         >
         <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
@@ -1863,17 +1863,17 @@ export function ClusterBoard({
           )}
         </section>
 
-        {/* Last in reading order — what you are trying to answer, how to work the surface,
-            then whatever you are pointing at — but STUCK to the bottom of the rail. Read
-            plainly it fell below the fold, and a readout you have to scroll to is no use
-            for something that changes as the pointer moves. Sticky keeps the order and
-            keeps it on screen. */}
-        <section
-          className="sticky bottom-0 -mx-3 -mb-4 border-t border-ink px-3 pb-4 pt-3.5"
-          style={{ background: "color-mix(in srgb, var(--blue) 11%, var(--card))" }}
-        >
-          {peekPanel}
-        </section>
+        {admin && (
+          <section className="rail-dark -mx-3 -mb-4 border-t border-ink px-3 pb-4 pt-4">
+            <SuggestThemesRail
+              admin={admin}
+              board={board}
+              editable={editable}
+              busy={busy}
+              onCreateThemeFrom={onCreateThemeFrom}
+            />
+          </section>
+        )}
       </PromptRail>
 
       {/* The rails are fixed at the screen edges, so they eat both gutters. Yield exactly

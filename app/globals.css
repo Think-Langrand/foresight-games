@@ -325,3 +325,42 @@ body[data-theme-rail] {
     max-width: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The facilitator's instrument, at the foot of the right rail.
+   ---------------------------------------------------------------------------
+   A dark ground, because it is a different KIND of thing from the three bands
+   above it: an instrument rather than content, and members never see it at all.
+   Dark says that before the label does.
+
+   SuggestThemesRail is written for a light ground and is used nowhere else, so
+   rather than give it a second theme to keep in step, the band lifts the text
+   that sits directly on it. Its own light controls — inputs, buttons, the
+   result cards — keep the light ground's colours and read as light objects on
+   a dark panel, which is why the first rule resets the inherited colour and the
+   :not() keeps the lifts from reaching inside them. Without that reset, a
+   button with bg-paper and no colour of its own inherits paper on paper. */
+.rail-dark {
+  background: var(--ink);
+  color: var(--paper);
+}
+/* Lift everything sitting on the band... */
+.rail-dark .text-muted {
+  color: color-mix(in srgb, var(--paper) 66%, transparent);
+}
+.rail-dark .text-ink {
+  color: var(--paper);
+}
+/* ...then put it back inside the tool's OWN light controls, which win on specificity.
+   Expressed this way round rather than with :not(), because the rail's aside is itself
+   bg-card — so "not inside a light container" was true of nothing in the band and the
+   lifts matched nothing at all. */
+.rail-dark :is(.bg-paper, .bg-card, .bg-lime) {
+  color: var(--ink);
+}
+.rail-dark :is(.bg-paper, .bg-card, .bg-lime) .text-muted {
+  color: var(--muted);
+}
+.rail-dark :is(.bg-paper, .bg-card, .bg-lime) .text-ink {
+  color: var(--ink);
+}
