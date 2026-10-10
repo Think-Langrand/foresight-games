@@ -71,6 +71,9 @@ type ClusterView = "cards" | "map" | "canvas";
 // are uuids, so a dismissal on one board can never match another's.
 const pilesDismissed = makeSetPrefStore("synthesis.canvasPiles.dismissed");
 
+// Whether the how-to is unfolded. Open the first time, and whatever you left it after.
+const directionsPref = makePrefStore("synthesis.directions", "open", ["open", "closed"] as const);
+
 // The bucket for implications with no Week 2 lineage. Its group id is "", which is not a
 // usable storage key, so dismissing it is stored under this literal instead.
 const NO_KEY_CHANGE = "no-key-change";
@@ -251,8 +254,14 @@ export function ClusterBoard({
   const [rawPicked, setPicked] = useState<Set<string>>(new Set());
   // Show only implications this many steps out from their key change. null = all.
   const [orderFilter, setOrderFilter] = useState<number | null>(null);
-  // The map node whose full text the right rail is reading out. See peekCard below.
+  // The node whose full text the right rail is reading out. Holds a WEEK 2 id, because
+  // everything the readout shows beyond the text — the ordinal, the chain — comes from
+  // Week 2 ancestry. See peekCard below.
   const [peek, setPeek] = useState<string | null>(null);
+  // An implication typed straight onto this board has no Week 2 ancestry, so it cannot be
+  // named by a Week 2 id. It gets its own slot and a shorter readout: its words and where
+  // it sits, with no ordinal and no chain, because there is no chain to show.
+  const [peekOwn, setPeekOwn] = useState<string | null>(null);
   // Which branch the map draws. Deliberately NOT keyFilter, which also filters the tray:
   // stepping through the maps would then narrow the card list as a side effect, and
   // landing on a key change whose implications are all clustered would leave the tray
@@ -287,6 +296,9 @@ export function ClusterBoard({
   // Is a map on screen — the board's, or the one inside an open theme? The right rail's
   // read-out only makes sense while one is.
   const mapVisible = focus ? findMode === "map" : view === "map";
+  // Both surfaces that draw implications as circles can feed the readout. Inside a theme
+  // the body is the theme, not the canvas, so the canvas only counts on the board itself.
+  const readoutVisible = mapVisible || (!focus && view === "canvas");
 
   // Escape leaves the theme view — unless something that owns Escape is open on top of
   // it (a modal, the drill-in, a field being typed in).
@@ -729,6 +741,7 @@ export function ClusterBoard({
   // Which captions this person has dismissed. The values are key-change uuids, so although
   // the store is one key per browser the values are naturally board-scoped.
   const dismissedPiles = useSetPref(pilesDismissed);
+  const directionsOpen = usePref(directionsPref) === "open";
 
   // The implication currently under a finger, if any.
   //
@@ -893,6 +906,8 @@ export function ClusterBoard({
   // Sticky rather than cleared on mouse-out. Clearing it would empty the panel as soon as
   // you moved toward the thing you were trying to read.
   const peekCard = peek ? (week2Cards.find((c) => c.id === peek) ?? null) : null;
+  const peekOwnInfo = peekOwn ? (twins.get(peekOwn) ?? null) : null;
+  const peekOwnCard = peekOwnInfo?.cards[0] ?? null;
   const peekSeeded = peek ? (seeded.get(peek) ?? null) : null;
   const peekLineage = peek ? lineage[peek] : undefined;
 
@@ -1395,12 +1410,38 @@ export function ClusterBoard({
   // change it hangs off, and whether it is already in a theme. A solid panel rather than
   // a ruled-off stretch of rail: it is the one part of that column that changes as you
   // move, and it should read as a readout.
+  const directions: string[] = focus
+    ? [
+        "Drag an implication from the tray into this theme, or tick several and use the button above them.",
+        "Open another theme from the rail on the left at any time.",
+        "Name it: say what these implications have in common.",
+      ]
+    : view === "canvas"
+      ? [
+          "Drag an implication anywhere. Inside a theme’s box it belongs to that theme; drag it clear of every box to send it back to the tray.",
+          "Drag across empty space to draw a new theme.",
+          "Move a theme by the ⠿ on its label and everything inside travels with it. Drag a corner to resize it.",
+          "Gather brings the loose implications back together by key change. Spread out gives them room to sort.",
+          "Scroll to move around the board, and use Fit to see all of it.",
+        ]
+      : view === "map"
+        ? [
+            "Drag a circle onto a theme in the left rail to put it in that theme.",
+            "Click circles to pick several, then use Create theme from selected.",
+            "The chips above choose which key change you are looking at, and which orders.",
+          ]
+        : [
+            "Drag a card onto a theme in the left rail.",
+            "Tick several, then use Create theme from selected.",
+            "The chips above choose which key change you are looking at, and which orders.",
+          ];
+
   const peekPanel = (
     <div className="rounded-[4px] border border-blue/30 bg-[#e4ecfb] p-3">
       <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue">
         Selected implication
       </h2>
-      {peekCard && mapVisible ? (
+      {peekCard && readoutVisible ? (
         <>
           {/* The circle's text first, in full: that is what the hover was for, and the
               band is only as tall as the header stack beside it. The chain it sits in
@@ -1493,11 +1534,34 @@ export function ClusterBoard({
             ))}
           </ol>
         </>
+      ) : peekOwnCard && readoutVisible ? (
+        // Written on this board rather than carried over from Week 2: its own words, and
+        // where it sits. No ordinal and no chain — it is not a consequence of anything on
+        // the Week 2 map, and saying so is better than showing an empty trail.
+        <>
+          <p className="mt-1.5 text-[12.5px] font-bold leading-[1.3] text-ink">
+            {peekOwnCard.text}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {peekOwnInfo && peekOwnInfo.themeIds.length > 0 ? (
+              <span className="rounded-[2px] bg-ink px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-paper">
+                Theme {board.themes.findIndex((th) => th.id === peekOwnInfo.themeIds[0]) + 1}
+              </span>
+            ) : (
+              <span className="rounded-[2px] border border-ink/30 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
+                Not in a theme
+              </span>
+            )}
+            <span className="rounded-[2px] bg-black/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
+              Added here
+            </span>
+          </div>
+        </>
       ) : (
         <p className="mt-1.5 text-[12px] italic leading-[1.4] text-ink/60">
-          {mapVisible
-            ? "Hover a circle on the map to read it here."
-            : "Open the map to read an implication in full here."}
+          {readoutVisible
+            ? "Hover an implication to read it in full here."
+            : "Open the map or the canvas to read an implication in full here."}
         </p>
       )}
     </div>
@@ -1713,10 +1777,6 @@ export function ClusterBoard({
           later step inherits it. Up here it stays readable while you work, instead of
           scrolling away above 146 cards. */}
       <PromptRail wide={Boolean(admin)} label={admin ? "Prompts & suggestions" : "Prompts"}>
-        {/* The hovered node, in full — the one part of this column that changes as you
-            move, so it sits first and reads as a readout. */}
-        <div className="mb-4">{peekPanel}</div>
-
         {/* A facilitator's clustering tool, above the prompts: example groupings to read
             beside the real tray. Members never see this — `admin` is decided on the server. */}
         {admin && (
@@ -1755,6 +1815,52 @@ export function ClusterBoard({
         <p className="mt-2.5 text-[14.5px] italic leading-[1.4] text-muted">
           Aim for 3–5 themes. An implication can sit in more than one.
         </p>
+
+        {/* How to work whichever surface is actually on screen. Written per view rather
+            than once: "drag across empty space to draw a theme" is true on the canvas and
+            nonsense on the map, and directions that do not match what is in front of you
+            are worse than none. */}
+        {/* Foldable, and remembered: the questions and the readout are what this column is
+            for, and three sections plus the guidance is more than it holds. Directions are
+            the part you stop needing once you know the tool, so they are the part that
+            gets out of the way — by choice rather than by scrolling past them. */}
+        <div className="mt-5 border-t border-ink pt-4">
+          <button
+            onClick={() => directionsPref.write(directionsOpen ? "closed" : "open")}
+            aria-expanded={directionsOpen}
+            className="flex w-full items-center gap-1.5 text-left text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted hover:text-ink"
+          >
+            <span aria-hidden className="text-[10px] leading-none">
+              {directionsOpen ? "▾" : "▸"}
+            </span>
+            {focus
+              ? "Working in a theme"
+              : view === "canvas"
+                ? "Using the canvas"
+                : view === "map"
+                  ? "Using the map"
+                  : "Using the cards"}
+          </button>
+          {directionsOpen && (
+            <ul className="mt-2.5 flex flex-col gap-2 text-[13px] leading-[1.4] text-ink/80">
+              {directions.map((d, i) => (
+                <li key={i} className="flex gap-1.5">
+                  <Dot />
+                  <span className="min-w-0">{d}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Last in reading order — what you are trying to answer, how to work the surface,
+            then whatever you are pointing at — but STUCK to the bottom of the rail. Read
+            plainly it fell below the fold, and a readout you have to scroll to is no use
+            for something that changes as the pointer moves. Sticky keeps the order and
+            keeps it on screen. */}
+        <div className="sticky bottom-0 -mx-3 mt-5 border-t border-ink bg-card px-3 pb-1 pt-4">
+          {peekPanel}
+        </div>
       </PromptRail>
 
       {/* The rails are fixed at the screen edges, so they eat both gutters. Yield exactly
@@ -2194,6 +2300,16 @@ export function ClusterBoard({
             movable={(id) => canvas.regions.has(id)}
             onMoveRegion={canvas.onMoveRegion}
             onResizeRegion={canvas.onResizeRegion}
+            // The readout wants a WEEK 2 id, and a canvas node is keyed by implicationKey,
+            // so the hover translates through the twin that carries the Week 2 link. A card
+            // typed on this board has none, and takes the shorter readout instead.
+            nodeProps={(key) => ({
+              onMouseEnter: () => {
+                const src = twins.get(key)?.sourceCardId ?? null;
+                setPeek(src);
+                setPeekOwn(src ? null : key);
+              },
+            })}
             trailing={selectedCluster}
           />
           )

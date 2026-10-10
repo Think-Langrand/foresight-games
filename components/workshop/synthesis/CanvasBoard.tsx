@@ -895,11 +895,6 @@ export function CanvasBoard({
         </div>
       </div>
 
-      <p className="mt-1.5 text-[11px] leading-snug text-muted">
-        Drag an implication anywhere; a card inside a theme&rsquo;s box belongs to that
-        theme, and dragging it clear of every box sends it back to the tray. Drag across
-        empty space to draw a new theme. Scroll to move around the board.
-      </p>
     </div>
   );
 }
