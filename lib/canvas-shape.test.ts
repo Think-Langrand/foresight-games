@@ -338,10 +338,54 @@ describe("resolvePositions", () => {
     const pos = resolvePositions({
       items: [{ key: "A", themeId: "TH1", seat: { x: 7, y: 9 } }],
       regions,
+      saved: new Map([["A", { x: 1042, y: 1042 }]]),
+      strip,
+    });
+    expect(pos.get("A")).toEqual({ x: 1042, y: 1042 });
+  });
+
+  // Membership can change off the canvas — "Move out of theme" on the theme sheet, a
+  // teammate, a refused write — and the saved point must not keep drawing the old answer.
+  it("drops a saved position inside a theme the card has since left", () => {
+    const pos = resolvePositions({
+      items: [{ key: "A", themeId: null, seat: { x: 7, y: 9 } }],
+      regions,
+      saved: new Map([["A", { x: 1100, y: 1100 }]]),
+      strip,
+    });
+    expect(pos.get("A")).toEqual({ x: 7, y: 9 });
+  });
+
+  it("drops a saved position outside the box of a theme the card has since joined", () => {
+    const pos = resolvePositions({
+      items: [{ key: "A", themeId: "TH1", seat: null }],
+      regions,
       saved: new Map([["A", { x: 42, y: 42 }]]),
       strip,
     });
-    expect(pos.get("A")).toEqual({ x: 42, y: 42 });
+    expect(containsPoint(regions.get("TH1")!, pos.get("A")!)).toBe(true);
+  });
+
+  it("keeps a twin's saved position inside any one of its themes", () => {
+    const two = new Map([...regions, ["TH2", rect("TH2", 2000, 1000, 400, 400)]]);
+    const pos = resolvePositions({
+      items: [{ key: "A", themeId: "TH1", themeIds: ["TH1", "TH2"], seat: null }],
+      regions: two,
+      saved: new Map([["A", { x: 2100, y: 1100 }]]),
+      strip,
+    });
+    expect(pos.get("A")).toEqual({ x: 2100, y: 1100 });
+  });
+
+  it("trusts a held or in-flight position even before membership catches up", () => {
+    const pos = resolvePositions({
+      items: [{ key: "A", themeId: null, seat: { x: 7, y: 9 } }],
+      regions,
+      saved: new Map([["A", { x: 1100, y: 1100 }]]),
+      strip,
+      trusted: new Set(["A"]),
+    });
+    expect(pos.get("A")).toEqual({ x: 1100, y: 1100 });
   });
 
   // Without this rung the canvas opens LYING on any worked board: the radial layout

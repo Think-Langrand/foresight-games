@@ -38,6 +38,7 @@ import {
   gatherSeats,
   pileLabels,
   resolvePositions,
+  type FallbackItem,
   type GatherGroup,
   type CanvasCardPos,
   type Pos,
@@ -222,6 +223,9 @@ export function ClusterBoard({
     onSaveMany: (cards: CanvasCardPos[], regions?: Region[]) => void;
     onMoveRegion: (region: Region, moved: CanvasCardPos[], adopt: string[]) => void;
     onResizeRegion: (region: Region, adopt: string[]) => void;
+    // Implications whose canvas membership write is still in flight. Their saved
+    // position is trusted until it lands; see resolvePositions.
+    settling: Set<string>;
   };
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -551,7 +555,6 @@ export function ClusterBoard({
     return () => canvas?.onOpen(false);
   }, [onCanvas, canvas]);
 
-
   // The tray's key-change filter: what was picked, or the first key change while nothing
   // has been. A picked key change that has since been clustered away entirely has no chip
   // left to show it lit; fall back to the first so the tray never filters to nothing.
@@ -574,7 +577,6 @@ export function ClusterBoard({
   const orders = [...orderCounts.keys()].sort((a, b) => a - b);
 
   const tray = board.unclustered.filter((c) => matchesOrder(c) && matchesKey(c));
-
 
   // --- the map ----------------------------------------------------------------
   // Which branch is drawn. The key-change chips already in the header pick it; with none
@@ -610,7 +612,6 @@ export function ClusterBoard({
   // tray, so it is complete inside a theme's "find more" map where the tray is out of view.
   const mapOrders = [...new Set(week2Cards.map((c) => implicationOrder(lineage[c.id])).filter((o): o is number => o !== null))]
     .sort((a, b) => a - b);
-
 
   // Every Week 2 id that has a Week 3 card, and where that card currently sits. The map
   // draws Week 2 cards but themes hold Week 3 ones, so this is the only way a node can
@@ -677,12 +678,30 @@ export function ClusterBoard({
     y: (gatherPlan ? gatherBottom(gatherPlan) : 0) + CANVAS_BAND / 2,
   };
 
+  // The implication currently under a finger, if any.
+  //
+  // A pile's caption is derived from where its cards ARE, and a held card's position is
+  // live — so without this, picking one up stretches its pile's bounding box out to the
+  // pointer, the pile stops looking like a pile, and its caption vanishes. Worse, the
+  // stretched box then overlaps its neighbours, so the disjointness test drops THEIR
+  // captions too and the whole row flickers off the moment you touch anything.
+  //
+  // Leaving the held card out keeps the caption steady for the length of the drag and
+  // re-reckons it once on release, which is the only moment the answer can have changed.
+  // isPile already tolerates a card having left — that is a tested property, not a hope.
+  const [heldKey, setHeldKey] = useState<string | null>(null);
+
+  // Saved positions that win even where they disagree with membership: the card under a
+  // finger, and any whose membership write has not come back yet.
+  const trustedKeys = new Set(canvasOn?.settling ?? []);
+  if (heldKey) trustedKeys.add(heldKey);
+
   // The key-change filter is the scale guard that turns Group 1's 146 into about 25 — but
   // it is applied to the TRAY only. Hiding clustered cards would leave a theme's box
   // holding some of its members and not others, and the whole claim of this view is that
   // the picture is the data.
   const canvasNodes: CanvasNode[] = [];
-  const canvasItems: { key: string; themeId: string | null; seat: Pos | null }[] = [];
+  const canvasItems: FallbackItem[] = [];
   if (canvasOn) {
     for (const [key, info] of twins) {
       const card = info.cards[0];
@@ -692,6 +711,7 @@ export function ClusterBoard({
       canvasItems.push({
         key,
         themeId: info.themeIds[0] ?? null,
+        themeIds: info.themeIds,
         seat: gatherSeat.get(key) ?? null,
       });
       canvasNodes.push({
@@ -735,6 +755,7 @@ export function ClusterBoard({
       regions: canvasOn.regions,
       saved: savedForLayout,
       strip: canvasStrip,
+      trusted: trustedKeys,
     });
     let bottom = 0;
     for (const pos of base.values()) bottom = Math.max(bottom, pos.y);
@@ -771,6 +792,7 @@ export function ClusterBoard({
         // Hand-typed cards have no Week 2 node, so they pile up below the wheel rather
         // than all landing on the hub — and above the band of theme boxes.
         strip: canvasStrip,
+        trusted: trustedKeys,
       })
     : new Map<string, Pos>();
 
@@ -806,19 +828,6 @@ export function ClusterBoard({
   // Which captions this person has dismissed. The values are key-change uuids, so although
   // the store is one key per browser the values are naturally board-scoped.
   const dismissedPiles = useSetPref(pilesDismissed);
-
-  // The implication currently under a finger, if any.
-  //
-  // A pile's caption is derived from where its cards ARE, and a held card's position is
-  // live — so without this, picking one up stretches its pile's bounding box out to the
-  // pointer, the pile stops looking like a pile, and its caption vanishes. Worse, the
-  // stretched box then overlaps its neighbours, so the disjointness test drops THEIR
-  // captions too and the whole row flickers off the moment you touch anything.
-  //
-  // Leaving the held card out keeps the caption steady for the length of the drag and
-  // re-reckons it once on release, which is the only moment the answer can have changed.
-  // isPile already tolerates a card having left — that is a tested property, not a hope.
-  const [heldKey, setHeldKey] = useState<string | null>(null);
 
   // Captions over the piles, derived every render from where the loose cards actually are.
   // Nothing is stored, so a caption cannot go stale: it follows its pile, and it goes away
@@ -866,7 +875,6 @@ export function ClusterBoard({
     return { width: Math.ceil(Math.max(w, 600)), height: Math.ceil(Math.max(h, 400)) };
   })();
 
-
   // "Gather": the reverse of Spread out. Brings the loose implications back together into
   // the piles their Week 2 branches already imply, one per key change.
   //
@@ -882,7 +890,7 @@ export function ClusterBoard({
     // pulled apart.
     canvasOn.onSaveMany(gatherPlan.positions);
     setKeyPick(null);
-    pilesDismissed.remove(...gatherPlan.clumps.map((c) => c.groupId));
+    pilesDismissed.remove(...gatherPlan.clumps.map((c) => c.groupId || NO_KEY_CHANGE));
   };
 
   // "Spread out": a roomy grid for the implications still in the tray, so there is space
