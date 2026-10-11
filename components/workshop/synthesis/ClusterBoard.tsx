@@ -1450,15 +1450,18 @@ export function ClusterBoard({
     ? [
         "Drag an implication from the tray into this theme, or tick several and use the button above them.",
         "Open another theme from the rail on the left at any time.",
-        // Where, not just what. A group that knew it had to name its themes still could
-        // not find the field: the name IS the heading of the sheet, so it does not look
+        // Where, not just what. The name IS the heading of the sheet, so it does not look
         // like something you can type into until you have clicked one once.
-        "To name it, click ＋ Name this theme at the top of the sheet — or the ✎ beside a name already there — and say what these implications have in common.",
+        "To name it, click ＋ Name this theme at the top of the sheet, or the ✎ beside a name already there.",
       ]
     : view === "canvas"
       ? [
           "Drag an implication anywhere. Inside a theme’s box it belongs to that theme; drag it clear of every box to send it back to the tray.",
           "Drag across empty space to draw a new theme.",
+          // Naming is half of what step 1 asks for, and nothing on the clustering view
+          // said how to reach the place it happens: the box on the canvas does not open,
+          // the square in the rail does.
+          "To name a theme, click its square in the rail on the left. That opens it on its own, and the name is the heading at the top.",
           "Move a theme by the ⠿ on its label and everything inside travels with it. Drag a corner to resize it.",
           "Gather brings the loose implications back together by key change. Spread out gives them room to sort.",
           "Scroll to move around the board, and use Fit to see all of it.",
@@ -1467,11 +1470,13 @@ export function ClusterBoard({
         ? [
             "Drag a circle onto a theme in the left rail to put it in that theme.",
             "Click circles to pick several, then use Create theme from selected.",
+            "To name a theme, click its square in the rail on the left. That opens it on its own, and the name is the heading at the top.",
             "The chips above choose which key change you are looking at, and which orders.",
           ]
         : [
             "Drag a card onto a theme in the left rail.",
             "Tick several, then use Create theme from selected.",
+            "To name a theme, click its square in the rail on the left. That opens it on its own, and the name is the heading at the top.",
             "The chips above choose which key change you are looking at, and which orders.",
           ];
 
@@ -1762,8 +1767,8 @@ export function ClusterBoard({
                 so a group that has got the hang of it stops being told. */}
             {board.themes.some(isUnnamedTheme) && (
               <p className="text-[11px] italic leading-[1.35] text-muted">
-                To name a theme, open it and click &ldquo;＋ Name this theme&rdquo; at the
-                top of the sheet.
+                To name a theme, click its square above to open it, then click &ldquo;＋
+                Name this theme&rdquo; at the top.
               </p>
             )}
 
