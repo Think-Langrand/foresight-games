@@ -28,6 +28,22 @@ import {
 } from "@/components/workshop/synthesis/SynthesisCard";
 import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { FuturesWheel } from "@/components/workshop/FuturesWheel";
+import { CanvasBoard, type CanvasNode } from "@/components/workshop/synthesis/CanvasBoard";
+import {
+  GATHER_ORIGIN,
+  defaultRegions,
+  freeGrid,
+  gather,
+  gatherBottom,
+  gatherSeats,
+  pileLabels,
+  resolvePositions,
+  type GatherGroup,
+  type CanvasCardPos,
+  type Pos,
+  type Rect,
+  type Region,
+} from "@/lib/canvas-shape";
 import {
   KeyChangeChips,
   MapToolbar,
@@ -41,10 +57,33 @@ import { ThemeJoinSearch } from "@/components/workshop/synthesis/ThemeJoinSearch
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
 import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
-import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
+import {
+  makePrefStore,
+  makeSetPrefStore,
+  usePref,
+  useSetPref,
+} from "@/components/workshop/synthesis/prefStore";
 import { Dot, ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
 import { PromptRail } from "@/components/workshop/synthesis/PromptRail";
+import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
+
+// Cards, the Week 2 wheel, or the freeform canvas — the three places step 1's body can be.
+type ClusterView = "cards" | "map" | "canvas";
+
+// Captions this person has hidden, by key-change id. One key per browser, but the values
+// are uuids, so a dismissal on one board can never match another's.
+const pilesDismissed = makeSetPrefStore("synthesis.canvasPiles.dismissed");
+
+// Whether the how-to is unfolded. Open the first time, and whatever you left it after.
+const directionsPref = makePrefStore("synthesis.directions", "open", DIRECTIONS_FOLD);
+
+// The bucket for implications with no Week 2 lineage. Its group id is "", which is not a
+// usable storage key, so dismissing it is stored under this literal instead.
+const NO_KEY_CHANGE = "no-key-change";
+
+// Air between the bottom of the loose pile and the band of theme boxes below it.
+const CANVAS_BAND = 200;
 import {
   DeleteThemeModal,
   type DeleteThemeMode,
@@ -124,6 +163,7 @@ export function ClusterBoard({
   admin,
   themeId,
   onPickTheme,
+  canvas,
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -166,6 +206,23 @@ export function ClusterBoard({
   // exploration step, so moving between steps keeps you on the theme you were working on.
   themeId: string | null;
   onPickTheme: (id: string | null) => void;
+  // The freeform canvas, wired from the view that owns the writes. Absent = no Canvas tab.
+  // What crosses this boundary is geometry and keys; the twin rules stay on the other side.
+  canvas?: {
+    // Saved positions only. The fallback ladder is applied here, where the board and the
+    // wheel both are.
+    saved: Map<string, Pos>;
+    regions: Map<string, Region>;
+    // False until the first layout arrives; drawing before it snaps the board.
+    ready: boolean;
+    onOpen: (open: boolean) => void;
+    onHold: (key: string, pos: Pos | null) => void;
+    onDropCard: (key: string, pos: Pos, themeIds: string[]) => void;
+    onDrawRegion: (rect: Rect, claimed: CanvasCardPos[]) => void;
+    onSaveMany: (cards: CanvasCardPos[], regions?: Region[]) => void;
+    onMoveRegion: (region: Region, moved: CanvasCardPos[], adopt: string[]) => void;
+    onResizeRegion: (region: Region, adopt: string[]) => void;
+  };
 }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<Over | null>(null);
@@ -176,10 +233,10 @@ export function ClusterBoard({
   const [mergeFrom, setMergeFrom] = useState<RippleCard | null>(null);
   // The card whose "also add to…" picker is open. Null when none is.
   const [copyFrom, setCopyFrom] = useState<RippleCard | null>(null);
-  // Cards or the Week 2 map, in the same place. The map is the way in: a branch is usually
-  // already a theme, so grabbing one beats picking its members out of a list of 146. Cards
-  // only when there is no Week 2 map to draw (a group whose Week 2 is still a placeholder).
-  const [view, setView] = useState<"cards" | "map">(week2Cards.length > 0 ? "map" : "cards");
+  // The CANVAS is the way in: it opens already gathered into piles by key change, which is
+  // the arrangement you would otherwise have had to ask for. The map and the cards are
+  // both a press away. Cards only when there is no canvas to draw on at all.
+  const [view, setView] = useState<ClusterView>(canvas ? "canvas" : "cards");
   // The Week 2 card the map was opened ON, if it was opened from a card. Highlights its
   // path and scrolls to it; cleared as soon as you change branch.
   const [focusNode, setFocusNode] = useState<string | null>(null);
@@ -198,8 +255,14 @@ export function ClusterBoard({
   const [rawPicked, setPicked] = useState<Set<string>>(new Set());
   // Show only implications this many steps out from their key change. null = all.
   const [orderFilter, setOrderFilter] = useState<number | null>(null);
-  // The map node whose full text the right rail is reading out. See peekCard below.
+  // The node whose full text the right rail is reading out. Holds a WEEK 2 id, because
+  // everything the readout shows beyond the text — the ordinal, the chain — comes from
+  // Week 2 ancestry. See peekCard below.
   const [peek, setPeek] = useState<string | null>(null);
+  // An implication typed straight onto this board has no Week 2 ancestry, so it cannot be
+  // named by a Week 2 id. It gets its own slot and a shorter readout: its words and where
+  // it sits, with no ordinal and no chain, because there is no chain to show.
+  const [peekOwn, setPeekOwn] = useState<string | null>(null);
   // Which branch the map draws. Deliberately NOT keyFilter, which also filters the tray:
   // stepping through the maps would then narrow the card list as a side effect, and
   // landing on a key change whose implications are all clustered would leave the tray
@@ -234,6 +297,9 @@ export function ClusterBoard({
   // Is a map on screen — the board's, or the one inside an open theme? The right rail's
   // read-out only makes sense while one is.
   const mapVisible = focus ? findMode === "map" : view === "map";
+  // Both surfaces that draw implications as circles can feed the readout. Inside a theme
+  // the body is the theme, not the canvas, so the canvas only counts on the board itself.
+  const readoutVisible = mapVisible || (!focus && view === "canvas");
 
   // Escape leaves the theme view — unless something that owns Escape is open on top of
   // it (a modal, the drill-in, a field being typed in).
@@ -471,12 +537,32 @@ export function ClusterBoard({
     byKeyRank(keyIds.get(a) ?? null, a, keyIds.get(b) ?? null, b)
   );
 
+  // Is the canvas the thing on screen? Known up here because it decides the filter's
+  // default, two lines down.
+  const onCanvas = view === "canvas" && !focus && Boolean(canvas);
+
+  // The layout channel costs a subscription per client, so it opens with the canvas and
+  // closes with it. Said with an effect rather than at the view button, because the canvas
+  // is now the view you ARRIVE on and there is no press to say it at — without this the
+  // channel never opens and the board sits on "Laying out the board…" forever. The cleanup
+  // also closes a leak the button had: stepping away to step 2 never shut it.
+  useEffect(() => {
+    canvas?.onOpen(onCanvas);
+    return () => canvas?.onOpen(false);
+  }, [onCanvas, canvas]);
+
+
   // The tray's key-change filter: what was picked, or the first key change while nothing
   // has been. A picked key change that has since been clustered away entirely has no chip
   // left to show it lit; fall back to the first so the tray never filters to nothing.
+  //
+  // The CANVAS starts on every key change instead. It opens gathered, and the whole point
+  // of a gather is several piles — filtered to one key change it would open showing one,
+  // which is why the Gather button clears the filter too. The chips still render, so the
+  // scale guard is a press away.
   const keyFilter: string | null =
     keyPick === undefined || (keyPick !== null && !keyCounts.has(keyPick))
-      ? (keyChanges[0] ?? null)
+      ? (onCanvas ? null : (keyChanges[0] ?? null))
       : keyPick;
   const matchesKey = (c: RippleCard) => keyFilter === null || keyOf(c) === keyFilter;
 
@@ -531,6 +617,295 @@ export function ClusterBoard({
   // find the row it is allowed to move. Absent = never seeded = nothing to do with it.
   const seeded = seededIndex(board);
 
+  // --- the canvas -------------------------------------------------------------
+  //
+  // It draws WEEK 3 implications, one circle per implicationKey — an implication twinned
+  // into three themes is still ONE circle, because the canvas shows the implication, not
+  // any one row of it. Each reaches its opening position through its Week 2 source: the
+  // node the wheel would have drawn for it. That is what makes the canvas open looking
+  // like the map instead of like an empty page.
+  // Only while the canvas is the thing on screen. Nothing below is memoized by hand —
+  // this component has no manual memoization anywhere and leans on the React Compiler,
+  // and a useMemo here makes the compiler skip the whole file.
+  const canvasOn = onCanvas ? canvas! : null;
+
+  // Every loose implication, bucketed by key change, in the board's own ranking.
+  //
+  // Read from the BOARD, never from canvasNodes: the key-change filter is a per-browser
+  // choice, and geometry every client has to agree on cannot depend on it.
+  //
+  // One definition, two readers — the opening layout below, and the Gather button, which
+  // just writes down the arrangement already on screen. If those two ever computed their
+  // own lattices, isPile would disagree with itself and captions would float over piles
+  // that are not there.
+  const looseGroups: (GatherGroup & { text: string })[] = (() => {
+    if (!canvasOn) return [];
+    const by = new Map<string, GatherGroup & { text: string }>();
+    for (const [key, info] of twins) {
+      if (info.themeIds.length > 0) continue;
+      const l = lineageOf(info.cards[0]);
+      const groupId = l?.keyChangeId ?? "";
+      const found = by.get(groupId);
+      if (found) found.keys.push(key);
+      else
+        by.set(groupId, {
+          groupId,
+          keys: [key],
+          text: l?.keyChange ?? "",
+          label: l ? keyChangeLabel(l.keyChange) : "No key change",
+        });
+    }
+    return [...by.values()].sort((a, b) =>
+      byKeyRank(a.groupId || null, a.text, b.groupId || null, b.text)
+    );
+  })();
+
+  // Against the SAVED boxes only, and worked out before any box is derived. A derived
+  // box's position comes from where the loose cards are, so feeding the derived set back
+  // in would close a loop; with the seats settled first, the band lands below the gathered
+  // content by construction.
+  //
+  // A card this client has only just added is in `twins` before anyone else has it, so two
+  // people can briefly see a clump sized differently. Nothing here is written, so it heals
+  // on the next refetch.
+  const gatherPlan = canvasOn
+    ? gather({ groups: looseGroups, regions: [...canvasOn.regions.values()] })
+    : null;
+  const gatherSeat = gatherPlan ? gatherSeats(gatherPlan) : new Map<string, Pos>();
+  const canvasStrip = {
+    x: GATHER_ORIGIN.x,
+    y: (gatherPlan ? gatherBottom(gatherPlan) : 0) + CANVAS_BAND / 2,
+  };
+
+  // The key-change filter is the scale guard that turns Group 1's 146 into about 25 — but
+  // it is applied to the TRAY only. Hiding clustered cards would leave a theme's box
+  // holding some of its members and not others, and the whole claim of this view is that
+  // the picture is the data.
+  const canvasNodes: CanvasNode[] = [];
+  const canvasItems: { key: string; themeId: string | null; seat: Pos | null }[] = [];
+  if (canvasOn) {
+    for (const [key, info] of twins) {
+      const card = info.cards[0];
+      const themed = info.themeIds.length > 0;
+      if (!themed && !matchesKey(card)) continue;
+      const order = orderOf(card);
+      canvasItems.push({
+        key,
+        themeId: info.themeIds[0] ?? null,
+        seat: gatherSeat.get(key) ?? null,
+      });
+      canvasNodes.push({
+        key,
+        label: card.text || "Untitled",
+        depth: order ?? 0,
+        themeIds: info.themeIds,
+        dim: !matchesOrder(card),
+      });
+    }
+  }
+
+  // Themes made before the canvas existed — every theme on every real board — carry no
+  // geometry at all. Give each one a box derived from its member count, so a theme
+  // holding ten implications opens as a box with ten cards in it rather than as ten
+  // loose cards. Deterministic, so every client draws the same thing before anyone has
+  // written anything.
+  const unboxedThemes =
+    canvasOn && canvasOn.ready
+      ? board.themes.filter((th) => !canvasOn.regions.has(th.id))
+      : [];
+
+  // Where the adopted boxes go has to be worked out from where the content ACTUALLY is,
+  // not from the wheel's extent. The wheel is laid out from all 146 Week 2 cards even
+  // when the key-change filter is showing 25 of them, and any card dragged earlier has a
+  // saved position of its own — so pinning the band under `wheel.size` leaves a screen of
+  // dead space above it, and turns every drag from the pile into a box into a 2000px
+  // haul. One throwaway pass to find the bottom of everything that is NOT being adopted.
+  const adoptedKeys = new Set<string>();
+  for (const th of unboxedThemes) {
+    for (const c of board.clusters.get(th.id) ?? []) adoptedKeys.add(implicationKey(c));
+  }
+  const savedForLayout = adoptedKeys.size
+    ? new Map([...(canvasOn?.saved ?? [])].filter(([k]) => !adoptedKeys.has(k)))
+    : (canvasOn?.saved ?? new Map<string, Pos>());
+
+  let bandY = CANVAS_BAND;
+  if (canvasOn && unboxedThemes.length > 0) {
+    const base = resolvePositions({
+      items: canvasItems.filter((it) => !adoptedKeys.has(it.key)),
+      regions: canvasOn.regions,
+      saved: savedForLayout,
+      strip: canvasStrip,
+    });
+    let bottom = 0;
+    for (const pos of base.values()) bottom = Math.max(bottom, pos.y);
+    for (const r of canvasOn.regions.values()) bottom = Math.max(bottom, r.y + r.h);
+    bandY = bottom + CANVAS_BAND;
+  }
+
+  const adoptedRegions = canvasOn
+    ? defaultRegions(
+        unboxedThemes.map((th) => ({
+          themeId: th.id,
+          memberCount: (board.clusters.get(th.id) ?? []).length,
+        })),
+        { x: 60, y: bandY },
+        1400
+      )
+    : [];
+
+  const canvasRegions = adoptedRegions.length
+    ? new Map([
+        ...(canvasOn?.regions ?? new Map<string, Region>()),
+        ...adoptedRegions.map((r) => [r.themeId, r] as const),
+      ])
+    : (canvasOn?.regions ?? new Map<string, Region>());
+
+  // Not memoized, deliberately: it is O(n) over ~150 items and depends on the board, the
+  // regions, the saved rows and both filters — a dep list honest enough to be correct
+  // would never hit. The expensive part, the wheel layout above, is the thing memoized.
+  const canvasPositions = canvasOn
+    ? resolvePositions({
+        items: canvasItems,
+        regions: canvasRegions,
+        saved: savedForLayout,
+        // Hand-typed cards have no Week 2 node, so they pile up below the wheel rather
+        // than all landing on the hub — and above the band of theme boxes.
+        strip: canvasStrip,
+      })
+    : new Map<string, Pos>();
+
+  // Write the derived boxes down, with their members' seats, the first time the canvas
+  // sees a theme without one. The seats go too: a card left holding a stale position from
+  // before would otherwise win over its seat the moment the box became real, and leave
+  // its own theme. Guarded by signature rather than by a mount flag, so a failed write is
+  // retried on reload and a theme created later is adopted in its turn.
+  const adoptedSig = adoptedRegions.map((r) => r.themeId).join(",");
+  const adoptedRef = useRef("");
+  useEffect(() => {
+    // `ready` is the whole guard. Before the first layout lands, canvas.regions is empty,
+    // so EVERY theme looks unboxed, defaultRegions derives a box for each, and this effect
+    // writes those derived boxes straight over the real ones — silently resetting every
+    // arrangement on the board each time the canvas is opened. It was invisible while
+    // boxes could not move, because re-deriving produced the same numbers.
+    if (!canvasOn || !canvasOn.ready || !editable) return;
+    if (!adoptedSig || adoptedRef.current === adoptedSig) return;
+    adoptedRef.current = adoptedSig;
+    canvasOn.onSaveMany(
+      [...adoptedKeys]
+        .map((k) => {
+          const p = canvasPositions.get(k);
+          return p ? { itemId: k, x: p.x, y: p.y } : null;
+        })
+        .filter((v): v is CanvasCardPos => v !== null),
+      adoptedRegions
+    );
+    // Everything else here is rebuilt every render by design; the signature is what decides.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adoptedSig, editable, canvasOn?.ready]);
+
+  // Which captions this person has dismissed. The values are key-change uuids, so although
+  // the store is one key per browser the values are naturally board-scoped.
+  const dismissedPiles = useSetPref(pilesDismissed);
+
+  // The implication currently under a finger, if any.
+  //
+  // A pile's caption is derived from where its cards ARE, and a held card's position is
+  // live — so without this, picking one up stretches its pile's bounding box out to the
+  // pointer, the pile stops looking like a pile, and its caption vanishes. Worse, the
+  // stretched box then overlaps its neighbours, so the disjointness test drops THEIR
+  // captions too and the whole row flickers off the moment you touch anything.
+  //
+  // Leaving the held card out keeps the caption steady for the length of the drag and
+  // re-reckons it once on release, which is the only moment the answer can have changed.
+  // isPile already tolerates a card having left — that is a tested property, not a hope.
+  const [heldKey, setHeldKey] = useState<string | null>(null);
+
+  // Captions over the piles, derived every render from where the loose cards actually are.
+  // Nothing is stored, so a caption cannot go stale: it follows its pile, and it goes away
+  // by itself once the pile has been broken up.
+  //
+  // Built from the DRAWN loose nodes, not from the board: canvasNodes drops loose cards
+  // that fail the key-change filter, and that filter defaults to the FIRST key change — so
+  // reading the board here would caption empty space for every key change out of view.
+  const pileGroups = new Map<string, { groupId: string; label: string; cards: Pos[] }>();
+  if (canvasOn) {
+    for (const n of canvasNodes) {
+      if (n.themeIds.length > 0 || n.key === heldKey) continue;
+      const at = canvasPositions.get(n.key);
+      const card = twins.get(n.key)?.cards[0];
+      if (!at || !card) continue;
+      const l = lineageOf(card);
+      const groupId = l?.keyChangeId ?? "";
+      const found = pileGroups.get(groupId);
+      if (found) found.cards.push(at);
+      else
+        pileGroups.set(groupId, {
+          groupId,
+          label: l ? keyChangeLabel(l.keyChange) : "No key change",
+          cards: [at],
+        });
+    }
+  }
+  const pileCaptions = pileLabels([...pileGroups.values()]).filter(
+    (l) => !dismissedPiles.has(l.groupId || NO_KEY_CHANGE)
+  );
+
+  // Big enough for everything on it, measured per axis. A single square extent would make
+  // the surface as tall as the wheel is wide and leave most of it empty.
+  const canvasExtent = (() => {
+    let w = 0;
+    let h = 0;
+    for (const p of canvasPositions.values()) {
+      w = Math.max(w, p.x + 160);
+      h = Math.max(h, p.y + 160);
+    }
+    for (const r of canvasRegions.values()) {
+      w = Math.max(w, r.x + r.w + 160);
+      h = Math.max(h, r.y + r.h + 160);
+    }
+    return { width: Math.ceil(Math.max(w, 600)), height: Math.ceil(Math.max(h, 400)) };
+  })();
+
+
+  // "Gather": the reverse of Spread out. Brings the loose implications back together into
+  // the piles their Week 2 branches already imply, one per key change.
+  //
+  // It reads the board directly rather than `canvasNodes`, and clears the key-change
+  // filter: the canvas only shows loose cards matching that filter, which defaults to the
+  // FIRST key change — so gathering what is on screen would reliably produce exactly one
+  // pile, which is not a feature.
+  const gatherUp = () => {
+    if (!canvasOn || !gatherPlan || gatherPlan.positions.length === 0) return;
+    // Writes down the arrangement already on screen, so pressing this on a board nobody
+    // has touched moves nothing — it pins the derived layout, clears the filter and brings
+    // back any caption that was dismissed. Its job is re-collecting after things have been
+    // pulled apart.
+    canvasOn.onSaveMany(gatherPlan.positions);
+    setKeyPick(null);
+    pilesDismissed.remove(...gatherPlan.clumps.map((c) => c.groupId));
+  };
+
+  // "Spread out": a roomy grid for the implications still in the tray, so there is space
+  // to push them around. The wheel packs 76px circles 12px apart, and you can neither
+  // grab one cleanly nor draw a boundary through a dense ring.
+  //
+  // Two things it must not do, both for the same reason — it moves cards and nothing
+  // else, while membership only ever changes on a drag:
+  //
+  //   THEMED CARDS ARE LEFT ALONE. Sweeping one onto the grid would carry it out of its
+  //   own box while it still belonged to that theme.
+  //   IT ROUTES AROUND EVERY BOX. A loose card parked inside a theme's box would read as
+  //   a member of that theme without being one.
+  const spreadOut = () => {
+    if (!canvasOn) return;
+    const loose = canvasNodes.filter((n) => n.themeIds.length === 0);
+    if (loose.length === 0) return;
+    const slots = freeGrid(loose.length, [...canvasRegions.values()], { x: 120, y: 120 });
+    canvasOn.onSaveMany(
+      loose.map((n, i) => ({ itemId: n.key, x: slots[i].x, y: slots[i].y }))
+    );
+  };
+
   // A Week 2 node's name ON THIS BOARD — the group's current wording where they have
   // renamed the Week 3 copy. The rule and its fallbacks live in lib/synthesis-shape.
   const labelOf = (w2id: string, fallback: string) => labelOnBoard(seeded, w2id, fallback);
@@ -567,6 +942,8 @@ export function ClusterBoard({
   // Sticky rather than cleared on mouse-out. Clearing it would empty the panel as soon as
   // you moved toward the thing you were trying to read.
   const peekCard = peek ? (week2Cards.find((c) => c.id === peek) ?? null) : null;
+  const peekOwnInfo = peekOwn ? (twins.get(peekOwn) ?? null) : null;
+  const peekOwnCard = peekOwnInfo?.cards[0] ?? null;
   const peekSeeded = peek ? (seeded.get(peek) ?? null) : null;
   const peekLineage = peek ? lineage[peek] : undefined;
 
@@ -799,6 +1176,7 @@ export function ClusterBoard({
           <MapToolbar
             zoom={zoom}
             onZoom={(dir) => setZoom(dir === "fit" ? "fit" : (z) => stepZoom(z, dir, fitScaleRef.current))}
+            trailing={selectedCluster}
             orders={mapOrders}
             // Which branch, and the way through all of them. The key-change chips in the
             // toolbar can pick one, but they are counted off the TRAY — a key change whose
@@ -1068,12 +1446,46 @@ export function ClusterBoard({
   // change it hangs off, and whether it is already in a theme. A solid panel rather than
   // a ruled-off stretch of rail: it is the one part of that column that changes as you
   // move, and it should read as a readout.
+  const directions: string[] = focus
+    ? [
+        "Drag an implication from the tray into this theme, or tick several and use the button above them.",
+        "Open another theme from the rail on the left at any time.",
+        // Where, not just what. The name IS the heading of the sheet, so it does not look
+        // like something you can type into until you have clicked one once.
+        "To name it, click ＋ Name this theme at the top of the sheet, or the ✎ beside a name already there.",
+      ]
+    : view === "canvas"
+      ? [
+          "Drag an implication anywhere. Inside a theme’s box it belongs to that theme; drag it clear of every box to send it back to the tray.",
+          "Drag across empty space to draw a new theme.",
+          // Naming is half of what step 1 asks for, and nothing on the clustering view
+          // said how to reach the place it happens: the box on the canvas does not open,
+          // the square in the rail does.
+          "To name a theme, click its square in the rail on the left. That opens it on its own, and the name is the heading at the top.",
+          "Move a theme by the ⠿ on its label and everything inside travels with it. Drag a corner to resize it.",
+          "Gather brings the loose implications back together by key change. Spread out gives them room to sort.",
+          "Scroll to move around the board, and use Fit to see all of it.",
+        ]
+      : view === "map"
+        ? [
+            "Drag a circle onto a theme in the left rail to put it in that theme.",
+            "Click circles to pick several, then use Create theme from selected.",
+            "To name a theme, click its square in the rail on the left. That opens it on its own, and the name is the heading at the top.",
+            "The chips above choose which key change you are looking at, and which orders.",
+          ]
+        : [
+            "Drag a card onto a theme in the left rail.",
+            "Tick several, then use Create theme from selected.",
+            "To name a theme, click its square in the rail on the left. That opens it on its own, and the name is the heading at the top.",
+            "The chips above choose which key change you are looking at, and which orders.",
+          ];
+
   const peekPanel = (
-    <div className="rounded-[4px] border border-blue/30 bg-[#e4ecfb] p-3">
+    <div>
       <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue">
         Selected implication
       </h2>
-      {peekCard && mapVisible ? (
+      {peekCard && readoutVisible ? (
         <>
           {/* The circle's text first, in full: that is what the hover was for, and the
               band is only as tall as the header stack beside it. The chain it sits in
@@ -1109,7 +1521,7 @@ export function ClusterBoard({
               bold one; everything under it keeps going, because a node is almost always
               the middle of a chain rather than the end of one. The text is not repeated
               above — it is already in here, in its place. */}
-          <ol className="mt-2.5 flex flex-col">
+          <ol className="mt-2.5 flex max-h-[13rem] flex-col overflow-y-auto pr-0.5">
             {peekLevels.map((level, i) => (
               <li key={i}>
                 {i === 0 && (
@@ -1166,25 +1578,94 @@ export function ClusterBoard({
             ))}
           </ol>
         </>
+      ) : peekOwnCard && readoutVisible ? (
+        // Written on this board rather than carried over from Week 2: its own words, and
+        // where it sits. No ordinal and no chain — it is not a consequence of anything on
+        // the Week 2 map, and saying so is better than showing an empty trail.
+        <>
+          <p className="mt-1.5 text-[12.5px] font-bold leading-[1.3] text-ink">
+            {peekOwnCard.text}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {peekOwnInfo && peekOwnInfo.themeIds.length > 0 ? (
+              <span className="rounded-[2px] bg-ink px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-paper">
+                Theme {board.themes.findIndex((th) => th.id === peekOwnInfo.themeIds[0]) + 1}
+              </span>
+            ) : (
+              <span className="rounded-[2px] border border-ink/30 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
+                Not in a theme
+              </span>
+            )}
+            <span className="rounded-[2px] bg-black/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-muted">
+              Added here
+            </span>
+          </div>
+        </>
       ) : (
         <p className="mt-1.5 text-[12px] italic leading-[1.4] text-ink/60">
-          {mapVisible
-            ? "Hover a circle on the map to read it here."
-            : "Open the map to read an implication in full here."}
+          {readoutVisible
+            ? "Hover an implication to read it in full here."
+            : "Open the map or the canvas to read an implication in full here."}
         </p>
       )}
     </div>
   );
 
+  // What is ticked, and what can be done with it. It belongs with the surface it describes
+  // — the toolbar row over the map or the canvas — rather than in the filter bar, which
+  // answers a different question (what is in view). The cards view has no toolbar row, so
+  // there it stays where it was.
+  //
+  // Nothing on the CANVAS can be ticked: the marquee is that surface's selection gesture
+  // and it creates a theme outright, so a permanent "0 selected" there would be a control
+  // for something that cannot happen.
+  const selectedCluster =
+    !focus && editable && (picked.size > 0 || (view !== "canvas" && board.unclustered.length > 0)) ? (
+      <>
+        <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+          {picked.size} selected
+        </span>
+        {picked.size > 0 && (
+          <>
+            <button
+              onClick={() => {
+                onCreateThemeFrom([...picked]);
+                setPicked(new Set());
+              }}
+              disabled={busy}
+              className="rounded-[2px] border border-ink bg-lime px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep disabled:opacity-40"
+            >
+              Create theme from selected
+            </button>
+            <button
+              onClick={() => setPicked(new Set())}
+              className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
+            >
+              Clear
+            </button>
+          </>
+        )}
+      </>
+    ) : null;
+
   // The two places the body can be, as icons: a grid of cards, and the wheel. Drawn
   // inline — the repo has no icon set, and these two shapes are the things themselves.
-  const viewIcon = (v: "cards" | "map") =>
+  const viewIcon = (v: ClusterView) =>
     v === "cards" ? (
       <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden fill="currentColor">
         <rect x="1" y="1" width="5" height="5" rx="1" />
         <rect x="8" y="1" width="5" height="5" rx="1" />
         <rect x="1" y="8" width="5" height="5" rx="1" />
         <rect x="8" y="8" width="5" height="5" rx="1" />
+      </svg>
+    ) : v === "canvas" ? (
+      // Loose circles with a box drawn round some of them — the gesture itself.
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden fill="currentColor">
+        <rect x="0.6" y="4" width="8" height="7" rx="1" fill="none" stroke="currentColor" strokeWidth="1.1" strokeDasharray="2 1.4" />
+        <circle cx="3.1" cy="7" r="1.5" />
+        <circle cx="6.3" cy="8.4" r="1.5" />
+        <circle cx="11.4" cy="2.6" r="1.5" />
+        <circle cx="11.9" cy="9.6" r="1.5" />
       </svg>
     ) : (
       <svg width="14" height="14" viewBox="-1 -1 16 16" aria-hidden fill="currentColor">
@@ -1207,14 +1688,18 @@ export function ClusterBoard({
         // Not "Cards": the glyph now reads the NAME as well as what is in the theme, so a
         // full-but-unnamed theme showing "Cards: in progress" pointed at the wrong thing.
         progressLabel="Step 1"
-        wide={Boolean(admin)}
         dragging={drag !== null}
         // The step, said once and large, where the eye starts. The band ends in a rule the
         // toolbar's rule continues — see useRailBand.
         top={
-          <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
-            1. Combine implications into themed clusters
-          </p>
+          <>
+            {/* Which future this board is about. The step says what to do; nothing on
+                this screen said what world it is being done in. */}
+            {scenarioTitle && <p className="eyebrow mb-1 truncate">{scenarioTitle}</p>}
+            <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
+              1. Combine implications into themed clusters
+            </p>
+          </>
         }
         hint={
           picked.size > 0
@@ -1223,7 +1708,7 @@ export function ClusterBoard({
               ? "Click the lit theme again to go back to the board."
               : board.themes.length === 0
                 ? "No themes yet. Drag an implication onto the slot below, or click it, to start one."
-                : "Click a theme to open it. Drag cards in, or tick and click. Drag a theme itself to reorder."
+                : "Click a theme to open it and name it. Drag cards in, or tick and click. Drag a theme itself to reorder."
         }
         // The squares are drop targets here, and a click with cards ticked adds them.
         squareProps={(t) => zoneProps(`theme:${t.id}`)}
@@ -1276,6 +1761,17 @@ export function ClusterBoard({
         }}
         footer={
           <>
+            {/* Under the squares, where "STILL UNNAMED" is being said in red, and only
+                while it is true: the squares make the complaint, and nothing on the rail
+                said what to do about it. Goes away on its own once every theme is named,
+                so a group that has got the hang of it stops being told. */}
+            {board.themes.some(isUnnamedTheme) && (
+              <p className="text-[11px] italic leading-[1.35] text-muted">
+                To name a theme, click its square above to open it, then click &ldquo;＋
+                Name this theme&rdquo; at the top.
+              </p>
+            )}
+
             {/* ONE empty slot, always, never a pre-created theme. A real blank theme would
                 exist on the board from the moment anyone opened it: a "nothing yet" chip on
                 later steps, one to delete if the group changes its mind, and a race to make
@@ -1334,29 +1830,34 @@ export function ClusterBoard({
           produces either one theme per implication or one theme for everything, and every
           later step inherits it. Up here it stays readable while you work, instead of
           scrolling away above 146 cards. */}
-      <PromptRail wide={Boolean(admin)} label={admin ? "Prompts & suggestions" : "Prompts"}>
-        {/* The hovered node, in full — the one part of this column that changes as you
-            move, so it sits first and reads as a readout. */}
-        <div className="mb-4">{peekPanel}</div>
+      <PromptRail label={admin ? "Prompts & suggestions" : "Prompts"}>
+        {/* First: it is the only part of this column that changes as you move, and the
+            top of the column is where the eye already goes for it. It needed pinning when
+            it sat last; at the top it does not. The chain inside it is still bounded, so
+            a deep one scrolls rather than shoving everything below it down the margin. */}
+        <section
+          className="-mx-3 -mt-4 border-b border-ink px-3 pb-4 pt-4"
+          style={{ background: "color-mix(in srgb, var(--blue) 11%, var(--card))" }}
+        >
+          {peekPanel}
+        </section>
 
         {/* A facilitator's clustering tool, above the prompts: example groupings to read
             beside the real tray. Members never see this — `admin` is decided on the server. */}
-        {admin && (
-          <div className="mb-4 border-b border-[var(--rule)] pb-4">
-            <SuggestThemesRail
-              admin={admin}
-              board={board}
-              editable={editable}
-              busy={busy}
-              onCreateThemeFrom={onCreateThemeFrom}
-            />
-          </div>
-        )}
-        {/* No panel, no fill — these are the questions the group is meant to be holding,
-            and they read best as plain text in the margin. Set nearly twice the size they
-            were: at 12px they were sized like UI chrome and scanned like it, which is the
-            opposite of what a prompt is for. The same prompts on the board and inside a
-            theme: this step is clustering, wherever you are standing. */}
+        {/* Three bands, and the colour is doing a job rather than decorating: this one is
+            the WORK — lime is what this board already uses for a theme and for the thing
+            you have picked — the next is about the surface, so it takes the surface's own
+            colour, and the last is live data, in the blue this readout has always been.
+            Each runs edge to edge, so the band change is the division and the rules
+            between sections come out: one structural device, not two.
+
+            The questions themselves stay plain text at nearly twice the size they were.
+            At 12px they were sized like UI chrome and scanned like it, which is the
+            opposite of what a prompt is for. */}
+        <section
+          className="-mx-3 px-3 pb-5 pt-4"
+          style={{ background: "color-mix(in srgb, var(--lime) 26%, var(--card))" }}
+        >
         <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-muted">
           As you group and name themes
         </h2>
@@ -1377,11 +1878,42 @@ export function ClusterBoard({
         <p className="mt-2.5 text-[14.5px] italic leading-[1.4] text-muted">
           Aim for 3–5 themes. An implication can sit in more than one.
         </p>
+        </section>
+
+        {/* How to work whichever surface is actually on screen. Written per view rather
+            than once: "drag across empty space to draw a theme" is true on the canvas and
+            nonsense on the map, and directions that do not match what is in front of you
+            are worse than none. */}
+        <Directions
+          title={
+            focus
+              ? "Working in a theme"
+              : view === "canvas"
+                ? "Using the canvas"
+                : view === "map"
+                  ? "Using the map"
+                  : "Using the cards"
+          }
+          lines={directions}
+          fold={directionsPref}
+        />
+
+        {admin && (
+          <section className="rail-dark -mx-3 -mb-4 border-t border-ink px-3 pb-4 pt-4">
+            <SuggestThemesRail
+              admin={admin}
+              board={board}
+              editable={editable}
+              busy={busy}
+              onCreateThemeFrom={onCreateThemeFrom}
+            />
+          </section>
+        )}
       </PromptRail>
 
-      {/* The rails are fixed at the screen edges, so they eat both gutters. Yield exactly
-          what it actually takes: its width less whatever margin the centred 1100px column
-          already had spare. On a wide screen the gutter swallows it and nothing moves. */}
+      {/* The rails are fixed at the screen edges, so they eat both gutters. The page
+          yields exactly what they take, on every step of the week and at the same width
+          each time — see boardGutters.tsx. */}
       <div>
       <div className="flex min-w-0 flex-col gap-6">
       {mergeFrom && (
@@ -1424,13 +1956,18 @@ export function ClusterBoard({
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           {focus ? (
-            // Not a button. Clicking where you already are should not be one of the
-            // options.
-            <span className="flex min-w-0 max-w-[26rem] items-center gap-1.5 rounded-[2px] border-2 border-ink bg-lime px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] shadow-[2px_2px_0_rgba(36,36,34,0.2)]">
-              <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] text-paper">
+            // The theme you are in, as a title rather than a chip. It was a lime button
+            // shape, which made the one thing on this row you CANNOT click look like the
+            // things you can — and it sat at the size of a filter chip while being the
+            // subject of the whole screen.
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 rounded-[2px] bg-ink px-1.5 py-0.5 text-[11px] font-bold leading-none text-paper">
                 {board.themes.findIndex((t) => t.id === focus.id) + 1}
               </span>
-              <span className="truncate" title={focus.text}>
+              <span
+                className="truncate text-[19px] font-extrabold uppercase leading-[1.15] tracking-tight"
+                title={focus.text}
+              >
                 {focus.text}
               </span>
             </span>
@@ -1452,26 +1989,61 @@ export function ClusterBoard({
           )}
 
           <span className="ml-auto flex flex-wrap items-center gap-2">
-            {(week2Cards.length > 0 || focus) && (
+            {/* The way out, where the view buttons are when you are clustering: this row's
+                right end is where "what am I looking at" lives, and from inside a theme
+                the answer is one button. Blue and arrowed so it reads as leaving rather
+                than as a third surface to switch to. */}
+            {focus && (
+              <button
+                onClick={() => onPickTheme(null)}
+                title="Back to clustering"
+                className="flex items-center gap-1.5 rounded-[2px] border border-ink bg-blue px-2 py-1 text-[10.5px] font-bold uppercase leading-none tracking-[0.05em] text-paper transition-colors hover:bg-ink"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  aria-hidden
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11.5 7H3" />
+                  <path d="M6.5 3.5L3 7l3.5 3.5" />
+                </svg>
+                Back to clustering
+              </button>
+            )}
+
+            {/* Only while clustering. Inside a theme there is one thing to want — out —
+                and the back link on the left is it; a pair of view buttons there offered
+                two ways to leave and named neither of them "leave".
+
+                The canvas first: it is where the clustering is done, and the map is what
+                you go to to read where something came from. "Cards" is no longer offered
+                — the canvas does everything the plain tray did and more — though the
+                view survives as the fallback for a board with no canvas layout. */}
+            {!focus && (Boolean(canvas) || week2Cards.length > 0) && (
               <span role="group" aria-label="Working in" className="flex items-center gap-1">
-                {(["map", "cards"] as const).map((v) => {
+                {(["canvas", "map"] as const).map((v) => {
                   if (v === "map" && week2Cards.length === 0) return null;
-                  const on = !focus && view === v;
-                  const label = v === "cards" ? "Cards" : "Map";
+                  if (v === "canvas" && !canvas) return null;
+                  const on = view === v;
+                  const label = v === "canvas" ? "Canvas" : "Map";
                   return (
                     <button
                       key={v}
                       onClick={() => {
                         setView(v);
-                        if (v === "cards") setFocusNode(null);
                         onPickTheme(null); // leaving a theme, if one is open
                       }}
                       aria-pressed={on}
                       title={label}
-                      // Named, not just drawn. From inside a theme these two are the way
-                      // back out to the map, and an unlabelled icon pair does not say that
-                      // — nobody found the map again. The row wraps, so the words cost
-                      // nothing that matters.
+                      // Named, not just drawn: an unlabelled icon pair had nobody finding
+                      // the map again. The row wraps, so the words cost nothing that
+                      // matters.
                       className={
                         "flex items-center gap-1.5 rounded-[2px] border px-2 py-1 text-[10.5px] font-bold uppercase leading-none tracking-[0.05em] transition-colors " +
                         (on ? "border-ink bg-ink text-paper" : "border-ink bg-paper text-ink hover:bg-lime")
@@ -1484,33 +2056,7 @@ export function ClusterBoard({
                 })}
               </span>
             )}
-            {!focus && editable && (board.unclustered.length > 0 || picked.size > 0) && (
-              <>
-                <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
-                  {picked.size} selected
-                </span>
-                {picked.size > 0 && (
-                  <>
-                    <button
-                      onClick={() => {
-                        onCreateThemeFrom([...picked]);
-                        setPicked(new Set());
-                      }}
-                      disabled={busy}
-                      className="rounded-[2px] border border-ink bg-lime px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep disabled:opacity-40"
-                    >
-                      Create theme from selected
-                    </button>
-                    <button
-                      onClick={() => setPicked(new Set())}
-                      className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted hover:text-ink"
-                    >
-                      Clear
-                    </button>
-                  </>
-                )}
-              </>
-            )}
+            {view === "cards" && selectedCluster}
           </span>
         </div>
 
@@ -1591,13 +2137,10 @@ export function ClusterBoard({
           <section className="flex flex-col gap-4">
             <ThemeLineagePanel
               theme={theme}
-              implications={held}
-              lineage={lineage}
               editable={editable}
               busy={busy}
               onEditTheme={(t) => onEditCard(theme, t)}
               namePlaceholder="What is this theme about?"
-              showImplications={false}
               menu={
                 editable ? (
                   <CardMenu label="Theme actions">
@@ -1798,7 +2341,59 @@ export function ClusterBoard({
       {/* ---- the tray ----
            Its filters, add button and view toggle are in the toolbar above. */}
       <section aria-label="Implications not yet in a theme">
-        {view === "map" ? renderMap(null) : (
+        {view === "map" ? (
+          renderMap(null)
+        ) : view === "canvas" && canvas ? (
+          !canvas.ready ? (
+            // Positions fall back to the wheel while `saved` is empty, so painting now
+            // would show the map and then visibly snap once the real layout lands.
+            <div className="flex h-[40vh] items-center justify-center rounded-[3px] border border-[var(--rule)] bg-paper text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+              Laying out the board…
+            </div>
+          ) : (
+          <CanvasBoard
+            nodes={canvasNodes}
+            positions={canvasPositions}
+            regions={canvasRegions}
+            themeLabel={(id) =>
+              board.themes.find((th) => th.id === id)?.text?.trim() ||
+              `Theme ${board.themes.findIndex((th) => th.id === id) + 1}`
+            }
+            memberCount={(id) => (board.clusters.get(id) ?? []).length}
+            width={canvasExtent.width}
+            height={canvasExtent.height}
+            editable={editable}
+            onHold={(key, pos) => {
+              setHeldKey(pos ? key : null);
+              canvas.onHold(key, pos);
+            }}
+            onDropCard={canvas.onDropCard}
+            onDrawRegion={canvas.onDrawRegion}
+            onSpreadOut={spreadOut}
+            onGather={gatherUp}
+            clumps={pileCaptions}
+            onDismissClump={(id) => pilesDismissed.add(id || NO_KEY_CHANGE)}
+            // Only a box whose region row is REAL can be grabbed. A derived box has
+            // nothing to write to and an adoption write in flight that would overwrite
+            // it; the gate opens the instant that write is issued, because `regions` is
+            // the hook's merged map.
+            movable={(id) => canvas.regions.has(id)}
+            onMoveRegion={canvas.onMoveRegion}
+            onResizeRegion={canvas.onResizeRegion}
+            // The readout wants a WEEK 2 id, and a canvas node is keyed by implicationKey,
+            // so the hover translates through the twin that carries the Week 2 link. A card
+            // typed on this board has none, and takes the shorter readout instead.
+            nodeProps={(key) => ({
+              onMouseEnter: () => {
+                const src = twins.get(key)?.sourceCardId ?? null;
+                setPeek(src);
+                setPeekOwn(src ? null : key);
+              },
+            })}
+            trailing={selectedCluster}
+          />
+          )
+        ) : (
         <div
           {...zoneProps("tray")}
           className={

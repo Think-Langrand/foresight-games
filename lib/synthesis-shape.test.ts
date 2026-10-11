@@ -10,6 +10,7 @@ import {
   planReorder,
   childrenOf,
   descendantsOf,
+  STAKES_FOR_DONE,
   stakeProgress,
   clusterProgress,
   isUnnamedTheme,
@@ -951,24 +952,26 @@ describe("stakeProgress", () => {
     expect(withCards()).toBe("empty");
   });
 
-  it("is done only once both sides of the analysis exist", () => {
-    expect(withCards(card("R", "SECOND", "TH", 2, { cardKind: "risk" }))).toBe("started");
-    expect(withCards(card("O", "SECOND", "TH", 2, { cardKind: "opportunity" }))).toBe("started");
-    expect(
-      withCards(
-        card("R", "SECOND", "TH", 2, { cardKind: "risk" }),
-        card("O", "SECOND", "TH", 3, { cardKind: "opportunity" })
-      )
-    ).toBe("done");
+  const risks = (n: number) =>
+    Array.from({ length: n }, (_, i) => card(`R${i}`, "SECOND", "TH", 2 + i, { cardKind: "risk" }));
+  const opps = (n: number) =>
+    Array.from({ length: n }, (_, i) => card(`O${i}`, "SECOND", "TH", 20 + i, { cardKind: "opportunity" }));
+
+  it("needs STAKES_FOR_DONE of each, not one", () => {
+    // One of each is a theme that has been touched, not one that has been analysed.
+    expect(withCards(...risks(1), ...opps(1))).toBe("started");
+    expect(withCards(...risks(STAKES_FOR_DONE), ...opps(STAKES_FOR_DONE))).toBe("done");
+  });
+
+  it("is a start while either side is short", () => {
+    expect(withCards(...risks(1))).toBe("started");
+    expect(withCards(...opps(1))).toBe("started");
+    expect(withCards(...risks(3), ...opps(1))).toBe("started");
+    expect(withCards(...risks(1), ...opps(3))).toBe("started");
   });
 
   it("does not require a tension — a theme the group agreed on is finished", () => {
-    expect(
-      withCards(
-        card("R", "SECOND", "TH", 2, { cardKind: "risk" }),
-        card("O", "SECOND", "TH", 3, { cardKind: "opportunity" })
-      )
-    ).toBe("done");
+    expect(withCards(...risks(STAKES_FOR_DONE), ...opps(STAKES_FOR_DONE))).toBe("done");
     // …but a tension alone is a start.
     expect(withCards(card("T", "SECOND", "TH", 2, { cardKind: "tension" }))).toBe("started");
   });
@@ -1386,13 +1389,29 @@ describe("clusterProgress / exploreProgress", () => {
 
   const answered = () =>
     READING_FIELDS.map((k, i) => card(`Q${i}`, "SECOND", "TH", 10 + i, { cardKind: k, text: "an answer" }));
+  // Deliberately two cards, one of each: the summaryCardCount assertions further down
+  // count them, and a theme that is merely "started" is what those cases want anyway.
   const stakes = () => [
     card("R", "SECOND", "TH", 20, { cardKind: "risk" }),
     card("O", "SECOND", "TH", 21, { cardKind: "opportunity" }),
   ];
+  const stakesDone = () => [
+    ...stakes(),
+    card("R2", "SECOND", "TH", 22, { cardKind: "risk" }),
+    card("O2", "SECOND", "TH", 23, { cardKind: "opportunity" }),
+  ];
 
-  it("step 2 is done with the four answers AND a risk and an opportunity", () => {
-    expect(exploreProgress(indexSynthesisBoard([theme("TH", 1), ...answered(), ...stakes()]), "TH")).toBe("done");
+  it("step 2 is done on the stakes alone, with or without the retired questions", () => {
+    expect(exploreProgress(indexSynthesisBoard([theme("TH", 1), ...stakesDone()]), "TH")).toBe("done");
+    expect(
+      exploreProgress(indexSynthesisBoard([theme("TH", 1), ...answered(), ...stakesDone()]), "TH")
+    ).toBe("done");
+  });
+
+  // An older board that answered the four questions and wrote nothing else has still had
+  // work done on it, and the rail should not call it untouched.
+  it("counts a retired answer as a start", () => {
+    expect(exploreProgress(indexSynthesisBoard([theme("TH", 1), ...answered()]), "TH")).toBe("started");
   });
 
   it("step 2 is started with only one half, empty with neither", () => {

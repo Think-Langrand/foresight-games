@@ -4,11 +4,10 @@ import type { AddResult } from "@/components/workshop/synthesis/SynthesisCard";
 import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import {
+  STAKES_FOR_DONE,
   descendantsOf,
   exploreProgress,
-  implicationKey,
   twinIndex,
-  type ReadingField,
   type StakeKind,
   type SynthesisBoard,
   type Week2Lineage,
@@ -16,21 +15,38 @@ import {
 import { ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
 import { PromptRail, Prompts } from "@/components/workshop/synthesis/PromptRail";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
+import { ThemeImplications } from "@/components/workshop/synthesis/ThemeImplications";
+import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
+import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 import { ThemeFoot } from "@/components/workshop/synthesis/ThemeFoot";
 import { CardWall } from "@/components/workshop/synthesis/CardWall";
-import { READING_QUESTIONS, ReadingBoard } from "@/components/workshop/synthesis/ReadingBoard";
 import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
 // STEP 2 — theme exploration. One theme at a time, picked on the rail like every theme
-// step; the sheet is the theme's head, the four questions ("how does this future work?")
-// straight under it, then two walls side by side: the risks this theme carries and the
-// opportunities it opens. The questions are asked first because the walls are answered in
-// their light — who bears the cost is where the risks come from.
+// step; the sheet is the theme's head, then two walls side by side — the risks this theme
+// carries and the opportunities it opens — then the implications it was built from, read
+// underneath so the walls are answered against them rather than from memory.
 
 // Which step-2 wall a card is on. `tension` is the third stake kind, from an older board;
 // this step offers the two.
 export type WallKind = Exclude<StakeKind, "tension">;
+
+const exploreDirections = makePrefStore(
+  "synthesis.directions.explore",
+  "open",
+  DIRECTIONS_FOLD
+);
+
+// Its own key, not step 1's: folding away how the canvas works should not fold away how
+// this step works. Different tool, different decision.
+const EXPLORE_DIRECTIONS = [
+  "Write the risks this theme carries and the opportunities it opens — one per card.",
+  `A theme is done once it has at least ${STAKES_FOR_DONE} risks and ${STAKES_FOR_DONE} opportunities.`,
+  "The implications it was built from are below, with where each came from in Week 2.",
+  "To change what is in a theme, go back to step 1.",
+  "Open another theme from the rail on the left at any time.",
+] as const;
 
 export function ExploreBoard({
   board,
@@ -38,8 +54,8 @@ export function ExploreBoard({
   editable,
   busy,
   themeId,
+  scenarioTitle,
   onPickTheme,
-  onAnswer,
   onAddStake,
   onEdit,
   onDelete,
@@ -50,9 +66,10 @@ export function ExploreBoard({
   editable: boolean;
   busy: boolean;
   themeId: string | null;
+  // The world the group is working in, as the rail's eyebrow — the step says what to do,
+  // and nothing else on the screen says what future it is being done in.
+  scenarioTitle?: string;
   onPickTheme: (id: string | null) => void;
-  // Another answer to one of the four questions — each takes as many as the group writes.
-  onAnswer: (theme: RippleCard, field: ReadingField, text: string) => AddResult;
   // A card on one of the two walls.
   onAddStake: (theme: RippleCard, kind: WallKind, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
@@ -80,23 +97,35 @@ export function ExploreBoard({
       hint="Click a theme to work on it."
       // The step, said once and large; the band ends in a rule the sheet's rule continues.
       top={
-        <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
-          2. Explore each theme: four questions, its risks and opportunities
-        </p>
+        <>
+          {scenarioTitle && <p className="eyebrow mb-1 truncate">{scenarioTitle}</p>}
+          <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
+            2. Reflect on each theme: what it risks, and what it opens up
+          </p>
+        </>
       }
     />
   );
   const prompts = (
     <PromptRail>
-      <Prompts
-        heading="Theme exploration"
-        lead="Four questions about this change, then what it puts at stake."
-        questions={[
-          ...READING_QUESTIONS.map((q) => ({ question: q.question, hint: q.hint })),
-          { question: "What could go wrong, or be lost?", hint: "Risks — one per card." },
-          { question: "What could this open up?", hint: "Opportunities — one per card." },
-        ]}
-      />
+      {/* Every step's rail is ordered the same way, and the order is the point: what the
+          group is meant to be HOLDING at the top, on step 1's lime, and how to work the
+          surface under it. The questions are read the whole time; the directions are the
+          part you stop needing once you know the tool, so they fold and they sit below. */}
+      <section
+        className="-mx-3 -mt-4 border-b border-ink px-3 pb-5 pt-4"
+        style={{ background: "color-mix(in srgb, var(--lime) 26%, var(--card))" }}
+      >
+        <Prompts
+          heading="Theme exploration"
+          lead="What this theme puts at stake."
+          questions={[
+            { question: "What could go wrong, or be lost?", hint: "Risks — one per card." },
+            { question: "What could this open up?", hint: "Opportunities — one per card." },
+          ]}
+        />
+      </section>
+      <Directions title="Working on a theme" lines={EXPLORE_DIRECTIONS} fold={exploreDirections} />
     </PromptRail>
   );
 
@@ -136,28 +165,15 @@ export function ExploreBoard({
       <section key={theme.id} ref={setSheetEl} className="flex flex-col gap-4 border-t border-ink pt-3 lg:-mx-9 lg:px-9">
         <ThemeLineagePanel
           theme={theme}
-          implications={board.clusters.get(theme.id) ?? []}
-          lineage={lineage}
-          // A copy in a second theme carries no Week 2 link of its own (0023); its trail
-          // is read through the twin that does.
-          sourceIdOf={(c) => c.sourceCardId ?? twins.get(implicationKey(c))?.sourceCardId ?? null}
           editable={editable}
           busy={busy}
           onEditTheme={(t) => onEdit(theme, t)}
           namePlaceholder="What is this theme about?"
         >
-          <ReadingBoard
-            theme={theme}
-            board={board}
-            editable={editable}
-            busy={busy}
-            onAnswer={onAnswer}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-
-          {/* The two walls, half width each, so a risk and the opportunity beside it are
-              read together. Stacked on a narrow screen. */}
+          {/* The walls come FIRST now. This step used to open with four questions about
+              how the future works; it opens with what the theme puts at stake, because
+              that is what the step is actually for. Half width each, so a risk and the
+              opportunity beside it are read together. Stacked on a narrow screen. */}
           <div className="border-t-2 border-dashed border-black/15 px-5 py-4">
             <div className="grid gap-4 md:grid-cols-2">
               <CardWall
@@ -188,6 +204,17 @@ export function ExploreBoard({
               />
             </div>
           </div>
+
+          {/* What the theme was built from, under the walls: you cannot weigh a theme's
+              risks without being able to see what is in it. Read-only — changing what is
+              in a theme is step 1's job. */}
+          <ThemeImplications
+            implications={board.clusters.get(theme.id) ?? []}
+            lineage={lineage}
+            twins={twins}
+            themes={board.themes}
+            onGoToCluster={onGoToCluster}
+          />
         </ThemeLineagePanel>
 
         <ThemeFoot themes={board.themes} active={theme} progressFor={progressFor} onPick={onPickTheme} />

@@ -558,13 +558,15 @@ export function clusterProgress(board: SynthesisBoard, themeId: string): ThemePr
   return theme && isUnnamedTheme(theme) ? "started" : "done";
 }
 
-// Step 2 is done when the four questions are answered AND the theme has at least one risk
-// and one opportunity; started once either half has anything on it.
+// Step 2 is done on the stakes alone now: the four questions are no longer asked, so
+// gating DONE on them would leave every theme permanently half-finished.
+//
+// An older board's answers still count as work STARTED, though. The rail is a checklist,
+// and calling a theme the group plainly worked on untouched would be a lie.
 export function exploreProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
-  const reading = readingProgress(board, themeId);
   const stakes = stakeProgress(board, themeId);
-  if (reading === "done" && stakes === "done") return "done";
-  return reading !== "empty" || stakes !== "empty" ? "started" : "empty";
+  if (stakes === "done") return "done";
+  return stakes !== "empty" || readingProgress(board, themeId) !== "empty" ? "started" : "empty";
 }
 
 // Step 4: how many of the board's fears have a hope written on their other side. A fear
@@ -709,11 +711,16 @@ export type ThemeProgress = "empty" | "started" | "done";
 
 // Step 2 is done when the theme has both sides of the analysis. Tensions are optional —
 // a theme the group simply agreed on is finished, not deficient.
+// How many of each a theme needs before step 2 counts it finished. One of each let a theme
+// pass on a single line per wall, which is not an analysis of anything.
+export const STAKES_FOR_DONE = 2;
+
 export function stakeProgress(board: SynthesisBoard, themeId: string): ThemeProgress {
   const risks = board.risks.get(themeId)?.length ?? 0;
   const opportunities = board.opportunities.get(themeId)?.length ?? 0;
   const tensions = board.tensions.get(themeId)?.length ?? 0;
-  if (risks > 0 && opportunities > 0) return "done";
+  // Tensions are optional: a theme the group simply agreed on is finished, not deficient.
+  if (risks >= STAKES_FOR_DONE && opportunities >= STAKES_FOR_DONE) return "done";
   if (risks + opportunities + tensions > 0) return "started";
   return "empty";
 }

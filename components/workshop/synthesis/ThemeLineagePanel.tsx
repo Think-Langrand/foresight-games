@@ -1,46 +1,33 @@
 "use client";
 
 import type { RippleCard } from "@/lib/ripples-types";
-import type { Week2Lineage } from "@/lib/synthesis-shape";
 import { InlineText } from "@/components/workshop/synthesis/SynthesisCard";
 
-// The theme's head card, everywhere a theme is worked on: its name — and, folded away, the
-// implications it was built from.
+// The theme's head card, everywhere a theme is worked on: its name, and whatever the step
+// wants to hang under it.
 //
 // The name is the point, so it is plain and open: this is where a theme minted by a drop
-// gets named, and an unnamed one says so in its place. The implications are reference
-// material you dip into, so they are the one thing behind a disclosure; step 1 shows them
-// as full cards instead and turns the disclosure off.
+// gets named, and an unnamed one says so in its place.
+//
+// It used to carry a folded list of the implications the theme was built from, but both
+// steps outgrew it — step 1 draws them as full draggable cards and step 2 as
+// ThemeImplications — so it is purely the head now.
 //
 // A description used to be asked for under the name. Groups wrote the name and left it
 // blank, so the ask is gone; one already written still shows, and the export and the
 // facilitator's summary still read it.
-//
-// Each implication carries its Week 2 trail where there is one. Three cases legitimately
-// have none, and each simply shows no trail: a card typed here by hand, a seed whose Week 2
-// source was deleted (source_card_id is ON DELETE SET NULL), and a group whose Week 2 is
-// still a placeholder.
 
 export function ThemeLineagePanel({
   theme,
-  implications,
-  lineage,
-  sourceIdOf,
   editable,
   busy,
   onEditTheme,
   namePlaceholder,
   menu,
   note,
-  showImplications = true,
   children,
 }: {
   theme: RippleCard;
-  implications: RippleCard[];
-  lineage: Record<string, Week2Lineage>;
-  // Which Week 2 card an implication came from. Defaults to its own sourceCardId; the
-  // explore step passes a twin-aware resolver, since a copy's link lives on its sibling.
-  sourceIdOf?: (card: RippleCard) => string | null;
   editable: boolean;
   busy: boolean;
   onEditTheme: (text: string) => void;
@@ -49,7 +36,6 @@ export function ThemeLineagePanel({
   menu?: React.ReactNode;
   // A line under the fields: step 1 uses it to teach what a theme is.
   note?: React.ReactNode;
-  showImplications?: boolean;
   // Rendered INSIDE the card, edge to edge. Step 1 puts the implications and the readings
   // here so the theme and everything being worked out about it read as one sheet rather
   // than a header and a form.
@@ -89,33 +75,6 @@ export function ThemeLineagePanel({
 
       {note}
 
-      {showImplications && implications.length > 0 && (
-        <details className="mt-3 border-t border-black/10 pt-2.5">
-          <summary className="cursor-pointer list-none text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted hover:text-ink">
-            ▸ Built from {implications.length} implication
-            {implications.length === 1 ? "" : "s"}
-          </summary>
-          <ul className="mt-2.5 flex flex-col gap-2.5">
-            {implications.map((c) => {
-              const sourceId = sourceIdOf ? sourceIdOf(c) : c.sourceCardId;
-              const from = sourceId ? lineage[sourceId] : undefined;
-              return (
-                <li key={c.id} className="border-l-2 border-black/15 pl-3">
-                  <div className="text-[12.5px] leading-[1.4]">{c.text}</div>
-                  {from && (
-                    <div className="mt-1 text-[10.5px] leading-[1.4] text-muted">
-                      <span className="font-bold uppercase tracking-[0.06em]">
-                        {from.keyChange}
-                      </span>
-                      {from.chain.length > 1 && <> · {from.chain.slice(1).join(" → ")}</>}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </details>
-      )}
       </div>
 
       {children}
