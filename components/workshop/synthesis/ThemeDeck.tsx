@@ -1,8 +1,8 @@
 "use client";
 
 import type { RippleCard } from "@/lib/ripples-types";
-import { themeAnswers, type SynthesisBoard } from "@/lib/synthesis-shape";
-import { READING_QUESTIONS } from "@/components/workshop/synthesis/ReadingBoard";
+import type { SynthesisBoard } from "@/lib/synthesis-shape";
+import { CardWall } from "@/components/workshop/synthesis/CardWall";
 import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
 
 // The themes, one card at a time, to read while writing hopes and fears. Step 3 is the
@@ -10,6 +10,11 @@ import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStor
 // out in steps 1–2, and this keeps that within reach without leaving the step. Prev/Next,
 // the dots, or the arrow keys turn the deck — and so does the theme rail, which is why
 // which theme is showing is the caller's state rather than this deck's.
+//
+// What it shows is what step 2 produced: the theme's name, then the risks and the
+// opportunities as the cards the group wrote them on — the same two walls, read-only. It
+// used to lead with the four reading questions, which step 2 no longer asks; the walls
+// were underneath them, in chips that did not look like anybody's cards.
 //
 // Folds to one line, remembered per browser like the other rails: once the group has read
 // through, the walls want the room back.
@@ -37,7 +42,6 @@ export function ThemeDeck({
   // first one — resolved on every render rather than synced.
   const at = Math.max(0, themes.findIndex((t) => t.id === activeId));
   const theme: RippleCard = themes[at];
-  const answers = themeAnswers(board, theme.id);
   const risks = board.risks.get(theme.id) ?? [];
   const opportunities = board.opportunities.get(theme.id) ?? [];
   const go = (n: number) => onPick(themes[Math.max(0, Math.min(themes.length - 1, n))].id);
@@ -106,72 +110,28 @@ export function ThemeDeck({
           <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted">What is this theme about</div>
           <h3 className="mt-1 text-[18px] font-extrabold uppercase leading-[1.1] tracking-tight">{theme.text}</h3>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {READING_QUESTIONS.map((q) => {
-              // Every answer the group gave, not the first: a question read three ways is
-              // three things to write a hope or a fear off.
-              const given = (answers[q.key] ?? []).filter((c) => c.text.trim().length > 0);
-              const single = given.length === 1;
-              return (
-                <div key={q.key} className={"rounded-[3px] border border-black/15 border-l-4 bg-paper p-2.5 " + q.accent}>
-                  <div className="text-[10.5px] font-bold leading-[1.3] text-ink/70">{q.question}</div>
-                  {given.length > 0 ? (
-                    <ul className="mt-1 flex flex-col gap-1">
-                      {given.map((c) => (
-                        <li key={c.id} className="flex items-start gap-1.5">
-                          {!single && (
-                            <span aria-hidden className="mt-[1px] shrink-0 select-none text-[12.5px] leading-[1.45] text-muted">
-                              •
-                            </span>
-                          )}
-                          <span className="min-w-0 flex-1 whitespace-pre-wrap text-[12.5px] leading-[1.45]">
-                            {c.text.trim()}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-1 text-[11.5px] italic text-muted">Not answered yet.</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {theme.description && (
+            <p className="mt-2 max-w-[70ch] text-[13px] leading-[1.45] text-ink/80">{theme.description}</p>
+          )}
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[3px] border-l-4 border-coral bg-coral/10 p-2.5">
-              <div className="text-[9.5px] font-bold uppercase tracking-[0.1em] text-muted">▼ Risks ({risks.length})</div>
-              {risks.length > 0 ? (
-                <ul className="mt-1.5 flex flex-wrap gap-1.5">
-                  {risks.map((r) => (
-                    <li key={r.id} className="rounded-[2px] border border-coral/50 bg-paper px-1.5 py-0.5 text-[12px] leading-[1.35]">
-                      {r.text}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1 text-[11.5px] italic text-muted">None yet.</p>
-              )}
-            </div>
-            <div className="rounded-[3px] border-l-4 border-[var(--lime-deep)] bg-lime/15 p-2.5">
-              <div className="text-[9.5px] font-bold uppercase tracking-[0.1em] text-muted">
-                ▲ Opportunities ({opportunities.length})
-              </div>
-              {opportunities.length > 0 ? (
-                <ul className="mt-1.5 flex flex-wrap gap-1.5">
-                  {opportunities.map((o) => (
-                    <li
-                      key={o.id}
-                      className="rounded-[2px] border border-[var(--lime-deep)]/60 bg-paper px-1.5 py-0.5 text-[12px] leading-[1.35]"
-                    >
-                      {o.text}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1 text-[11.5px] italic text-muted">None yet.</p>
-              )}
-            </div>
+          {/* Read-only, and deliberately the same walls as step 2 rather than a summary of
+              them: a hope or a fear is meant to come off what the group already wrote, and
+              it recognises its own cards faster than it reads a list. */}
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <CardWall
+              tone="risk"
+              title="Risks"
+              cards={risks}
+              editable={false}
+              emptyHint="No risks written in step 2."
+            />
+            <CardWall
+              tone="opportunity"
+              title="Opportunities"
+              cards={opportunities}
+              editable={false}
+              emptyHint="No opportunities written in step 2."
+            />
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import { supabaseAdmin, supabaseConfigured, withRetry } from "@/lib/supabase";
 import { getForesightDrivers, getScenario, foresightConfigured } from "@/lib/foresight/client";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import { TEAM_COLORS, type WorkshopSession } from "@/lib/workshop-types";
+import type { CanvasCardPos, Region } from "@/lib/canvas-shape";
 import {
   isCardKind,
   resolveConfig,
@@ -900,4 +901,123 @@ export async function removeChip(input: {
     .eq("player_id", input.playerId)
     .eq("card_id", input.cardId);
   if (error) throw error;
+}
+
+// ---------- Session 3 clustering canvas layout (0028) ----------
+//
+// Deliberately NOT part of RipplesView. Position changes are the highest-frequency write
+// on the board, and useRipplesView refetches the WHOLE board on any change to a table in
+// its subscription list — so these two tables live on their own channel, and the Present
+// views and admin rollups that fetch /ripples never carry a payload they will not draw.
+//
+// `code` is the canvas board's code on both tables. Note that ripple_canvas_cards.item_id
+// is an implication's IDENTITY (coalesce(twin_key, id)), not a row id, and carries no
+// foreign key — see the header of 0028_ripple_canvas_layout.sql for why.
+
+interface CanvasCardRow {
+  item_id: string;
+  x: number;
+  y: number;
+}
+interface CanvasRegionRow {
+  theme_id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  shape: string;
+}
+
+export interface CanvasLayout {
+  cards: CanvasCardPos[];
+  regions: Region[];
+}
+
+export async function getCanvasLayout(code: string): Promise<CanvasLayout> {
+  const [cards, regions] = await Promise.all([
+    withRetry(async () => {
+      const { data, error } = await supabaseAdmin()
+        .from("ripple_canvas_cards")
+        .select("item_id, x, y")
+        .eq("code", up(code));
+      if (error) throw error;
+      return (data ?? []) as CanvasCardRow[];
+    }),
+    withRetry(async () => {
+      const { data, error } = await supabaseAdmin()
+        .from("ripple_canvas_regions")
+        .select("theme_id, x, y, w, h, shape")
+        .eq("code", up(code));
+      if (error) throw error;
+      return (data ?? []) as CanvasRegionRow[];
+    }),
+  ]);
+
+  return {
+    cards: cards.map((r) => ({ itemId: r.item_id, x: r.x, y: r.y })),
+    regions: regions.map((r) => ({
+      themeId: r.theme_id,
+      x: r.x,
+      y: r.y,
+      w: r.w,
+      h: r.h,
+      shape: r.shape === "ellipse" ? "ellipse" : "rect",
+    })),
+  };
+}
+
+// Batched because one gesture can touch many rows: drawing a region writes the region
+// plus a position for every card it claimed, and "Spread out" rewrites the whole visible
+// set in one go. Upserts on the primary keys, so a repeated drag is idempotent.
+//
+// This never changes membership. parent_card_id, twin_key and the delete rules stay with
+// the card routes, so the twin logic lives in exactly one place.
+export async function upsertCanvasLayout(
+  code: string,
+  input: { cards?: CanvasCardPos[]; regions?: Region[] },
+  playerId: string | null
+): Promise<void> {
+  const now = new Date().toISOString();
+  const CODE = up(code);
+
+  if (input.cards?.length) {
+    await withRetry(async () => {
+      const { error } = await supabaseAdmin()
+        .from("ripple_canvas_cards")
+        .upsert(
+          input.cards!.map((c) => ({
+            item_id: c.itemId,
+            code: CODE,
+            x: c.x,
+            y: c.y,
+            updated_at: now,
+            updated_by: playerId,
+          })),
+          { onConflict: "item_id" }
+        );
+      if (error) throw error;
+    });
+  }
+
+  if (input.regions?.length) {
+    await withRetry(async () => {
+      const { error } = await supabaseAdmin()
+        .from("ripple_canvas_regions")
+        .upsert(
+          input.regions!.map((r) => ({
+            theme_id: r.themeId,
+            code: CODE,
+            x: r.x,
+            y: r.y,
+            w: r.w,
+            h: r.h,
+            shape: r.shape,
+            updated_at: now,
+            updated_by: playerId,
+          })),
+          { onConflict: "theme_id" }
+        );
+      if (error) throw error;
+    });
+  }
 }

@@ -3,30 +3,31 @@
 import { useEffect } from "react";
 import { useSessionTabsHidden } from "@/components/design-groups/SessionHeader";
 import { makePrefStore, usePref } from "@/components/workshop/synthesis/prefStore";
+import { useWideRail } from "@/components/workshop/synthesis/boardGutters";
 
 // The right rail: the questions the group is meant to be holding while it works, in the
 // margin where they stay readable instead of scrolling away above the board. Every step
 // of the week has one; what goes in it is the step's business (children).
 //
 // It folds away to a thin strip — once the prompts have been read it is width the board
-// could be using — and the choice is remembered per browser. "wide" when a facilitator's
-// suggestions share the rail, which need reading room. The page yields the width through
-// body data attributes (see globals.css).
+// could be using — and the choice is remembered per browser. Its width is the week's, not
+// the step's (see boardGutters.tsx): wider for a facilitator, whose rail also carries the
+// suggested groupings, and the same on all four steps either way. The page yields the
+// width through body data attributes (see globals.css).
 
 const FOLD = ["open", "closed"] as const;
 const rightRailPref = makePrefStore("synthesis.rightRail", "open", FOLD);
 
 export function PromptRail({
-  wide = false,
   label = "Prompts",
   children,
 }: {
-  wide?: boolean;
   // What the folded strip calls the rail.
   label?: string;
   children: React.ReactNode;
 }) {
   const open = usePref(rightRailPref) === "open";
+  const wide = useWideRail();
   // Stands down while the board is hidden behind an earlier week's tab — see ThemeRail.
   const hidden = useSessionTabsHidden();
   useEffect(() => {

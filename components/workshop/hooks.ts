@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { CardsView, SessionView, Team, TeamStatus } from "@/lib/workshop-types";
 import type { CardKind, CardOrder, RippleCard, RipplesView } from "@/lib/ripples-types";
+import type { CanvasCardPos, Pos, Region } from "@/lib/canvas-shape";
 
 // Tables whose changes should refresh each view (filtered by session code).
 const SESSION_TABLES = ["sessions", "submissions", "responses"] as const;
@@ -815,4 +816,289 @@ export async function patchSession(
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
   return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// The Session 3 clustering canvas (0028)
+// ---------------------------------------------------------------------------
+
+// Its own tables, and deliberately NOT in RIPPLES_TABLES. useLiveView answers any change
+// by refetching the whole /ripples payload (five queries, every row, no limit) behind a
+// 250ms debounce — fine for a card edit, ruinous for a position, which is the highest-
+// frequency write on the board. One drag-end would cost every client in the room a full
+// board refetch.
+const CANVAS_TABLES = ["ripple_canvas_cards", "ripple_canvas_regions"] as const;
+
+// How often to re-read the whole layout as a safety net. Applying realtime payloads
+// directly is a round trip faster than refetching, but it is NOT self-healing the way
+// refetch-on-anything is: a dropped event stays wrong forever. So the layout is re-read
+// on reconnect, on tab focus, and on this heartbeat. ~150 small rows, so it is cheap.
+const CANVAS_HEAL_MS = 60000;
+
+export interface CanvasLayoutApi {
+  positions: Map<string, Pos>;
+  regions: Map<string, Region>;
+  // False until the first fetch lands. The caller must not draw before it is true:
+  // positions fall back to the wheel while `saved` is empty, so painting early shows the
+  // map arrangement and then visibly snaps once the real layout arrives.
+  ready: boolean;
+  loading: boolean;
+  error: string | null;
+  // Pointer-down tier: while a card is held, incoming positions for it are kept out of
+  // the way rather than yanking it from under the finger.
+  hold: (itemId: string, pos: Pos | null) => void;
+  // Write positions and/or regions, optimistically first. Batched because one gesture can
+  // touch many rows (drawing a region, "Spread out").
+  save: (cards: CanvasCardPos[], regions?: Region[]) => Promise<void>;
+  refresh: () => Promise<void>;
+}
+
+export function useCanvasLayout(
+  code: string,
+  participantId: string,
+  enabled: boolean
+): CanvasLayoutApi {
+  const [serverCards, setServerCards] = useState<Map<string, Pos>>(() => new Map());
+  const [serverRegions, setServerRegions] = useState<Map<string, Region>>(() => new Map());
+  // Starts true only if the canvas is already open. There is no loading GATE on the
+  // canvas: resolvePositions gives every card a seat without the server, so an unsettled
+  // fetch shows cards at their fallback positions rather than an empty page.
+  const [loading, setLoading] = useState(enabled);
+  // Set once, on the first layout that arrives, and left set: reopening the canvas still
+  // has the last layout in state, so only the very first open needs holding back.
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Three tiers, read in this order: held > pending > server.
+  const [held, setHeld] = useState<Map<string, Pos>>(() => new Map());
+  const [pending, setPending] = useState<Map<string, { pos: Pos; inflight: number }>>(
+    () => new Map()
+  );
+  const [pendingRegions, setPendingRegions] = useState<Map<string, Region>>(() => new Map());
+  const alive = useRef(true);
+
+  const fetchOnce = useCallback(async () => {
+    if (!enabled) return;
+    try {
+      const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/canvas`, {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Error ${res.status}`);
+      const data = (await res.json()) as { cards: CanvasCardPos[]; regions: Region[] };
+      if (!alive.current) return;
+      setServerCards(new Map(data.cards.map((c) => [c.itemId, { x: c.x, y: c.y }])));
+      setServerRegions(new Map(data.regions.map((r) => [r.themeId, r])));
+      setReady(true);
+      setError(null);
+    } catch (e) {
+      if (alive.current) setError(e instanceof Error ? e.message : "Failed to load the canvas");
+    } finally {
+      if (alive.current) setLoading(false);
+    }
+  }, [code, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    alive.current = true;
+    fetchOnce();
+
+    const sb = supabaseBrowser();
+    let cleanup = () => {};
+
+    if (sb) {
+      // A distinct topic from useLiveView's `live:${code}`. Two channels on one topic over
+      // the same browser client is at best undefined behaviour in supabase-js.
+      const channel = sb.channel(`live:${code}:canvas`);
+      for (const table of CANVAS_TABLES) {
+        channel.on(
+          "postgres_changes",
+          { event: "*", schema: "public", table, filter: `code=eq.${code}` },
+          // Apply the payload rather than refetching. These rows are flat and tiny, so
+          // `new` IS the whole truth — which is what makes a teammate's drag land in one
+          // round trip with no debounce, and lets drag-end-only writes feel live.
+          (payload: {
+            eventType: string;
+            new: Record<string, unknown>;
+            old: Record<string, unknown>;
+          }) => {
+            if (!alive.current) return;
+            const gone = payload.eventType === "DELETE";
+            const row = (gone ? payload.old : payload.new) ?? {};
+            if (table === "ripple_canvas_cards") {
+              const id = row.item_id as string | undefined;
+              if (!id) return;
+              setServerCards((prev) => {
+                const next = new Map(prev);
+                if (gone) next.delete(id);
+                else next.set(id, { x: Number(row.x), y: Number(row.y) });
+                return next;
+              });
+            } else {
+              const id = row.theme_id as string | undefined;
+              if (!id) return;
+              setServerRegions((prev) => {
+                const next = new Map(prev);
+                if (gone) next.delete(id);
+                else
+                  next.set(id, {
+                    themeId: id,
+                    x: Number(row.x),
+                    y: Number(row.y),
+                    w: Number(row.w),
+                    h: Number(row.h),
+                    shape: row.shape === "ellipse" ? "ellipse" : "rect",
+                  });
+                return next;
+              });
+            }
+          }
+        );
+      }
+      channel.subscribe((status) => {
+        // Re-read on every (re)subscribe, so a reconnect cannot leave us holding a layout
+        // that drifted while the socket was down.
+        if (status === "SUBSCRIBED") fetchOnce();
+      });
+      cleanup = () => {
+        sb.removeChannel(channel);
+      };
+    } else {
+      const t = setInterval(() => {
+        if (document.visibilityState !== "hidden") fetchOnce();
+      }, 8000);
+      cleanup = () => clearInterval(t);
+    }
+
+    const heartbeat = setInterval(() => {
+      if (document.visibilityState !== "hidden") fetchOnce();
+    }, CANVAS_HEAL_MS);
+    const onVis = () => {
+      if (document.visibilityState === "visible") fetchOnce();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      alive.current = false;
+      clearInterval(heartbeat);
+      cleanup();
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [code, enabled, fetchOnce]);
+
+  // Reconcile the pending overlay against each fresh server map. `inflight === 0` is the
+  // escape hatch, for the same reason the score overlay needs one: on a shared board a
+  // teammate can write the same card after us, the server settles on THEIR value, ours
+  // never comes back, and a match-only test would pin the card under this viewer's cursor
+  // at a position nobody else can see.
+  const [seenCards, setSeenCards] = useState(serverCards);
+  if (seenCards !== serverCards) {
+    setSeenCards(serverCards);
+    setPending((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, { pos, inflight }] of prev) {
+        const server = serverCards.get(id);
+        if (inflight === 0 || !server || (server.x === pos.x && server.y === pos.y)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }
+
+  const [seenRegions, setSeenRegions] = useState(serverRegions);
+  if (seenRegions !== serverRegions) {
+    setSeenRegions(serverRegions);
+    setPendingRegions((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, r] of prev) {
+        const server = serverRegions.get(id);
+        if (!server || (server.x === r.x && server.y === r.y && server.w === r.w && server.h === r.h)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }
+
+  // Return the server map BY REFERENCE when nothing is pending, so the containment memo
+  // downstream doesn't churn on every unrelated render.
+  const positions = useMemo(() => {
+    if (!held.size && !pending.size) return serverCards;
+    const merged = new Map(serverCards);
+    for (const [id, { pos }] of pending) merged.set(id, pos);
+    for (const [id, pos] of held) merged.set(id, pos);
+    return merged;
+  }, [serverCards, pending, held]);
+
+  const regions = useMemo(() => {
+    if (!pendingRegions.size) return serverRegions;
+    const merged = new Map(serverRegions);
+    for (const [id, r] of pendingRegions) merged.set(id, r);
+    return merged;
+  }, [serverRegions, pendingRegions]);
+
+  const hold = useCallback((itemId: string, pos: Pos | null) => {
+    setHeld((prev) => {
+      const next = new Map(prev);
+      if (pos) next.set(itemId, pos);
+      else next.delete(itemId);
+      return next;
+    });
+  }, []);
+
+  const save = useCallback(
+    async (cards: CanvasCardPos[], regionList?: Region[]) => {
+      if (!cards.length && !regionList?.length) return;
+
+      setPending((prev) => {
+        const next = new Map(prev);
+        for (const c of cards) {
+          const was = next.get(c.itemId);
+          next.set(c.itemId, {
+            pos: { x: c.x, y: c.y },
+            inflight: (was?.inflight ?? 0) + 1,
+          });
+        }
+        return next;
+      });
+      if (regionList?.length) {
+        setPendingRegions((prev) => {
+          const next = new Map(prev);
+          for (const r of regionList) next.set(r.themeId, r);
+          return next;
+        });
+      }
+
+      const settle = () =>
+        setPending((prev) => {
+          const next = new Map(prev);
+          for (const c of cards) {
+            const was = next.get(c.itemId);
+            if (!was) continue;
+            next.set(c.itemId, { ...was, inflight: Math.max(0, was.inflight - 1) });
+          }
+          return next;
+        });
+
+      try {
+        const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/canvas`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ participantId, cards, regions: regionList ?? [] }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+        settle();
+      } catch (e) {
+        settle();
+        throw e;
+      }
+    },
+    [code, participantId]
+  );
+
+  return { positions, regions, ready, loading, error, hold, save, refresh: fetchOnce };
 }
