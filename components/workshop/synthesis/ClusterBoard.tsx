@@ -1450,7 +1450,10 @@ export function ClusterBoard({
     ? [
         "Drag an implication from the tray into this theme, or tick several and use the button above them.",
         "Open another theme from the rail on the left at any time.",
-        "Name it: say what these implications have in common.",
+        // Where, not just what. A group that knew it had to name its themes still could
+        // not find the field: the name IS the heading of the sheet, so it does not look
+        // like something you can type into until you have clicked one once.
+        "To name it, click ＋ Name this theme at the top of the sheet — or the ✎ beside a name already there — and say what these implications have in common.",
       ]
     : view === "canvas"
       ? [
@@ -1700,7 +1703,7 @@ export function ClusterBoard({
               ? "Click the lit theme again to go back to the board."
               : board.themes.length === 0
                 ? "No themes yet. Drag an implication onto the slot below, or click it, to start one."
-                : "Click a theme to open it. Drag cards in, or tick and click. Drag a theme itself to reorder."
+                : "Click a theme to open it and name it. Drag cards in, or tick and click. Drag a theme itself to reorder."
         }
         // The squares are drop targets here, and a click with cards ticked adds them.
         squareProps={(t) => zoneProps(`theme:${t.id}`)}
@@ -1753,6 +1756,17 @@ export function ClusterBoard({
         }}
         footer={
           <>
+            {/* Under the squares, where "STILL UNNAMED" is being said in red, and only
+                while it is true: the squares make the complaint, and nothing on the rail
+                said what to do about it. Goes away on its own once every theme is named,
+                so a group that has got the hang of it stops being told. */}
+            {board.themes.some(isUnnamedTheme) && (
+              <p className="text-[11px] italic leading-[1.35] text-muted">
+                To name a theme, open it and click &ldquo;＋ Name this theme&rdquo; at the
+                top of the sheet.
+              </p>
+            )}
+
             {/* ONE empty slot, always, never a pre-created theme. A real blank theme would
                 exist on the board from the moment anyone opened it: a "nothing yet" chip on
                 later steps, one to delete if the group changes its mind, and a race to make
