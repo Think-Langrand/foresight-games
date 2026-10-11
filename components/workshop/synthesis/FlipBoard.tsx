@@ -11,6 +11,8 @@ import {
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
 import { PromptRail, Prompts } from "@/components/workshop/synthesis/PromptRail";
+import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
+import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 import { HopeFearGallery } from "@/components/workshop/synthesis/HopeFearGallery";
 import { HopeFearPair } from "@/components/workshop/synthesis/HopeFearPair";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -22,6 +24,19 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 //
 // Fears into hopes only. The point of the exercise is to find the hope inside a fear;
 // the other direction would be a different exercise.
+
+// Its own fold key, like every step's: this step's directions are not step 3's.
+const flipDirections = makePrefStore("synthesis.directions.flip", "open", DIRECTIONS_FOLD);
+
+// What the questions above them do not say: how this surface works. They do not repeat the
+// prompts — a rail that says the same thing twice is a rail nobody reads twice.
+const FLIP_DIRECTIONS = [
+  "Pick a fear from the gallery below. It opens beside its other side, a face-down hope.",
+  "Writing that hope is the step: finish the sentence on the face-down card and add it.",
+  "Both halves stay live once written, so either one can be edited or deleted afterwards.",
+  "A flipped hope joins step 3's hopes wall too, marked with the fear it came from.",
+  "The count beside the heading says how many of the board's fears have been flipped.",
+] as const;
 
 export function FlipBoard({
   board,
@@ -56,22 +71,30 @@ export function FlipBoard({
 
   const prompts = (
     <PromptRail>
-      <Prompts
-        heading="Flip the fears"
-        lead="Same facts, said as a hope."
-        questions={[
-          { question: "What was the fear protecting?", hint: "That value is the hope's because." },
-          {
-            question: "Was our way of working the only way to get it?",
-            hint: "Staffing it ourselves was one way, not the only way.",
-          },
-          { question: "A flip is a hope, not a plan.", hint: "Say what people would experience, not the fix." },
-          {
-            question: "Keep both on the board.",
-            hint: "The fear and the hope are two honest readings of the same facts. The tension is the finding.",
-          },
-        ]}
-      />
+      {/* The questions on step 1's lime, directions folded under them — the same two bands
+          in the same order as every other step. */}
+      <section
+        className="-mx-3 -mt-4 border-b border-ink px-3 pb-5 pt-4"
+        style={{ background: "color-mix(in srgb, var(--lime) 26%, var(--card))" }}
+      >
+        <Prompts
+          heading="Flip the fears"
+          lead="Same facts, said as a hope."
+          questions={[
+            { question: "What was the fear protecting?", hint: "That value is the hope's because." },
+            {
+              question: "Was our way of working the only way to get it?",
+              hint: "Staffing it ourselves was one way, not the only way.",
+            },
+            { question: "A flip is a hope, not a plan.", hint: "Say what people would experience, not the fix." },
+            {
+              question: "Keep both on the board.",
+              hint: "The fear and the hope are two honest readings of the same facts. The tension is the finding.",
+            },
+          ]}
+        />
+      </section>
+      <Directions title="Flipping a fear" lines={FLIP_DIRECTIONS} fold={flipDirections} />
     </PromptRail>
   );
 

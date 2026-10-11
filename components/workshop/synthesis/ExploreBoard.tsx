@@ -24,10 +24,9 @@ import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
 // STEP 2 — theme exploration. One theme at a time, picked on the rail like every theme
-// step; the sheet is the theme's head, the four questions ("how does this future work?")
-// straight under it, then two walls side by side: the risks this theme carries and the
-// opportunities it opens. The questions are asked first because the walls are answered in
-// their light — who bears the cost is where the risks come from.
+// step; the sheet is the theme's head, then two walls side by side — the risks this theme
+// carries and the opportunities it opens — then the implications it was built from, read
+// underneath so the walls are answered against them rather than from memory.
 
 // Which step-2 wall a card is on. `tension` is the third stake kind, from an older board;
 // this step offers the two.
@@ -102,12 +101,12 @@ export function ExploreBoard({
   );
   const prompts = (
     <PromptRail>
-      <Directions first title="Working on a theme" lines={EXPLORE_DIRECTIONS} fold={exploreDirections} />
-      {/* The questions on step 1's lime, because they are the same KIND of thing there:
-          what the group is holding in mind while it works, as opposed to how to work the
-          surface above them. */}
+      {/* Every step's rail is ordered the same way, and the order is the point: what the
+          group is meant to be HOLDING at the top, on step 1's lime, and how to work the
+          surface under it. The questions are read the whole time; the directions are the
+          part you stop needing once you know the tool, so they fold and they sit below. */}
       <section
-        className="-mx-3 px-3 pb-5 pt-4"
+        className="-mx-3 -mt-4 border-b border-ink px-3 pb-5 pt-4"
         style={{ background: "color-mix(in srgb, var(--lime) 26%, var(--card))" }}
       >
         <Prompts
@@ -119,6 +118,7 @@ export function ExploreBoard({
           ]}
         />
       </section>
+      <Directions title="Working on a theme" lines={EXPLORE_DIRECTIONS} fold={exploreDirections} />
     </PromptRail>
   );
 
