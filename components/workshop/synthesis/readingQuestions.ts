@@ -3,10 +3,14 @@ import type { QuestionField } from "@/components/workshop/synthesis/QuestionGrid
 
 // The four questions a theme used to be asked — "how does this future work?".
 //
-// Step 2 no longer asks them: it is about a theme's risks and opportunities, read against
-// the implications it was built from. But boards already hold their answers, and step 3's
-// theme deck still reads them out, so the question text has to live somewhere. Here,
-// rather than in a component nothing mounts any more.
+// Nothing on the board asks or shows them any more: step 2 stopped asking, and step 3's
+// theme deck now reads out the theme's risks and opportunities instead. Answers already
+// written are kept, and still reach the CSV, the admin panel and the facilitator summary
+// through ANSWER_LABELS.
+//
+// This file and QuestionGrid are held together, unmounted, so that putting the questions
+// back — read-only, or facilitator-only — is an import rather than a rewrite. If that is
+// not wanted, both go.
 //
 // NOTE there is a second copy of these strings in ANSWER_LABELS (lib/synthesis-shape.ts),
 // which the CSV export, the admin panel and the facilitator summary read. Reword a

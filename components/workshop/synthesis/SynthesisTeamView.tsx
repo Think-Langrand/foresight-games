@@ -949,6 +949,7 @@ export function SynthesisTeamView({
           editable={editable}
           busy={busy}
           themeId={themeId}
+          scenarioTitle={config.scenarioTitle}
           onPickTheme={setThemeId}
           onAddStake={addChildCard}
           onEdit={editCard}
@@ -963,6 +964,7 @@ export function SynthesisTeamView({
           editable={editable}
           busy={busy}
           admin={admin}
+          scenarioTitle={config.scenarioTitle}
           summary={config.summary}
           summaryHash={liveSummaryHash}
           summarizing={summarizing}
@@ -986,6 +988,7 @@ export function SynthesisTeamView({
             onEdit={editCard}
             onDelete={removeCard}
             onGoToHopes={() => setStep("hopes")}
+            scenarioTitle={config.scenarioTitle}
           />
           {/* Any custom sections an admin adds to this week ride the last step. */}
           {sections.length > 0 && (

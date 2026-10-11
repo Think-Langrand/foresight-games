@@ -54,6 +54,7 @@ export function ExploreBoard({
   editable,
   busy,
   themeId,
+  scenarioTitle,
   onPickTheme,
   onAddStake,
   onEdit,
@@ -65,6 +66,9 @@ export function ExploreBoard({
   editable: boolean;
   busy: boolean;
   themeId: string | null;
+  // The world the group is working in, as the rail's eyebrow — the step says what to do,
+  // and nothing else on the screen says what future it is being done in.
+  scenarioTitle?: string;
   onPickTheme: (id: string | null) => void;
   // A card on one of the two walls.
   onAddStake: (theme: RippleCard, kind: WallKind, text: string) => AddResult;
@@ -93,9 +97,12 @@ export function ExploreBoard({
       hint="Click a theme to work on it."
       // The step, said once and large; the band ends in a rule the sheet's rule continues.
       top={
-        <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
-          2. Reflect on each theme: what it risks, and what it opens up
-        </p>
+        <>
+          {scenarioTitle && <p className="eyebrow mb-1 truncate">{scenarioTitle}</p>}
+          <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
+            2. Reflect on each theme: what it risks, and what it opens up
+          </p>
+        </>
       }
     />
   );

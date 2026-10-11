@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useBoardGutters } from "@/components/workshop/synthesis/boardGutters";
+import { LeftRail } from "@/components/workshop/synthesis/LeftRail";
 import type { RippleCard } from "@/lib/ripples-types";
 import { isUnnamedTheme, type SynthesisBoard, type ThemeProgress } from "@/lib/synthesis-shape";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
@@ -83,36 +83,19 @@ export function ThemeRail({
   footer?: React.ReactNode;
   // Above the squares: the rail's top band, at least as tall as everything above the
   // board's toolbar (see useRailBand), ending in a rule the board's own rule continues.
-  // The theme steps put the step's instruction here, set large. Undefined = no band, the
-  // squares start at the top.
+  // The step's instruction goes here, set large (see LeftRail). Undefined = no band, and
+  // the squares start at the top.
   top?: React.ReactNode;
 }) {
   // The square under the pointer, and where to draw its full contents. Fixed to the
   // viewport rather than inside the rail, which scrolls and would clip it.
   const [hover, setHover] = useState<{ id: string; top: number } | null>(null);
 
-  // This rail is what holds the left gutter on the steps that have one.
-  useBoardGutters();
-
   const hovered = hover ? (board.themes.find((t) => t.id === hover.id) ?? null) : null;
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15rem] flex-col border-r border-ink bg-board px-3 py-4 lg:flex">
-        {top !== undefined && (
-          // The band's top edge is the viewport's (the aside's padding is pulled back
-          // over), and it is at least as tall as the board's header stack, so the rule it
-          // ends in lines up with the board's own — one line across the rail and the
-          // column, with the section labels under it on both sides. Pinned: the squares
-          // scroll beneath it.
-          <div
-            className="-mx-3 -mt-4 flex shrink-0 flex-col justify-end border-b border-ink px-3 pb-3 pt-4"
-            style={{ minHeight: "var(--rail-band, 0px)" }}
-          >
-            {top}
-          </div>
-        )}
-        <div className={"min-h-0 flex-1 overflow-y-auto " + (top !== undefined ? "pt-[13px]" : "")}>
+      <LeftRail top={top}>
         <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Themes</h2>
         <p className="mt-1 text-[11px] italic leading-[1.35] text-muted">{hint}</p>
         {badge && <div className="mt-1.5">{badge}</div>}
@@ -225,8 +208,7 @@ export function ThemeRail({
           })}
           {footer}
         </div>
-        </div>
-      </aside>
+      </LeftRail>
 
       {/* The hovered square, in full. Read-only and ignores the pointer, so it never gets
           between the cursor and the square that opened it, or a card being dragged. Never

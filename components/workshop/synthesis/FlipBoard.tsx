@@ -11,7 +11,8 @@ import {
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
 import { PromptRail, Prompts } from "@/components/workshop/synthesis/PromptRail";
-import { useBoardGutters } from "@/components/workshop/synthesis/boardGutters";
+import { LeftRail } from "@/components/workshop/synthesis/LeftRail";
+import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 import { HopeFearGallery } from "@/components/workshop/synthesis/HopeFearGallery";
@@ -49,6 +50,7 @@ export function FlipBoard({
   onEdit,
   onDelete,
   onGoToHopes,
+  scenarioTitle,
 }: {
   board: SynthesisBoard;
   editable: boolean;
@@ -60,12 +62,14 @@ export function FlipBoard({
   onEdit: (card: RippleCard, text: string) => void;
   onDelete: (card: RippleCard) => void;
   onGoToHopes: () => void;
+  // The world the group is working in, as the rail's eyebrow.
+  scenarioTitle?: string;
 }) {
-  // The only step with no theme rail, and it holds the left gutter all the same. Without
-  // it the page stops yielding on the left and the whole board shifts and narrows on the
-  // way in — a strip of empty ground is the cheaper of the two.
-  useBoardGutters();
   const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
+  // The board, so the rail's band is as tall as the header beside it — see useRailBand.
+  // Set from whichever branch renders, since only one of them is ever mounted.
+  const [boardEl, setBoardEl] = useState<HTMLElement | null>(null);
+  useRailBand(boardEl);
   const doomed = pendingDelete ? descendantsOf(board, pendingDelete.id) : [];
 
   const fears = useMemo(() => boardChainCards(board).filter((e) => e.card.cardKind === "fear"), [board]);
@@ -73,6 +77,23 @@ export function FlipBoard({
   const isFlipped = (fear: RippleCard) => (board.chains.get(fear.id) ?? []).some((c) => c.cardKind === "hope");
   // Derived, never synced: a deleted card falls back to the first rather than to nothing.
   const focused = fears.find((e) => e.card.id === focusId)?.card ?? fears[0]?.card ?? null;
+
+  // Step 4 has no themes to pick, and a rail all the same: the band says which step this
+  // is and which world it is in, as it does on the other three, and the rail is what holds
+  // the page's left gutter so the board does not move as you step into it. What goes under
+  // the band is still open — something carried over from step 3, most likely.
+  const rail = (
+    <LeftRail
+      top={
+        <>
+          {scenarioTitle && <p className="eyebrow mb-1 truncate">{scenarioTitle}</p>}
+          <p className="text-[19px] font-extrabold leading-[1.15] tracking-tight">
+            4. Turn each fear into the hope inside it
+          </p>
+        </>
+      }
+    />
+  );
 
   const prompts = (
     <PromptRail>
@@ -106,8 +127,9 @@ export function FlipBoard({
   if (fears.length === 0) {
     return (
       <>
+        {rail}
         {prompts}
-        <div className="rounded-[3px] border border-[var(--hairline)] bg-card p-6 text-center">
+        <div ref={setBoardEl} className="rounded-[3px] border border-[var(--hairline)] bg-card p-6 text-center">
           <p className="text-[14px] font-bold">No fears yet.</p>
           <p className="mx-auto mt-1 max-w-[50ch] text-[13px] text-muted">
             This step flips the fears the group wrote in the last one.
@@ -125,9 +147,10 @@ export function FlipBoard({
 
   return (
     <>
+      {rail}
       {prompts}
 
-      <section className="flex flex-col gap-5">
+      <section ref={setBoardEl} className="flex flex-col gap-5">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-[20px] font-extrabold uppercase leading-[1.1] tracking-tight">Flip the fears</h2>
           <span

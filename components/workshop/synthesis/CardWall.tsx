@@ -22,6 +22,10 @@ import {
 //
 // The wall never deletes: it asks (onRequestDelete) and the step confirms, because on
 // the fears wall a card can take the hope flipped from it along.
+//
+// With `editable` false and no handlers it is a read-only wall — the same cards, the same
+// colours, nothing to press. Step 3's theme deck reads a theme's risks and opportunities
+// that way, so the group meets the cards it made in the shape it made them.
 
 export type WallTone = "risk" | "opportunity" | "hope" | "fear";
 
@@ -64,8 +68,8 @@ export function CardWall({
   title,
   cards,
   editable,
-  busy,
-  addLabel,
+  busy = false,
+  addLabel = "",
   onAdd,
   onEdit,
   onRequestDelete,
@@ -79,15 +83,16 @@ export function CardWall({
   title: string;
   cards: RippleCard[];
   editable: boolean;
-  busy: boolean;
+  // Everything below is the writing half, and a read-only wall passes none of it.
+  busy?: boolean;
   // The composer's placeholder — the sentence to finish ("We hope … because …").
-  addLabel: string;
+  addLabel?: string;
   // The question the slot asks, shown on the add slot and above the open composer, so the
   // placeholder can be the sentence-starter rather than carry the whole prompt.
   slotQuestion?: string;
-  onAdd: (text: string) => AddResult;
-  onEdit: (card: RippleCard, text: string) => void;
-  onRequestDelete: (card: RippleCard) => void;
+  onAdd?: (text: string) => AddResult;
+  onEdit?: (card: RippleCard, text: string) => void;
+  onRequestDelete?: (card: RippleCard) => void;
   // A small line under a card's text, e.g. "↩ flipped from a fear". Null for none.
   badgeFor?: (card: RippleCard) => string | null;
   emptyHint?: string;
@@ -109,7 +114,9 @@ export function CardWall({
         t.edge +
         " " +
         t.well +
-        (tall ? " min-h-[24rem]" : " min-h-[12rem]")
+        // Room to fill, for a wall you can write on. A read-only one is as tall as what
+        // is in it — an empty one is a line saying so, not 12rem of coloured nothing.
+        (tall ? " min-h-[24rem]" : editable ? " min-h-[12rem]" : "")
       }
     >
       <div className="flex flex-wrap items-baseline gap-2 px-4 pt-3">
@@ -126,6 +133,7 @@ export function CardWall({
 
       <div className="flex flex-wrap content-start gap-2 p-4">
         {editable &&
+          onAdd &&
           (adding ? (
             <div className={"flex w-56 flex-col rounded-[4px] border-2 border-ink bg-paper p-2.5"}>
               {slotQuestion && (
@@ -176,7 +184,7 @@ export function CardWall({
                 <span aria-hidden className="text-[13px] leading-none opacity-35">
                   {t.mark}
                 </span>
-                {editable && (
+                {editable && onRequestDelete && (
                   <CardMenu>
                     {(close) => (
                       <CardMenuItem
@@ -193,7 +201,7 @@ export function CardWall({
                 )}
               </div>
               <div className="text-[13px] font-bold leading-[1.35]">
-                <InlineText text={card.text} editable={editable} busy={busy} onSave={(next) => onEdit(card, next)} />
+                <InlineText text={card.text} editable={editable} busy={busy} onSave={(next) => onEdit?.(card, next)} />
               </div>
               {badge && (
                 <span className="mt-auto truncate text-[9.5px] uppercase tracking-[0.05em] text-muted">{badge}</span>
