@@ -666,20 +666,37 @@ export function CanvasBoard({
                     {/* The label strip doubles as the grip. Everything inside the scaled
                         surface scales with it, and Fit can be 0.3 on a big board, so the
                         grip and the handles are sized in INVERSE scale to stay a constant
-                        size on screen — otherwise they are 4px and unusable in the room. */}
+                        size on screen — otherwise they are 4px and unusable in the room.
+
+                        Sized for a room, not a desk: the theme's name is the one piece of
+                        text on this board that people read from across a table, and at
+                        10px it was the smallest thing on screen. Taller with it, which the
+                        grip wants anyway — the strip IS the handle the box moves by. */}
                     <span
                       onPointerDown={grippable ? startMove(r) : undefined}
                       onPointerMove={grippable ? moveBox : undefined}
                       onPointerUp={grippable ? endMove : undefined}
                       onPointerCancel={grippable ? abandonBox : undefined}
                       onLostPointerCapture={grippable ? abandonBox : undefined}
+                      title={themeLabel(r.themeId)}
                       className="absolute bg-paper font-bold uppercase tracking-[0.05em] text-muted"
                       style={{
-                        top: -9 / scale,
+                        // Centred on the box's own border: half the strip's height
+                        // (fontSize × lineHeight) above it.
+                        top: -11 / scale,
                         left: 8 / scale,
-                        paddingInline: 4 / scale,
-                        fontSize: 10 / scale,
+                        paddingInline: 6 / scale,
+                        fontSize: 14 / scale,
                         lineHeight: 1.6,
+                        // One line, always. The strip is sized to its own text inside a
+                        // box that can be 140 wide, so a name that does not fit used to
+                        // wrap DOWN into the box and sit on the implications. It runs past
+                        // the box's right edge instead, into the gap every box keeps, and
+                        // a name too long even for that is clipped (the title has it all).
+                        whiteSpace: "nowrap",
+                        maxWidth: Math.max(shown.w, 260 / scale),
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                         pointerEvents: grippable ? "auto" : "none",
                         touchAction: "none",
                         cursor: grippable ? (live ? "grabbing" : "grab") : "default",
