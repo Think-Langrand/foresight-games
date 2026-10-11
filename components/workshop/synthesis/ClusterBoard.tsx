@@ -1950,26 +1950,19 @@ export function ClusterBoard({
           {focus ? "Theme" : "Implication filters:"}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          {focus && (
-            // The way out, said in words and first on the row. The view buttons on the
-            // right also leave a theme, but they say where they are going rather than
-            // that you are leaving, and a group that opened a theme to work in it went
-            // looking for the board again.
-            <button
-              onClick={() => onPickTheme(null)}
-              className="shrink-0 text-[10.5px] font-bold uppercase leading-none tracking-[0.05em] text-muted hover:text-ink hover:underline"
-            >
-              ← Back to clustering
-            </button>
-          )}
           {focus ? (
-            // Not a button. Clicking where you already are should not be one of the
-            // options.
-            <span className="flex min-w-0 max-w-[26rem] items-center gap-1.5 rounded-[2px] border-2 border-ink bg-lime px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] shadow-[2px_2px_0_rgba(36,36,34,0.2)]">
-              <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] text-paper">
+            // The theme you are in, as a title rather than a chip. It was a lime button
+            // shape, which made the one thing on this row you CANNOT click look like the
+            // things you can — and it sat at the size of a filter chip while being the
+            // subject of the whole screen.
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 rounded-[2px] bg-ink px-1.5 py-0.5 text-[11px] font-bold leading-none text-paper">
                 {board.themes.findIndex((t) => t.id === focus.id) + 1}
               </span>
-              <span className="truncate" title={focus.text}>
+              <span
+                className="truncate text-[19px] font-extrabold uppercase leading-[1.15] tracking-tight"
+                title={focus.text}
+              >
                 {focus.text}
               </span>
             </span>
@@ -1991,6 +1984,34 @@ export function ClusterBoard({
           )}
 
           <span className="ml-auto flex flex-wrap items-center gap-2">
+            {/* The way out, where the view buttons are when you are clustering: this row's
+                right end is where "what am I looking at" lives, and from inside a theme
+                the answer is one button. Blue and arrowed so it reads as leaving rather
+                than as a third surface to switch to. */}
+            {focus && (
+              <button
+                onClick={() => onPickTheme(null)}
+                title="Back to clustering"
+                className="flex items-center gap-1.5 rounded-[2px] border border-ink bg-blue px-2 py-1 text-[10.5px] font-bold uppercase leading-none tracking-[0.05em] text-paper transition-colors hover:bg-ink"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  aria-hidden
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11.5 7H3" />
+                  <path d="M6.5 3.5L3 7l3.5 3.5" />
+                </svg>
+                Back to clustering
+              </button>
+            )}
+
             {/* Only while clustering. Inside a theme there is one thing to want — out —
                 and the back link on the left is it; a pair of view buttons there offered
                 two ways to leave and named neither of them "leave".
