@@ -26,7 +26,11 @@ export const dynamic = "force-dynamic";
 const LIMIT = 20000;
 
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
-const clamp = (n: number) => Math.max(-LIMIT, Math.min(LIMIT, n));
+// Never below zero: the surface has no negative space and the scroller cannot scroll past
+// its origin, so a coordinate up there would put a card or a whole theme where no one on
+// the board could ever reach it again. Every gesture already clamps there; this is the
+// same rule for a payload that did not come from one.
+const clamp = (n: number) => Math.max(0, Math.min(LIMIT, n));
 
 export async function GET(_req: Request, { params }: { params: Promise<{ code: string }> }) {
   if (!supabaseConfigured()) {

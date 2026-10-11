@@ -148,6 +148,29 @@ export function SynthesisTeamView({
   // should not hold 76 channels for a view nobody has opened.
   const [canvasOpen, setCanvasOpen] = useState(false);
   const canvasLayout = useCanvasLayout(code, pid, canvasOpen);
+  // Implications whose canvas membership write is in flight, counted so overlapping
+  // gestures on one card do not release it early. The canvas trusts their saved position
+  // until the write lands, so a card dropped into a box stays there for the round trip.
+  const [settling, setSettling] = useState<Map<string, number>>(() => new Map());
+  const settlingKeys = useMemo(() => new Set(settling.keys()), [settling]);
+  const whileSettling = async (keys: string[], fn: () => Promise<void>) => {
+    const bump = (by: number) =>
+      setSettling((prev) => {
+        const next = new Map(prev);
+        for (const k of keys) {
+          const n = (next.get(k) ?? 0) + by;
+          if (n > 0) next.set(k, n);
+          else next.delete(k);
+        }
+        return next;
+      });
+    bump(1);
+    try {
+      await fn();
+    } finally {
+      bump(-1);
+    }
+  };
 
   // The facilitator's summary call (step 3). Owned here, not by the step: it takes about
   // half a minute, and the step unmounts if the facilitator looks at another one meanwhile.
@@ -507,7 +530,7 @@ export function SynthesisTeamView({
 
   const adoptLoose = (adopt: string[], themeId: string) => {
     if (adopt.length === 0) return;
-    run(async () => {
+    run(() => whileSettling(adopt, async () => {
       for (const key of adopt) {
         await applyMembership(
           planMembership({
@@ -519,7 +542,7 @@ export function SynthesisTeamView({
           })
         );
       }
-    });
+    }));
   };
 
   const canvasDropCard = (key: string, pos: Pos, themeIds: string[]) => {
@@ -533,7 +556,7 @@ export function SynthesisTeamView({
       childCount: (id) => childrenOf(board, id).length,
     });
     if (steps.length === 0) return;
-    run(() => applyMembership(steps));
+    run(() => whileSettling([key], () => applyMembership(steps)));
   };
 
   // A box moved, with everything inside it. Geometry first and unawaited, as the drop
@@ -574,18 +597,25 @@ export function SynthesisTeamView({
       // Box and positions first, so the theme is never on the board without a box — an
       // unboxed theme is invisible on the very canvas that just drew it. Writing the
       // claimed cards' current positions is what keeps them where the box was drawn,
-      // rather than letting them snap to packed seats once they have a region.
-      await canvasLayout.save(claimed, [
-        { themeId: created.id, x: rect.x, y: rect.y, w: rect.w, h: rect.h, shape: "rect" },
-      ]);
+      // rather than letting them snap to packed seats once they have a region. Settling
+      // from here on: the moment the box is drawn the claimed cards sit inside a theme
+      // they are not in yet.
+      await whileSettling(
+        claimed.map((c) => c.itemId),
+        async () => {
+          await canvasLayout.save(claimed, [
+            { themeId: created.id, x: rect.x, y: rect.y, w: rect.w, h: rect.h, shape: "rect" },
+          ]);
 
-      const predicted = orderAtDepth(1);
-      const clustered = clusteredIds();
-      for (const c of claimed) {
-        // `itemId` is an implicationKey, so find the row that represents it.
-        const card = cards.find((k) => k.cardKind === null && implicationKey(k) === c.itemId);
-        if (card) await placeInTheme(card, created.id, predicted, clustered);
-      }
+          const predicted = orderAtDepth(1);
+          const clustered = clusteredIds();
+          for (const c of claimed) {
+            // `itemId` is an implicationKey, so find the row that represents it.
+            const card = cards.find((k) => k.cardKind === null && implicationKey(k) === c.itemId);
+            if (card) await placeInTheme(card, created.id, predicted, clustered);
+          }
+        }
+      );
     });
 
   // A card of a kind under another card: a theme's answer or wall card (step 2), or the
@@ -938,6 +968,7 @@ export function SynthesisTeamView({
             },
             onMoveRegion: canvasMoveRegion,
             onResizeRegion: canvasResizeRegion,
+            settling: settlingKeys,
           }}
         />
       )}

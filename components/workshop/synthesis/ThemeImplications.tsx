@@ -82,6 +82,7 @@ export function ThemeImplications({
               const info = twins.get(implicationKey(c));
               const inThemes = info?.themeIds.length ?? 1;
               const alsoIn = (info?.themeIds ?? [])
+                .filter((id) => id !== c.parentId)
                 .map((id) => themes.find((t) => t.id === id)?.text)
                 .filter((t): t is string => Boolean(t));
               const hasMore = Boolean(from) || inThemes > 1;

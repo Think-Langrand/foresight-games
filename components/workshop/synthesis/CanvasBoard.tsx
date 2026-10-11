@@ -534,6 +534,13 @@ export function CanvasBoard({
     setMode({ kind: "idle" });
   };
 
+  // A cancel is never a commit. On a touch screen the browser fires pointercancel when it
+  // takes a drag over for native scrolling, so treating it as a release would mint a theme
+  // out of an attempt to pan.
+  const abandonBackground = () => {
+    if (mode.kind === "marquee" || mode.kind === "pan") setMode({ kind: "idle" });
+  };
+
   const marquee = mode.kind === "marquee" ? rectOf(mode.from, mode.to) : null;
   const travelling = mode.kind === "movebox" ? new Set(mode.travellers) : null;
   const travelDelta =
@@ -585,7 +592,7 @@ export function CanvasBoard({
             onPointerDown={startBackground}
             onPointerMove={moveBackground}
             onPointerUp={endBackground}
-            onPointerCancel={endBackground}
+            onPointerCancel={abandonBackground}
             className="relative"
             style={{
               width,

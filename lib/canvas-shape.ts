@@ -272,6 +272,8 @@ export interface FallbackItem {
   key: string;
   // The theme it is clustered in, in board order; null while it is in the tray.
   themeId: string | null;
+  // Every theme it is in, twins included. Defaults to [themeId] when omitted.
+  themeIds?: string[];
   // Where a LOOSE card goes when it has no saved position: its seat in its key change's
   // gathered clump, from gather(). The caller works that out, which is what keeps this
   // module pure and ignorant of Week 2 lineage.
@@ -285,13 +287,39 @@ export interface ResolveArgs {
   saved: Map<string, Pos>;
   // Top-left of the strip, below everything the gather laid down.
   strip: Pos;
+  // Keys whose saved position is taken as-is even where it disagrees with membership: a
+  // card under a finger, or one whose membership write is still on its way. Without this
+  // a card dropped into a box would jump out of it for the length of the round trip.
+  trusted?: Set<string>;
+}
+
+// Does a saved position still tell the truth about membership?
+//
+// Containment IS membership on this canvas, but membership can change without the canvas
+// knowing: a teammate's "Move out of theme" from the theme sheet, a merge, a membership
+// write that was refused after the drop was saved. A saved point that now sits inside a
+// theme the card is not in, or outside every box of the themes it is in, is stale, and
+// letting it win would draw the card in the wrong theme for good. Boxes never overlap, so
+// a point is in at most one region; a twin agrees if that region is any of its themes.
+function agrees(pt: Pos, themeIds: string[], regions: Map<string, Region>): boolean {
+  let inside: string | null = null;
+  for (const r of regions.values()) {
+    if (containsPoint(r, pt)) {
+      inside = r.themeId;
+      break;
+    }
+  }
+  if (inside !== null) return themeIds.includes(inside);
+  // Outside every box: right for a loose card, and for a themed one only while none of
+  // its themes has a box to be drawn in.
+  return themeIds.every((id) => !regions.has(id));
 }
 
 // Where does every implication sit when the canvas opens?
 //
 // Nothing here writes: positions are computed, identically, on every client. The ladder:
 //
-//   1. a saved position wins outright;
+//   1. a saved position wins, so long as it agrees with membership (see agrees);
 //   2. clustered under a theme that has a region -> a packed seat INSIDE that region;
 //   3. otherwise, its seat in the gather -> a board opens already gathered by key change;
 //   4. no seat at all -> the strip.
@@ -306,14 +334,15 @@ export interface ResolveArgs {
 // gather() the Gather button writes down — if the two ever drifted, isPile would disagree
 // with itself and captions would float over piles that are not there.
 export function resolvePositions(args: ResolveArgs): Map<string, Pos> {
-  const { items, regions, saved, strip } = args;
+  const { items, regions, saved, strip, trusted } = args;
   const out = new Map<string, Pos>();
   const seated = new Map<string, number>();
   let stripped = 0;
 
   for (const item of items) {
     const savedPos = saved.get(item.key);
-    if (savedPos) {
+    const themeIds = item.themeIds ?? (item.themeId ? [item.themeId] : []);
+    if (savedPos && (trusted?.has(item.key) || agrees(savedPos, themeIds, regions))) {
       out.set(item.key, savedPos);
       continue;
     }
