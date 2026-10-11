@@ -1936,6 +1936,18 @@ export function ClusterBoard({
           {focus ? "Theme" : "Implication filters:"}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
+          {focus && (
+            // The way out, said in words and first on the row. The view buttons on the
+            // right also leave a theme, but they say where they are going rather than
+            // that you are leaving, and a group that opened a theme to work in it went
+            // looking for the board again.
+            <button
+              onClick={() => onPickTheme(null)}
+              className="shrink-0 text-[10.5px] font-bold uppercase leading-none tracking-[0.05em] text-muted hover:text-ink hover:underline"
+            >
+              ← Back to clustering
+            </button>
+          )}
           {focus ? (
             // Not a button. Clicking where you already are should not be one of the
             // options.
@@ -1965,27 +1977,33 @@ export function ClusterBoard({
           )}
 
           <span className="ml-auto flex flex-wrap items-center gap-2">
-            {(week2Cards.length > 0 || focus) && (
+            {/* Only while clustering. Inside a theme there is one thing to want — out —
+                and the back link on the left is it; a pair of view buttons there offered
+                two ways to leave and named neither of them "leave".
+
+                The canvas first: it is where the clustering is done, and the map is what
+                you go to to read where something came from. "Cards" is no longer offered
+                — the canvas does everything the plain tray did and more — though the
+                view survives as the fallback for a board with no canvas layout. */}
+            {!focus && (Boolean(canvas) || week2Cards.length > 0) && (
               <span role="group" aria-label="Working in" className="flex items-center gap-1">
-                {(["map", "canvas", "cards"] as const).map((v) => {
+                {(["canvas", "map"] as const).map((v) => {
                   if (v === "map" && week2Cards.length === 0) return null;
                   if (v === "canvas" && !canvas) return null;
-                  const on = !focus && view === v;
-                  const label = v === "cards" ? "Cards" : v === "canvas" ? "Canvas" : "Map";
+                  const on = view === v;
+                  const label = v === "canvas" ? "Canvas" : "Map";
                   return (
                     <button
                       key={v}
                       onClick={() => {
                         setView(v);
-                        if (v === "cards") setFocusNode(null);
                         onPickTheme(null); // leaving a theme, if one is open
                       }}
                       aria-pressed={on}
                       title={label}
-                      // Named, not just drawn. From inside a theme these two are the way
-                      // back out to the map, and an unlabelled icon pair does not say that
-                      // — nobody found the map again. The row wraps, so the words cost
-                      // nothing that matters.
+                      // Named, not just drawn: an unlabelled icon pair had nobody finding
+                      // the map again. The row wraps, so the words cost nothing that
+                      // matters.
                       className={
                         "flex items-center gap-1.5 rounded-[2px] border px-2 py-1 text-[10.5px] font-bold uppercase leading-none tracking-[0.05em] transition-colors " +
                         (on ? "border-ink bg-ink text-paper" : "border-ink bg-paper text-ink hover:bg-lime")
