@@ -50,6 +50,7 @@ import type { WorksheetSection } from "@/lib/exercise-types";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
 import { requestSummary } from "@/lib/analysis/implication-cluster-client";
 import { summaryInputHash } from "@/lib/synthesis-summary-shape";
+import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 import {
   planMembership,
   type CanvasCardPos,
@@ -1020,12 +1021,11 @@ export function SynthesisTeamView({
     />
   );
 
-  // Every step with a rail on BOTH sides gets the whole board between them: no cap. Step 3
-  // joined them when the theme rail went back on it. Not while the scenario is showing —
-  // toggling to it unmounts the rails, and a scenario spread across the full viewport is
-  // unreadable.
-  const fluid =
-    !showScenario && (step === "cluster" || step === "explore" || step === "hopes");
+  // The board fills the column between the rails: no cap. Every step, since step 4 now
+  // holds the same gutters as the rest rather than re-centring in what is left. Not while
+  // the scenario is showing — toggling to it unmounts the rails, and a scenario spread
+  // across the full viewport is unreadable.
+  const fluid = !showScenario;
 
   return (
     <Shell wide fluid={fluid}>
@@ -1048,7 +1048,10 @@ export function SynthesisTeamView({
           premise={config.premise}
         />
       ) : (
-        stepBody
+        // One rail width for the whole week, decided here because this is the only place
+        // that knows who is looking: a facilitator's rail carries the suggested groupings
+        // as well as the prompts, and needs the room on every step, not just step 1.
+        <RailWidth wide={Boolean(admin)}>{stepBody}</RailWidth>
       )}
 
       {flash && <Flash msg={flash} />}

@@ -1680,7 +1680,6 @@ export function ClusterBoard({
         // Not "Cards": the glyph now reads the NAME as well as what is in the theme, so a
         // full-but-unnamed theme showing "Cards: in progress" pointed at the wrong thing.
         progressLabel="Step 1"
-        wide={Boolean(admin)}
         dragging={drag !== null}
         // The step, said once and large, where the eye starts. The band ends in a rule the
         // toolbar's rule continues — see useRailBand.
@@ -1812,7 +1811,7 @@ export function ClusterBoard({
           produces either one theme per implication or one theme for everything, and every
           later step inherits it. Up here it stays readable while you work, instead of
           scrolling away above 146 cards. */}
-      <PromptRail wide={Boolean(admin)} label={admin ? "Prompts & suggestions" : "Prompts"}>
+      <PromptRail label={admin ? "Prompts & suggestions" : "Prompts"}>
         {/* First: it is the only part of this column that changes as you move, and the
             top of the column is where the eye already goes for it. It needed pinning when
             it sat last; at the top it does not. The chain inside it is still bounded, so
@@ -1893,9 +1892,9 @@ export function ClusterBoard({
         )}
       </PromptRail>
 
-      {/* The rails are fixed at the screen edges, so they eat both gutters. Yield exactly
-          what it actually takes: its width less whatever margin the centred 1100px column
-          already had spare. On a wide screen the gutter swallows it and nothing moves. */}
+      {/* The rails are fixed at the screen edges, so they eat both gutters. The page
+          yields exactly what they take, on every step of the week and at the same width
+          each time — see boardGutters.tsx. */}
       <div>
       <div className="flex min-w-0 flex-col gap-6">
       {mergeFrom && (

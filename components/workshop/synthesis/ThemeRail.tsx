@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSessionTabsHidden } from "@/components/design-groups/SessionHeader";
+import { useState } from "react";
+import { useBoardGutters } from "@/components/workshop/synthesis/boardGutters";
 import type { RippleCard } from "@/lib/ripples-types";
 import { isUnnamedTheme, type SynthesisBoard, type ThemeProgress } from "@/lib/synthesis-shape";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
@@ -20,8 +20,8 @@ import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthe
 //
 // It scrolls itself, because three big targets plus a group's real themes will outgrow a
 // short viewport. Hidden below lg, where there is no gutter to live in and the stacked
-// layout still reads. The page yields the width through a body data attribute (see
-// globals.css); "wide" when the right rail carries a facilitator's suggestions too.
+// layout still reads. The page yields the width through a body data attribute, set for
+// every step of the week by useBoardGutters (see boardGutters.tsx and globals.css).
 
 // A very small bullet, for the places this week lists one line per implication. Those
 // lines are short, tight and often truncated, and with nothing marking where each begins
@@ -43,7 +43,6 @@ export function ThemeRail({
   progressLabel,
   hint,
   badge,
-  wide = false,
   dragging = false,
   squareProps,
   squareLit,
@@ -66,7 +65,6 @@ export function ThemeRail({
   // A line under the hint: step 1's "aim for 3–5" counter, which used to sit over the
   // board's columns.
   badge?: React.ReactNode;
-  wide?: boolean;
   // A card is being dragged: the popover gets out of the way.
   dragging?: boolean;
   // Step 1's drop-zone wiring on each square, and whether that square is lit by a drag.
@@ -93,18 +91,8 @@ export function ThemeRail({
   // viewport rather than inside the rail, which scrolls and would clip it.
   const [hover, setHover] = useState<{ id: string; top: number } | null>(null);
 
-  // Tell the page a rail is on the left, so the header and the board both yield to it.
-  // A DOM side effect in an effect is exactly what effects are for. Not while the board
-  // is hidden behind an earlier week's tab, though: the rail is hidden with it, and the
-  // read-only panel on show would be padded for a rail that is not there.
-  const hidden = useSessionTabsHidden();
-  useEffect(() => {
-    if (hidden) return;
-    document.body.dataset.themeRail = wide ? "wide" : "1";
-    return () => {
-      delete document.body.dataset.themeRail;
-    };
-  }, [wide, hidden]);
+  // This rail is what holds the left gutter on the steps that have one.
+  useBoardGutters();
 
   const hovered = hover ? (board.themes.find((t) => t.id === hover.id) ?? null) : null;
 

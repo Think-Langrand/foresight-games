@@ -11,6 +11,7 @@ import {
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
 import { PromptRail, Prompts } from "@/components/workshop/synthesis/PromptRail";
+import { useBoardGutters } from "@/components/workshop/synthesis/boardGutters";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 import { HopeFearGallery } from "@/components/workshop/synthesis/HopeFearGallery";
@@ -60,6 +61,10 @@ export function FlipBoard({
   onDelete: (card: RippleCard) => void;
   onGoToHopes: () => void;
 }) {
+  // The only step with no theme rail, and it holds the left gutter all the same. Without
+  // it the page stops yielding on the left and the whole board shifts and narrows on the
+  // way in — a strip of empty ground is the cheaper of the two.
+  useBoardGutters();
   const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
   const doomed = pendingDelete ? descendantsOf(board, pendingDelete.id) : [];
 
