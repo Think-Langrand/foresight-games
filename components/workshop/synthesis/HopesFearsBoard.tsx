@@ -46,9 +46,8 @@ const hopesDirections = makePrefStore("synthesis.directions.hopes", "open", DIRE
 const HOPES_DIRECTIONS = [
   "This step is the whole future, not one theme — write as many hopes and fears as the group has.",
   "One idea per card. The slot at the top of each wall is where you write; the rest scrolls under it.",
-  "Below the walls are the themes you worked and the facilitator's summary — what you are writing from.",
+  "Below the walls are the themes you worked, with the risks and opportunities you wrote for each.",
   "Pick a theme on the left, or use the deck's own arrows, to read one while you write.",
-  "A fear flipped in step 4 comes back onto the hopes wall, marked with where it came from.",
 ] as const;
 
 export function HopesFearsBoard({

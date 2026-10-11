@@ -204,7 +204,12 @@ export function CardWall({
                 <InlineText text={card.text} editable={editable} busy={busy} onSave={(next) => onEdit?.(card, next)} />
               </div>
               {badge && (
-                <span className="mt-auto truncate text-[9.5px] uppercase tracking-[0.05em] text-muted">{badge}</span>
+                <span
+                  title={badge}
+                  className="mt-auto truncate text-[9.5px] uppercase tracking-[0.05em] text-muted"
+                >
+                  {badge}
+                </span>
               )}
             </div>
           );

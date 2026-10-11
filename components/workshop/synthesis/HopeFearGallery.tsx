@@ -34,7 +34,8 @@ const FACE: Record<HopeFear, { chip: string; tint: string; addTint: string; mark
 
 // The line at the foot of each card: where the work still is, so the gallery is a to-do
 // list as well. The default asks for a "why"; the flip step asks whether it has been
-// flipped.
+// flipped. Null for a gallery that is a record rather than a list of work — step 4's
+// flipped hopes are done by definition.
 export type GalleryStatus = (entry: ChainEntry) => { label: string; done: boolean };
 const needsWhy: GalleryStatus = ({ card }) =>
   card.description ? { label: "✓ Why it matters", done: true } : { label: "Needs a why", done: false };
@@ -64,7 +65,7 @@ export function HopeFearGallery({
   // Which add slots to offer. Empty when the gallery is a picker over cards written
   // elsewhere (the flip step).
   addKinds?: readonly HopeFear[];
-  status?: GalleryStatus;
+  status?: GalleryStatus | null;
 }) {
   const [adding, setAdding] = useState<HopeFear | null>(null);
 
@@ -84,7 +85,7 @@ export function HopeFearGallery({
           const kind = card.cardKind as HopeFear;
           const face = FACE[kind];
           const on = card.id === selectedId;
-          const state = status(entry);
+          const state = status?.(entry) ?? null;
           return (
             // A div rather than a button: the ⋯ menu is interactive and cannot legally
             // nest inside one. Keyboard-reachable, so selecting a card never needs a mouse.
@@ -152,14 +153,16 @@ export function HopeFearGallery({
                     ↩ flipped from {flippedFrom.cardKind}
                   </span>
                 )}
-                <span
-                  className={
-                    "text-[9.5px] font-bold uppercase tracking-[0.06em] " +
-                    (state.done ? "text-muted" : "text-coral")
-                  }
-                >
-                  {state.label}
-                </span>
+                {state && (
+                  <span
+                    className={
+                      "text-[9.5px] font-bold uppercase tracking-[0.06em] " +
+                      (state.done ? "text-muted" : "text-coral")
+                    }
+                  >
+                    {state.label}
+                  </span>
+                )}
               </div>
             </div>
           );

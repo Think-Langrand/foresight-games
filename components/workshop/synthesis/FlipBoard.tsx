@@ -72,11 +72,16 @@ export function FlipBoard({
   useRailBand(boardEl);
   const doomed = pendingDelete ? descendantsOf(board, pendingDelete.id) : [];
 
-  const fears = useMemo(() => boardChainCards(board).filter((e) => e.card.cardKind === "fear"), [board]);
+  const entries = useMemo(() => boardChainCards(board), [board]);
+  const fears = entries.filter((e) => e.card.cardKind === "fear");
   const { flipped, total } = flipProgress(board);
   const isFlipped = (fear: RippleCard) => (board.chains.get(fear.id) ?? []).some((c) => c.cardKind === "hope");
   // Derived, never synced: a deleted card falls back to the first rather than to nothing.
   const focused = fears.find((e) => e.card.id === focusId)?.card ?? fears[0]?.card ?? null;
+  // Every hope written on this step. The pair above shows one at a time, so without this
+  // the step's own output is invisible while you do it: you flip a fear, the card goes
+  // quiet, and the only place the hope turns up is step 3.
+  const flips = entries.filter((e) => e.card.cardKind === "hope" && e.flippedFrom);
 
   // Step 4 has no themes to pick, and a rail all the same: the band says which step this
   // is and which world it is in, as it does on the other three, and the rail is what holds
@@ -194,6 +199,33 @@ export function FlipBoard({
             />
           </div>
         )}
+
+        {/* The hopes this step has made, as the same cards as the fears above it — the
+            gallery's green hope face, not a summary list. Clicking one goes back to the
+            fear it came from, which is where it can be edited: one card, one place to
+            type into. */}
+        <div className="border-t border-black/10 pt-5">
+          <HopeFearGallery
+            entries={flips}
+            selectedId={flips.find((e) => e.flippedFrom?.id === focused?.id)?.card.id ?? null}
+            editable={editable}
+            busy={busy}
+            heading="Hopes flipped so far"
+            lead={
+              flips.length > 0
+                ? "Click one to go back to the fear it came from."
+                : "The hopes you write above collect here."
+            }
+            addKinds={[]}
+            status={null}
+            onSelect={(c) => {
+              const from = flips.find((e) => e.card.id === c.id)?.flippedFrom;
+              if (from) onFocus(from.id);
+            }}
+            onRequestDelete={setPendingDelete}
+            onQuickAdd={() => {}}
+          />
+        </div>
       </section>
 
       <ConfirmModal
