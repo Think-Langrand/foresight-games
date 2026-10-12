@@ -128,7 +128,18 @@ export interface SummaryDigest {
 }
 
 const CLIP = 400;
-const clip = (s: string) => (s.length > CLIP ? s.slice(0, CLIP - 1).trimEnd() + "…" : s);
+// Clipped at 400 UTF-16 units, which is not 400 characters: an emoji is a surrogate pair and
+// slicing between its halves leaves a lone one, which renders as �. Step back a unit when the
+// cut would land mid-pair. Participants do write emoji, and a long answer carrying one past
+// the clip would otherwise put a replacement character into the model's prompt and — since
+// omitted theme titles are clipped too — onto the facilitator's panel.
+const clip = (s: string) => {
+  if (s.length <= CLIP) return s;
+  let end = CLIP - 1;
+  const last = s.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1; // a high surrogate whose partner is cut
+  return s.slice(0, end).trimEnd() + "…";
+};
 
 // Themes as short keys with everything steps 1–2 wrote on them. Short keys rather than
 // uuids, as the clustering tool does: the model copies them back exactly, and they cost a
