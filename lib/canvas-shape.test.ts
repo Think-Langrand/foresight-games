@@ -14,6 +14,7 @@ import {
   isPile,
   pileLabels,
   rectsOverlap,
+  copySeats,
   defaultRegions,
   GATHER_ORIGIN,
   GATHER_WIDTH,
@@ -468,6 +469,38 @@ describe("resolvePositions", () => {
 // ---------------------------------------------------------------------------
 // defaultRegions — a box for every theme that has never had one
 // ---------------------------------------------------------------------------
+
+describe("copySeats", () => {
+  const region: Region = { themeId: "TH", x: 0, y: 0, w: 316, h: 316, shape: "rect" };
+
+  it("seats every copy inside the box", () => {
+    for (const p of copySeats(region, 5, [])) expect(containsPoint(region, p)).toBe(true);
+  });
+
+  it("gives each copy a seat of its own", () => {
+    const seats = copySeats(region, 6, []);
+    expect(new Set(seats.map((p) => `${p.x},${p.y}`)).size).toBe(6);
+  });
+
+  // The whole point: a copy that lands on a real card looks like one card, and the box
+  // would be drawing fewer things than it says it holds all over again.
+  it("misses the seats real cards are already sitting in", () => {
+    const real = copySeats(region, 3, []);
+    const copies = copySeats(region, 3, real);
+    for (const c of copies) {
+      for (const r of real) expect(`${c.x},${c.y}`).not.toBe(`${r.x},${r.y}`);
+    }
+  });
+
+  it("is deterministic, since every client seats them independently", () => {
+    const occupied = [{ x: 50, y: 50 }];
+    expect(copySeats(region, 4, occupied)).toEqual(copySeats(region, 4, occupied));
+  });
+
+  it("asks for none, gets none", () => {
+    expect(copySeats(region, 0, [])).toEqual([]);
+  });
+});
 
 describe("defaultRegions", () => {
   const band = { x: 0, y: 1000 };

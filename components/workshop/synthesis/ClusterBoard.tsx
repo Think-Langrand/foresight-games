@@ -2423,6 +2423,17 @@ export function ClusterBoard({
                   }
                 : undefined
             }
+            // The ✕ on a copy. One implication can be several rows — one per theme — so
+            // this deletes the row sitting in THIS theme and leaves the rest alone, which
+            // is the same write the card menu's "Remove from this theme" makes.
+            onRemoveFromTheme={
+              editable
+                ? (key, themeId) => {
+                    const row = twins.get(key)?.cards.find((c) => c.parentId === themeId);
+                    if (row) onDeleteCard(row);
+                  }
+                : undefined
+            }
             width={canvasExtent.width}
             height={canvasExtent.height}
             editable={editable}

@@ -268,6 +268,38 @@ function seatInRegion(region: Region, index: number): Pos {
   };
 }
 
+// Which seat does a point sit in? The inverse of seatInRegion, for working out which seats
+// of a box are already spoken for.
+function seatIndexAt(region: Region, pt: Pos): number {
+  const cols = Math.max(1, Math.floor(region.w / PITCH));
+  const rows = Math.max(1, Math.floor(region.h / PITCH));
+  const col = Math.min(cols - 1, Math.max(0, Math.floor(((pt.x - region.x) / region.w) * cols)));
+  const row = Math.min(rows - 1, Math.max(0, Math.floor(((pt.y - region.y) / region.h) * rows)));
+  return row * cols + col;
+}
+
+// Seats inside a box for the members it cannot position.
+//
+// An implication in two themes is ONE circle at ONE saved position, and boxes no longer
+// overlap — so the box that does not hold that position has a member it cannot draw where
+// the member actually is. It draws a COPY instead, and these are the seats the copies take:
+// the ones the box is not already using, so a copy never lands on top of a real card.
+//
+// `occupied` is every position already drawn inside the region. Pure and deterministic like
+// the rest of this file: two clients must seat the same copies in the same places.
+export function copySeats(region: Region, count: number, occupied: Pos[]): Pos[] {
+  const taken = new Set(occupied.map((p) => seatIndexAt(region, p)));
+  const out: Pos[] = [];
+  let seat = 0;
+  for (let i = 0; i < count; i++) {
+    while (taken.has(seat)) seat++;
+    taken.add(seat);
+    out.push(seatInRegion(region, seat));
+    seat++;
+  }
+  return out;
+}
+
 export interface FallbackItem {
   key: string;
   // The theme it is clustered in, in board order; null while it is in the tray.
