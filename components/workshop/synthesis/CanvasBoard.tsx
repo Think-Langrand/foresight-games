@@ -47,6 +47,14 @@ import {
 const EDGE = 48;
 const EDGE_SPEED = 18;
 
+// Is "Spread out" offered? It lays the visible implications on a grid that misses every
+// theme box — room to sort, when the wheel's packing is too dense to grab one card from.
+// Hidden for now: a board that opens with its themes already boxed has somewhere to drag
+// to, and the gesture turned out to be one more thing on a toolbar rather than one people
+// reached for. Hidden rather than cut — onSpreadOut, freeGrid and their tests are all
+// untouched, so this is one word to put back.
+const SHOW_SPREAD_OUT = false;
+
 export interface CanvasNode {
   // implicationKey — one circle per implication, however many rows back it.
   key: string;
@@ -691,13 +699,15 @@ export function CanvasBoard({
             >
               Gather
             </button>
-            <button
-              onClick={onSpreadOut}
-              title="Lay the visible implications out on a grid, so there is room to sort them"
-              className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-muted hover:border-ink hover:text-ink"
-            >
-              Spread out
-            </button>
+            {SHOW_SPREAD_OUT && (
+              <button
+                onClick={onSpreadOut}
+                title="Lay the visible implications out on a grid, so there is room to sort them"
+                className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-muted hover:border-ink hover:text-ink"
+              >
+                Spread out
+              </button>
+            )}
           </>
         )}
         {trailing && <span className="ml-auto flex items-center gap-2">{trailing}</span>}

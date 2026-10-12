@@ -915,6 +915,8 @@ export function ClusterBoard({
   };
 
   // "Spread out": a roomy grid for the implications still in the tray, so there is space
+  // (its button is hidden for now — see SHOW_SPREAD_OUT in CanvasBoard; the handler and
+  // its geometry stay wired, so showing it again is one word)
   // to push them around. The wheel packs 76px circles 12px apart, and you can neither
   // grab one cleanly nor draw a boundary through a dense ring.
   //
@@ -1492,7 +1494,7 @@ export function ClusterBoard({
           // rather than a thing to discover.
           "To name a theme, click the ✎ on its box and type. A double-click on the label, or its square in the rail, opens the theme on its own.",
           "Move a theme by the ⠿ on its label and everything inside travels with it. Drag a corner to resize it.",
-          "Gather brings the loose implications back together by key change. Spread out gives them room to sort.",
+          "Gather brings the loose implications back together by key change.",
           "Scroll to move around the board, and use Fit to see all of it.",
         ]
       : view === "map"
