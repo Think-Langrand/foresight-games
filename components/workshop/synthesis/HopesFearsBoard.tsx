@@ -18,7 +18,8 @@ import { PromptRail, Prompts } from "@/components/workshop/synthesis/PromptRail"
 import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
-import { CardWall, type WallGroup } from "@/components/workshop/synthesis/CardWall";
+import { CardWall } from "@/components/workshop/synthesis/CardWall";
+import { StakeList, type StakeGroup } from "@/components/workshop/synthesis/StakeList";
 import { ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
 import { SummaryPanel } from "@/components/workshop/synthesis/SummaryPanel";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -99,7 +100,7 @@ export function HopesFearsBoard({
   // One run per theme, in board order, for each of the two columns below the walls. Every
   // theme appears in both, with or without cards — the columns are an inventory of what the
   // group worked, and a theme that wrote no risks is itself worth seeing.
-  const stakeGroups = (kind: "risk" | "opportunity"): WallGroup[] =>
+  const stakeGroups = (kind: "risk" | "opportunity"): StakeGroup[] =>
     board.themes.map((t) => ({
       id: t.id,
       label: themeLabel(board, t),
@@ -113,7 +114,7 @@ export function HopesFearsBoard({
   useEffect(() => {
     if (!themeId) return;
     document
-      .getElementById(`wall-risk-${themeId}`)
+      .getElementById(`stakes-risk-${themeId}`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [themeId]);
 
@@ -230,21 +231,19 @@ export function HopesFearsBoard({
             whether it had already said something, which is the one job this block has. */}
         {board.themes.length > 0 && (
           <section className="grid gap-4 lg:grid-cols-2">
-            <CardWall
+            <StakeList
               tone="risk"
               title="Risks, by theme"
               groups={stakeGroups("risk")}
-              activeGroupId={themeId}
-              editable={false}
-              emptyHint="No risks written in step 2."
+              activeId={themeId}
+              emptyHint="None written in step 2."
             />
-            <CardWall
+            <StakeList
               tone="opportunity"
               title="Opportunities, by theme"
               groups={stakeGroups("opportunity")}
-              activeGroupId={themeId}
-              editable={false}
-              emptyHint="No opportunities written in step 2."
+              activeId={themeId}
+              emptyHint="None written in step 2."
             />
           </section>
         )}
