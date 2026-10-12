@@ -329,6 +329,26 @@ export function CanvasBoard({
     [scale]
   );
 
+  // How many of a theme's members have their ONE circle drawn in some other theme's box?
+  //
+  // An implication in two themes is one circle (it is one implication), and boxes no longer
+  // overlap, so that circle can only be inside one of them. A theme whose members are all
+  // twins therefore draws an EMPTY box that honestly reports ten members — which reads as
+  // the board having lost them. The count alone was supposed to cover this; it does not,
+  // because it answers "how many" and the question an empty box raises is "where".
+  const elsewhere = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const n of nodes) {
+      const p = positions.get(n.key);
+      if (!p) continue;
+      for (const id of n.themeIds) {
+        const r = regions.get(id);
+        if (r && !containsPoint(r, p)) out.set(id, (out.get(id) ?? 0) + 1);
+      }
+    }
+    return out;
+  }, [nodes, positions, regions]);
+
   const dimmed = useMemo(
     () => new Set(nodes.filter((n) => n.dim).map((n) => n.key)),
     [nodes]
@@ -1002,6 +1022,13 @@ export function CanvasBoard({
                       {!editingName && memberCount(r.themeId) > 0 && (
                         <span className="font-normal"> · {memberCount(r.themeId)}</span>
                       )}
+                      {/* ...and where they are, when some of them are not here. See
+                          `elsewhere`: a twin is one circle and boxes do not overlap, so a
+                          member shared with another theme is drawn in one box or the
+                          other, never both. */}
+                      {!editingName && (elsewhere.get(r.themeId) ?? 0) > 0 && (
+                        <span className="font-normal"> · {elsewhere.get(r.themeId)} in other themes</span>
+                      )}
                       {live && live.blocked.length > 0 && (
                         <span className="font-normal">
                           {" "}
@@ -1016,6 +1043,21 @@ export function CanvasBoard({
                       )}
 
                     </span>
+
+                    {/* A box that has members and is drawing NONE of them says so in its
+                        own middle, which is where someone is looking when they wonder what
+                        happened to their work. Only in that case: a box short a twin or two
+                        still reads as a box with cards in it, and the strip's count covers
+                        it. Inert — everything here is a caption, not a control. */}
+                    {memberCount(r.themeId) > 0 &&
+                      elsewhere.get(r.themeId) === memberCount(r.themeId) && (
+                        <span
+                          className="pointer-events-none absolute inset-0 flex items-center justify-center text-center font-bold uppercase tracking-[0.05em] text-muted"
+                          style={{ fontSize: 13 / scale, padding: 16 / scale, lineHeight: 1.4 }}
+                        >
+                          Every implication in this theme is also in another, and is drawn there
+                        </span>
+                      )}
 
                     {grippable &&
                       (["nw", "ne", "sw", "se"] as const).map((corner) => (
