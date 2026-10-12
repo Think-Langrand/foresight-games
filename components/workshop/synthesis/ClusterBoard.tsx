@@ -96,6 +96,9 @@ const CANVAS_BAND = 200;
 // Hidden rather than cut: the composer, onAddImplication and its route are all untouched
 // and still wired, so this is one word to put back.
 const SHOW_ADD_IMPLICATION = false;
+
+// Can two implications be folded into one? See the menu item for why not.
+const SHOW_MERGE_CARDS = false;
 import {
   DeleteThemeModal,
   type DeleteThemeMode,
@@ -1108,7 +1111,13 @@ export function ClusterBoard({
                         Also add to another theme…
                       </CardMenuItem>
                     )}
-                    {!hasChildren && (
+                    {/* "Merge into…" used to be offered here: pick a second card and the
+                        two become one. Hidden — a group that has doubled up says so by
+                        putting one card in two themes ("Also add to another theme…"), and
+                        folding two implications into one destroys a row that Week 2 wrote.
+                        Hidden rather than cut: onMerge and the picker below are untouched,
+                        so this is one word to put back. */}
+                    {SHOW_MERGE_CARDS && !hasChildren && (
                       <CardMenuItem
                         onClick={() => {
                           close();
