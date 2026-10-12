@@ -367,10 +367,23 @@ export function CanvasBoard({
       const absent: CanvasNode[] = [];
       for (const n of nodes) {
         if (!n.themeIds.includes(r.themeId)) continue;
+        // The card under the finger is out of this entirely until it lands. Counting it as
+        // seated put its live position into EVERY box it belongs to, including ones it is
+        // nowhere near — seatIndexAt clamps that to an edge seat, so copies in an unrelated
+        // box reshuffled on every pointermove and a seat went to waste.
+        if (n.key === heldByDrag) continue;
         const p = positions.get(n.key);
         if (!p) continue;
-        if (drawnIn.get(n.key) === r.themeId || n.key === heldByDrag) occupied.push(p);
-        else absent.push(n);
+        if (drawnIn.get(n.key) === r.themeId) {
+          occupied.push(p);
+          continue;
+        }
+        // A copy only means something for an implication that is in MORE than one theme.
+        // A card in one theme is always seated inside it once things settle
+        // (resolvePositions' second rung), so a copy of one can only be a flicker during
+        // the write — and its ✕ would delete the implication's last row while saying it
+        // was taking it out of this theme.
+        if (n.themeIds.length > 1) absent.push(n);
       }
       const seats = copySeats(r, absent.length, occupied);
       absent.forEach((n, i) => {
@@ -1120,14 +1133,34 @@ export function CanvasBoard({
 
             {/* Drawn BEFORE the real circles, so where a box is overfull enough that a
                 seat lands under a card, the card that can actually be dragged is on top. */}
-            {copies.map((c) => (
+            {copies.map((c) => {
+              // Seated against the SAVED box, so while that box is under the pointer the
+              // copies have to be taken along — a move left them standing in open space
+              // over the neighbours, with working ✕ buttons, until the gesture committed.
+              const live =
+                (mode.kind === "movebox" || mode.kind === "sizebox") && mode.themeId === c.themeId
+                  ? mode
+                  : null;
+              const pos =
+                live === null
+                  ? c.pos
+                  : live.kind === "movebox"
+                    ? {
+                        x: c.pos.x + (live.shown.x - live.origin.x),
+                        y: c.pos.y + (live.shown.y - live.origin.y),
+                      }
+                    : {
+                        x: live.shown.x + ((c.pos.x - live.origin.x) / live.origin.w) * live.shown.w,
+                        y: live.shown.y + ((c.pos.y - live.origin.y) / live.origin.h) * live.shown.h,
+                      };
+              return (
               <div
                 key={c.key}
                 title={`${c.node.label}${c.drawnIn ? ` — the card itself is in ${themeLabel(c.drawnIn)}` : ""}`}
                 className="absolute flex items-center justify-center rounded-full text-center"
                 style={{
-                  left: c.pos.x - NODE_R,
-                  top: c.pos.y - NODE_R,
+                  left: pos.x - NODE_R,
+                  top: pos.y - NODE_R,
                   width: NODE_R * 2,
                   height: NODE_R * 2,
                   // Its own colour, so it reads as the same card — but dashed and faded,
@@ -1184,7 +1217,8 @@ export function CanvasBoard({
                   </button>
                 )}
               </div>
-            ))}
+              );
+            })}
 
             {nodes.map((n) => {
               const p = positions.get(n.key);

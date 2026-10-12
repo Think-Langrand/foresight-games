@@ -2429,7 +2429,14 @@ export function ClusterBoard({
             onRemoveFromTheme={
               editable
                 ? (key, themeId) => {
-                    const row = twins.get(key)?.cards.find((c) => c.parentId === themeId);
+                    const info = twins.get(key);
+                    // Never the last row. The button says it is taking the implication out
+                    // of THIS theme; with one row left that would take it off the board,
+                    // and planMembership's first invariant is that an implication never
+                    // drops to zero rows. The copy is only drawn for an implication in more
+                    // than one theme, so this is a belt on top of that brace.
+                    if (!info || info.cards.length < 2) return;
+                    const row = info.cards.find((c) => c.parentId === themeId);
                     if (row) onDeleteCard(row);
                   }
                 : undefined
