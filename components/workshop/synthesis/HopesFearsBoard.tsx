@@ -107,10 +107,13 @@ export function HopesFearsBoard({
       cards: (kind === "risk" ? board.risks : board.opportunities).get(t.id) ?? [],
     }));
 
-  // The rail picks a theme by scrolling to it in both columns rather than by swapping what
-  // is on screen: everything is on screen now, so picking is a question of where to look.
-  // Both columns, so the pair stays side by side — the risk column is the one scrolled to
-  // and the opportunity column is nudged to match.
+  // The rail picks a theme by scrolling to it rather than by swapping what is on screen:
+  // everything is on screen now, so picking is a question of where to look.
+  //
+  // The RISK column is what we scroll to, and the opportunity column is left where it
+  // falls. The two columns scroll as one page, so a theme with four risks and one
+  // opportunity does not line up across them; `activeId` lights the theme's run in both,
+  // which is what actually answers "where is it" once you are in the neighbourhood.
   useEffect(() => {
     if (!themeId) return;
     document

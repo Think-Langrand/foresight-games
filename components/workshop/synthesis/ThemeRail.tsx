@@ -208,6 +208,12 @@ export function ThemeRail({
                 }}
                 onKeyDown={(e) => {
                   if (editing) return;
+                  // Only keys aimed at the SQUARE. The ✎ and ＋ Name inside it are real
+                  // buttons, and a keydown on one bubbles here: without this, tabbing to
+                  // the pencil and pressing Enter preventDefault()s the button's own
+                  // activation and runs the square instead — which, with implications
+                  // ticked, puts all of them in this theme rather than renaming it.
+                  if (e.target !== e.currentTarget) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     if (pickedCount > 0 && onAddPicked) onAddPicked(t);

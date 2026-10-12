@@ -87,10 +87,19 @@ export async function POST(
     // theme IS before it can sort anything into one, which is the order this week is trying
     // to reverse. So the board gets its empty themes at the moment it gets its implications.
     // Idempotent: see ensureStarterThemes.
-    const themes =
-      targetRender === "synthesis"
-        ? await ensureStarterThemes({ sessionId: session.id, code: session.code, teamId: team.id })
-        : 0;
+    //
+    // In its own try, because the implications above have ALREADY committed. Letting this
+    // reach the outer catch would answer "Failed to seed key changes" for a seed that
+    // worked, and send an admin to retry something that is already done. The themes are
+    // recoverable by hand or by seeding again; a lie about what landed is not.
+    let themes = 0;
+    if (targetRender === "synthesis") {
+      try {
+        themes = await ensureStarterThemes({ sessionId: session.id, code: session.code, teamId: team.id });
+      } catch (err) {
+        console.error("[POST group seed] starter themes", err);
+      }
+    }
 
     return NextResponse.json({ ok: true, ...result, themes });
   } catch (err) {
