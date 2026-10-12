@@ -14,6 +14,7 @@ import {
   stakeProgress,
   clusterProgress,
   isUnnamedTheme,
+  themeLabel,
   labelOnBoard,
   chainOnBoard,
   exploreProgress,
@@ -1369,6 +1370,33 @@ describe("isUnnamedTheme", () => {
     expect(isUnnamedTheme(theme("TH", 1, { text: "Trust moves to people" }))).toBe(false);
     expect(isUnnamedTheme(theme("TH", 1, { text: "Theme parks close" }))).toBe(false);
     expect(isUnnamedTheme(theme("TH", 1, { text: "3 clinics per county" }))).toBe(false);
+  });
+});
+
+describe("themeLabel", () => {
+  it("a named theme is called by its name, trimmed", () => {
+    const board = indexSynthesisBoard([theme("TH", 1, { text: "  Trust moves to people  " })]);
+    expect(themeLabel(board, board.themes[0])).toBe("Trust moves to people");
+  });
+
+  // A box with a blank label is not something a group can point at across a table, so an
+  // unnamed theme is called by its POSITION — and the position is the board's order, which
+  // is what the rail numbers and the map's "Theme 3" markers both read.
+  it("an unnamed theme is called by its position on the board", () => {
+    const board = indexSynthesisBoard([
+      theme("TH1", 1, { text: "Named" }),
+      theme("TH2", 2, { text: "" }),
+      theme("TH3", 3, { text: "   " }),
+    ]);
+    expect(themeLabel(board, board.themes[1])).toBe("Theme 2");
+    expect(themeLabel(board, board.themes[2])).toBe("Theme 3");
+  });
+
+  // "Theme 3" typed in as a real name still reads back as itself. isUnnamedTheme is what
+  // says that is not an answer; this only decides what to CALL it.
+  it("leaves a name alone even when the name is a number", () => {
+    const board = indexSynthesisBoard([theme("TH1", 1), theme("TH2", 2, { text: "Theme 9" })]);
+    expect(themeLabel(board, board.themes[1])).toBe("Theme 9");
   });
 });
 

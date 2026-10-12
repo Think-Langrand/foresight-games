@@ -14,6 +14,7 @@ import {
   ordinal,
   clusterProgress,
   isUnnamedTheme,
+  themeLabel,
   labelOnBoard,
   chainOnBoard,
   twinIndex,
@@ -85,6 +86,16 @@ const NO_KEY_CHANGE = "no-key-change";
 
 // Air between the bottom of the loose pile and the band of theme boxes below it.
 const CANVAS_BAND = 200;
+
+// Can a group write a NEW implication on this board?
+//
+// No, for now. Implications come out of Session 2, and step 1 is for sorting the ones that
+// exist — an "add" here invites a group to invent a fourteenth implication instead of
+// deciding what the thirteen they have are about.
+//
+// Hidden rather than cut: the composer, onAddImplication and its route are all untouched
+// and still wired, so this is one word to put back.
+const SHOW_ADD_IMPLICATION = false;
 import {
   DeleteThemeModal,
   type DeleteThemeMode,
@@ -799,10 +810,19 @@ export function ClusterBoard({
   // Write the derived boxes down, with their members' seats, the first time the canvas
   // sees a theme without one. The seats go too: a card left holding a stale position from
   // before would otherwise win over its seat the moment the box became real, and leave
-  // its own theme. Guarded by signature rather than by a mount flag, so a failed write is
-  // retried on reload and a theme created later is adopted in its turn.
+  // its own theme.
+  //
+  // Guarded by WHICH THEMES have been written this mount, rather than by a mount flag or by
+  // a signature of the whole set. A mount flag would never adopt a theme made later; a
+  // signature looks right and is not, because the save is a round-trip: three themes are
+  // adopted in one pass, as a row, and on the next render only the first one's region row
+  // has landed — so the other two look unboxed again, under a DIFFERENT signature, and are
+  // adopted a second time onto a second row. That is the staircase a group opening the
+  // canvas used to meet. A theme already written is never written again; a theme that has
+  // never been written still is, whenever it turns up; and a failed write is retried on
+  // reload, because this is per mount.
+  const adoptedRef = useRef<Set<string>>(new Set());
   const adoptedSig = adoptedRegions.map((r) => r.themeId).join(",");
-  const adoptedRef = useRef("");
   useEffect(() => {
     // `ready` is the whole guard. Before the first layout lands, canvas.regions is empty,
     // so EVERY theme looks unboxed, defaultRegions derives a box for each, and this effect
@@ -810,8 +830,8 @@ export function ClusterBoard({
     // arrangement on the board each time the canvas is opened. It was invisible while
     // boxes could not move, because re-deriving produced the same numbers.
     if (!canvasOn || !canvasOn.ready || !editable) return;
-    if (!adoptedSig || adoptedRef.current === adoptedSig) return;
-    adoptedRef.current = adoptedSig;
+    if (adoptedRegions.every((r) => adoptedRef.current.has(r.themeId))) return;
+    for (const r of adoptedRegions) adoptedRef.current.add(r.themeId);
     canvasOn.onSaveMany(
       [...adoptedKeys]
         .map((k) => {
@@ -821,7 +841,8 @@ export function ClusterBoard({
         .filter((v): v is CanvasCardPos => v !== null),
       adoptedRegions
     );
-    // Everything else here is rebuilt every render by design; the signature is what decides.
+    // Everything else here is rebuilt every render by design; the signature is what decides
+    // when to look, and the set above decides whether there is anything to do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adoptedSig, editable, canvasOn?.ready]);
 
@@ -1461,14 +1482,15 @@ export function ClusterBoard({
         // Where, not just what. The name IS the heading of the sheet, so it does not look
         // like something you can type into until you have clicked one once.
         "To name it, click ＋ Name this theme at the top of the sheet, or the ✎ beside a name already there.",
+        "You can also name a theme without opening it: the ✎ on its square in the rail, or on its box on the canvas.",
       ]
     : view === "canvas"
       ? [
           "Drag an implication anywhere. Inside a theme’s box it belongs to that theme; drag it clear of every box to send it back to the tray.",
-          "Drag across empty space to draw a new theme.",
-          // Naming is half of what step 1 asks for, so the way to the sheet where it
-          // happens is a direction, not a thing to discover.
-          "To name a theme, open it: the ↗ on its box, a double-click on the box's label, or its square in the rail. The name is the heading at the top.",
+          "The board opens with three empty themes. Drag across empty space to draw another.",
+          // Naming is half of what step 1 asks for, so where it happens is a direction
+          // rather than a thing to discover.
+          "To name a theme, click the ✎ on its box and type. A double-click on the label, or its square in the rail, opens the theme on its own.",
           "Move a theme by the ⠿ on its label and everything inside travels with it. Drag a corner to resize it.",
           "Gather brings the loose implications back together by key change. Spread out gives them room to sort.",
           "Scroll to move around the board, and use Fit to see all of it.",
@@ -1715,7 +1737,7 @@ export function ClusterBoard({
               ? "Click the lit theme again to go back to the board."
               : board.themes.length === 0
                 ? "No themes yet. Drag an implication onto the slot below, or click it, to start one."
-                : "Click a theme to open it and name it. Drag cards in, or tick and click. Drag a theme itself to reorder."
+                : "Click the ✎ on a square to name it. Click the square to open it. Drag cards in, or tick and click; drag a theme itself to reorder."
         }
         // The squares are drop targets here, and a click with cards ticked adds them.
         squareProps={(t) => zoneProps(`theme:${t.id}`)}
@@ -1766,6 +1788,9 @@ export function ClusterBoard({
           onMoveManyToTheme([...picked], t.id);
           setPicked(new Set());
         }}
+        // The square is where "still unnamed" is said, so it is also where it can be
+        // answered. Same write as the sheet's field and the box's label on the canvas.
+        onRename={editable ? (t, text) => onEditCard(t, text) : undefined}
         footer={
           <>
             {/* Under the squares, where "STILL UNNAMED" is being said in red, and only
@@ -1774,19 +1799,18 @@ export function ClusterBoard({
                 so a group that has got the hang of it stops being told. */}
             {board.themes.some(isUnnamedTheme) && (
               <p className="text-[11px] italic leading-[1.35] text-muted">
-                To name a theme, click its square above to open it, then click &ldquo;＋
-                Name this theme&rdquo; at the top.
+                To name a theme, click the ✎ on its square above, or on its box on the
+                canvas.
               </p>
             )}
 
-            {/* ONE empty slot, always, never a pre-created theme. A real blank theme would
-                exist on the board from the moment anyone opened it: a "nothing yet" chip on
-                later steps, one to delete if the group changes its mind, and a race to make
-                one per person. The slot mints its theme on drop — onStartTheme — or on a
-                click, and stays, so the next theme (yours or a teammate's, dropped in the
-                same moment) has the same place to start. It used to be three that counted
-                down to none, which left no drop target at all once a group had three
-                themes.
+            {/* ONE empty slot, always, and it stays however many themes there are. A
+                board arrives with three empty themes already on it — minted server-side
+                when its implications are seeded across from Week 2, see
+                ensureStarterThemes — so the slot is how the fourth onward is started, and
+                the drop target a group still needs once it has three. It used to be three slots that counted down to
+                none, which left nothing to drop on at exactly the point a group was still
+                sorting.
 
                 Above lg this is the ONLY drop-to-start target — the row's copy is hidden
                 there — so it has to take a click and a keypress too, not just a drag. */}
@@ -1805,15 +1829,21 @@ export function ClusterBoard({
                 <span aria-hidden className="text-[26px] leading-none opacity-25">
                   ⊕
                 </span>
+                {/* What it says depends on what is on screen. "Drop" is a promise the
+                    canvas does not keep: a circle there is moved with pointer events, not
+                    an HTML5 drag, so nothing can be dropped on this rail from it — and
+                    the canvas has a second way to start a theme that the map has not. */}
                 <span className="text-[10.5px] font-bold uppercase leading-[1.3] tracking-[0.05em] text-muted">
-                  Drop or click to start a theme
+                  {onCanvas
+                    ? "Click here, or drag across empty space on the canvas, to start a theme"
+                    : "Drop or click to start a theme"}
                 </span>
               </div>
             )}
 
             {/* The rail button mints a theme straight away, unnamed, the way a dropped card
                 or a ticked set does. Naming waits until the group knows what the pile is
-                about, and happens in the theme's own sheet. */}
+                about, and happens on the square itself or on the box. */}
             {editable && (
               <button
                 onClick={() => {
@@ -2085,7 +2115,7 @@ export function ClusterBoard({
                 onChange={setOrderFilter}
               />
             )}
-            {editable && (
+            {editable && SHOW_ADD_IMPLICATION && (
               <button
                 onClick={() => setAddingTo(addingTo === "tray" ? null : "tray")}
                 className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
@@ -2362,14 +2392,26 @@ export function ClusterBoard({
             nodes={canvasNodes}
             positions={canvasPositions}
             regions={canvasRegions}
-            themeLabel={(id) =>
-              board.themes.find((th) => th.id === id)?.text?.trim() ||
-              `Theme ${board.themes.findIndex((th) => th.id === id) + 1}`
-            }
+            themeLabel={(id) => {
+              const th = board.themes.find((t) => t.id === id);
+              return th ? themeLabel(board, th) : "";
+            }}
             memberCount={(id) => (board.clusters.get(id) ?? []).length}
             // The way from a box to its sheet. Same destination as the rail square, from
             // the thing people are actually looking at.
             onOpenTheme={onPickTheme}
+            // ...and the name itself, written on the box rather than in the sheet. Naming
+            // is half of what this step asks for, and it was the one thing people had to
+            // leave the board to do.
+            themeName={(id) => board.themes.find((t) => t.id === id)?.text ?? ""}
+            onRenameTheme={
+              editable
+                ? (id, text) => {
+                    const th = board.themes.find((t) => t.id === id);
+                    if (th) onEditCard(th, text);
+                  }
+                : undefined
+            }
             width={canvasExtent.width}
             height={canvasExtent.height}
             editable={editable}

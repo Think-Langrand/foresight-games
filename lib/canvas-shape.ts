@@ -389,6 +389,13 @@ const REGION_GAP = 40;
 // A theme is never narrower than this, so an empty one is still a visible, droppable box.
 const MIN_COLS = 2;
 
+// How many seats an EMPTY theme is sized for. A box sized as though it held one card is
+// barely bigger than the card, which reads as a slot for a single thing rather than as a
+// pile to build — and the canvas now opens with three empty boxes on a new board, so the
+// empty case is the first thing a group meets rather than a leftover. Nine seats (3 × 3)
+// is room for a real cluster without taking the whole band.
+const EMPTY_SEATS = 9;
+
 // Boxes for themes that have never had one.
 //
 // Every board that existed before the canvas did has themes made in the rail or on the
@@ -410,8 +417,9 @@ export function defaultRegions(
   let rowHeight = 0;
 
   for (const t of themes) {
-    // An empty theme is sized as though it held one card, so it has somewhere to drop.
-    const n = Math.max(1, t.memberCount);
+    // An empty theme is sized for a cluster rather than for one card, so it reads as
+    // somewhere to build a pile and has room to drop several without a resize.
+    const n = t.memberCount > 0 ? t.memberCount : EMPTY_SEATS;
     const cols = Math.max(MIN_COLS, Math.ceil(Math.sqrt(n)));
     const rows = Math.max(1, Math.ceil(n / cols));
     // seatInRegion derives its grid as floor(w / PITCH), so this sizing is exactly what

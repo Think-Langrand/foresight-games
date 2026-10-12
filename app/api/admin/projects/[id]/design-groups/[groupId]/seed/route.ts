@@ -6,7 +6,7 @@ import { getDesignGroup } from "@/lib/design-groups";
 import { listExercises } from "@/lib/design-group-exercises";
 import { getExerciseType } from "@/lib/exercise-types";
 import { getSessionByCode } from "@/lib/workshop";
-import { getCardsByIds, getRippleTeams, seedFirstCards } from "@/lib/ripples";
+import { ensureStarterThemes, getCardsByIds, getRippleTeams, seedFirstCards } from "@/lib/ripples";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +81,27 @@ export async function POST(
       return NextResponse.json({ error: "This week's board isn't set up yet." }, { status: 409 });
 
     const result = await seedFirstCards({ sessionId: session.id, code: session.code, teamId: team.id, items });
-    return NextResponse.json({ ok: true, ...result });
+
+    // A synthesis week opens on the clustering canvas, and a canvas with no themes offers
+    // nowhere to put the implications we have just put on it — a group has to decide what a
+    // theme IS before it can sort anything into one, which is the order this week is trying
+    // to reverse. So the board gets its empty themes at the moment it gets its implications.
+    // Idempotent: see ensureStarterThemes.
+    //
+    // In its own try, because the implications above have ALREADY committed. Letting this
+    // reach the outer catch would answer "Failed to seed key changes" for a seed that
+    // worked, and send an admin to retry something that is already done. The themes are
+    // recoverable by hand or by seeding again; a lie about what landed is not.
+    let themes = 0;
+    if (targetRender === "synthesis") {
+      try {
+        themes = await ensureStarterThemes({ sessionId: session.id, code: session.code, teamId: team.id });
+      } catch (err) {
+        console.error("[POST group seed] starter themes", err);
+      }
+    }
+
+    return NextResponse.json({ ok: true, ...result, themes });
   } catch (err) {
     console.error("[POST group seed]", err);
     return NextResponse.json({ error: "Failed to seed key changes." }, { status: 500 });

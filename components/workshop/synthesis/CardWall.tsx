@@ -29,7 +29,10 @@ import {
 
 export type WallTone = "risk" | "opportunity" | "hope" | "fear";
 
-const TONE: Record<
+// Exported, because step 3 reads a theme's risks and opportunities back as LISTS rather
+// than as cards (see StakeList) and the two must agree about what a risk looks like: coral,
+// marked ▼. One vocabulary, two shapes.
+export const TONE: Record<
   WallTone,
   { chip: string; well: string; slot: string; edge: string; mark: string }
 > = {

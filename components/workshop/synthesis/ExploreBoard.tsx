@@ -95,6 +95,9 @@ export function ExploreBoard({
       progressFor={progressFor}
       progressLabel="Exploration"
       hint="Click a theme to work on it."
+      // The same ✎ as step 1's rail and the canvas: a group often only sees what a theme
+      // is really about once it starts writing what the theme risks.
+      onRename={editable ? (t, text) => onEdit(t, text) : undefined}
       // The step, said once and large; the band ends in a rule the sheet's rule continues.
       top={
         <>

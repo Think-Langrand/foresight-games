@@ -141,8 +141,6 @@ export function SynthesisTeamView({
   // steps so moving between them keeps you on the theme you were working on. In step 1
   // null means "the board"; step 2 falls back to the first theme.
   const [themeId, setThemeId] = useState<string | null>(null);
-  // Which fear step 4 has open. Hoisted for the same hook-order reason.
-  const [focusId, setFocusId] = useState<string | null>(null);
   // Positions and regions live in their own tables on their own channel (0028), and this
   // hook only subscribes while the canvas is actually open — a board with 76 players
   // should not hold 76 channels for a view nobody has opened.
@@ -1013,8 +1011,6 @@ export function SynthesisTeamView({
             board={board}
             editable={editable}
             busy={busy}
-            focusId={focusId}
-            onFocus={setFocusId}
             onFlip={addChildCard}
             onEdit={editCard}
             onDelete={removeCard}
