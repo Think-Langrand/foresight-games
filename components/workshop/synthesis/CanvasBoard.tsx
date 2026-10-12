@@ -702,14 +702,18 @@ export function CanvasBoard({
                       className="absolute bg-paper font-bold uppercase tracking-[0.05em] text-muted"
                       style={{
                         // Centred on the box's own border: half the strip's height
-                        // (fontSize × lineHeight) above it.
-                        top: -11 / scale,
+                        // (fontSize × lineHeight, plus the padding) above it.
+                        top: -13 / scale,
                         // Past the reach of the top-left resize handle, which is centred
                         // ON the corner and drawn after this, so anything interactive
                         // inside its 11px would be pressing the handle instead. The strip
                         // used to start at 8 and lose the ⠿ to it.
                         left: 14 / scale,
                         paddingInline: 6 / scale,
+                        // Room above and below the text, because this strip is not a
+                        // caption — it is the handle the whole box moves by, and a 22px
+                        // band is a thin thing to catch with a finger.
+                        paddingBlock: 2 / scale,
                         fontSize: 14 / scale,
                         lineHeight: 1.6,
                         // One line, always. The strip is sized to its own text inside a
@@ -752,7 +756,24 @@ export function CanvasBoard({
                           <span aria-hidden>↗</span>
                         </button>
                       )}
-                      {grippable && <span aria-hidden>⠿ </span>}
+                      {/* Bigger than the name beside it: it is the only part of the
+                          strip that says "this moves", and it is aimed at rather than
+                          read. inline-block at line-height 1 so a taller glyph does not
+                          grow the strip's own line box. */}
+                      {grippable && (
+                        <span
+                          aria-hidden
+                          style={{
+                            display: "inline-block",
+                            fontSize: 18 / scale,
+                            lineHeight: 1,
+                            marginRight: 4 / scale,
+                            verticalAlign: "-0.12em",
+                          }}
+                        >
+                          ⠿
+                        </span>
+                      )}
                       {themeLabel(r.themeId)}
                       {/* Its real membership, which can exceed the circles drawn inside
                           it: an implication sitting in two themes is still ONE circle,
