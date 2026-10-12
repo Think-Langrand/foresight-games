@@ -119,6 +119,7 @@ export function CanvasBoard({
   clumps,
   onDismissClump,
   movable,
+  onOpenTheme,
   onMoveRegion,
   onResizeRegion,
   trailing,
@@ -158,6 +159,10 @@ export function CanvasBoard({
   onMoveRegion: (region: Region, moved: CanvasCardPos[], adopt: string[]) => void;
   // No card rows: a resize does not move anybody.
   onResizeRegion: (region: Region, adopt: string[]) => void;
+  // Open this theme on its own — the sheet where it is named and read. The canvas is
+  // where a theme is BUILT and the sheet is where it is said, and until this existed the
+  // only way across was a square in a rail on the other side of the screen.
+  onOpenTheme?: (themeId: string) => void;
   // Pinned right on the toolbar row: state about the surface, not about the view.
   trailing?: React.ReactNode;
   nodeProps?: (key: string) => React.HTMLAttributes<HTMLDivElement>;
@@ -685,13 +690,25 @@ export function CanvasBoard({
                       onPointerUp={grippable ? endMove : undefined}
                       onPointerCancel={grippable ? abandonBox : undefined}
                       onLostPointerCapture={grippable ? abandonBox : undefined}
-                      title={themeLabel(r.themeId)}
+                      // The shortcut for people who find it. The button beside the name is
+                      // the discoverable one; a double-click is what a box on a board
+                      // invites, and the two cost each other nothing.
+                      onDoubleClick={onOpenTheme ? () => onOpenTheme(r.themeId) : undefined}
+                      title={
+                        onOpenTheme
+                          ? `${themeLabel(r.themeId)} — double-click to open`
+                          : themeLabel(r.themeId)
+                      }
                       className="absolute bg-paper font-bold uppercase tracking-[0.05em] text-muted"
                       style={{
                         // Centred on the box's own border: half the strip's height
                         // (fontSize × lineHeight) above it.
                         top: -11 / scale,
-                        left: 8 / scale,
+                        // Past the reach of the top-left resize handle, which is centred
+                        // ON the corner and drawn after this, so anything interactive
+                        // inside its 11px would be pressing the handle instead. The strip
+                        // used to start at 8 and lose the ⠿ to it.
+                        left: 14 / scale,
                         paddingInline: 6 / scale,
                         fontSize: 14 / scale,
                         lineHeight: 1.6,
@@ -704,12 +721,37 @@ export function CanvasBoard({
                         maxWidth: Math.max(shown.w, 260 / scale),
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        pointerEvents: grippable ? "auto" : "none",
+                        pointerEvents: grippable || onOpenTheme ? "auto" : "none",
                         touchAction: "none",
                         cursor: grippable ? (live ? "grabbing" : "grab") : "default",
                         color: bad ? "var(--coral)" : undefined,
                       }}
                     >
+                      {/* Opens the theme. Inside the strip because the strip is the one
+                          part of a box that already takes the pointer, and at its HEAD
+                          because its tail reaches the top-right handle on any box whose
+                          name fills its width. It stops the event itself, or the press
+                          starts a move and the click never arrives — the pointer capture
+                          on the grip retargets it. */}
+                      {onOpenTheme && !live && (
+                        <button
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenTheme(r.themeId);
+                          }}
+                          aria-label={`Open ${themeLabel(r.themeId)}`}
+                          title={`Open ${themeLabel(r.themeId)}`}
+                          className="font-normal text-blue hover:text-ink"
+                          style={{
+                            marginRight: 5 / scale,
+                            pointerEvents: "auto",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <span aria-hidden>↗</span>
+                        </button>
+                      )}
                       {grippable && <span aria-hidden>⠿ </span>}
                       {themeLabel(r.themeId)}
                       {/* Its real membership, which can exceed the circles drawn inside
@@ -731,6 +773,7 @@ export function CanvasBoard({
                       {live && !bad && live.adopt.length > 0 && (
                         <span className="font-normal"> · +{live.adopt.length} loose</span>
                       )}
+
                     </span>
 
                     {grippable &&
