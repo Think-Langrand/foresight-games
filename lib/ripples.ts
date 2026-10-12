@@ -795,6 +795,64 @@ export async function seedFirstCards(input: {
   return { added, skipped: input.items.length - added };
 }
 
+// The empty themes a synthesis board opens with, and how many.
+//
+// Made HERE — when the week's implications are seeded across from the previous week —
+// rather than by the first person to open the clustering canvas. Lazily, on open, it was a
+// race: a room told to open step 1 at once, and whichever write landed second gave the
+// board six empty themes instead of three. Seeding is one admin action, on the server, and
+// it is the only moment a board goes from having no implications to having them — so it is
+// also the moment to give it somewhere to put them.
+//
+// "Ensure", not "create": the admin UI seeds in batches of 50, so this runs once per batch,
+// and a board that already has a theme — seeded earlier, or made by the group — is left
+// exactly as it is.
+export const STARTER_THEMES = 3;
+
+export async function ensureStarterThemes(input: {
+  sessionId: string;
+  code: string;
+  teamId: string;
+  count?: number;
+}): Promise<number> {
+  const code = up(input.code);
+  const count = input.count ?? STARTER_THEMES;
+
+  const { data: existing, error: readErr } = await supabaseAdmin()
+    .from("ripple_cards")
+    .select("id")
+    .eq("code", code)
+    .eq("card_kind", "theme")
+    .limit(1);
+  if (readErr) throw readErr;
+  if ((existing?.length ?? 0) > 0) return 0;
+
+  const base = Date.now();
+  const { data, error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .insert(
+      Array.from({ length: count }, (_, n) => ({
+        session_id: input.sessionId,
+        code,
+        team_id: input.teamId,
+        author_player_id: null,
+        card_order: "FIRST",
+        parent_card_id: null,
+        // Unnamed, deliberately. The group names a theme once it can see what the pile is
+        // about; a name minted up front is the "Theme 1" this week exists to argue with.
+        text: "",
+        card_kind: "theme",
+        // Spaced like every other card this board makes (SORT_STEP in synthesis-shape), so
+        // a fourth theme started in the rail sorts after these rather than among them.
+        sort: (n + 1) * 1000,
+        created_at: new Date(base + n).toISOString(),
+      }))
+    )
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
 // Set a key change's shared group score (the rank step). PARTIAL: an axis absent from
 // `patch` is left alone, so the two 1–5 button rows write independently and a slow
 // round-trip on one can't clobber the other. Validation (range, roots only) happens at

@@ -158,7 +158,6 @@ export function ClusterBoard({
   editable,
   busy,
   onAddTheme,
-  onSeedThemes,
   onAddImplication,
   onEditCard,
   onMoveCard,
@@ -185,8 +184,6 @@ export function ClusterBoard({
   busy: boolean;
   // Both may resolve to whether the write landed, so a composer keeps a failed draft.
   onAddTheme: (text: string) => AddResult;
-  // Mint `n` empty themes at once — the canvas's opening boxes on a board with none.
-  onSeedThemes?: (n: number) => AddResult;
   onAddImplication: (text: string, themeId: string | null) => AddResult;
   onEditCard: (card: RippleCard, text: string) => void;
   // Put `card` in `themeId` (null = the tray), immediately before `beforeId` (null = last).
@@ -704,9 +701,6 @@ export function ClusterBoard({
   // re-reckons it once on release, which is the only moment the answer can have changed.
   // isPile already tolerates a card having left — that is a tested property, not a hope.
   const [heldKey, setHeldKey] = useState<string | null>(null);
-  // The opening three themes are being written. Holds the box-adoption effect off until
-  // they have all arrived, so they are laid out together — see both effects below.
-  const [seeding, setSeeding] = useState(false);
 
   // Saved positions that win even where they disagree with membership: the card under a
   // finger, and any whose membership write has not come back yet.
@@ -836,10 +830,6 @@ export function ClusterBoard({
     // arrangement on the board each time the canvas is opened. It was invisible while
     // boxes could not move, because re-deriving produced the same numbers.
     if (!canvasOn || !canvasOn.ready || !editable) return;
-    // Not while the opening three are still being written: they are posted together so the
-    // board sees all three at once and lays them out as one row, and a realtime refetch
-    // landing mid-flight would show one, get it adopted alone, and put the rest below it.
-    if (seeding) return;
     if (adoptedRegions.every((r) => adoptedRef.current.has(r.themeId))) return;
     for (const r of adoptedRegions) adoptedRef.current.add(r.themeId);
     canvasOn.onSaveMany(
@@ -854,34 +844,7 @@ export function ClusterBoard({
     // Everything else here is rebuilt every render by design; the signature is what decides
     // when to look, and the set above decides whether there is anything to do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adoptedSig, editable, canvasOn?.ready, seeding]);
-
-  // Three empty themes, the first time the canvas opens on a board that has none.
-  //
-  // The rail's slot mints a theme one at a time and that is right for the fourth onward,
-  // but it is the wrong thing to meet: the canvas is a surface for SHOVING things into
-  // piles, and an empty one offers nowhere to shove them — a group has to decide what a
-  // theme is before it can sort anything, which is the order this exercise is trying to
-  // reverse. Three boxes, large (see EMPTY_SEATS) and unnamed, make sorting the first move
-  // and naming the second. "3–5" is what the step asks for, so three is where it starts.
-  //
-  // `canvas.ready` is what makes the emptiness real: before the first layout lands we have
-  // not heard from the server, and seeding off a half-loaded board would mint three themes
-  // onto a board that already has some. Once per mount, and only while the board is still
-  // empty at the moment it fires.
-  //
-  // Two people opening a themeless canvas in the same second can still produce six. They
-  // are empty and deletable, the window is one round-trip, and the alternative is a server
-  // -side claim on a table that has no notion of "the board's first theme".
-  const seededRef = useRef(false);
-  useEffect(() => {
-    if (!canvasOn || !canvasOn.ready || !editable || busy) return;
-    if (!onSeedThemes || view !== "canvas") return;
-    if (board.themes.length > 0 || seededRef.current) return;
-    seededRef.current = true;
-    setSeeding(true);
-    void Promise.resolve(onSeedThemes(3)).finally(() => setSeeding(false));
-  }, [canvasOn, editable, busy, onSeedThemes, view, board.themes.length]);
+  }, [adoptedSig, editable, canvasOn?.ready]);
 
   // Which captions this person has dismissed. The values are key-change uuids, so although
   // the store is one key per browser the values are naturally board-scoped.
@@ -1841,11 +1804,11 @@ export function ClusterBoard({
               </p>
             )}
 
-            {/* ONE empty slot, always, and it stays however many themes there are. The
-                canvas seeds three empty themes on a board that has none (see the seeding
-                effect above) because an empty canvas offers nowhere to shove a pile; the
-                slot is how the fourth onward is started, and the drop target a group still
-                needs once it has three. It used to be three slots that counted down to
+            {/* ONE empty slot, always, and it stays however many themes there are. A
+                board arrives with three empty themes already on it — minted server-side
+                when its implications are seeded across from Week 2, see
+                ensureStarterThemes — so the slot is how the fourth onward is started, and
+                the drop target a group still needs once it has three. It used to be three slots that counted down to
                 none, which left nothing to drop on at exactly the point a group was still
                 sorting.
 

@@ -279,39 +279,6 @@ export function SynthesisTeamView({
       if (res?.card) addLocal(res.card as RippleCard);
     });
 
-  // The empty themes the canvas opens with on a board that has none (see ClusterBoard).
-  // Minted unnamed, like every other theme — the group names one once it can see what the
-  // pile is about — and sized large by the canvas, so there is somewhere to drag to before
-  // anybody has decided what the themes are.
-  //
-  // Not `addTheme` in a loop. Two reasons, and both of them showed up on a real board:
-  //
-  //   `endSort` reads `board`, which is this render's value and does not change between the
-  //   awaits, so every theme would land on the same sort and their order would be settled by
-  //   createdTime. The sorts are spaced explicitly instead.
-  //
-  //   And they have to arrive TOGETHER. The canvas lays a box out for every theme that has
-  //   not got one, in one pass, below everything already on the board (see defaultRegions
-  //   and the adoption effect) — so three themes arriving one at a time are laid out in
-  //   three passes, each below the last, and the group opens the canvas to a staircase it
-  //   has to scroll down. Posted in parallel and added in one batch, which React renders
-  //   once, they are laid out as the row they should be.
-  const seedThemes = (n: number) =>
-    run(async () => {
-      const made = await Promise.all(
-        Array.from({ length: n }, (_, i) =>
-          postRippleCard(code, {
-            participantId: pid,
-            cardOrder: "FIRST",
-            cardKind: "theme",
-            text: "",
-            sort: (i + 1) * SORT_STEP,
-          })
-        )
-      );
-      for (const res of made) if (res?.card) addLocal(res.card as RippleCard);
-    });
-
   const addImplication = (text: string, themeId: string | null) =>
     run(async () => {
       const list = themeId === null ? board.unclustered : (board.clusters.get(themeId) ?? []);
@@ -969,7 +936,6 @@ export function SynthesisTeamView({
           editable={editable}
           busy={busy}
           onAddTheme={addTheme}
-          onSeedThemes={seedThemes}
           onAddImplication={addImplication}
           onEditCard={editCard}
           onMoveCard={moveCard}

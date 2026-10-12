@@ -6,7 +6,7 @@ import { getDesignGroup } from "@/lib/design-groups";
 import { listExercises } from "@/lib/design-group-exercises";
 import { getExerciseType } from "@/lib/exercise-types";
 import { getSessionByCode } from "@/lib/workshop";
-import { getCardsByIds, getRippleTeams, seedFirstCards } from "@/lib/ripples";
+import { ensureStarterThemes, getCardsByIds, getRippleTeams, seedFirstCards } from "@/lib/ripples";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +81,18 @@ export async function POST(
       return NextResponse.json({ error: "This week's board isn't set up yet." }, { status: 409 });
 
     const result = await seedFirstCards({ sessionId: session.id, code: session.code, teamId: team.id, items });
-    return NextResponse.json({ ok: true, ...result });
+
+    // A synthesis week opens on the clustering canvas, and a canvas with no themes offers
+    // nowhere to put the implications we have just put on it — a group has to decide what a
+    // theme IS before it can sort anything into one, which is the order this week is trying
+    // to reverse. So the board gets its empty themes at the moment it gets its implications.
+    // Idempotent: see ensureStarterThemes.
+    const themes =
+      targetRender === "synthesis"
+        ? await ensureStarterThemes({ sessionId: session.id, code: session.code, teamId: team.id })
+        : 0;
+
+    return NextResponse.json({ ok: true, ...result, themes });
   } catch (err) {
     console.error("[POST group seed]", err);
     return NextResponse.json({ error: "Failed to seed key changes." }, { status: 500 });
