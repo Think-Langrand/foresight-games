@@ -99,7 +99,10 @@ export function CardWall({
   // A small line under a card's text, e.g. "↩ flipped from a fear". Null for none.
   badgeFor?: (card: RippleCard) => string | null;
   emptyHint?: string;
-  // Step 3's two are the whole page, so they are given room to look like it.
+  // Room for about two rows of cards before the wall has to grow. For the walls a step
+  // SPENDS ITS TIME on — step 2's risks and opportunities, step 3's hopes and fears —
+  // rather than a wall read beside something else. A one-row box reads as a slot for a
+  // couple of answers; the group should see that more are expected.
   tall?: boolean;
   // Return to the add slot after each card. The default keeps the composer open for a run
   // of ideas (step 3); step 2's walls are read beside the questions, so a card lands and
