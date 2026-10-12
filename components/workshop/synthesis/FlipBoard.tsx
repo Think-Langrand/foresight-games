@@ -15,14 +15,13 @@ import { LeftRail } from "@/components/workshop/synthesis/LeftRail";
 import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
-import { HopeFearGallery } from "@/components/workshop/synthesis/HopeFearGallery";
 import { HopeFearPair } from "@/components/workshop/synthesis/HopeFearPair";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
-// STEP 4 — flip the fears. The board's fears from step 3, laid out to pick from; the one
-// picked sits beside a face-down hope, and writing that hope is the step. A flipped hope
-// is stored as the fear's child (see HopeFearPair), which is what lets the gallery say
-// "flipped" and the hopes wall say where a hope came from.
+// STEP 4 — flip the fears. Every fear from step 3, listed down the page, each one beside a
+// face-down hope; writing that hope is the step. A flipped hope is stored as the fear's
+// child (see HopeFearPair), which is what lets a row say "flipped" and the hopes wall say
+// where a hope came from.
 //
 // Fears into hopes only. The point of the exercise is to find the hope inside a fear;
 // the other direction would be a different exercise.
@@ -33,8 +32,8 @@ const flipDirections = makePrefStore("synthesis.directions.flip", "open", DIRECT
 // What the questions above them do not say: how this surface works. They do not repeat the
 // prompts — a rail that says the same thing twice is a rail nobody reads twice.
 const FLIP_DIRECTIONS = [
-  "Pick a fear from the gallery below. It opens beside its other side, a face-down hope.",
-  "Writing that hope is the step: finish the sentence on the face-down card and add it.",
+  "Every fear the group wrote is listed below, each beside its other side: a face-down hope.",
+  "Writing that hope is the step: click the face-down card, finish the sentence and add it.",
   "Both halves stay live once written, so either one can be edited or deleted afterwards.",
   "A flipped hope joins step 3's hopes wall too, marked with the fear it came from.",
   "The count beside the heading says how many of the board's fears have been flipped.",
@@ -44,8 +43,6 @@ export function FlipBoard({
   board,
   editable,
   busy,
-  focusId,
-  onFocus,
   onFlip,
   onEdit,
   onDelete,
@@ -55,9 +52,6 @@ export function FlipBoard({
   board: SynthesisBoard;
   editable: boolean;
   busy: boolean;
-  // Which fear is open. Owned by the view so leaving and returning keeps your place.
-  focusId: string | null;
-  onFocus: (id: string | null) => void;
   onFlip: (parent: RippleCard, kind: HopeFear, text: string) => AddResult;
   onEdit: (card: RippleCard, text: string) => void;
   onDelete: (card: RippleCard) => void;
@@ -76,12 +70,6 @@ export function FlipBoard({
   const fears = entries.filter((e) => e.card.cardKind === "fear");
   const { flipped, total } = flipProgress(board);
   const isFlipped = (fear: RippleCard) => (board.chains.get(fear.id) ?? []).some((c) => c.cardKind === "hope");
-  // Derived, never synced: a deleted card falls back to the first rather than to nothing.
-  const focused = fears.find((e) => e.card.id === focusId)?.card ?? fears[0]?.card ?? null;
-  // Every hope written on this step. The pair above shows one at a time, so without this
-  // the step's own output is invisible while you do it: you flip a fear, the card goes
-  // quiet, and the only place the hope turns up is step 3.
-  const flips = entries.filter((e) => e.card.cardKind === "hope" && e.flippedFrom);
 
   // Step 4 has no themes to pick, and a rail all the same: the band says which step this
   // is and which world it is in, as it does on the other three, and the rail is what holds
@@ -168,64 +156,44 @@ export function FlipBoard({
           </span>
         </div>
 
-        <HopeFearGallery
-          entries={fears}
-          selectedId={focused?.id ?? null}
-          editable={editable}
-          busy={busy}
-          heading="The board’s fears"
-          lead="Pick one to flip it below."
-          addKinds={[]}
-          status={({ card }) =>
-            isFlipped(card) ? { label: "✓ Flipped", done: true } : { label: "Not flipped yet", done: false }
-          }
-          onSelect={(c) => onFocus(c.id)}
-          onRequestDelete={setPendingDelete}
-          onQuickAdd={() => {}}
-        />
-
-        {focused && (
-          <div className="border-t border-black/10 pt-5">
-            <HopeFearPair
-              key={focused.id}
-              card={focused}
-              board={board}
-              editable={editable}
-              busy={busy}
-              plain
-              onEdit={onEdit}
-              onFlip={onFlip}
-              onRequestDelete={setPendingDelete}
-            />
-          </div>
-        )}
-
-        {/* The hopes this step has made, as the same cards as the fears above it — the
-            gallery's green hope face, not a summary list. Clicking one goes back to the
-            fear it came from, which is where it can be edited: one card, one place to
-            type into. */}
-        <div className="border-t border-black/10 pt-5">
-          <HopeFearGallery
-            entries={flips}
-            selectedId={flips.find((e) => e.flippedFrom?.id === focused?.id)?.card.id ?? null}
-            editable={editable}
-            busy={busy}
-            heading="Hopes flipped so far"
-            lead={
-              flips.length > 0
-                ? "Click one to go back to the fear it came from."
-                : "The hopes you write above collect here."
-            }
-            addKinds={[]}
-            status={null}
-            onSelect={(c) => {
-              const from = flips.find((e) => e.card.id === c.id)?.flippedFrom;
-              if (from) onFocus(from.id);
-            }}
-            onRequestDelete={setPendingDelete}
-            onQuickAdd={() => {}}
-          />
-        </div>
+        {/* Every fear, each beside its own hope. The step used to be a gallery of fears,
+            one open pair, and a gallery of the hopes made so far — which showed the thing
+            the step is actually for exactly once, and put the group's own output in a
+            third place. The list IS the work: one row per fear, the hope written in the
+            row, and how far the group has got readable by scrolling. */}
+        {fears.map((e, i) => {
+          const done = isFlipped(e.card);
+          return (
+            // Keyed by the card, never by the index: each pair holds a composer with a
+            // draft in it, and an index key would carry one fear's half-typed hope into
+            // another's box when the list above it changes.
+            <div key={e.card.id} className="border-t border-black/10 pt-5">
+              <div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+                  Fear {i + 1} of {fears.length}
+                </span>
+                <span
+                  className={
+                    "rounded-[2px] border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.06em] " +
+                    (done ? "border-ink bg-lime text-ink" : "border-[var(--rule)] text-muted")
+                  }
+                >
+                  {done ? "✓ Flipped" : "Not flipped yet"}
+                </span>
+              </div>
+              <HopeFearPair
+                card={e.card}
+                board={board}
+                editable={editable}
+                busy={busy}
+                plain
+                onEdit={onEdit}
+                onFlip={onFlip}
+                onRequestDelete={setPendingDelete}
+              />
+            </div>
+          );
+        })}
       </section>
 
       <ConfirmModal

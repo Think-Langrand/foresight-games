@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CARD_TEXT_MAX } from "@/lib/ripples-types";
 import { ZoomControls, orderColor, stepZoom, type Zoom } from "@/components/workshop/MapControls";
 import {
   NODE_RADIUS as NODE_R,
@@ -102,6 +103,84 @@ type Mode =
 
 const NO_IDS: ReadonlySet<string> = new Set();
 
+// A theme's name, typed in its own label strip.
+//
+// A component of its own, at the top of the file, because it holds a DRAFT: a function
+// nested in the render would be a new component type on every pass, and the board rebuilds
+// on every realtime message — which would throw away a half-typed name mid-sentence. The
+// same reason ImplicationTree and ClusterBoard carry the warning.
+//
+// Everything inside the scaled surface is sized in inverse scale, this included: at a Fit
+// of 0.3 a 14px field inks at 4px and cannot be typed into.
+function RegionName({
+  text,
+  scale,
+  width,
+  onCommit,
+  onCancel,
+}: {
+  text: string;
+  scale: number;
+  width: number;
+  onCommit: (next: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState(text);
+  const ref = useRef<HTMLInputElement | null>(null);
+
+  // Focused and selected on arrival: the ✎ is a single click and the next thing people do
+  // is type, so a rename of an existing name replaces it rather than appending to it.
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+
+  return (
+    <input
+      ref={ref}
+      value={draft}
+      maxLength={CARD_TEXT_MAX}
+      placeholder="What is this theme about?"
+      onChange={(e) => setDraft(e.target.value)}
+      // The surface captures the pointer for a marquee and the strip for a move; either
+      // would mean the caret cannot be placed or a word cannot be selected by dragging
+      // across it. Clicks inside a field are nobody else's business.
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerMove={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onBlur={() => onCommit(draft.trim())}
+      onKeyDown={(e) => {
+        // A theme name is one line, so Enter commits with no newline case to handle.
+        // Escape abandons, and the Escape the board listens for must not also fire.
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onCommit(draft.trim());
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+      }}
+      style={{
+        width,
+        font: "inherit",
+        letterSpacing: "inherit",
+        textTransform: "none",
+        color: "var(--ink)",
+        background: "var(--paper)",
+        border: `${1.5 / scale}px solid var(--ink)`,
+        borderRadius: 2 / scale,
+        paddingInline: 4 / scale,
+        outline: "none",
+        pointerEvents: "auto",
+        touchAction: "auto",
+        cursor: "text",
+      }}
+    />
+  );
+}
+
 export function CanvasBoard({
   nodes,
   positions,
@@ -120,6 +199,8 @@ export function CanvasBoard({
   onDismissClump,
   movable,
   onOpenTheme,
+  themeName,
+  onRenameTheme,
   onMoveRegion,
   onResizeRegion,
   trailing,
@@ -163,6 +244,15 @@ export function CanvasBoard({
   // where a theme is BUILT and the sheet is where it is said, and until this existed the
   // only way across was a square in a rail on the other side of the screen.
   onOpenTheme?: (themeId: string) => void;
+  // Naming a theme without leaving the board. Half of what step 1 asks for is the name,
+  // and the box's own label is where people look for it — opening the sheet to type it was
+  // a detour out of the thing they are arranging. The sheet still has the field; this is
+  // the same write from the other end.
+  onRenameTheme?: (themeId: string, text: string) => void;
+  // The theme's name as STORED — blank for one nobody has named. Separate from themeLabel,
+  // which answers "what do we call this on screen" and falls back to the position; this
+  // answers "what is in the field", and the two must not be confused when editing it.
+  themeName?: (themeId: string) => string;
   // Pinned right on the toolbar row: state about the surface, not about the view.
   trailing?: React.ReactNode;
   nodeProps?: (key: string) => React.HTMLAttributes<HTMLDivElement>;
@@ -170,6 +260,10 @@ export function CanvasBoard({
   const [zoom, setZoom] = useState<Zoom>("fit");
   const [fitScale, setFitScale] = useState(1);
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
+  // Which box's label is being typed into, if any. Not part of `mode`: that union is the
+  // pointer state machine, and renaming is a keyboard thing that deliberately takes the
+  // box OUT of that machine for as long as it lasts.
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -644,7 +738,13 @@ export function CanvasBoard({
               const bad =
                 live !== null &&
                 (live.blocked.length > 0 || (live.kind === "sizebox" && live.below));
-              const grippable = editable && movable(r.themeId);
+              // Typing in the label takes the box out of the pointer machine: the grip
+              // would otherwise capture the pointer on mousedown inside the input — you
+              // cannot place a caret in a handle — and a double-click to select a word
+              // would open the sheet.
+              const editingName = renaming === r.themeId;
+              const grippable = editable && movable(r.themeId) && !editingName;
+              const renameable = editable && Boolean(onRenameTheme);
 
               return (
                 <div key={r.themeId}>
@@ -676,6 +776,10 @@ export function CanvasBoard({
                         ? "color-mix(in srgb, var(--coral) 12%, var(--card))"
                         : "color-mix(in srgb, var(--lime) 14%, var(--card))",
                       borderRadius: r.shape === "ellipse" ? "50%" : undefined,
+                      // Above its neighbours while its label is being typed into: the
+                      // input is wider than the strip it replaces, and a box drawn later
+                      // in this list would otherwise paint over it.
+                      zIndex: editingName ? 2 : undefined,
                     }}
                   >
                     {/* The label strip doubles as the grip. Everything inside the scaled
@@ -708,11 +812,15 @@ export function CanvasBoard({
                       // The shortcut for people who find it. The button beside the name is
                       // the discoverable one; a double-click is what a box on a board
                       // invites, and the two cost each other nothing.
-                      onDoubleClick={onOpenTheme ? () => onOpenTheme(r.themeId) : undefined}
+                      onDoubleClick={
+                        onOpenTheme && !editingName ? () => onOpenTheme(r.themeId) : undefined
+                      }
                       title={
-                        onOpenTheme
-                          ? `${themeLabel(r.themeId)} — double-click to open`
-                          : themeLabel(r.themeId)
+                        editingName
+                          ? undefined
+                          : onOpenTheme
+                            ? `${themeLabel(r.themeId)} — double-click to open`
+                            : themeLabel(r.themeId)
                       }
                       className="absolute bg-paper font-bold uppercase tracking-[0.05em] text-muted"
                       style={{
@@ -733,14 +841,26 @@ export function CanvasBoard({
                         lineHeight: 1.6,
                         // One line, always. The strip is sized to its own text inside a
                         // box that can be 140 wide, so a name that does not fit used to
-                        // wrap DOWN into the box and sit on the implications. It runs past
-                        // the box's right edge instead, into the gap every box keeps, and
-                        // a name too long even for that is clipped (the title has it all).
+                        // wrap DOWN into the box and sit on the implications. It runs to
+                        // the box's right edge and no further than the gap every box keeps
+                        // beside it, and a name too long for that is clipped — the title,
+                        // and the rail, have it in full.
+                        //
+                        // The gap is the whole budget. It used to be a flat 260px, which
+                        // was the readable minimum for a narrow box and is wider than a
+                        // default box's own gap: with the boxes side by side in a row, and
+                        // names now typed right here and written as sentences, every long
+                        // name lay across its neighbour's name and made both unreadable.
+                        //
+                        // None of that while it is being typed into: the clip is what the
+                        // reader is spared, and it would cut the caret off mid-name.
                         whiteSpace: "nowrap",
-                        maxWidth: Math.max(shown.w, 260 / scale),
-                        overflow: "hidden",
+                        maxWidth: editingName
+                          ? undefined
+                          : Math.max(40 / scale, shown.w - 14 / scale + REGION_CLEARANCE),
+                        overflow: editingName ? "visible" : "hidden",
                         textOverflow: "ellipsis",
-                        pointerEvents: grippable || onOpenTheme ? "auto" : "none",
+                        pointerEvents: grippable || onOpenTheme || renameable ? "auto" : "none",
                         touchAction: "none",
                         cursor: grippable ? (live ? "grabbing" : "grab") : "default",
                         color: bad ? "var(--coral)" : undefined,
@@ -752,7 +872,7 @@ export function CanvasBoard({
                           name fills its width. It stops the event itself, or the press
                           starts a move and the click never arrives — the pointer capture
                           on the grip retargets it. */}
-                      {onOpenTheme && !live && (
+                      {onOpenTheme && !live && !editingName && (
                         <button
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
@@ -786,6 +906,38 @@ export function CanvasBoard({
                           <span aria-hidden>↗</span>
                         </button>
                       )}
+                      {/* Names it, here, without opening anything. Beside the ↗ because
+                          the two are the same kind of offer — the sheet, or the one field
+                          people go to the sheet for — and sized to it for the same reason:
+                          a 14px glyph is not a target on a tablet at a low Fit. */}
+                      {renameable && !live && !editingName && (
+                        <button
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRenaming(r.themeId);
+                          }}
+                          aria-label={`Rename ${themeLabel(r.themeId)}`}
+                          title={`Rename ${themeLabel(r.themeId)}`}
+                          className="font-normal text-blue hover:text-ink"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 22 / scale,
+                            height: 22 / scale,
+                            fontSize: 14 / scale,
+                            lineHeight: 1,
+                            marginRight: 2 / scale,
+                            verticalAlign: "-0.3em",
+                            zIndex: 1,
+                            pointerEvents: "auto",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <span aria-hidden>✎</span>
+                        </button>
+                      )}
                       {/* Bigger than the name beside it: it is the only part of the
                           strip that says "this moves", and it is aimed at rather than
                           read. inline-block at line-height 1 so a taller glyph does not
@@ -804,7 +956,30 @@ export function CanvasBoard({
                           ⠿
                         </span>
                       )}
-                      {themeLabel(r.themeId)}
+                      {editingName ? (
+                        <RegionName
+                          // The theme's own name, not themeLabel's — a theme nobody has
+                          // named reads as "Theme 3" on the board, and starting the field
+                          // at that would make Enter alone write the number down as the
+                          // real name. An unnamed theme opens an empty field.
+                          text={themeName?.(r.themeId) ?? ""}
+                          scale={scale}
+                          width={Math.max(shown.w, 320 / scale)}
+                          onCommit={(next) => {
+                            setRenaming(null);
+                            // Empty is a cancel, not a clear: the card route refuses a
+                            // blank name with a 400, so saving one would be a silent
+                            // failure, and "no name" is a state the board already says
+                            // out loud rather than one to type.
+                            if (next && next !== (themeName?.(r.themeId) ?? "")) {
+                              onRenameTheme?.(r.themeId, next);
+                            }
+                          }}
+                          onCancel={() => setRenaming(null)}
+                        />
+                      ) : (
+                        themeLabel(r.themeId)
+                      )}
                       {/* Its real membership, which can exceed the circles drawn inside
                           it: an implication sitting in two themes is still ONE circle,
                           and that circle can only be in one box at a time. Saying the

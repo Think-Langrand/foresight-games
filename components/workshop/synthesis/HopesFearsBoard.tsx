@@ -1,13 +1,14 @@
 "use client";
 
 import type { AddResult } from "@/components/workshop/synthesis/SynthesisCard";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import {
   boardChainCards,
   descendantsOf,
   exploreProgress,
   summaryCardCount,
+  themeLabel,
   type HopeFear,
   type SynthesisBoard,
 } from "@/lib/synthesis-shape";
@@ -17,8 +18,7 @@ import { PromptRail, Prompts } from "@/components/workshop/synthesis/PromptRail"
 import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
-import { CardWall } from "@/components/workshop/synthesis/CardWall";
-import { ThemeDeck } from "@/components/workshop/synthesis/ThemeDeck";
+import { CardWall, type WallGroup } from "@/components/workshop/synthesis/CardWall";
 import { ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
 import { SummaryPanel } from "@/components/workshop/synthesis/SummaryPanel";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -28,11 +28,11 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 // whole, as many as it can, one idea per card. Two big walls, hopes in lime and fears in
 // coral, each with its add slot where the eye lands first.
 //
-// Above the walls, what the group is writing FROM: the facilitator's summary of steps 1–2
-// if there is one, and the themes one card at a time. The co-lead guides' one rule for
-// this step is that a hope or fear is a sentence that ends in "because" — one-word hopes
-// ("equity", "funding") are the failure mode — so the composer is the sentence to finish
-// and the slot carries the question.
+// Under the walls, what the group is writing FROM: every risk and every opportunity step 2
+// produced, in two columns grouped by theme, and then the facilitator's summary. The
+// co-lead guides' one rule for this step is that a hope or fear is a sentence that ends in
+// "because" — one-word hopes ("equity", "funding") are the failure mode — so the composer
+// is the sentence to finish and the slot carries the question.
 //
 // A hope written in step 4 (flipped from a fear) is still a hope, so it shows on the hopes
 // wall too, marked with where it came from.
@@ -46,8 +46,8 @@ const hopesDirections = makePrefStore("synthesis.directions.hopes", "open", DIRE
 const HOPES_DIRECTIONS = [
   "This step is the whole future, not one theme — write as many hopes and fears as the group has.",
   "One idea per card. The slot at the top of each wall is where you write; the rest scrolls under it.",
-  "Below the walls are the themes you worked, with the risks and opportunities you wrote for each.",
-  "Pick a theme on the left, or use the deck's own arrows, to read one while you write.",
+  "Below the walls are every risk and every opportunity the group wrote in step 2, grouped by theme.",
+  "Click a theme on the left to jump to its risks and opportunities.",
 ] as const;
 
 export function HopesFearsBoard({
@@ -95,30 +95,50 @@ export function HopesFearsBoard({
   const hopes = entries.filter((e) => e.card.cardKind === "hope");
   const fears = entries.filter((e) => e.card.cardKind === "fear");
   const flippedFrom = new Map(entries.map((e) => [e.card.id, e.flippedFrom]));
-  // Nothing picked yet, or a theme deleted under us: the first one.
-  const active = board.themes.find((t) => t.id === themeId) ?? board.themes[0] ?? null;
+
+  // One run per theme, in board order, for each of the two columns below the walls. Every
+  // theme appears in both, with or without cards — the columns are an inventory of what the
+  // group worked, and a theme that wrote no risks is itself worth seeing.
+  const stakeGroups = (kind: "risk" | "opportunity"): WallGroup[] =>
+    board.themes.map((t) => ({
+      id: t.id,
+      label: themeLabel(board, t),
+      cards: (kind === "risk" ? board.risks : board.opportunities).get(t.id) ?? [],
+    }));
+
+  // The rail picks a theme by scrolling to it in both columns rather than by swapping what
+  // is on screen: everything is on screen now, so picking is a question of where to look.
+  // Both columns, so the pair stays side by side — the risk column is the one scrolled to
+  // and the opportunity column is nudged to match.
+  useEffect(() => {
+    if (!themeId) return;
+    document
+      .getElementById(`wall-risk-${themeId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [themeId]);
 
   return (
     <>
-      {/* The same rail as every theme step. Step 3 is the board's, not a theme's, so it
-          picks what the deck below READS rather than what is being worked on — and its
-          glyph is steps 1–2's, because that is what there is to write a hope or a fear
-          off. Hidden below lg like always; the deck's own Prev/Next and dots are the
-          picker there, and stay at every width for reading straight through.
+      {/* The same rail as every theme step. Step 3 is the board's, not a theme's, so a
+          square SCROLLS to that theme in the columns below rather than deciding what is on
+          screen — every theme is down there — and its glyph is steps 1–2's, because that is
+          what there is to write a hope or a fear off. Hidden below lg like always, where
+          the columns are simply read straight through.
 
           Mounted even with no themes to pick: the band at its top is the step itself, and
           the rail is what holds the page's left gutter. */}
       <ThemeRail
         board={board}
-        activeId={active?.id ?? null}
-        // Clicking the lit square would close a theme on the other steps; here there is
-        // always one showing, so it stays put.
-        onPick={(id) => setThemeId(id ?? active?.id ?? null)}
+        activeId={themeId}
+        onPick={setThemeId}
         progressFor={(t) => exploreProgress(board, t.id)}
         progressLabel="Exploration"
+        // Naming carries through from steps 1–2: the rail is the same rail, and a group
+        // that renames a theme here sees it in both columns under it.
+        onRename={editable ? (t, text) => onEdit(t, text) : undefined}
         hint={
           board.themes.length > 0
-            ? "Click a theme to read it below."
+            ? "Click a theme to jump to its risks and opportunities below."
             : "No themes yet — they are made in step 1."
         }
         top={
@@ -200,7 +220,34 @@ export function HopesFearsBoard({
           />
         </section>
 
-        <ThemeDeck board={board} activeId={active?.id ?? null} onPick={setThemeId} />
+        {/* What step 2 produced, all of it, as the cards the group wrote it on. Two
+            columns, one per kind, each grouped by theme: a hope or a fear is about the
+            whole future, so what it is written from is the whole board's risks and the
+            whole board's opportunities — read down one column at a time — rather than one
+            theme at a time with both kinds beside it, which is step 2's own shape.
+
+            It used to be a carousel of one theme. A group had to turn it to find out
+            whether it had already said something, which is the one job this block has. */}
+        {board.themes.length > 0 && (
+          <section className="grid gap-4 lg:grid-cols-2">
+            <CardWall
+              tone="risk"
+              title="Risks, by theme"
+              groups={stakeGroups("risk")}
+              activeGroupId={themeId}
+              editable={false}
+              emptyHint="No risks written in step 2."
+            />
+            <CardWall
+              tone="opportunity"
+              title="Opportunities, by theme"
+              groups={stakeGroups("opportunity")}
+              activeGroupId={themeId}
+              editable={false}
+              emptyHint="No opportunities written in step 2."
+            />
+          </section>
+        )}
 
         <SummaryPanel
           summary={summary}

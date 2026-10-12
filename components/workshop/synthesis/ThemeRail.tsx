@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LeftRail } from "@/components/workshop/synthesis/LeftRail";
-import type { RippleCard } from "@/lib/ripples-types";
+import { CARD_TEXT_MAX, type RippleCard } from "@/lib/ripples-types";
 import { isUnnamedTheme, type SynthesisBoard, type ThemeProgress } from "@/lib/synthesis-shape";
 import { STATE_DOT, STATE_LABEL, stateGlyph } from "@/components/workshop/synthesis/themeProgress";
 
@@ -35,6 +35,61 @@ export function Dot() {
   );
 }
 
+// A theme's name, typed in its own square.
+//
+// A component of its own, at the top of the file, because it holds a DRAFT: a function
+// nested in the render would be a new component type on every pass, and the rail rebuilds
+// on every realtime message — which would throw away a half-typed name mid-sentence.
+//
+// A textarea rather than an input, and at 12px rather than the square's 10px uppercase:
+// the names groups actually write are sentence-length, and the whole point of editing here
+// is not having to go somewhere else to see what you are typing.
+function RailName({
+  text,
+  onCommit,
+  onCancel,
+}: {
+  text: string;
+  onCommit: (next: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState(text);
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+
+  return (
+    <textarea
+      ref={ref}
+      value={draft}
+      rows={3}
+      maxLength={CARD_TEXT_MAX}
+      placeholder="What is this theme about?"
+      onChange={(e) => setDraft(e.target.value)}
+      // The square around this is a role="button" with its own click and keydown; a click
+      // to place a caret is not a click on it.
+      onClick={(e) => e.stopPropagation()}
+      onBlur={() => onCommit(draft.trim())}
+      onKeyDown={(e) => {
+        // A theme name is one line's worth of thought, so Enter commits rather than
+        // breaking the line. Escape abandons, and must not reach the step behind it.
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onCommit(draft.trim());
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+      }}
+      className="mt-1.5 w-full resize-none rounded-[2px] border border-ink bg-paper p-1 text-[12px] font-bold leading-[1.3] outline-none"
+    />
+  );
+}
+
 export function ThemeRail({
   board,
   activeId,
@@ -50,6 +105,7 @@ export function ThemeRail({
   squareInsert,
   pickedCount = 0,
   onAddPicked,
+  onRename,
   footer,
   top,
 }: {
@@ -68,17 +124,21 @@ export function ThemeRail({
   // A card is being dragged: the popover gets out of the way.
   dragging?: boolean;
   // Step 1's drop-zone wiring on each square, and whether that square is lit by a drag.
-  squareProps?: (theme: RippleCard) => React.HTMLAttributes<HTMLButtonElement>;
+  squareProps?: (theme: RippleCard) => React.HTMLAttributes<HTMLDivElement>;
   squareLit?: (theme: RippleCard) => boolean;
   // Step 1's drag-to-reorder. The squares are the only place themes can be put in order
   // once the board's columns are off at this width, so the square itself is the handle —
   // there is no room beside it for a grip, and the whole tile is a big enough target.
-  squareReorderProps?: (theme: RippleCard) => React.HTMLAttributes<HTMLButtonElement>;
+  squareReorderProps?: (theme: RippleCard) => React.HTMLAttributes<HTMLDivElement>;
   // Which edge of this square a dropped theme would land on, for the insertion bar.
   squareInsert?: (theme: RippleCard) => "before" | "after" | null;
   // Step 1's tick-and-click: with cards picked, a click adds them instead of opening.
   pickedCount?: number;
   onAddPicked?: (theme: RippleCard) => void;
+  // Naming a theme in the rail, where its name is already being read — and where the
+  // square says "still unnamed" in red without offering anything to do about it. Omitted
+  // on a read-only board; the square is then just a picker, as it always was.
+  onRename?: (theme: RippleCard, text: string) => void;
   // Below the squares — step 1's empty slots and "+ New theme" button.
   footer?: React.ReactNode;
   // Above the squares: the rail's top band, at least as tall as everything above the
@@ -90,6 +150,8 @@ export function ThemeRail({
   // The square under the pointer, and where to draw its full contents. Fixed to the
   // viewport rather than inside the rail, which scrolls and would clip it.
   const [hover, setHover] = useState<{ id: string; top: number } | null>(null);
+  // Which square's name is being typed into. One at a time, by construction.
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   const hovered = hover ? (board.themes.find((t) => t.id === hover.id) ?? null) : null;
 
@@ -107,6 +169,7 @@ export function ThemeRail({
             const open = activeId === t.id;
             const state = progressFor(t);
             const insert = squareInsert?.(t) ?? null;
+            const editing = renaming === t.id;
             return (
               <div key={t.id} className="relative">
                 {insert && (
@@ -118,10 +181,21 @@ export function ThemeRail({
                     }
                   />
                 )}
-              <button
+              <div
                 {...(squareProps?.(t) ?? {})}
                 {...(squareReorderProps?.(t) ?? {})}
+                // A div, not a button, because the name inside it is editable and a
+                // button inside a button is not valid HTML. role + tabIndex + the Enter
+                // and Space handler is the same shape the new-theme slot already uses.
+                role="button"
+                tabIndex={0}
+                // Typing in the name must not be a drag handle: text selection inside a
+                // draggable element is broken in Safari and Firefox.
+                draggable={editing ? false : (squareReorderProps?.(t)?.draggable ?? undefined)}
                 onClick={() => {
+                  // Not while its own name is being typed into: the field is inside the
+                  // square, so every click that places a caret is also a click on this.
+                  if (editing) return;
                   // With nothing picked, a square opens its theme — or closes it, if it
                   // is the one already open: the rail is where your pointer is, so going
                   // back should not mean finding a button at the top of the body. With a
@@ -131,6 +205,14 @@ export function ThemeRail({
                     return;
                   }
                   onPick(open ? null : t.id);
+                }}
+                onKeyDown={(e) => {
+                  if (editing) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (pickedCount > 0 && onAddPicked) onAddPicked(t);
+                    else onPick(open ? null : t.id);
+                  }
                 }}
                 aria-pressed={open}
                 onMouseEnter={(e) => {
@@ -142,13 +224,18 @@ export function ThemeRail({
                 }}
                 onMouseLeave={() => setHover(null)}
                 className={
-                  "flex aspect-square w-full flex-col rounded-[6px] border-2 p-2.5 text-left transition-all " +
+                  "flex w-full flex-col rounded-[6px] border-2 p-2.5 text-left transition-all " +
+                  // Square normally; while its name is being typed, as tall as the field
+                  // needs. A theme name is a sentence-length thing and the square's own
+                  // line is a 10px truncate, so editing in that line would be typing into
+                  // a slot narrower than most of the names people write.
+                  (editing ? "min-h-[9rem] " : "aspect-square ") +
                   (lit
                     ? "scale-[1.02] border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)] "
                     : open
                       ? "border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)] "
                       : "border-ink bg-[rgba(196,255,103,0.16)] hover:bg-lime/40 ") +
-                  (pickedCount > 0 ? "cursor-copy" : "")
+                  (pickedCount > 0 && !editing ? "cursor-copy" : "")
                 }
               >
                 <span className="flex items-baseline justify-between gap-1.5">
@@ -165,16 +252,59 @@ export function ThemeRail({
                   >
                     {stateGlyph(state)}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.08em]">
-                    {t.text}
-                  </span>
+                  {/* The name, and — where the board is writable — the way to change it.
+                      A named theme shows the name with a ✎ beside it; an unnamed one has
+                      no text to click, so the slot offers the field instead. */}
+                  {onRename && !t.text.trim() ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRenaming(t.id);
+                      }}
+                      className="min-w-0 flex-1 text-left text-[10px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+                    >
+                      ＋ Name
+                    </button>
+                  ) : (
+                    <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.08em]">
+                      {t.text}
+                    </span>
+                  )}
+                  {onRename && t.text.trim() && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRenaming(t.id);
+                      }}
+                      aria-label={`Rename ${t.text}`}
+                      title="Rename"
+                      className="shrink-0 rounded-[2px] border border-[var(--hairline)] bg-paper px-1 text-[10px] font-normal leading-[1.4] text-muted hover:border-ink hover:text-ink"
+                    >
+                      ✎
+                    </button>
+                  )}
                   <span className="shrink-0 text-[9.5px] font-bold text-muted">{held.length}</span>
                 </span>
+
+                {/* The field, under the number row rather than in it: the row is four
+                    things wide already, and a name is the one of them worth a full line. */}
+                {editing && onRename && (
+                  <RailName
+                    text={t.text}
+                    onCommit={(next) => {
+                      setRenaming(null);
+                      // Empty is a cancel: the card route refuses a blank name, and
+                      // "still unnamed" is already how the square says that.
+                      if (next && next !== t.text) onRename(t, next);
+                    }}
+                    onCancel={() => setRenaming(null)}
+                  />
+                )}
+
                 {/* A theme minted by a drop has no name, and an older one has a number for
-                    one. Either way the square says so and opening it is the fix — which is
-                    the click this square already is, so this is a cue, not a second button
-                    (a button inside a button is not valid anyway). */}
-                {isUnnamedTheme(t) && (
+                    one. Either way the square says so; the ＋ Name in the row above is
+                    what to do about it, so this stays a cue rather than a second button. */}
+                {isUnnamedTheme(t) && !editing && (
                   <span className="mt-0.5 shrink-0 text-[9.5px] font-bold uppercase tracking-[0.05em] text-coral underline">
                     still unnamed
                   </span>
@@ -202,7 +332,7 @@ export function ThemeRail({
                     ＋ Add {pickedCount}
                   </span>
                 )}
-              </button>
+              </div>
               </div>
             );
           })}

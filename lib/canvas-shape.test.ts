@@ -490,6 +490,29 @@ describe("defaultRegions", () => {
     expect(empty.h).toBeGreaterThan(0);
   });
 
+  // The canvas opens with three empty themes on a board that has none, so the empty box is
+  // the first thing a group meets and the thing it drags a pile into. Sized for one card it
+  // read as a slot for one thing; it has to hold a real cluster without being resized.
+  it("sizes an empty theme for a cluster, not for one card", () => {
+    const empty = defaultRegions(themes, band, 2000).find((r) => r.themeId === "TH5")!;
+    const seats = resolvePositions({
+      items: Array.from({ length: 9 }, (_, i) => ({
+        key: `TH5-${i}`,
+        themeId: "TH5",
+        seat: null,
+      })),
+      regions: new Map([["TH5", empty]]),
+      saved: new Map(),
+      strip: { x: 0, y: 0 },
+    });
+    expect(seats.size).toBe(9);
+    // Every one inside the box, and every one in a seat of its own: seatInRegion wraps
+    // its grid, so an overfull box stacks circles on top of each other rather than
+    // spilling, and "it fits" has to mean nine distinct seats.
+    for (const p of seats.values()) expect(containsPoint(empty, p)).toBe(true);
+    expect(new Set([...seats.values()].map((p) => `${p.x},${p.y}`)).size).toBe(9);
+  });
+
   // The whole point: a box has to be able to hold its own members, or the view opens
   // showing a theme in violation of itself.
   it("makes a box big enough to seat every member inside it", () => {
