@@ -1466,10 +1466,9 @@ export function ClusterBoard({
       ? [
           "Drag an implication anywhere. Inside a theme’s box it belongs to that theme; drag it clear of every box to send it back to the tray.",
           "Drag across empty space to draw a new theme.",
-          // Naming is half of what step 1 asks for, and nothing on the clustering view
-          // said how to reach the place it happens: the box on the canvas does not open,
-          // the square in the rail does.
-          "To name a theme, click its square in the rail on the left. That opens it on its own, and the name is the heading at the top.",
+          // Naming is half of what step 1 asks for, so the way to the sheet where it
+          // happens is a direction, not a thing to discover.
+          "To name a theme, open it: the ↗ on its box, a double-click on the box's label, or its square in the rail. The name is the heading at the top.",
           "Move a theme by the ⠿ on its label and everything inside travels with it. Drag a corner to resize it.",
           "Gather brings the loose implications back together by key change. Spread out gives them room to sort.",
           "Scroll to move around the board, and use Fit to see all of it.",
@@ -2368,6 +2367,9 @@ export function ClusterBoard({
               `Theme ${board.themes.findIndex((th) => th.id === id) + 1}`
             }
             memberCount={(id) => (board.clusters.get(id) ?? []).length}
+            // The way from a box to its sheet. Same destination as the rail square, from
+            // the thing people are actually looking at.
+            onOpenTheme={onPickTheme}
             width={canvasExtent.width}
             height={canvasExtent.height}
             editable={editable}

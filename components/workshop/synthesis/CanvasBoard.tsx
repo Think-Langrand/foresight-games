@@ -119,6 +119,7 @@ export function CanvasBoard({
   clumps,
   onDismissClump,
   movable,
+  onOpenTheme,
   onMoveRegion,
   onResizeRegion,
   trailing,
@@ -158,6 +159,10 @@ export function CanvasBoard({
   onMoveRegion: (region: Region, moved: CanvasCardPos[], adopt: string[]) => void;
   // No card rows: a resize does not move anybody.
   onResizeRegion: (region: Region, adopt: string[]) => void;
+  // Open this theme on its own — the sheet where it is named and read. The canvas is
+  // where a theme is BUILT and the sheet is where it is said, and until this existed the
+  // only way across was a square in a rail on the other side of the screen.
+  onOpenTheme?: (themeId: string) => void;
   // Pinned right on the toolbar row: state about the surface, not about the view.
   trailing?: React.ReactNode;
   nodeProps?: (key: string) => React.HTMLAttributes<HTMLDivElement>;
@@ -371,8 +376,11 @@ export function CanvasBoard({
     letGo(e);
     const { origin, legal, travellers, adopt } = mode;
     setMode({ kind: "idle" });
-    // A mis-grab, or a drag that was blocked the whole way, must not rewrite forty rows.
-    if (legal.x === origin.x && legal.y === origin.y) return;
+    // A mis-grab, a drag blocked the whole way, or the press half of a double-click on the
+    // label, must not rewrite forty rows. Measured on SCREEN, where the hand is: a couple
+    // of model pixels at Fit 0.3 is a third of a pixel to the person doing it, and nobody
+    // moves a theme by three pixels on purpose.
+    if (Math.hypot(legal.x - origin.x, legal.y - origin.y) * scale < 3) return;
     const dx = legal.x - origin.x;
     const dy = legal.y - origin.y;
     onMoveRegion(
@@ -680,19 +688,47 @@ export function CanvasBoard({
                         10px it was the smallest thing on screen. Taller with it, which the
                         grip wants anyway — the strip IS the handle the box moves by. */}
                     <span
-                      onPointerDown={grippable ? startMove(r) : undefined}
+                      onPointerDown={
+                        grippable
+                          ? startMove(r)
+                          : onOpenTheme
+                            ? // A box with no saved region row is not movable — every box
+                              // is, until the board has written one — and without a
+                              // handler here the press reaches the surface, which captures
+                              // the pointer for a marquee and takes the double-click with
+                              // it. Keeping the press makes the label openable on a board
+                              // nobody has rearranged yet.
+                              (e: React.PointerEvent<HTMLSpanElement>) => e.stopPropagation()
+                            : undefined
+                      }
                       onPointerMove={grippable ? moveBox : undefined}
                       onPointerUp={grippable ? endMove : undefined}
                       onPointerCancel={grippable ? abandonBox : undefined}
                       onLostPointerCapture={grippable ? abandonBox : undefined}
-                      title={themeLabel(r.themeId)}
+                      // The shortcut for people who find it. The button beside the name is
+                      // the discoverable one; a double-click is what a box on a board
+                      // invites, and the two cost each other nothing.
+                      onDoubleClick={onOpenTheme ? () => onOpenTheme(r.themeId) : undefined}
+                      title={
+                        onOpenTheme
+                          ? `${themeLabel(r.themeId)} — double-click to open`
+                          : themeLabel(r.themeId)
+                      }
                       className="absolute bg-paper font-bold uppercase tracking-[0.05em] text-muted"
                       style={{
                         // Centred on the box's own border: half the strip's height
-                        // (fontSize × lineHeight) above it.
-                        top: -11 / scale,
-                        left: 8 / scale,
+                        // (fontSize × lineHeight, plus the padding) above it.
+                        top: -13 / scale,
+                        // Past the reach of the top-left resize handle, which is centred
+                        // ON the corner and drawn after this, so anything interactive
+                        // inside its 11px would be pressing the handle instead. The strip
+                        // used to start at 8 and lose the ⠿ to it.
+                        left: 14 / scale,
                         paddingInline: 6 / scale,
+                        // Room above and below the text, because this strip is not a
+                        // caption — it is the handle the whole box moves by, and a 22px
+                        // band is a thin thing to catch with a finger.
+                        paddingBlock: 2 / scale,
                         fontSize: 14 / scale,
                         lineHeight: 1.6,
                         // One line, always. The strip is sized to its own text inside a
@@ -704,13 +740,70 @@ export function CanvasBoard({
                         maxWidth: Math.max(shown.w, 260 / scale),
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        pointerEvents: grippable ? "auto" : "none",
+                        pointerEvents: grippable || onOpenTheme ? "auto" : "none",
                         touchAction: "none",
                         cursor: grippable ? (live ? "grabbing" : "grab") : "default",
                         color: bad ? "var(--coral)" : undefined,
                       }}
                     >
-                      {grippable && <span aria-hidden>⠿ </span>}
+                      {/* Opens the theme. Inside the strip because the strip is the one
+                          part of a box that already takes the pointer, and at its HEAD
+                          because its tail reaches the top-right handle on any box whose
+                          name fills its width. It stops the event itself, or the press
+                          starts a move and the click never arrives — the pointer capture
+                          on the grip retargets it. */}
+                      {onOpenTheme && !live && (
+                        <button
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenTheme(r.themeId);
+                          }}
+                          aria-label={`Open ${themeLabel(r.themeId)}`}
+                          title={`Open ${themeLabel(r.themeId)}`}
+                          className="font-normal text-blue hover:text-ink"
+                          style={{
+                            // 22px, the tablet minimum this file sets for the resize
+                            // handles, rather than the 14px the glyph happens to ink.
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 22 / scale,
+                            height: 22 / scale,
+                            fontSize: 15 / scale,
+                            lineHeight: 1,
+                            marginRight: 2 / scale,
+                            verticalAlign: "-0.3em",
+                            // Above the corner handles, which are drawn after the strip:
+                            // on a narrow box — or any box at a low Fit, since the handles
+                            // keep their size while the box shrinks — the top-right one
+                            // reaches back this far and would take the press.
+                            zIndex: 1,
+                            pointerEvents: "auto",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <span aria-hidden>↗</span>
+                        </button>
+                      )}
+                      {/* Bigger than the name beside it: it is the only part of the
+                          strip that says "this moves", and it is aimed at rather than
+                          read. inline-block at line-height 1 so a taller glyph does not
+                          grow the strip's own line box. */}
+                      {grippable && (
+                        <span
+                          aria-hidden
+                          style={{
+                            display: "inline-block",
+                            fontSize: 18 / scale,
+                            lineHeight: 1,
+                            marginRight: 4 / scale,
+                            verticalAlign: "-0.12em",
+                          }}
+                        >
+                          ⠿
+                        </span>
+                      )}
                       {themeLabel(r.themeId)}
                       {/* Its real membership, which can exceed the circles drawn inside
                           it: an implication sitting in two themes is still ONE circle,
@@ -731,6 +824,7 @@ export function CanvasBoard({
                       {live && !bad && live.adopt.length > 0 && (
                         <span className="font-normal"> · +{live.adopt.length} loose</span>
                       )}
+
                     </span>
 
                     {grippable &&
