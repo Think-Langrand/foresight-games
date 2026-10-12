@@ -86,6 +86,16 @@ const NO_KEY_CHANGE = "no-key-change";
 
 // Air between the bottom of the loose pile and the band of theme boxes below it.
 const CANVAS_BAND = 200;
+
+// Can a group write a NEW implication on this board?
+//
+// No, for now. Implications come out of Session 2, and step 1 is for sorting the ones that
+// exist — an "add" here invites a group to invent a fourteenth implication instead of
+// deciding what the thirteen they have are about.
+//
+// Hidden rather than cut: the composer, onAddImplication and its route are all untouched
+// and still wired, so this is one word to put back.
+const SHOW_ADD_IMPLICATION = false;
 import {
   DeleteThemeModal,
   type DeleteThemeMode,
@@ -2142,7 +2152,7 @@ export function ClusterBoard({
                 onChange={setOrderFilter}
               />
             )}
-            {editable && (
+            {editable && SHOW_ADD_IMPLICATION && (
               <button
                 onClick={() => setAddingTo(addingTo === "tray" ? null : "tray")}
                 className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
