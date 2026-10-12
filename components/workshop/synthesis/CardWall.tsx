@@ -120,9 +120,11 @@ export function CardWall({
         t.edge +
         " " +
         t.well +
-        // Room to fill, for a wall you can write on. A read-only one is as tall as what
-        // is in it — an empty one is a line saying so, not 12rem of coloured nothing.
-        (tall ? " min-h-[24rem]" : editable ? " min-h-[12rem]" : "")
+        // Room to fill, for a wall you can WRITE on. A read-only one is as tall as what
+        // is in it — an empty one is a line saying so, not 24rem of coloured nothing — so
+        // `editable` decides first and `tall` only chooses between the two writable
+        // heights. Testing `tall` first gave a board nobody has joined two tall empty wells.
+        (editable ? (tall ? " min-h-[24rem]" : " min-h-[12rem]") : "")
       }
     >
       <div className="flex flex-wrap items-baseline gap-2 px-4 pt-3">

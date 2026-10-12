@@ -268,11 +268,17 @@ function seatInRegion(region: Region, index: number): Pos {
   };
 }
 
-// Which seat does a point sit in? The inverse of seatInRegion, for working out which seats
-// of a box are already spoken for.
-function seatIndexAt(region: Region, pt: Pos): number {
+// How many seats does a box have, and which seat does a point sit in? seatInRegion wraps
+// its index modulo this grid, so anything choosing seats has to think in slots rather than
+// in ever-increasing indices — seat 9 and seat 0 are the same place in a 9-seat box.
+function seatGrid(region: Region): { cols: number; rows: number; capacity: number } {
   const cols = Math.max(1, Math.floor(region.w / PITCH));
   const rows = Math.max(1, Math.floor(region.h / PITCH));
+  return { cols, rows, capacity: cols * rows };
+}
+
+function seatIndexAt(region: Region, pt: Pos): number {
+  const { cols, rows } = seatGrid(region);
   const col = Math.min(cols - 1, Math.max(0, Math.floor(((pt.x - region.x) / region.w) * cols)));
   const row = Math.min(rows - 1, Math.max(0, Math.floor(((pt.y - region.y) / region.h) * rows)));
   return row * cols + col;
@@ -282,20 +288,41 @@ function seatIndexAt(region: Region, pt: Pos): number {
 //
 // An implication in two themes is ONE circle at ONE saved position, and boxes no longer
 // overlap — so the box that does not hold that position has a member it cannot draw where
-// the member actually is. It draws a COPY instead, and these are the seats the copies take:
-// the ones the box is not already using, so a copy never lands on top of a real card.
+// the member actually is. It draws a COPY instead, and these are the seats the copies take.
 //
-// `occupied` is every position already drawn inside the region. Pure and deterministic like
-// the rest of this file: two clients must seat the same copies in the same places.
+// `occupied` is every position already drawn inside the region. Three rules, in order:
+//
+//   1. a free seat, always, while the box has one;
+//   2. out of seats, a copy stacks on another COPY before it stacks on a real card — a
+//      copy hidden under a card you can drag is the empty-box bug all over again, and the
+//      card is drawn on top of it;
+//   3. only when every seat holds a real card does a copy land on one.
+//
+// Overfull boxes therefore overlap rather than spilling out, which is what seatInRegion
+// already does for real cards. Pure and deterministic like the rest of this file: two
+// clients must seat the same copies in the same places.
 export function copySeats(region: Region, count: number, occupied: Pos[]): Pos[] {
-  const taken = new Set(occupied.map((p) => seatIndexAt(region, p)));
+  const { capacity } = seatGrid(region);
+  const real = new Set(occupied.map((p) => seatIndexAt(region, p)));
+  const used = new Set(real);
   const out: Pos[] = [];
-  let seat = 0;
+  let next = 0;
+
+  const scan = (skip: Set<number>): number => {
+    for (let i = 0; i < capacity; i++) {
+      const slot = (next + i) % capacity;
+      if (!skip.has(slot)) return slot;
+    }
+    return -1;
+  };
+
   for (let i = 0; i < count; i++) {
-    while (taken.has(seat)) seat++;
-    taken.add(seat);
-    out.push(seatInRegion(region, seat));
-    seat++;
+    let slot = scan(used);
+    if (slot < 0) slot = scan(real);
+    if (slot < 0) slot = next % capacity;
+    used.add(slot);
+    out.push(seatInRegion(region, slot));
+    next = (slot + 1) % capacity;
   }
   return out;
 }

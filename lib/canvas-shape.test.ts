@@ -27,6 +27,7 @@ import {
   resizeFloor,
   resizeTo,
   resolvePositions,
+  type Pos,
   type Region,
 } from "./canvas-shape";
 import type { RippleCard } from "./ripples-types";
@@ -471,30 +472,45 @@ describe("resolvePositions", () => {
 // ---------------------------------------------------------------------------
 
 describe("copySeats", () => {
+  // 316 x 316 is what an empty theme gets: a 3 x 3 grid, nine seats.
   const region: Region = { themeId: "TH", x: 0, y: 0, w: 316, h: 316, shape: "rect" };
+  const at = (p: Pos) => `${p.x},${p.y}`;
 
-  it("seats every copy inside the box", () => {
-    for (const p of copySeats(region, 5, [])) expect(containsPoint(region, p)).toBe(true);
+  it("seats every copy inside the box, however many there are", () => {
+    for (const p of copySeats(region, 30, [])) expect(containsPoint(region, p)).toBe(true);
   });
 
-  it("gives each copy a seat of its own", () => {
+  it("gives each copy a seat of its own while the box has one", () => {
     const seats = copySeats(region, 6, []);
-    expect(new Set(seats.map((p) => `${p.x},${p.y}`)).size).toBe(6);
+    expect(new Set(seats.map(at)).size).toBe(6);
   });
 
-  // The whole point: a copy that lands on a real card looks like one card, and the box
-  // would be drawing fewer things than it says it holds all over again.
-  it("misses the seats real cards are already sitting in", () => {
+  // The whole point: a copy hidden under a card you can drag is the empty-box bug again.
+  it("misses the seats real cards are sitting in", () => {
     const real = copySeats(region, 3, []);
-    const copies = copySeats(region, 3, real);
-    for (const c of copies) {
-      for (const r of real) expect(`${c.x},${c.y}`).not.toBe(`${r.x},${r.y}`);
-    }
+    const copies = copySeats(region, 6, real);
+    const realSeats = new Set(real.map(at));
+    expect(copies.filter((c) => realSeats.has(at(c)))).toEqual([]);
+  });
+
+  // Nine seats, three of them taken, eight copies: four of them have nowhere of their own
+  // to go. They stack on each other, and still not on the real cards.
+  it("stacks copies on copies before it stacks them on a real card", () => {
+    const real = copySeats(region, 3, []);
+    const copies = copySeats(region, 8, real);
+    const realSeats = new Set(real.map(at));
+    expect(copies).toHaveLength(8);
+    expect(copies.filter((c) => realSeats.has(at(c)))).toEqual([]);
+    for (const p of copies) expect(containsPoint(region, p)).toBe(true);
+  });
+
+  it("fills every free seat before it doubles up at all", () => {
+    expect(new Set(copySeats(region, 9, []).map(at)).size).toBe(9);
   });
 
   it("is deterministic, since every client seats them independently", () => {
     const occupied = [{ x: 50, y: 50 }];
-    expect(copySeats(region, 4, occupied)).toEqual(copySeats(region, 4, occupied));
+    expect(copySeats(region, 12, occupied)).toEqual(copySeats(region, 12, occupied));
   });
 
   it("asks for none, gets none", () => {

@@ -345,6 +345,11 @@ export function CanvasBoard({
   // A copy does not drag, because it has no position of its own to save — the real circle
   // is the one that moves. What it does have is a ✕, which takes this implication out of
   // THIS theme and leaves it in the others.
+  // The card under the finger is excluded: its position moves live, so the moment it
+  // crosses its own box's edge that box would draw a dashed ghost of the very card being
+  // dragged — with a live ✕ on it — and keep it until the membership write came back.
+  const heldByDrag = mode.kind === "drag" ? mode.key : null;
+
   const copies = useMemo(() => {
     const regionList = [...regions.values()];
     // Where each card's real circle actually is, so a copy can name it. Null means the
@@ -364,7 +369,7 @@ export function CanvasBoard({
         if (!n.themeIds.includes(r.themeId)) continue;
         const p = positions.get(n.key);
         if (!p) continue;
-        if (drawnIn.get(n.key) === r.themeId) occupied.push(p);
+        if (drawnIn.get(n.key) === r.themeId || n.key === heldByDrag) occupied.push(p);
         else absent.push(n);
       }
       const seats = copySeats(r, absent.length, occupied);
@@ -379,7 +384,7 @@ export function CanvasBoard({
       });
     }
     return out;
-  }, [nodes, positions, regions]);
+  }, [nodes, positions, regions, heldByDrag]);
 
   const dimmed = useMemo(
     () => new Set(nodes.filter((n) => n.dim).map((n) => n.key)),
@@ -1127,10 +1132,15 @@ export function CanvasBoard({
                   height: NODE_R * 2,
                   // Its own colour, so it reads as the same card — but dashed and faded,
                   // because the thing you can pick up is the one in the other box.
-                  background: "color-mix(in srgb, " + orderColor(c.node.depth) + " 42%, var(--paper))",
+                  background: c.node.dim
+                    ? "var(--paper)"
+                    : "color-mix(in srgb, " + orderColor(c.node.depth) + " 42%, var(--paper))",
                   color: "color-mix(in srgb, var(--ink) 70%, var(--paper))",
-                  border: "2px dashed var(--ink)",
-                  opacity: 0.9,
+                  border: `2px dashed ${c.node.dim ? "var(--hairline)" : "var(--ink)"}`,
+                  // Filtered out by the order chips, exactly as its real circle is: a copy
+                  // at full strength with a live ✕ beside a faded, inert original says the
+                  // filter did not mean this one.
+                  opacity: c.node.dim ? 0.45 : 0.9,
                 }}
               >
                 <span
@@ -1158,7 +1168,7 @@ export function CanvasBoard({
                 {/* Removes this membership and nothing else. The only control a copy
                     carries: everything else about this implication is done to the real
                     circle, wherever that is. */}
-                {editable && onRemoveFromTheme && (
+                {editable && !c.node.dim && onRemoveFromTheme && (
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
