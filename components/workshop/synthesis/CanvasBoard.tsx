@@ -10,6 +10,7 @@ import {
   containsPoint,
   containsRect,
   coveredBy,
+  copySeats,
   REGION_CLEARANCE,
   rectsOverlap,
   regionsAt,
@@ -46,6 +47,14 @@ import {
 // Native DnD auto-scrolls for free; pointer events do not, and Group 1's canvas is 2217px.
 const EDGE = 48;
 const EDGE_SPEED = 18;
+
+// Is "Spread out" offered? It lays the visible implications on a grid that misses every
+// theme box — room to sort, when the wheel's packing is too dense to grab one card from.
+// Hidden for now: a board that opens with its themes already boxed has somewhere to drag
+// to, and the gesture turned out to be one more thing on a toolbar rather than one people
+// reached for. Hidden rather than cut — onSpreadOut, freeGrid and their tests are all
+// untouched, so this is one word to put back.
+const SHOW_SPREAD_OUT = false;
 
 export interface CanvasNode {
   // implicationKey — one circle per implication, however many rows back it.
@@ -221,6 +230,7 @@ export function CanvasBoard({
   onOpenTheme,
   themeName,
   onRenameTheme,
+  onRemoveFromTheme,
   onMoveRegion,
   onResizeRegion,
   trailing,
@@ -273,6 +283,9 @@ export function CanvasBoard({
   // which answers "what do we call this on screen" and falls back to the position; this
   // answers "what is in the field", and the two must not be confused when editing it.
   themeName?: (themeId: string) => string;
+  // Take this implication out of this one theme, leaving it in the others. The ✕ on a
+  // copy — the only thing a copy can do, since it is not the circle that moves.
+  onRemoveFromTheme?: (key: string, themeId: string) => void;
   // Pinned right on the toolbar row: state about the surface, not about the view.
   trailing?: React.ReactNode;
   nodeProps?: (key: string) => React.HTMLAttributes<HTMLDivElement>;
@@ -320,6 +333,58 @@ export function CanvasBoard({
     },
     [scale]
   );
+
+  // A circle in every theme that holds this implication.
+  //
+  // An implication in two themes is ONE circle at ONE saved position (ripple_canvas_cards
+  // keys by implication, not by membership), and boxes stopped overlapping when
+  // REGION_CLEARANCE arrived — so the box that does not hold that position used to draw
+  // nothing while honestly reporting the member. It draws a COPY instead: the same card,
+  // marked as living elsewhere, in a seat this box is not already using.
+  //
+  // A copy does not drag, because it has no position of its own to save — the real circle
+  // is the one that moves. What it does have is a ✕, which takes this implication out of
+  // THIS theme and leaves it in the others.
+  // The card under the finger is excluded: its position moves live, so the moment it
+  // crosses its own box's edge that box would draw a dashed ghost of the very card being
+  // dragged — with a live ✕ on it — and keep it until the membership write came back.
+  const heldByDrag = mode.kind === "drag" ? mode.key : null;
+
+  const copies = useMemo(() => {
+    const regionList = [...regions.values()];
+    // Where each card's real circle actually is, so a copy can name it. Null means the
+    // circle is outside every box — only reachable mid-drag, when its position is trusted.
+    const drawnIn = new Map<string, string | null>();
+    for (const n of nodes) {
+      const p = positions.get(n.key);
+      if (!p) continue;
+      drawnIn.set(n.key, regionList.find((r) => containsPoint(r, p))?.themeId ?? null);
+    }
+
+    const out: { key: string; themeId: string; node: CanvasNode; pos: Pos; drawnIn: string | null }[] = [];
+    for (const r of regionList) {
+      const occupied: Pos[] = [];
+      const absent: CanvasNode[] = [];
+      for (const n of nodes) {
+        if (!n.themeIds.includes(r.themeId)) continue;
+        const p = positions.get(n.key);
+        if (!p) continue;
+        if (drawnIn.get(n.key) === r.themeId || n.key === heldByDrag) occupied.push(p);
+        else absent.push(n);
+      }
+      const seats = copySeats(r, absent.length, occupied);
+      absent.forEach((n, i) => {
+        out.push({
+          key: `${n.key}::${r.themeId}`,
+          themeId: r.themeId,
+          node: n,
+          pos: seats[i],
+          drawnIn: drawnIn.get(n.key) ?? null,
+        });
+      });
+    }
+    return out;
+  }, [nodes, positions, regions, heldByDrag]);
 
   const dimmed = useMemo(
     () => new Set(nodes.filter((n) => n.dim).map((n) => n.key)),
@@ -691,13 +756,15 @@ export function CanvasBoard({
             >
               Gather
             </button>
-            <button
-              onClick={onSpreadOut}
-              title="Lay the visible implications out on a grid, so there is room to sort them"
-              className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-muted hover:border-ink hover:text-ink"
-            >
-              Spread out
-            </button>
+            {SHOW_SPREAD_OUT && (
+              <button
+                onClick={onSpreadOut}
+                title="Lay the visible implications out on a grid, so there is room to sort them"
+                className="rounded-[2px] border border-[var(--rule)] bg-paper px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-muted hover:border-ink hover:text-ink"
+              >
+                Spread out
+              </button>
+            )}
           </>
         )}
         {trailing && <span className="ml-auto flex items-center gap-2">{trailing}</span>}
@@ -1050,6 +1117,74 @@ export function CanvasBoard({
                 </div>
               );
             })}
+
+            {/* Drawn BEFORE the real circles, so where a box is overfull enough that a
+                seat lands under a card, the card that can actually be dragged is on top. */}
+            {copies.map((c) => (
+              <div
+                key={c.key}
+                title={`${c.node.label}${c.drawnIn ? ` — the card itself is in ${themeLabel(c.drawnIn)}` : ""}`}
+                className="absolute flex items-center justify-center rounded-full text-center"
+                style={{
+                  left: c.pos.x - NODE_R,
+                  top: c.pos.y - NODE_R,
+                  width: NODE_R * 2,
+                  height: NODE_R * 2,
+                  // Its own colour, so it reads as the same card — but dashed and faded,
+                  // because the thing you can pick up is the one in the other box.
+                  background: c.node.dim
+                    ? "var(--paper)"
+                    : "color-mix(in srgb, " + orderColor(c.node.depth) + " 42%, var(--paper))",
+                  color: "color-mix(in srgb, var(--ink) 70%, var(--paper))",
+                  border: `2px dashed ${c.node.dim ? "var(--hairline)" : "var(--ink)"}`,
+                  // Filtered out by the order chips, exactly as its real circle is: a copy
+                  // at full strength with a live ✕ beside a faded, inert original says the
+                  // filter did not mean this one.
+                  opacity: c.node.dim ? 0.45 : 0.9,
+                }}
+              >
+                <span
+                  className="px-2 text-[10px] leading-[1.12]"
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 4,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {c.node.label}
+                </span>
+                {/* ⧉, the mark this week already uses for "this implication is also in
+                    another theme". A word under each copy said it better and could not be
+                    read: a box holding nineteen of them stacked nineteen captions into one
+                    grey smear. The glyph says "copy", the dashed ring says "not the one
+                    that moves", and the tooltip names the theme the card is drawn in. */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-1 top-1 text-[11px] leading-none opacity-70"
+                >
+                  ⧉
+                </span>
+                {/* Removes this membership and nothing else. The only control a copy
+                    carries: everything else about this implication is done to the real
+                    circle, wherever that is. */}
+                {editable && !c.node.dim && onRemoveFromTheme && (
+                  <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveFromTheme(c.node.key, c.themeId);
+                    }}
+                    aria-label={`Take "${c.node.label}" out of this theme`}
+                    title="Take it out of this theme"
+                    className="absolute -right-1 -top-1 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-ink bg-paper text-[12px] font-bold leading-none text-muted hover:bg-coral hover:text-white"
+                    style={{ pointerEvents: "auto", touchAction: "none" }}
+                  >
+                    <span aria-hidden>✕</span>
+                  </button>
+                )}
+              </div>
+            ))}
 
             {nodes.map((n) => {
               const p = positions.get(n.key);

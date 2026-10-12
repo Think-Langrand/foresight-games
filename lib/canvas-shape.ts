@@ -268,6 +268,65 @@ function seatInRegion(region: Region, index: number): Pos {
   };
 }
 
+// How many seats does a box have, and which seat does a point sit in? seatInRegion wraps
+// its index modulo this grid, so anything choosing seats has to think in slots rather than
+// in ever-increasing indices — seat 9 and seat 0 are the same place in a 9-seat box.
+function seatGrid(region: Region): { cols: number; rows: number; capacity: number } {
+  const cols = Math.max(1, Math.floor(region.w / PITCH));
+  const rows = Math.max(1, Math.floor(region.h / PITCH));
+  return { cols, rows, capacity: cols * rows };
+}
+
+function seatIndexAt(region: Region, pt: Pos): number {
+  const { cols, rows } = seatGrid(region);
+  const col = Math.min(cols - 1, Math.max(0, Math.floor(((pt.x - region.x) / region.w) * cols)));
+  const row = Math.min(rows - 1, Math.max(0, Math.floor(((pt.y - region.y) / region.h) * rows)));
+  return row * cols + col;
+}
+
+// Seats inside a box for the members it cannot position.
+//
+// An implication in two themes is ONE circle at ONE saved position, and boxes no longer
+// overlap — so the box that does not hold that position has a member it cannot draw where
+// the member actually is. It draws a COPY instead, and these are the seats the copies take.
+//
+// `occupied` is every position already drawn inside the region. Three rules, in order:
+//
+//   1. a free seat, always, while the box has one;
+//   2. out of seats, a copy stacks on another COPY before it stacks on a real card — a
+//      copy hidden under a card you can drag is the empty-box bug all over again, and the
+//      card is drawn on top of it;
+//   3. only when every seat holds a real card does a copy land on one.
+//
+// Overfull boxes therefore overlap rather than spilling out, which is what seatInRegion
+// already does for real cards. Pure and deterministic like the rest of this file: two
+// clients must seat the same copies in the same places.
+export function copySeats(region: Region, count: number, occupied: Pos[]): Pos[] {
+  const { capacity } = seatGrid(region);
+  const real = new Set(occupied.map((p) => seatIndexAt(region, p)));
+  const used = new Set(real);
+  const out: Pos[] = [];
+  let next = 0;
+
+  const scan = (skip: Set<number>): number => {
+    for (let i = 0; i < capacity; i++) {
+      const slot = (next + i) % capacity;
+      if (!skip.has(slot)) return slot;
+    }
+    return -1;
+  };
+
+  for (let i = 0; i < count; i++) {
+    let slot = scan(used);
+    if (slot < 0) slot = scan(real);
+    if (slot < 0) slot = next % capacity;
+    used.add(slot);
+    out.push(seatInRegion(region, slot));
+    next = (slot + 1) % capacity;
+  }
+  return out;
+}
+
 export interface FallbackItem {
   key: string;
   // The theme it is clustered in, in board order; null while it is in the tray.

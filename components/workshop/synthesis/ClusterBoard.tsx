@@ -96,6 +96,9 @@ const CANVAS_BAND = 200;
 // Hidden rather than cut: the composer, onAddImplication and its route are all untouched
 // and still wired, so this is one word to put back.
 const SHOW_ADD_IMPLICATION = false;
+
+// Can two implications be folded into one? See the menu item for why not.
+const SHOW_MERGE_CARDS = false;
 import {
   DeleteThemeModal,
   type DeleteThemeMode,
@@ -915,6 +918,8 @@ export function ClusterBoard({
   };
 
   // "Spread out": a roomy grid for the implications still in the tray, so there is space
+  // (its button is hidden for now — see SHOW_SPREAD_OUT in CanvasBoard; the handler and
+  // its geometry stay wired, so showing it again is one word)
   // to push them around. The wheel packs 76px circles 12px apart, and you can neither
   // grab one cleanly nor draw a boundary through a dense ring.
   //
@@ -1106,7 +1111,13 @@ export function ClusterBoard({
                         Also add to another theme…
                       </CardMenuItem>
                     )}
-                    {!hasChildren && (
+                    {/* "Merge into…" used to be offered here: pick a second card and the
+                        two become one. Hidden — a group that has doubled up says so by
+                        putting one card in two themes ("Also add to another theme…"), and
+                        folding two implications into one destroys a row that Week 2 wrote.
+                        Hidden rather than cut: onMerge and the picker below are untouched,
+                        so this is one word to put back. */}
+                    {SHOW_MERGE_CARDS && !hasChildren && (
                       <CardMenuItem
                         onClick={() => {
                           close();
@@ -1492,7 +1503,7 @@ export function ClusterBoard({
           // rather than a thing to discover.
           "To name a theme, click the ✎ on its box and type. A double-click on the label, or its square in the rail, opens the theme on its own.",
           "Move a theme by the ⠿ on its label and everything inside travels with it. Drag a corner to resize it.",
-          "Gather brings the loose implications back together by key change. Spread out gives them room to sort.",
+          "Gather brings the loose implications back together by key change.",
           "Scroll to move around the board, and use Fit to see all of it.",
         ]
       : view === "map"
@@ -2409,6 +2420,17 @@ export function ClusterBoard({
                 ? (id, text) => {
                     const th = board.themes.find((t) => t.id === id);
                     if (th) onEditCard(th, text);
+                  }
+                : undefined
+            }
+            // The ✕ on a copy. One implication can be several rows — one per theme — so
+            // this deletes the row sitting in THIS theme and leaves the rest alone, which
+            // is the same write the card menu's "Remove from this theme" makes.
+            onRemoveFromTheme={
+              editable
+                ? (key, themeId) => {
+                    const row = twins.get(key)?.cards.find((c) => c.parentId === themeId);
+                    if (row) onDeleteCard(row);
                   }
                 : undefined
             }

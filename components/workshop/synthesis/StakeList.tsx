@@ -44,7 +44,7 @@ export function StakeList({
   const total = groups.reduce((n, g) => n + g.cards.length, 0);
 
   return (
-    <section className={"flex flex-col overflow-hidden rounded-[4px] border-2 " + t.edge + " " + t.well}>
+    <section className={"flex flex-col overflow-hidden rounded-[4px] border-2 pb-2 " + t.edge + " " + t.well}>
       <div className="flex flex-wrap items-baseline gap-2 border-b border-black/10 px-4 py-3">
         <span className={"rounded-[2px] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.08em] " + t.chip}>
           <span aria-hidden className="mr-1">
@@ -57,15 +57,18 @@ export function StakeList({
         </span>
       </div>
 
-      {groups.map((g, i) => (
+      {/* No rule between themes, and no block of air either. This is ONE list of the
+          board's risks with the theme said above each run — not a stack of per-theme
+          boxes. The heading's own weight and case are the only separation it needs, and
+          the group a square has jumped to is marked by its tint rather than by an edge. */}
+      {groups.map((g) => (
         <section
           key={g.id}
           id={`stakes-${tone}-${g.id}`}
           // scroll-mt, because the rail jumps to these and the page has a sticky header:
           // without it the heading lands underneath the header it scrolled to.
           className={
-            "scroll-mt-24 px-4 py-3 transition-colors " +
-            (i > 0 ? "border-t border-dashed border-black/15 " : "") +
+            "scroll-mt-24 px-4 py-2 transition-colors " +
             (activeId === g.id ? "bg-paper/70" : "")
           }
         >
@@ -73,9 +76,9 @@ export function StakeList({
             {g.label}
           </h4>
           {g.cards.length === 0 ? (
-            <p className="mt-1.5 text-[12px] italic leading-[1.45] text-muted">{emptyHint}</p>
+            <p className="mt-1 text-[12px] italic leading-[1.45] text-muted">{emptyHint}</p>
           ) : (
-            <ul className="mt-2 flex flex-col gap-1.5">
+            <ul className="mt-1 flex flex-col gap-1">
               {g.cards.map((c) => (
                 <li key={c.id} className="flex items-start gap-2 text-[13px] leading-[1.45]">
                   {/* The week's own bullet — the same one the rail and the theme popover
