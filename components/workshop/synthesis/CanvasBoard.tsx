@@ -376,8 +376,11 @@ export function CanvasBoard({
     letGo(e);
     const { origin, legal, travellers, adopt } = mode;
     setMode({ kind: "idle" });
-    // A mis-grab, or a drag that was blocked the whole way, must not rewrite forty rows.
-    if (legal.x === origin.x && legal.y === origin.y) return;
+    // A mis-grab, a drag blocked the whole way, or the press half of a double-click on the
+    // label, must not rewrite forty rows. Measured on SCREEN, where the hand is: a couple
+    // of model pixels at Fit 0.3 is a third of a pixel to the person doing it, and nobody
+    // moves a theme by three pixels on purpose.
+    if (Math.hypot(legal.x - origin.x, legal.y - origin.y) * scale < 3) return;
     const dx = legal.x - origin.x;
     const dy = legal.y - origin.y;
     onMoveRegion(
@@ -685,7 +688,19 @@ export function CanvasBoard({
                         10px it was the smallest thing on screen. Taller with it, which the
                         grip wants anyway — the strip IS the handle the box moves by. */}
                     <span
-                      onPointerDown={grippable ? startMove(r) : undefined}
+                      onPointerDown={
+                        grippable
+                          ? startMove(r)
+                          : onOpenTheme
+                            ? // A box with no saved region row is not movable — every box
+                              // is, until the board has written one — and without a
+                              // handler here the press reaches the surface, which captures
+                              // the pointer for a marquee and takes the double-click with
+                              // it. Keeping the press makes the label openable on a board
+                              // nobody has rearranged yet.
+                              (e: React.PointerEvent<HTMLSpanElement>) => e.stopPropagation()
+                            : undefined
+                      }
                       onPointerMove={grippable ? moveBox : undefined}
                       onPointerUp={grippable ? endMove : undefined}
                       onPointerCancel={grippable ? abandonBox : undefined}
@@ -748,7 +763,22 @@ export function CanvasBoard({
                           title={`Open ${themeLabel(r.themeId)}`}
                           className="font-normal text-blue hover:text-ink"
                           style={{
-                            marginRight: 5 / scale,
+                            // 22px, the tablet minimum this file sets for the resize
+                            // handles, rather than the 14px the glyph happens to ink.
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 22 / scale,
+                            height: 22 / scale,
+                            fontSize: 15 / scale,
+                            lineHeight: 1,
+                            marginRight: 2 / scale,
+                            verticalAlign: "-0.3em",
+                            // Above the corner handles, which are drawn after the strip:
+                            // on a narrow box — or any box at a low Fit, since the handles
+                            // keep their size while the box shrinks — the top-right one
+                            // reaches back this far and would take the press.
+                            zIndex: 1,
                             pointerEvents: "auto",
                             cursor: "pointer",
                           }}
