@@ -548,6 +548,14 @@ export function isUnnamedTheme(theme: RippleCard): boolean {
   return name.length === 0 || MINTED_NAME.test(name);
 }
 
+// What to CALL a theme on screen: its name, or its position if it has not got one yet.
+// Every surface that names a theme needs the same fallback — a box with a blank label is
+// not a thing anyone can refer to across a table — and they must agree, because the map
+// marks a clustered node "Theme 3" and the rail numbers the squares to match.
+export function themeLabel(board: SynthesisBoard, theme: RippleCard): string {
+  return theme.text.trim() || `Theme ${board.themes.indexOf(theme) + 1}`;
+}
+
 // Step 1 is done once the theme holds something AND the group has named it. A theme is a
 // grouping with a claim attached: an empty one has not grouped anything, and an unnamed one
 // has not said what the grouping means. Unnamed but full is "started" rather than "done",

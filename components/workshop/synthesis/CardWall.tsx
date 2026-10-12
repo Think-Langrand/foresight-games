@@ -63,10 +63,24 @@ const TONE: Record<
   },
 };
 
+// A run of cards under a heading, for a wall that holds several themes' worth at once.
+// Step 3 reads every theme's risks in one column and every theme's opportunities in the
+// other, so the heading is the theme and the wall is the kind — the opposite grouping from
+// step 2, where the theme is the page and the two kinds sit side by side on it.
+export type WallGroup = {
+  id: string;
+  label: string;
+  cards: RippleCard[];
+};
+
+const NO_CARDS: RippleCard[] = [];
+
 export function CardWall({
   tone,
   title,
-  cards,
+  cards = NO_CARDS,
+  groups,
+  activeGroupId,
   editable,
   busy = false,
   addLabel = "",
@@ -81,7 +95,14 @@ export function CardWall({
 }: {
   tone: WallTone;
   title: string;
-  cards: RippleCard[];
+  // One flat grid of cards — the usual wall. A grouped wall passes `groups` instead.
+  cards?: RippleCard[];
+  // Given, these replace the flat `cards` body: one labelled run per group, in order,
+  // including the groups that are empty — a column that silently omits a theme reads as a
+  // complete list of themes with cards, which is not what it is.
+  groups?: WallGroup[];
+  // The group the rail has just jumped to, lit so the eye lands on it.
+  activeGroupId?: string | null;
   editable: boolean;
   // Everything below is the writing half, and a read-only wall passes none of it.
   busy?: boolean;
@@ -106,6 +127,51 @@ export function CardWall({
   const [adding, setAdding] = useState(false);
   const t = TONE[tone];
   const noun = tone;
+  // What the header counts: every group's cards when the wall is grouped, since the groups
+  // are the body then and `cards` is not passed at all.
+  const total = groups ? groups.reduce((n, g) => n + g.cards.length, 0) : cards.length;
+
+  // One card. A plain function rather than a component, deliberately: a nested component
+  // would be a new type every render and would remount the InlineText inside it, taking a
+  // half-typed edit with it.
+  const tile = (card: RippleCard) => {
+    const badge = badgeFor?.(card) ?? null;
+    return (
+      <div
+        key={card.id}
+        className="flex w-56 flex-col gap-1.5 rounded-[4px] border-2 border-black/20 bg-paper p-2.5 shadow-[2px_3px_0_rgba(36,36,34,0.10)]"
+      >
+        <div className="flex items-center justify-between gap-1.5">
+          <span aria-hidden className="text-[13px] leading-none opacity-35">
+            {t.mark}
+          </span>
+          {editable && onRequestDelete && (
+            <CardMenu>
+              {(close) => (
+                <CardMenuItem
+                  danger
+                  onClick={() => {
+                    close();
+                    onRequestDelete(card);
+                  }}
+                >
+                  Delete…
+                </CardMenuItem>
+              )}
+            </CardMenu>
+          )}
+        </div>
+        <div className="text-[13px] font-bold leading-[1.35]">
+          <InlineText text={card.text} editable={editable} busy={busy} onSave={(next) => onEdit?.(card, next)} />
+        </div>
+        {badge && (
+          <span title={badge} className="mt-auto truncate text-[9.5px] uppercase tracking-[0.05em] text-muted">
+            {badge}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <section
@@ -127,7 +193,7 @@ export function CardWall({
           {title}
         </span>
         <span className="text-[11px] italic text-muted">
-          {cards.length === 0 ? (emptyHint ?? "Nothing here yet.") : `${cards.length} card${cards.length === 1 ? "" : "s"}`}
+          {total === 0 ? (emptyHint ?? "Nothing here yet.") : `${total} card${total === 1 ? "" : "s"}`}
         </span>
       </div>
 
@@ -173,48 +239,37 @@ export function CardWall({
             </button>
           ))}
 
-        {cards.map((card) => {
-          const badge = badgeFor?.(card) ?? null;
-          return (
-            <div
-              key={card.id}
-              className="flex w-56 flex-col gap-1.5 rounded-[4px] border-2 border-black/20 bg-paper p-2.5 shadow-[2px_3px_0_rgba(36,36,34,0.10)]"
-            >
-              <div className="flex items-center justify-between gap-1.5">
-                <span aria-hidden className="text-[13px] leading-none opacity-35">
-                  {t.mark}
-                </span>
-                {editable && onRequestDelete && (
-                  <CardMenu>
-                    {(close) => (
-                      <CardMenuItem
-                        danger
-                        onClick={() => {
-                          close();
-                          onRequestDelete(card);
-                        }}
-                      >
-                        Delete…
-                      </CardMenuItem>
-                    )}
-                  </CardMenu>
-                )}
-              </div>
-              <div className="text-[13px] font-bold leading-[1.35]">
-                <InlineText text={card.text} editable={editable} busy={busy} onSave={(next) => onEdit?.(card, next)} />
-              </div>
-              {badge && (
-                <span
-                  title={badge}
-                  className="mt-auto truncate text-[9.5px] uppercase tracking-[0.05em] text-muted"
-                >
-                  {badge}
-                </span>
-              )}
-            </div>
-          );
-        })}
+        {!groups && cards.map(tile)}
       </div>
+
+      {/* Grouped, the body is one labelled run per group instead of one flat grid. Outside
+          the block above so the add slot — which a grouped wall does not have — is not
+          stranded in the first group. */}
+      {groups && (
+        <div className="flex flex-col">
+          {groups.map((g) => (
+            <section
+              key={g.id}
+              id={`wall-${tone}-${g.id}`}
+              // scroll-mt, because the rail jumps to these and the page has a sticky
+              // header: without it the heading lands under the header it scrolled to.
+              className={
+                "scroll-mt-24 border-t border-dashed border-black/15 px-4 py-3 transition-colors " +
+                (activeGroupId === g.id ? "bg-paper/70" : "")
+              }
+            >
+              <h4 className="text-[10px] font-bold uppercase leading-[1.3] tracking-[0.08em] text-muted">
+                {g.label}
+              </h4>
+              {g.cards.length === 0 ? (
+                <p className="mt-1 text-[11px] italic text-muted">{emptyHint ?? "Nothing here yet."}</p>
+              ) : (
+                <div className="mt-2 flex flex-wrap content-start gap-2">{g.cards.map(tile)}</div>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

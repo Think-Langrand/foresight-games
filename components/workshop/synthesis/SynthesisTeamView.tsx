@@ -141,8 +141,6 @@ export function SynthesisTeamView({
   // steps so moving between them keeps you on the theme you were working on. In step 1
   // null means "the board"; step 2 falls back to the first theme.
   const [themeId, setThemeId] = useState<string | null>(null);
-  // Which fear step 4 has open. Hoisted for the same hook-order reason.
-  const [focusId, setFocusId] = useState<string | null>(null);
   // Positions and regions live in their own tables on their own channel (0028), and this
   // hook only subscribes while the canvas is actually open — a board with 76 players
   // should not hold 76 channels for a view nobody has opened.
@@ -279,6 +277,39 @@ export function SynthesisTeamView({
         sort: endSort(board.themes),
       });
       if (res?.card) addLocal(res.card as RippleCard);
+    });
+
+  // The empty themes the canvas opens with on a board that has none (see ClusterBoard).
+  // Minted unnamed, like every other theme — the group names one once it can see what the
+  // pile is about — and sized large by the canvas, so there is somewhere to drag to before
+  // anybody has decided what the themes are.
+  //
+  // Not `addTheme` in a loop. Two reasons, and both of them showed up on a real board:
+  //
+  //   `endSort` reads `board`, which is this render's value and does not change between the
+  //   awaits, so every theme would land on the same sort and their order would be settled by
+  //   createdTime. The sorts are spaced explicitly instead.
+  //
+  //   And they have to arrive TOGETHER. The canvas lays a box out for every theme that has
+  //   not got one, in one pass, below everything already on the board (see defaultRegions
+  //   and the adoption effect) — so three themes arriving one at a time are laid out in
+  //   three passes, each below the last, and the group opens the canvas to a staircase it
+  //   has to scroll down. Posted in parallel and added in one batch, which React renders
+  //   once, they are laid out as the row they should be.
+  const seedThemes = (n: number) =>
+    run(async () => {
+      const made = await Promise.all(
+        Array.from({ length: n }, (_, i) =>
+          postRippleCard(code, {
+            participantId: pid,
+            cardOrder: "FIRST",
+            cardKind: "theme",
+            text: "",
+            sort: (i + 1) * SORT_STEP,
+          })
+        )
+      );
+      for (const res of made) if (res?.card) addLocal(res.card as RippleCard);
     });
 
   const addImplication = (text: string, themeId: string | null) =>
@@ -938,6 +969,7 @@ export function SynthesisTeamView({
           editable={editable}
           busy={busy}
           onAddTheme={addTheme}
+          onSeedThemes={seedThemes}
           onAddImplication={addImplication}
           onEditCard={editCard}
           onMoveCard={moveCard}
@@ -1013,8 +1045,6 @@ export function SynthesisTeamView({
             board={board}
             editable={editable}
             busy={busy}
-            focusId={focusId}
-            onFocus={setFocusId}
             onFlip={addChildCard}
             onEdit={editCard}
             onDelete={removeCard}
