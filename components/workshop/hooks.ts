@@ -874,7 +874,9 @@ export function useCanvasLayout(
   const [pending, setPending] = useState<Map<string, { pos: Pos; inflight: number }>>(
     () => new Map()
   );
-  const [pendingRegions, setPendingRegions] = useState<Map<string, Region>>(() => new Map());
+  const [pendingRegions, setPendingRegions] = useState<Map<string, { region: Region; inflight: number }>>(
+    () => new Map()
+  );
   const alive = useRef(true);
 
   const fetchOnce = useCallback(async () => {
@@ -1007,15 +1009,28 @@ export function useCanvasLayout(
     });
   }
 
+  // The same reconciliation, and the same escape hatch, for a theme's BOX.
+  //
+  // It had no `inflight` test for a long time and cleared only on an exact match, which
+  // pinned a box in one viewer's window for good. The echo that would have matched can
+  // simply never arrive: a backgrounded tab misses realtime frames — and backgrounding is
+  // exactly what someone does when they move a theme in their other window — a write can
+  // fail, the route clamps, or a teammate writes the same box after us and the server
+  // settles on THEIR value. After that the overlay masks every refetch, so the box sat
+  // where that window last dropped it and no later move could shift it.
   const [seenRegions, setSeenRegions] = useState(serverRegions);
   if (seenRegions !== serverRegions) {
     setSeenRegions(serverRegions);
     setPendingRegions((prev) => {
       let changed = false;
       const next = new Map(prev);
-      for (const [id, r] of prev) {
+      for (const [id, { region: r, inflight }] of prev) {
         const server = serverRegions.get(id);
-        if (!server || (server.x === r.x && server.y === r.y && server.w === r.w && server.h === r.h)) {
+        if (
+          inflight === 0 ||
+          !server ||
+          (server.x === r.x && server.y === r.y && server.w === r.w && server.h === r.h)
+        ) {
           next.delete(id);
           changed = true;
         }
@@ -1037,7 +1052,7 @@ export function useCanvasLayout(
   const regions = useMemo(() => {
     if (!pendingRegions.size) return serverRegions;
     const merged = new Map(serverRegions);
-    for (const [id, r] of pendingRegions) merged.set(id, r);
+    for (const [id, { region }] of pendingRegions) merged.set(id, region);
     return merged;
   }, [serverRegions, pendingRegions]);
 
@@ -1068,12 +1083,17 @@ export function useCanvasLayout(
       if (regionList?.length) {
         setPendingRegions((prev) => {
           const next = new Map(prev);
-          for (const r of regionList) next.set(r.themeId, r);
+          for (const r of regionList) {
+            const was = next.get(r.themeId);
+            next.set(r.themeId, { region: r, inflight: (was?.inflight ?? 0) + 1 });
+          }
           return next;
         });
       }
 
-      const settle = () =>
+      // Both overlays come off hold when the round trip ends, whether it worked or not.
+      // Regions used to be left out of this, which is what stranded them.
+      const settle = () => {
         setPending((prev) => {
           const next = new Map(prev);
           for (const c of cards) {
@@ -1083,6 +1103,18 @@ export function useCanvasLayout(
           }
           return next;
         });
+        if (regionList?.length) {
+          setPendingRegions((prev) => {
+            const next = new Map(prev);
+            for (const r of regionList) {
+              const was = next.get(r.themeId);
+              if (!was) continue;
+              next.set(r.themeId, { ...was, inflight: Math.max(0, was.inflight - 1) });
+            }
+            return next;
+          });
+        }
+      };
 
       try {
         const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/canvas`, {
