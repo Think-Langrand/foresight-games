@@ -112,6 +112,11 @@ const NO_IDS: ReadonlySet<string> = new Set();
 //
 // Everything inside the scaled surface is sized in inverse scale, this included: at a Fit
 // of 0.3 a 14px field inks at 4px and cannot be typed into.
+//
+// It GROWS UPWARD. The names groups write are sentences, so the field is two lines before
+// anyone has typed anything and more as they go — and the strip sits on the box's top
+// edge, so a field growing down would lie across the implications inside, which are the
+// thing being named. Anchored by its bottom instead, it opens into the air above the box.
 function RegionName({
   text,
   scale,
@@ -126,7 +131,7 @@ function RegionName({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(text);
-  const ref = useRef<HTMLInputElement | null>(null);
+  const ref = useRef<HTMLTextAreaElement | null>(null);
 
   // Focused and selected on arrival: the ✎ is a single click and the next thing people do
   // is type, so a rename of an existing name replaces it rather than appending to it.
@@ -135,10 +140,16 @@ function RegionName({
     ref.current?.select();
   }, []);
 
+  // Two lines to start, and as many as the name needs. Measured off the draft rather than
+  // the element, because the element is under a fractional scale() and scrollHeight there
+  // is not a number worth trusting.
+  const rows = Math.min(5, Math.max(2, Math.ceil(draft.length / Math.max(12, width / (9 / scale)))));
+
   return (
-    <input
+    <textarea
       ref={ref}
       value={draft}
+      rows={rows}
       maxLength={CARD_TEXT_MAX}
       placeholder="What is this theme about?"
       onChange={(e) => setDraft(e.target.value)}
@@ -151,10 +162,11 @@ function RegionName({
       onDoubleClick={(e) => e.stopPropagation()}
       onBlur={() => onCommit(draft.trim())}
       onKeyDown={(e) => {
-        // A theme name is one line, so Enter commits with no newline case to handle.
+        // Enter commits: a theme name is one thought, and the field is several lines so it
+        // can be READ, not so it can hold paragraphs. Shift+Enter is the escape hatch.
         // Escape abandons, and the Escape the board listens for must not also fire.
         e.stopPropagation();
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
           onCommit(draft.trim());
         } else if (e.key === "Escape") {
@@ -163,15 +175,23 @@ function RegionName({
         }
       }}
       style={{
+        // Anchored by its BOTTOM to where the one-line strip sits, so the extra lines go
+        // up into the air above the box instead of down over its contents.
+        position: "absolute",
+        bottom: 0,
+        left: 0,
         width,
+        display: "block",
+        resize: "none",
         font: "inherit",
+        lineHeight: 1.3,
         letterSpacing: "inherit",
         textTransform: "none",
         color: "var(--ink)",
         background: "var(--paper)",
         border: `${1.5 / scale}px solid var(--ink)`,
         borderRadius: 2 / scale,
-        paddingInline: 4 / scale,
+        padding: `${2 / scale}px ${4 / scale}px`,
         outline: "none",
         pointerEvents: "auto",
         touchAction: "auto",
@@ -776,10 +796,6 @@ export function CanvasBoard({
                         ? "color-mix(in srgb, var(--coral) 12%, var(--card))"
                         : "color-mix(in srgb, var(--lime) 14%, var(--card))",
                       borderRadius: r.shape === "ellipse" ? "50%" : undefined,
-                      // Above its neighbours while its label is being typed into: the
-                      // input is wider than the strip it replaces, and a box drawn later
-                      // in this list would otherwise paint over it.
-                      zIndex: editingName ? 2 : undefined,
                     }}
                   >
                     {/* The label strip doubles as the grip. Everything inside the scaled
@@ -861,6 +877,13 @@ export function CanvasBoard({
                         overflow: editingName ? "visible" : "hidden",
                         textOverflow: "ellipsis",
                         pointerEvents: grippable || onOpenTheme || renameable ? "auto" : "none",
+                        // The open field rises above the nodes and the neighbouring boxes;
+                        // the box around it must NOT. The box is translucent and is drawn
+                        // before the nodes, so raising IT paints its own fill over its own
+                        // circles — which is exactly what the field is being opened to
+                        // name. This span is positioned and its ancestors create no
+                        // stacking context, so it rises on its own.
+                        zIndex: editingName ? 5 : undefined,
                         touchAction: "none",
                         cursor: grippable ? (live ? "grabbing" : "grab") : "default",
                         color: bad ? "var(--coral)" : undefined,
@@ -872,44 +895,15 @@ export function CanvasBoard({
                           name fills its width. It stops the event itself, or the press
                           starts a move and the click never arrives — the pointer capture
                           on the grip retargets it. */}
-                      {onOpenTheme && !live && !editingName && (
-                        <button
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenTheme(r.themeId);
-                          }}
-                          aria-label={`Open ${themeLabel(r.themeId)}`}
-                          title={`Open ${themeLabel(r.themeId)}`}
-                          className="font-normal text-blue hover:text-ink"
-                          style={{
-                            // 22px, the tablet minimum this file sets for the resize
-                            // handles, rather than the 14px the glyph happens to ink.
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: 22 / scale,
-                            height: 22 / scale,
-                            fontSize: 15 / scale,
-                            lineHeight: 1,
-                            marginRight: 2 / scale,
-                            verticalAlign: "-0.3em",
-                            // Above the corner handles, which are drawn after the strip:
-                            // on a narrow box — or any box at a low Fit, since the handles
-                            // keep their size while the box shrinks — the top-right one
-                            // reaches back this far and would take the press.
-                            zIndex: 1,
-                            pointerEvents: "auto",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <span aria-hidden>↗</span>
-                        </button>
-                      )}
-                      {/* Names it, here, without opening anything. Beside the ↗ because
-                          the two are the same kind of offer — the sheet, or the one field
-                          people go to the sheet for — and sized to it for the same reason:
-                          a 14px glyph is not a target on a tablet at a low Fit. */}
+                      {/* Names it, here, without opening anything — the one button the
+                          strip carries. It used to sit beside a ↗ that opened the theme's
+                          sheet; naming was the only thing most groups went there for from
+                          the canvas, so the sheet is now reached by a double-click on the
+                          label or by the theme's square in the rail, and the strip is left
+                          saying one thing.
+
+                          Sized well past the glyph's own 14px: it is aimed at rather than
+                          read, on a tablet, on a board that may be at a Fit of 0.3. */}
                       {renameable && !live && !editingName && (
                         <button
                           onPointerDown={(e) => e.stopPropagation()}
@@ -924,12 +918,19 @@ export function CanvasBoard({
                             display: "inline-flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            width: 22 / scale,
-                            height: 22 / scale,
-                            fontSize: 14 / scale,
+                            width: 24 / scale,
+                            height: 24 / scale,
+                            fontSize: 19 / scale,
                             lineHeight: 1,
-                            marginRight: 2 / scale,
-                            verticalAlign: "-0.3em",
+                            marginRight: 3 / scale,
+                            // Centred on the text's own line rather than hung below it:
+                            // -0.3em dropped the glyph far enough to read as a separate
+                            // row of furniture under the name.
+                            verticalAlign: "-0.12em",
+                            // Above the corner handles, which are drawn after the strip: on
+                            // a narrow box — or any box at a low Fit, since the handles keep
+                            // their size while the box shrinks — the top-left one reaches
+                            // this far and would take the press.
                             zIndex: 1,
                             pointerEvents: "auto",
                             cursor: "pointer",
@@ -983,8 +984,12 @@ export function CanvasBoard({
                       {/* Its real membership, which can exceed the circles drawn inside
                           it: an implication sitting in two themes is still ONE circle,
                           and that circle can only be in one box at a time. Saying the
-                          number is what stops a box short a twin from looking like a bug. */}
-                      {memberCount(r.themeId) > 0 && (
+                          number is what stops a box short a twin from looking like a bug.
+
+                          Not while the name is being typed: the field is anchored to the
+                          strip's bottom-left and the count would sit against its side,
+                          reading as part of what you are writing. */}
+                      {!editingName && memberCount(r.themeId) > 0 && (
                         <span className="font-normal"> · {memberCount(r.themeId)}</span>
                       )}
                       {live && live.blocked.length > 0 && (

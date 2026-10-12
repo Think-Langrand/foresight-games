@@ -1517,7 +1517,7 @@ export function ClusterBoard({
           "The board opens with three empty themes. Drag across empty space to draw another.",
           // Naming is half of what step 1 asks for, so where it happens is a direction
           // rather than a thing to discover.
-          "To name a theme, click the ✎ on its box and type. The ↗ beside it, or a double-click on the label, opens the theme on its own.",
+          "To name a theme, click the ✎ on its box and type. A double-click on the label, or its square in the rail, opens the theme on its own.",
           "Move a theme by the ⠿ on its label and everything inside travels with it. Drag a corner to resize it.",
           "Gather brings the loose implications back together by key change. Spread out gives them room to sort.",
           "Scroll to move around the board, and use Fit to see all of it.",
