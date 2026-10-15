@@ -171,6 +171,14 @@ with the five pitfalls that bear on grouping: categories instead of themes,
 jumping to responses, stopping at the obvious, making everything about the
 organization, and generic aspirations.
 
+`NAME_SHAPE` lives in the same module and is used by the grouping prompt, the naming
+prompt and the response schema's own field description. Both prompts already carried a
+60-character, 8-word exemplar and the model ignored it: a real run returned names of 10
+to 18 words, the long ones tacking a list of consequences onto the end. So the limit is
+stated as a rule — at most 12 words, one clause — and it says where the displaced
+material goes (the summary), because otherwise the model drops it instead of moving it.
+Measured on the same pool afterwards: 5–10 words, mean 7.6, none over 12.
+
 The facilitator's guidance also contains three pitfalls about **hopes and fears**
 (Session 3 steps 3–4): hopes and fears rooted in today's system, avoiding
 uncomfortable fears, and assuming the direct opposite is desirable. These are

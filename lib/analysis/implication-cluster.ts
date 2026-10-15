@@ -2,7 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 import { centerVectors, clusterVectors, type LabeledVector } from "./cluster";
-import { GROUPING_GUIDANCE, composeClusterPrompt } from "./theme-guidance";
+import { GROUPING_GUIDANCE, NAME_SHAPE, composeClusterPrompt } from "./theme-guidance";
 import { mapPool } from "./suggest";
 import {
   GROUPING_PRESETS,
@@ -87,9 +87,15 @@ const GROUPS_SCHEMA = {
             type: "string",
             description:
               "The theme, phrased as a statement about change (e.g. 'Responsibility moves " +
-              "to communities faster than resources do'), not a topic label.",
+              "to communities faster than resources do'), not a topic label. At most 12 " +
+              "words, a single clause, no trailing list of consequences.",
           },
-          summary: { type: "string", description: "One sentence on what these share." },
+          summary: {
+            type: "string",
+            description:
+              "One sentence on what these share — this is where what the shift leads to, " +
+              "who it affects and what it puts at risk belong, not in the label.",
+          },
           member_ids: {
             type: "array",
             description:
@@ -244,6 +250,8 @@ async function labelImplicationCluster(
             "(e.g. 'Responsibility moves to communities faster than resources do'), not a topic " +
             "label, and write one sentence on what these implications share. Name what is " +
             "common across them, not any single one.\n\n" +
+            NAME_SHAPE +
+            "\n\n" +
             GROUPING_GUIDANCE +
             (criteria?.trim() ? `\n\nThe facilitator asks: ${criteria.trim()}` : ""),
         },

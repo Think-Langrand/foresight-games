@@ -54,6 +54,23 @@ export const FULL_GUIDANCE = `${THEME_PREMISE}\n\nWatch out for:\n${bullets([
   ...HOPES_FEARS_PITFALLS,
 ])}`;
 
+// How long a theme's NAME may be, and where everything else goes.
+//
+// The prompts already carry a 60-character exemplar ("Responsibility moves to communities
+// faster than resources do", 8 words), and the model ignored it: a real run returned names
+// of 10 to 18 words, the long ones tacking a list of consequences onto the end —
+// "Sectors blur faster than governance adapts, creating accountability vacuums, value
+// deadlock, and chronic neglect of upstream work." The first five words are the theme; the
+// rest is the summary's job, and the name is what has to fit on a card and be read aloud.
+//
+// So the limit is stated as a rule rather than modelled by example, and it says where the
+// displaced material should go — otherwise the model drops it instead of moving it.
+export const NAME_SHAPE =
+  "Keep each theme's NAME SHORT: at most 12 words, a single clause, and no trailing list " +
+  "of consequences. 'Responsibility moves to communities faster than resources do' is the " +
+  "length to aim for. What the shift leads to, who it affects and what it puts at risk all " +
+  "belong in the one-sentence summary, NOT in the name.";
+
 // --- the grouping prompt, composed ------------------------------------------------
 // Here rather than in implication-cluster.ts (which is server-only) because the admin
 // playground seeds its editable prompt box from this. That matters: `promptOverride`
@@ -77,7 +94,9 @@ export const SYSTEM_COHORT =
 // The mechanics the response schema depends on. Changing these changes what comes back.
 export const THEME_INSTRUCTIONS =
   "Name each theme as a STATEMENT ABOUT CHANGE — 'Responsibility moves to communities " +
-  "faster than resources do', not 'Community capacity'. Use the ids exactly as given. " +
+  "faster than resources do', not 'Community capacity'. " +
+  NAME_SHAPE +
+  " Use the ids exactly as given. " +
   "Aim for 3-6 themes unless the facilitator's criteria say otherwise. These are " +
   "suggestions a group will argue with, so prefer a cut that is interesting and " +
   "arguable over one that is safe.\n\n" +
