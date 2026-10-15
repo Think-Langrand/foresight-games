@@ -110,7 +110,22 @@ the narrative yields identical theme *membership* with possibly different theme
 *names*. Stated in the UI rather than left to be discovered. If it becomes
 irritating, that is the signal to persist runs.
 
-Default threshold is the `balanced` preset (0.1), matching the per-group panel.
+**Thresholds are cohort-specific (`COHORT_PRESETS`), not the per-group ones.** Measured
+on the real 269-implication Public Health pool, the single-group presets returned 11
+(0.03), 28 (0.1) and 54 (0.18) themes — unusable for a plenary, and 28 themes also cost
+two minutes of naming calls. The useful band at this size starts below where the
+single-group presets start: 0 → 5 themes, 0.02 → 9, 0.05 → 14. So cohort runs get
+`few` (0), `balanced` (0.02, the default), `many` (0.05) and `fine` (0.1).
+
+**Secondary memberships are OFF by default here**, via a new optional `bridging` flag on
+`clusterByEmbedding` (default `true`, so the per-group route and board rail are
+unaffected). On the same pool, bridging added between 268 and 1008 extra placements
+depending on threshold. That put cards from every group into every theme and flattened
+rooms-per-theme to the number of rooms in the run — every theme showed 4/4 — which
+destroys the one reading the cohort grid exists for. With it off the same pool returned
+4/4, 3/4 and 2/4 themes: actual convergence and actual divergence. It stays available as
+a control, because on a single group's board a bridging implication is usually the
+interesting one in the room.
 
 ### `llm`
 
@@ -368,13 +383,23 @@ real group material, which is the point of the round.
 
 ## Open questions, to confirm at review
 
-1. **Do groups within one project work different scenarios, in practice?** Designed
-   for both. If they routinely differ, the scenario belongs in the grid header
-   permanently and convergence-across-scenarios becomes the headline reading.
+1. ~~**Do groups within one project work different scenarios, in practice?**~~
+   **ANSWERED: yes.** The dev Public Health project's four contributing groups work four
+   different scenarios (The Public Works, Known Here, The Useful Life, The Moving
+   Public). So the scenario belongs in the grid header, and convergence across different
+   futures is the headline reading — the overall write-up is given the scenario list and
+   told to say so where it applies, which on the first real run it did unprompted.
 2. **Week selection:** is "one week across the cohort, defaulted to the most common
    `(sort, title)`" right, or do groups drift enough to need per-group selection as
    the norm rather than the exception?
-3. **Label sampling.** `labelImplicationCluster` digests `members.slice(0, 10)`. A
+3. **Group sizes are wildly uneven, so raw counts are not comparable.** The same pool
+   runs 146 / 16 / 48 / 59 implications per group, so one room dominates most themes'
+   tallies simply by having built more. The grid prints each group's pool size in its
+   column header and shades cells by magnitude, so the imbalance is visible — but a
+   headline "4/4 rooms" where two of those rooms contributed one card each is weaker
+   convergence than the ratio suggests. Watch whether the per-cell counts are enough, or
+   whether the ratio needs a balance signal of its own.
+4. **Label sampling.** `labelImplicationCluster` digests `members.slice(0, 10)`. A
    40-member cohort cluster is therefore named from a sample. The order is
    agglomerative rather than by group, so skew should be mild, but if labels start
    reading in one group's voice, interleaving members by group before the label

@@ -53,3 +53,43 @@ export const FULL_GUIDANCE = `${THEME_PREMISE}\n\nWatch out for:\n${bullets([
   ...GROUPING_PITFALLS,
   ...HOPES_FEARS_PITFALLS,
 ])}`;
+
+// --- the grouping prompt, composed ------------------------------------------------
+// Here rather than in implication-cluster.ts (which is server-only) because the admin
+// playground seeds its editable prompt box from this. That matters: `promptOverride`
+// REPLACES the system prompt, so a facilitator handed only the guidance above would
+// unknowingly drop the id discipline and theme-shape instructions the JSON schema depends
+// on, and get worse output from a box that looked like an improvement. They edit the real
+// prompt or they edit nothing.
+
+export const SYSTEM_GROUP =
+  "You are a foresight facilitator preparing a workshop. A group mapped out the " +
+  "implications of a future scenario; your job is to propose how those implications " +
+  "could be clustered into themes, so the group has somewhere to start rather than a " +
+  "blank board.";
+
+export const SYSTEM_COHORT =
+  "You are a foresight facilitator preparing a plenary session. SEVERAL groups each " +
+  "mapped out the implications of a future scenario, and all of their implications are " +
+  "pooled below. Your job is to propose the themes that run across the whole cohort, so " +
+  "the facilitator can show every room what they collectively found.";
+
+// The mechanics the response schema depends on. Changing these changes what comes back.
+export const THEME_INSTRUCTIONS =
+  "Name each theme as a STATEMENT ABOUT CHANGE — 'Responsibility moves to communities " +
+  "faster than resources do', not 'Community capacity'. Use the ids exactly as given. " +
+  "Aim for 3-6 themes unless the facilitator's criteria say otherwise. These are " +
+  "suggestions a group will argue with, so prefer a cut that is interesting and " +
+  "arguable over one that is safe.\n\n" +
+  "An implication MAY belong to more than one theme — put it in every theme it " +
+  "genuinely speaks to, and do not force a choice where it bridges two. Equally, an " +
+  "implication that fits nothing well should be left out of every theme rather than " +
+  "pushed into the nearest one; outliers are useful to see.";
+
+export function composeClusterPrompt(framing: "group" | "cohort"): string {
+  return [
+    framing === "cohort" ? SYSTEM_COHORT : SYSTEM_GROUP,
+    GROUPING_GUIDANCE,
+    THEME_INSTRUCTIONS,
+  ].join("\n\n");
+}

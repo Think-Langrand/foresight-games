@@ -1,0 +1,205 @@
+// Client-safe shaping for COHORT implication clustering — every design group's Session 2
+// implications in one project, pooled and themed together. No server imports, so this is
+// safe in client components, route handlers and tests. The model calls live in
+// lib/analysis/cohort-cluster.ts; the per-group equivalent of this file is
+// lib/analysis/implication-cluster-shape.ts, whose types this one extends rather than
+// replaces.
+//
+// The reason the whole thing exists: a single group's themes tell a facilitator what that
+// room thinks. Pooling the cohort tells them which themes recur across rooms — and which
+// room stood alone. That second reading is only trustworthy if provenance is DERIVED from
+// membership after the fact, never asked of the model, which is what deriveCohortThemes is.
+
+import type { ClusterMethod, ImplicationItem, SuggestedTheme } from "./implication-cluster-shape";
+
+// Why a group contributed nothing, which must never be confusable with "contributed zero
+// to this theme". "Group 4 never raised legitimacy" is a finding; "Group 4 had no board"
+// is a gap in the run. They look identical in a grid unless the state travels too.
+export type GroupState = "ok" | "empty" | "missing";
+
+// How much the LLM method is told. Only the grouping prompt can use this — the embedding
+// method embeds the implication text alone, so there is no prompt to enrich.
+export type ContextMode = "blind" | "full";
+
+export interface CohortItem extends ImplicationItem {
+  groupId: string;
+}
+
+export interface CohortTheme extends SuggestedTheme {
+  // Derived from memberIds, never from the model. Busiest group first.
+  byGroup: { groupId: string; count: number }[];
+  // How many distinct groups fed this theme. 1 means an outlier; all of them means
+  // convergence. The headline number in the grid.
+  groupCount: number;
+}
+
+export interface CohortGroupInfo {
+  id: string;
+  name: string;
+  color: string | null;
+  scenarioTitle: string | null;
+  itemCount: number;
+  state: GroupState;
+}
+
+export interface CohortNarrative {
+  perGroup: { groupId: string; text: string }[];
+  overall: string;
+}
+
+export interface CohortClusterResponse {
+  method: ClusterMethod;
+  criteria: string | null;
+  promptOverride: string | null;
+  context: ContextMode;
+  minSimilarity: number | null;
+  // Whether an implication was also filed under every other theme it fits. Off by default
+  // for a cohort run; recorded because it changes the group tallies substantially.
+  bridging: boolean;
+  week: { sort: number; title: string };
+  groups: CohortGroupInfo[];
+  themes: CohortTheme[];
+  ungrouped: string[];
+  nearDuplicates: { aId: string; bId: string; similarity: number }[];
+  narrative: CohortNarrative | null;
+  items: CohortItem[]; // so an exported run is self-contained
+  model: string;
+  generatedAt: string;
+  elapsedMs: number;
+  notes: string[];
+}
+
+// Grouping thresholds for a COHORT pool, which is an order of magnitude larger than one
+// group's board and needs a different band entirely.
+//
+// Measured on a real 269-implication pool from four groups: the single-group presets
+// (0.03 / 0.1 / 0.18) returned 11, 28 and 54 themes. A facilitator opening a plenary wants
+// five or so, and 28 unusable themes also cost two minutes of naming calls. The useful
+// band at this size starts below where the single-group presets start, so cohort runs get
+// their own.
+//
+// Labels stay qualitative on purpose: the theme count a threshold yields depends on the
+// size and spread of the pool, so promising "≈5 themes" here would be a number measured
+// on one cohort and quoted at every other.
+export const COHORT_PRESETS: { key: string; label: string; minSimilarity: number }[] = [
+  { key: "few", label: "Few, broad themes", minSimilarity: 0 },
+  { key: "balanced", label: "Balanced", minSimilarity: 0.02 },
+  { key: "many", label: "More, sharper themes", minSimilarity: 0.05 },
+  { key: "fine", label: "Fine-grained — many small themes", minSimilarity: 0.1 },
+];
+
+export const DEFAULT_COHORT_PRESET = "balanced";
+
+export function isContextMode(v: unknown): v is ContextMode {
+  return v === "blind" || v === "full";
+}
+
+// --- which week ---------------------------------------------------------------
+
+export interface WeekChoice {
+  sort: number;
+  title: string;
+  groupCount: number;
+}
+
+// The implications weeks available across the cohort, most widely covered first.
+//
+// Keyed on `sort`, NOT on the title: groups are built from one template so the week lands
+// at the same sort in each, but a facilitator may well have renamed one group's copy
+// ("Session 2 — implications"). Keying on the title would split that group off into a week
+// of its own and quietly halve the pool. The title shown is the one the most groups use.
+export function cohortWeeks(
+  groups: { groupId: string; exercises: { id: string; sort: number; title: string }[] }[]
+): WeekChoice[] {
+  // sort -> groupIds, and sort -> title tallies
+  const groupsAt = new Map<number, Set<string>>();
+  const titlesAt = new Map<number, Map<string, number>>();
+
+  for (const g of groups) {
+    for (const ex of g.exercises) {
+      if (!groupsAt.has(ex.sort)) groupsAt.set(ex.sort, new Set());
+      groupsAt.get(ex.sort)!.add(g.groupId);
+      if (!titlesAt.has(ex.sort)) titlesAt.set(ex.sort, new Map());
+      const titles = titlesAt.get(ex.sort)!;
+      titles.set(ex.title, (titles.get(ex.title) ?? 0) + 1);
+    }
+  }
+
+  return [...groupsAt.entries()]
+    .map(([sort, ids]) => {
+      const titles = [...(titlesAt.get(sort) ?? new Map()).entries()];
+      // Most-used title; ties go to the alphabetically first, so the label is stable
+      // across runs rather than depending on map order.
+      titles.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      return { sort, title: titles[0]?.[0] ?? `Week ${sort}`, groupCount: ids.size };
+    })
+    // Most groups first; a tie goes to the earlier week.
+    .sort((a, b) => b.groupCount - a.groupCount || a.sort - b.sort);
+}
+
+export function groupStateFor({
+  hasWeek,
+  itemCount,
+}: {
+  hasWeek: boolean;
+  itemCount: number;
+}): GroupState {
+  if (!hasWeek) return "missing";
+  return itemCount > 0 ? "ok" : "empty";
+}
+
+// --- provenance ---------------------------------------------------------------
+
+// Attach "which groups fed this theme" to each theme, computed from membership.
+//
+// An implication sitting in two themes counts in BOTH — that is intent, not double
+// counting: clusterByEmbedding's secondaryMemberships produces exactly this case, and a
+// bridging implication genuinely belongs to each theme it bridges.
+//
+// A member that cannot be attributed is skipped rather than filed under a made-up group.
+// It should never happen (memberIds come from the pool we built the map from), so the
+// quiet skip is a floor under a bug, not a path anyone relies on.
+export function deriveCohortThemes(
+  themes: SuggestedTheme[],
+  groupOf: Map<string, string>
+): CohortTheme[] {
+  return themes.map((t) => {
+    const counts = new Map<string, number>();
+    for (const id of t.memberIds) {
+      const gid = groupOf.get(id);
+      if (!gid) continue;
+      counts.set(gid, (counts.get(gid) ?? 0) + 1);
+    }
+    const byGroup = [...counts.entries()]
+      .map(([groupId, count]) => ({ groupId, count }))
+      // Busiest first; ties by id so a run reads the same way twice.
+      .sort((a, b) => b.count - a.count || a.groupId.localeCompare(b.groupId));
+    return { ...t, byGroup, groupCount: byGroup.length };
+  });
+}
+
+// --- the grid -----------------------------------------------------------------
+
+export interface GridRow {
+  themeIndex: number;
+  cells: { groupId: string; count: number; state: GroupState }[];
+}
+
+// Themes down, groups across. A row lit across every column is the plenary theme; a row
+// lit in one column is the outlier; a dark cell says that group never went there.
+//
+// The cell carries the group's STATE as well as its count, because a zero means two
+// completely different things and the grid is the one place that difference gets read.
+export function buildGrid(themes: CohortTheme[], groups: CohortGroupInfo[]): GridRow[] {
+  return themes.map((t, themeIndex) => {
+    const byId = new Map(t.byGroup.map((b) => [b.groupId, b.count]));
+    return {
+      themeIndex,
+      cells: groups.map((g) => ({
+        groupId: g.id,
+        count: byId.get(g.id) ?? 0,
+        state: g.state,
+      })),
+    };
+  });
+}

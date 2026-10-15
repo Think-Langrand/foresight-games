@@ -2,6 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 import { centerVectors, clusterVectors, type LabeledVector } from "./cluster";
+import { GROUPING_GUIDANCE, composeClusterPrompt } from "./theme-guidance";
 import { mapPool } from "./suggest";
 import {
   GROUPING_PRESETS,
@@ -104,9 +105,27 @@ const GROUPS_SCHEMA = {
   required: ["groups"],
 } as const;
 
+// How the one grouping call is framed. Every field is optional and every default
+// reproduces the original single-group behaviour exactly, so the per-group route and the
+// board's rail are unaffected by the cohort work.
+export interface LlmClusterOpts {
+  // "A group mapped out the implications" is wrong for a pooled cohort run.
+  framing?: "group" | "cohort";
+  // Replaces the system prompt outright — the admin playground's main lever.
+  promptOverride?: string;
+  // Per-item context appended to its digest line (the group it came from, say).
+  // Omitted by default, which is the blind run: if the model cannot see which room an
+  // implication came from, a theme spanning five rooms is a finding rather than something
+  // it was steered towards.
+  tagOf?: (item: ImplicationItem) => string | null;
+  // Shared context before the list, e.g. the project and the scenarios in play.
+  preamble?: string | null;
+}
+
 export async function clusterByLlm(
   items: ImplicationItem[],
-  criteria: string | null
+  criteria: string | null,
+  opts: LlmClusterOpts = {}
 ): Promise<ImplicationClusterResponse | null> {
   if (!process.env.OPENAI_API_KEY || items.length === 0) return null;
   const { toShort, toReal } = shortKeys(items);
@@ -115,7 +134,13 @@ export async function clusterByLlm(
   // for grouping, and it is also the thing a facilitator most often wants to cut ACROSS
   // ("don't just regroup by key change"), which they can only ask for if the model can see it.
   const digest = items
-    .map((it) => `${toShort.get(it.id)}: ${it.text} [from key change: ${it.keyChange}]`)
+    .map((it) => {
+      const tag = opts.tagOf?.(it);
+      return (
+        `${toShort.get(it.id)}: ${it.text} [from key change: ${it.keyChange}` +
+        `${tag ? `; ${tag}` : ""}]`
+      );
+    })
     .join("\n");
 
   try {
@@ -126,23 +151,13 @@ export async function clusterByLlm(
         {
           role: "system",
           content:
-            "You are a foresight facilitator preparing a workshop. A group mapped out the " +
-            "implications of a future scenario; your job is to propose how those implications " +
-            "could be clustered into themes, so the group has somewhere to start rather than a " +
-            "blank board.\n\n" +
-            "Name each theme as a STATEMENT ABOUT CHANGE — 'Responsibility moves to communities " +
-            "faster than resources do', not 'Community capacity'. Use the ids exactly as given. " +
-            "Aim for 3-6 themes unless the facilitator's criteria say otherwise. These are " +
-            "suggestions a group will argue with, so prefer a cut that is interesting and " +
-            "arguable over one that is safe.\n\n" +
-            "An implication MAY belong to more than one theme — put it in every theme it " +
-            "genuinely speaks to, and do not force a choice where it bridges two. Equally, an " +
-            "implication that fits nothing well should be left out of every theme rather than " +
-            "pushed into the nearest one; outliers are useful to see.",
+            opts.promptOverride?.trim() ||
+            composeClusterPrompt(opts.framing === "cohort" ? "cohort" : "group"),
         },
         {
           role: "user",
           content:
+            (opts.preamble?.trim() ? `${opts.preamble.trim()}\n\n` : "") +
             (criteria?.trim()
               ? `The facilitator asks you to group them this way:\n${criteria.trim()}\n\n`
               : "") + `Implications:\n${digest}`,
@@ -228,7 +243,8 @@ async function labelImplicationCluster(
             "embedding model grouped together. Name the theme as a STATEMENT ABOUT CHANGE " +
             "(e.g. 'Responsibility moves to communities faster than resources do'), not a topic " +
             "label, and write one sentence on what these implications share. Name what is " +
-            "common across them, not any single one." +
+            "common across them, not any single one.\n\n" +
+            GROUPING_GUIDANCE +
             (criteria?.trim() ? `\n\nThe facilitator asks: ${criteria.trim()}` : ""),
         },
         { role: "user", content: `Implications in this cluster:\n${digest}` },
@@ -262,7 +278,20 @@ async function labelImplicationCluster(
 
 export async function clusterByEmbedding(
   items: ImplicationItem[],
-  opts: { minSimilarity?: number; criteria?: string | null } = {}
+  opts: {
+    minSimilarity?: number;
+    criteria?: string | null;
+    // Whether to also file each implication under any OTHER theme it fits (see
+    // secondaryMemberships). Default true — what a single group's board wants, where a
+    // bridging implication is usually the interesting one in the room.
+    //
+    // Measured reason it is now optional: on a 269-implication cohort pool this added
+    // between 268 and 1008 extra placements depending on threshold, which put cards from
+    // every group into every theme and flattened "how many rooms raised this" to the
+    // number of rooms in the run. That ratio is the whole point of a cohort grid, so the
+    // cohort path turns bridging off by default and offers it as a control.
+    bridging?: boolean;
+  } = {}
 ): Promise<ImplicationClusterResponse | null> {
   if (!process.env.OPENAI_API_KEY || items.length === 0) return null;
   const criteria = opts.criteria ?? null;
@@ -289,7 +318,10 @@ export async function clusterByEmbedding(
     // implication in two themes. Centered, because that is the space the threshold was
     // tuned in and the space clusterVectors just worked in.
     const centered = centerVectors(vectors);
-    const extras = secondaryMemberships(multi, centered, minSim);
+    const extras =
+      opts.bridging === false
+        ? multi.map(() => [] as string[])
+        : secondaryMemberships(multi, centered, minSim);
     const bridged = extras.reduce((n, e) => n + e.length, 0);
     if (bridged > 0) {
       notes.push(`${bridged} implication placement${bridged === 1 ? "" : "s"} are cards that also fit a second theme.`);
