@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  bucketByGroup,
   cohortWeeks,
   deriveCohortThemes,
   groupStateFor,
@@ -181,5 +182,57 @@ describe("buildGrid", () => {
 
   it("returns no rows for a run that found no themes", () => {
     expect(buildGrid([], groups)).toEqual([]);
+  });
+});
+
+describe("bucketByGroup", () => {
+  const owners = new Map(Object.entries({ a: "g1", b: "g2", c: "g1", d: "g3" }));
+
+  it("splits a theme's members into one bucket per room", () => {
+    const got = bucketByGroup(["a", "b", "c"], owners);
+    expect(got).toEqual([
+      { groupId: "g1", ids: ["a", "c"] },
+      { groupId: "g2", ids: ["b"] },
+    ]);
+  });
+
+  it("puts the busiest room first when no order is given", () => {
+    const got = bucketByGroup(["b", "a", "c"], owners);
+    expect(got.map((x) => x.groupId)).toEqual(["g1", "g2"]);
+  });
+
+  it("follows a given room order, so a theme's buckets match its grid row", () => {
+    const got = bucketByGroup(["a", "b", "c"], owners, ["g2", "g1"]);
+    expect(got.map((x) => x.groupId)).toEqual(["g2", "g1"]);
+  });
+
+  it("ignores rooms in the given order that contributed nothing here", () => {
+    const got = bucketByGroup(["a"], owners, ["g3", "g1", "g2"]);
+    expect(got).toEqual([{ groupId: "g1", ids: ["a"] }]);
+  });
+
+  it("keeps each room's members in the order they were passed", () => {
+    const got = bucketByGroup(["c", "a"], owners);
+    expect(got[0].ids).toEqual(["c", "a"]);
+  });
+
+  it("surfaces an unattributable member rather than dropping it from the view", () => {
+    // Nothing should reach here unattributed, but a member that vanished from the UI
+    // would be the quietest possible failure, so it gets a visible bucket instead.
+    const got = bucketByGroup(["a", "ghost"], owners);
+    expect(got).toEqual([
+      { groupId: "g1", ids: ["a"] },
+      { groupId: "", ids: ["ghost"] },
+    ]);
+  });
+
+  it("returns nothing for an empty member list", () => {
+    expect(bucketByGroup([], owners)).toEqual([]);
+  });
+
+  it("PROPERTY: the buckets always re-add to exactly what was passed in", () => {
+    const ids = ["a", "b", "c", "d", "ghost"];
+    const flat = bucketByGroup(ids, owners).flatMap((x) => x.ids);
+    expect(flat.slice().sort()).toEqual(ids.slice().sort());
   });
 });

@@ -178,6 +178,49 @@ export function deriveCohortThemes(
   });
 }
 
+// Split a list of implication ids into one bucket per room, for the nested accordions
+// under an expanded theme: having seen that four rooms raised a theme, the next question
+// is always what each of them actually said.
+//
+// `order` lets a theme pass its own byGroup order so the buckets read in the same order as
+// its row in the grid. Rooms in `order` that contributed nothing here are left out rather
+// than rendered as empty accordions.
+//
+// An id with no attributable room gets a bucket of its own under "" instead of being
+// skipped: it should be impossible, and an implication quietly missing from the view is
+// the failure this whole feature is built to avoid. Asserted as a property test — the
+// buckets always re-add to exactly what was passed in.
+export function bucketByGroup(
+  ids: string[],
+  groupOf: Map<string, string>,
+  order?: string[]
+): { groupId: string; ids: string[] }[] {
+  const buckets = new Map<string, string[]>();
+  for (const id of ids) {
+    const gid = groupOf.get(id) ?? "";
+    if (!buckets.has(gid)) buckets.set(gid, []);
+    buckets.get(gid)!.push(id);
+  }
+
+  const seen = new Set<string>();
+  const out: { groupId: string; ids: string[] }[] = [];
+  for (const gid of order ?? []) {
+    const got = buckets.get(gid);
+    if (!got) continue;
+    out.push({ groupId: gid, ids: got });
+    seen.add(gid);
+  }
+  // Whatever the caller did not order: busiest room first, ties by id so it reads the same
+  // way twice. The unattributed bucket sorts last, since it is a diagnostic, not a room.
+  const rest = [...buckets.entries()]
+    .filter(([gid]) => !seen.has(gid))
+    .sort((a, b) =>
+      a[0] === "" ? 1 : b[0] === "" ? -1 : b[1].length - a[1].length || a[0].localeCompare(b[0])
+    );
+  for (const [groupId, bucketIds] of rest) out.push({ groupId, ids: bucketIds });
+  return out;
+}
+
 // --- the grid -----------------------------------------------------------------
 
 export interface GridRow {

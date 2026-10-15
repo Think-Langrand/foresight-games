@@ -3,7 +3,7 @@
 import { csvCell, download } from "@/components/admin/exportUtils";
 import { membershipCounts } from "@/lib/analysis/implication-cluster-shape";
 import { COHORT_CSV_HEADER, cohortCsvRows } from "@/lib/analysis/cohort-csv";
-import type { CohortClusterResponse } from "@/lib/analysis/cohort-cluster-shape";
+import { bucketByGroup, type CohortClusterResponse } from "@/lib/analysis/cohort-cluster-shape";
 import { CohortGrid } from "./CohortGrid";
 
 // One cohort run, rendered. Read-only: nothing here writes to a board.
@@ -41,6 +41,64 @@ export function CohortRunView({ run, label }: { run: CohortClusterResponse; labe
       </span>
     );
   };
+
+  const groupOf = new Map(run.items.map((i) => [i.id, i.groupId]));
+  const scenariosDiffer = new Set(run.groups.map((g) => g.scenarioTitle ?? "")).size > 1;
+
+  function implication(id: string) {
+    const item = itemById.get(id);
+    const bridged = (inThemes.get(id) ?? 0) > 1;
+    return (
+      <li key={id} className={"border-l-2 pl-2.5 " + (bridged ? "border-blue" : "border-black/15")}>
+        <span className="text-[12.5px] leading-[1.45]">{item?.text ?? id}</span>
+        {bridged && (
+          <span className="ml-1.5 whitespace-nowrap rounded-[2px] bg-blue/15 px-1 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-blue">
+            in {inThemes.get(id)} themes
+          </span>
+        )}
+        {item && (
+          <span className="mt-0.5 block text-[10.5px] uppercase tracking-[0.05em] text-muted">
+            from: {item.keyChange}
+          </span>
+        )}
+      </li>
+    );
+  }
+
+  // Members split into one accordion per room. Having read that four rooms raised a theme,
+  // the next question is what each of them actually said — and with group pools as uneven
+  // as they are, a flat list buries the small rooms under the big one.
+  //
+  // Rooms start open only when the whole set is small enough to read at a glance;
+  // otherwise opening a 67-member theme would dump every room at once, which is what the
+  // accordions are here to prevent.
+  function byRoom(ids: string[], order?: string[]) {
+    const buckets = bucketByGroup(ids, groupOf, order);
+    const openByDefault = ids.length <= 10;
+    return (
+      <div className="mt-2 flex flex-col gap-1">
+        {buckets.map((b) => {
+          const g = groupById.get(b.groupId);
+          return (
+            <details key={b.groupId || "unattributed"} open={openByDefault}>
+              <summary className="cursor-pointer list-none py-0.5 text-[11.5px] font-bold">
+                <span
+                  className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+                  style={{ backgroundColor: g?.color ?? "var(--hairline)" }}
+                />
+                {g ? g.name : "Not attributable to a group"}
+                <span className="ml-1.5 font-normal text-muted">
+                  {b.ids.length}
+                  {scenariosDiffer && g?.scenarioTitle ? ` · ${g.scenarioTitle}` : ""}
+                </span>
+              </summary>
+              <ul className="mb-1.5 ml-3.5 mt-1 flex flex-col gap-1.5">{b.ids.map(implication)}</ul>
+            </details>
+          );
+        })}
+      </div>
+    );
+  }
 
   function exportCsv() {
     const rows = [COHORT_CSV_HEADER as readonly string[], ...cohortCsvRows(run)];
@@ -138,33 +196,10 @@ export function CohortRunView({ run, label }: { run: CohortClusterResponse; labe
                 </span>
               )}
             </summary>
-            <ul className="mt-2 flex flex-col gap-1.5">
-              {t.memberIds.map((id) => {
-                const item = itemById.get(id);
-                return (
-                  <li
-                    key={id}
-                    className={
-                      "border-l-2 pl-2.5 " +
-                      ((inThemes.get(id) ?? 0) > 1 ? "border-blue" : "border-black/15")
-                    }
-                  >
-                    <span className="text-[12.5px] leading-[1.45]">{item?.text ?? id}</span>
-                    {item && chip(item.groupId)}
-                    {(inThemes.get(id) ?? 0) > 1 && (
-                      <span className="ml-1.5 whitespace-nowrap rounded-[2px] bg-blue/15 px-1 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-blue">
-                        in {inThemes.get(id)} themes
-                      </span>
-                    )}
-                    {item && (
-                      <span className="mt-0.5 block text-[10.5px] uppercase tracking-[0.05em] text-muted">
-                        from: {item.keyChange}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            {byRoom(
+              t.memberIds,
+              t.byGroup.map((b) => b.groupId)
+            )}
           </details>
         ))}
       </div>
@@ -208,17 +243,7 @@ export function CohortRunView({ run, label }: { run: CohortClusterResponse; labe
           <summary className="cursor-pointer list-none text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
             ▸ Outliers — in no theme ({run.ungrouped.length})
           </summary>
-          <ul className="mt-2 flex flex-col gap-1.5">
-            {run.ungrouped.map((id) => {
-              const item = itemById.get(id);
-              return (
-                <li key={id} className="border-l-2 border-black/15 pl-2.5 text-[12.5px] leading-[1.45]">
-                  {item?.text ?? id}
-                  {item && chip(item.groupId)}
-                </li>
-              );
-            })}
-          </ul>
+          {byRoom(run.ungrouped)}
         </details>
       )}
 
