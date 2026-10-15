@@ -141,6 +141,30 @@ model's attention thins. That is visible, not hidden: the reconcile guarantee ho
 Criteria cap raised to 4000 characters (the per-group route caps at 2000), because
 here it is a prompt rather than a line.
 
+### What makes a good theme (new: `lib/analysis/theme-guidance.ts`)
+
+Without guidance the model reliably returns **buckets** — "Workforce",
+"Technology", "Trust" — which are categories a group already knew it had, not
+insights about what is changing. So the facilitator's own guidance goes into both
+the grouping prompt and the cluster-naming prompt, from one shared module so the
+two cannot drift:
+
+> Group by what is SHIFTING in this future — the changed conditions — not by
+> subject matter.
+
+with the five pitfalls that bear on grouping: categories instead of themes,
+jumping to responses, stopping at the obvious, making everything about the
+organization, and generic aspirations.
+
+The facilitator's guidance also contains three pitfalls about **hopes and fears**
+(Session 3 steps 3–4): hopes and fears rooted in today's system, avoiding
+uncomfortable fears, and assuming the direct opposite is desirable. These are
+exported as `HOPES_FEARS_PITFALLS` and kept out of the clustering prompt on
+purpose — instructing a model that is grouping implications to seek uncomfortable
+fears steers it toward material that is not in front of it. The page offers the
+full text as a paste-in starting point for `promptOverride`, so nothing is lost
+and the facilitator can override the judgment.
+
 ### The blind / full context axis (LLM method only)
 
 **Already in the digest today, in both modes:** the implication text and its key
