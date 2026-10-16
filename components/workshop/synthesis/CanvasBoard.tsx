@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CARD_TEXT_MAX } from "@/lib/ripples-types";
-import { ZoomControls, orderColor, stepZoom, type Zoom } from "@/components/workshop/MapControls";
+import {
+  ZoomControls,
+  orderColor,
+  orderOnText,
+  stepZoom,
+  type Zoom,
+} from "@/components/workshop/MapControls";
 import {
   NODE_RADIUS as NODE_R,
   blockers,
@@ -27,6 +33,14 @@ import {
 
 // The freeform clustering surface — step 1's third view, beside Map and Cards.
 //
+// How far a background drag must travel ON SCREEN before it becomes a theme. Generous on
+// purpose: a stray few pixels on the way to clicking something should never mint one, and
+// the cost of the threshold being too high is one more deliberate drag. It cannot be the
+// whole answer, though — the drag that draws is also the drag a hand reaches for to move
+// the board, so a threshold only makes the accident rarer. Space-to-pan is what gives that
+// hand somewhere else to go.
+const DRAW_MIN_PX = 70;
+
 // The gesture it exists for: shove implications into piles, draw a boundary round a pile,
 // and that is a theme. CONTAINMENT IS MEMBERSHIP — a card whose centre sits inside a
 // theme's region is in that theme, and dragging it clear of every region returns it to the
@@ -233,6 +247,8 @@ export function CanvasBoard({
   onRemoveFromTheme,
   onMoveRegion,
   onResizeRegion,
+  themeEmpty,
+  onDeleteTheme,
   trailing,
   nodeProps,
 }: {
@@ -255,6 +271,14 @@ export function CanvasBoard({
   // where they already are. Without that, cards still sitting at a fallback position
   // would jump to packed seats the moment the theme existed.
   onDrawRegion: (rect: Rect, claimed: CanvasCardPos[]) => void;
+  // "Nothing is in this theme" — the caller's judgement, because emptiness means no
+  // implications AND no answers, risks or opportunities, and the canvas only knows about
+  // the first. Together with onDeleteTheme it puts a ✕ on the box.
+  themeEmpty?: (themeId: string) => boolean;
+  // Deletes outright, no confirm. Only ever offered for a theme the caller calls empty,
+  // where there is nothing to decide and nothing to cascade — which is the whole reason
+  // it can skip the modal that deleting a theme otherwise goes through.
+  onDeleteTheme?: (themeId: string) => void;
   onSpreadOut: () => void;
   onGather: () => void;
   // Captions over the piles, derived by the caller. Nothing is stored, so they cannot go
@@ -649,6 +673,43 @@ export function CanvasBoard({
     if (mode.kind === "movebox" || mode.kind === "sizebox") setMode({ kind: "idle" });
   };
 
+  // Space turns the background drag into a pan, as it does in every board tool people
+  // arrive from. Drawing keeps the plain drag — it is what this surface is for — and this
+  // is the way out for the hand that just wants to move around, which otherwise had only
+  // the wheel, the scrollbars and a middle button most trackpads do not have.
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  useEffect(() => {
+    // Never while typing, and never when a control has focus: space is how a focused
+    // button is pressed and how a word is spaced in a theme's name field. Taking it there
+    // would break both to fix a gesture neither is involved in.
+    const typing = (t: EventTarget | null) =>
+      t instanceof HTMLElement &&
+      (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(t.tagName));
+
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat || typing(e.target)) return;
+      e.preventDefault(); // or the page scrolls under the board
+      setSpaceHeld(true);
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "Space") setSpaceHeld(false);
+    };
+    // A keyup that never arrives would leave the board stuck in pan: switching tab or
+    // window with space down is the ordinary way to lose it.
+    const clear = () => setSpaceHeld(false);
+
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", clear);
+    document.addEventListener("visibilitychange", clear);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", clear);
+      document.removeEventListener("visibilitychange", clear);
+    };
+  }, []);
+
   // ---------------- background: draw a theme, or pan ----------------
 
   // Press and drag on empty canvas to draw a theme. No arming step: making a theme is the
@@ -674,9 +735,12 @@ export function CanvasBoard({
       });
     };
 
-    // Middle button pans. So does any drag for someone who cannot edit — there is nothing
-    // for them to draw, and the board should still be navigable.
-    if (e.button === 1 || !editable) {
+    // Middle button pans, and so does space held. So does any drag for someone who cannot
+    // edit — there is nothing for them to draw, and the board should still be navigable.
+    // Space pans on a LEFT press only. Ungated, a right-press with Space held entered pan
+    // behind the context menu, and if that button's pointerup never arrived the board kept
+    // scrolling on bare hover.
+    if (e.button === 1 || (spaceHeld && e.button === 0) || !editable) {
       if (e.button === 1) e.preventDefault(); // or the browser starts its own autoscroll
       pan();
       return;
@@ -719,7 +783,12 @@ export function CanvasBoard({
       // never mint a theme. And never over another
       // box — the overlap rule has to hold for the gesture that CREATES boxes too, or the
       // board can be put back into a state move and resize forbid.
-      if (r.w > 24 && r.h > 24 && mode.blocked.length === 0) {
+      // SCREEN pixels, not model units. `toModel` divides by `scale`, so a model-unit
+      // threshold shrinks as the board zooms out: at a Fit of 0.5 a 12-pixel twitch minted
+      // a theme, and at 0.3 a 7-pixel one — which is exactly the zoom a hand is at when it
+      // is dragging to get around rather than to draw. Measured on screen, the gesture
+      // costs the same wherever the zoom happens to be.
+      if (r.w * scale > DRAW_MIN_PX && r.h * scale > DRAW_MIN_PX && mode.blocked.length === 0) {
         const live = items.filter((it) => !dimmed.has(it.key));
         // The >=50%-coverage rule for SELECTION, which is what a Miro-trained hand expects
         // from a box: clipping a corner does not take a card, covering most of it does.
@@ -811,7 +880,11 @@ export function CanvasBoard({
                   ? "crosshair"
                   : mode.kind === "pan"
                     ? "grabbing"
-                    : "pointer",
+                    : // Space down: the next drag moves the board, and the cursor is the
+                      // only thing that can say so before it happens.
+                      spaceHeld
+                      ? "grab"
+                      : "pointer",
             }}
           >
             {/* Regions sit under the nodes and take no pointer events: in this version a
@@ -845,6 +918,10 @@ export function CanvasBoard({
               const editingName = renaming === r.themeId;
               const grippable = editable && movable(r.themeId) && !editingName;
               const renameable = editable && Boolean(onRenameTheme);
+              // `editable` as well as the handler, exactly like renameable: ClusterBoard
+              // passes onDeleteTheme unconditionally, and without this a locked board or
+              // the projector view would show a working ✕ to someone with no edit rights.
+              const deletable = editable && Boolean(onDeleteTheme) && (themeEmpty?.(r.themeId) ?? false);
 
               return (
                 <div key={r.themeId}>
@@ -1017,6 +1094,45 @@ export function CanvasBoard({
                           }}
                         >
                           <span aria-hidden>✎</span>
+                        </button>
+                      )}
+                      {/* An empty theme is deleted here, with no confirm. Deleting a theme
+                          normally opens a modal, because it is two decisions — whether to
+                          delete it, and what becomes of what it holds. An empty one holds
+                          nothing: there is no second decision and the cascade has nothing
+                          to take, so a dialog is pure friction on the one case that is
+                          always a mistake being undone. Themes drawn by accident are the
+                          reason this exists. */}
+                      {deletable && !live && !editingName && (
+                        <button
+                          // Same retargeting trap as the grip and the rename button: the
+                          // surface captures the pointer on pointerdown, so without this
+                          // the click never arrives.
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteTheme?.(r.themeId);
+                          }}
+                          aria-label={`Delete the empty theme ${themeLabel(r.themeId)}`}
+                          title="Delete this empty theme"
+                          className="font-normal text-muted hover:text-coral"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 24 / scale,
+                            height: 24 / scale,
+                            fontSize: 17 / scale,
+                            lineHeight: 1,
+                            marginRight: 3 / scale,
+                            verticalAlign: "-0.12em",
+                            position: "relative",
+                            zIndex: 1,
+                            pointerEvents: "auto",
+                            cursor: "pointer",
+                          }}
+                        >
+                          ✕
                         </button>
                       )}
                       {/* Bigger than the name beside it: it is the only part of the
@@ -1250,7 +1366,14 @@ export function CanvasBoard({
                     width: NODE_R * 2,
                     height: NODE_R * 2,
                     background: n.dim ? "var(--paper)" : orderColor(n.depth),
-                    color: n.dim ? "color-mix(in srgb, var(--ink) 40%, var(--paper))" : "#fff",
+                    // orderOnText, not a flat white: the depth palette cycles and lands on
+                    // lime every fourth order, where white text on a light green circle is
+                    // barely there. The order chips and the card stamps have always asked
+                    // the palette which text colour its fill wants; the canvas circles were
+                    // the one place that assumed.
+                    color: n.dim
+                      ? "color-mix(in srgb, var(--ink) 40%, var(--paper))"
+                      : orderOnText(n.depth),
                     border: `2px solid ${n.dim ? "var(--hairline)" : "transparent"}`,
                     boxShadow: showThemes.length ? "0 0 0 3px var(--ink)" : undefined,
                     opacity: n.dim ? 0.45 : 1,
@@ -1308,8 +1431,22 @@ export function CanvasBoard({
                 }}
               >
                 <span
+                  // The caption is the head of a key change, cut to 28 characters by
+                  // keyChangeLabel — and a key change is a paragraph. The whole thing on
+                  // hover, which needs the pointer: the wrapper is pointer-events-none so
+                  // the caption cannot eat a drag across the board, and the press is
+                  // stopped for the same reason the dismiss button stops it — the surface
+                  // captures the pointer and would start a marquee under the cursor.
+                  title={c.title || c.label}
+                  // pointerEvents below so the title can be hovered — but the press is NOT
+                  // stopped. Stopping it left a dead strip along the top edge of every pile,
+                  // which is exactly where a hand starts the drag to box that pile: the
+                  // press reached nothing, not a draw and not even a Space-pan. This caption
+                  // needs hover, not clicks, so the press is left to bubble to the surface.
                   className="bg-board font-bold uppercase tracking-[0.05em] text-muted"
                   style={{
+                    pointerEvents: "auto",
+                    cursor: "help",
                     fontSize: 11 / scale,
                     lineHeight: 1.6,
                     paddingInline: 4 / scale,

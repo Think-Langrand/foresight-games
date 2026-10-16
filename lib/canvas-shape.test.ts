@@ -990,6 +990,21 @@ describe("pileLabels", () => {
     );
   };
 
+  it("carries the caller's full title through, untouched", () => {
+    // The canvas captions a pile with keyChangeLabel's 28-character head of a key change,
+    // and a key change runs to a paragraph — so the full text has to reach the caption to
+    // be shown on hover. This module does no text work; it just has to not drop it.
+    const full = "Core public health functions, resources, and responsibilities are distributed";
+    const [label] = pileLabels([{ ...groupOf("K1", lattice(MIN_PILE, 60, 60)), title: full }]);
+    expect(label.title).toBe(full);
+    expect(label.label).toBe("K1");
+  });
+
+  it("leaves title undefined when the caller gives none", () => {
+    const [label] = pileLabels([groupOf("K1", lattice(MIN_PILE, 60, 60))]);
+    expect(label.title).toBeUndefined();
+  });
+
   // The round trip. This is the test that fails if anyone changes PITCH or the clump grid
   // on one side only — a pile would then be labelled the instant it was made and never
   // again.
