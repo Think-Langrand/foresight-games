@@ -79,6 +79,7 @@ export function CohortGrid({
                   <button
                     type="button"
                     onClick={() => onPickTheme?.(row.themeIndex)}
+                    title="Open this theme's implications below"
                     className="text-left text-[12.5px] font-bold leading-[1.35] hover:underline"
                   >
                     {theme.label}

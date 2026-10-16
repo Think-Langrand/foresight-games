@@ -299,6 +299,11 @@ export async function clusterByEmbedding(
     // number of rooms in the run. That ratio is the whole point of a cohort grid, so the
     // cohort path turns bridging off by default and offers it as a control.
     bridging?: boolean;
+    // Vectors for exactly these items, already embedded by the caller. Lets a caller that
+    // needs the vectors for something else of its own — the cohort run computes
+    // cross-group near-duplicate pairs from them — pay for one embedding request instead
+    // of two over the identical list. Omitted, this embeds them itself as before.
+    vectors?: LabeledVector[];
   } = {}
 ): Promise<ImplicationClusterResponse | null> {
   if (!process.env.OPENAI_API_KEY || items.length === 0) return null;
@@ -307,7 +312,7 @@ export async function clusterByEmbedding(
   const notes: string[] = [];
 
   try {
-    const vectors = await embedImplications(items);
+    const vectors = opts.vectors ?? (await embedImplications(items));
     if (vectors.length < items.length) {
       notes.push(`${items.length - vectors.length} implications could not be embedded.`);
     }

@@ -57,18 +57,29 @@ export async function poolCohortImplications(
     }))
   );
 
+  // Only weeks a group can actually contribute from. An implications exercise with no
+  // session code has no board behind it, so counting it would make the week selector say
+  // "in 4 groups" while the group list directly below it marks one of them "(no board)" —
+  // two numbers for the same thing, disagreeing on screen.
   const weeks = cohortWeeks(
-    perGroup.map((p) => ({ groupId: p.group.id, exercises: p.exercises }))
+    perGroup.map((p) => ({
+      groupId: p.group.id,
+      exercises: p.exercises.filter((e) => Boolean(e.sessionCode)),
+    }))
   );
   const chosen = weeks.find((w) => w.sort === opts.weekSort) ?? weeks[0] ?? null;
 
   // Which exercise each group contributes at the chosen week. An explicit override wins;
-  // otherwise the first at that sort, which is the only one unless a group has a redo.
+  // otherwise one that has a board, falling back to the first at that sort so a group with
+  // only a boardless exercise is still reported (as "missing") rather than disappearing.
   const picked = perGroup.map((p) => {
     const atSort = chosen ? p.exercises.filter((e) => e.sort === chosen.sort) : [];
     const override = opts.overrides?.[p.group.id];
     const exercise =
-      (override ? atSort.find((e) => e.id === override) : undefined) ?? atSort[0] ?? null;
+      (override ? atSort.find((e) => e.id === override) : undefined) ??
+      atSort.find((e) => Boolean(e.sessionCode)) ??
+      atSort[0] ??
+      null;
     return { ...p, exercise };
   });
 

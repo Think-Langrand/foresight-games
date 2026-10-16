@@ -73,7 +73,12 @@ export function CohortWorkbench({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const nextId = useRef(1);
+  // Guards against an out-of-order preview: without it, two quick week changes can leave
+  // `weekSort` on one week and `preview` on another, and the Run button would then report
+  // the wrong pool size and send the wrong group ids.
+  const previewSeq = useRef(0);
 
   // A cohort LLM run can take minutes. Without a ticking number a facilitator cannot tell
   // a slow run from a broken one, and will reload the page halfway through.
@@ -87,18 +92,34 @@ export function CohortWorkbench({
   }, [busy]);
 
   async function changeWeek(sort: number) {
+    const seq = ++previewSeq.current;
     setWeekSort(sort);
     setError(null);
+    setLoadingPreview(true);
     try {
-      setPreview(await fetchCohortPreview(projectId, sort));
+      const next = await fetchCohortPreview(projectId, sort);
+      if (seq !== previewSeq.current) return; // a later change already won
+      setPreview(next);
     } catch (e) {
+      if (seq !== previewSeq.current) return;
+      // Put the selector back on the week the preview actually describes, so the controls
+      // never disagree with the pool they are about to run on.
+      setWeekSort(preview.week?.sort);
       setError(e instanceof Error ? e.message : "Could not read the cohort.");
+    } finally {
+      if (seq === previewSeq.current) setLoadingPreview(false);
     }
   }
 
   const contributing = preview.groups.filter((g) => g.state === "ok");
   const included = contributing.filter((g) => !excluded.has(g.id));
   const poolSize = included.reduce((n, g) => n + g.itemCount, 0);
+  // What the run is actually scoped to. Deliberately NOT `included`: a group with an empty
+  // or missing board contributes no implications but must still appear in the result, or
+  // excluding one room would also delete every "(no board)" column from the grid and drop
+  // the "contributed nothing" note — collapsing "this room never raised it" into "this
+  // room was not in the run", which is the one distinction the grid exists to make.
+  const scopedGroupIds = preview.groups.filter((g) => !excluded.has(g.id)).map((g) => g.id);
 
   async function run() {
     setElapsed(0);
@@ -111,7 +132,7 @@ export function CohortWorkbench({
         weekSort,
         criteria: criteria.trim() || undefined,
         promptOverride: method === "llm" && prompt.trim() ? prompt.trim() : undefined,
-        groupIds: excluded.size > 0 ? included.map((g) => g.id) : undefined,
+        groupIds: excluded.size > 0 ? scopedGroupIds : undefined,
         minSimilarity:
           method === "embedding"
             ? COHORT_PRESETS.find((p) => p.key === preset)?.minSimilarity
@@ -151,7 +172,12 @@ export function CohortWorkbench({
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2">
             <span className={label}>Week</span>
-            <select value={weekSort ?? ""} onChange={(e) => changeWeek(Number(e.target.value))} className={field}>
+            <select
+              value={weekSort ?? ""}
+              onChange={(e) => changeWeek(Number(e.target.value))}
+              disabled={busy || loadingPreview}
+              className={field}
+            >
               {preview.weeks.map((w) => (
                 <option key={w.sort} value={w.sort}>
                   {w.title} — in {w.groupCount} group{w.groupCount === 1 ? "" : "s"}
@@ -313,8 +339,12 @@ export function CohortWorkbench({
         )}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-[var(--hairline)] pt-2.5">
-          <button onClick={run} disabled={busy || poolSize < 2} className={btn}>
-            {busy ? `Thinking… ${elapsed}s` : `Run on ${poolSize} implications from ${included.length} group${included.length === 1 ? "" : "s"}`}
+          <button onClick={run} disabled={busy || loadingPreview || poolSize < 2} className={btn}>
+            {busy
+              ? `Thinking… ${elapsed}s`
+              : loadingPreview
+                ? "Reading the boards…"
+                : `Run on ${poolSize} implications from ${included.length} group${included.length === 1 ? "" : "s"}`}
           </button>
           {error && <span className="text-[12px] font-bold text-coral">{error}</span>}
           {method === "llm" && poolSize > LLM_COMFORT && (

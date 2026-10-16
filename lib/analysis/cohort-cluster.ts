@@ -1,6 +1,6 @@
 import "server-only";
 
-import { centerVectors } from "./cluster";
+import { centerVectors, type LabeledVector } from "./cluster";
 import {
   clusterByEmbedding,
   clusterByLlm,
@@ -123,6 +123,23 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
           : "")
     : null;
 
+  // --- embed once -------------------------------------------------------------
+  // Both the embedding method and the near-duplicate panel need vectors for the same
+  // list, so they are computed here and shared. The pair panel is what makes this worth
+  // doing: it runs under BOTH methods (so the facilitator does not lose a whole panel by
+  // switching), and on the default embedding run it would otherwise re-embed all 269
+  // implications that clusterByEmbedding had just embedded.
+  //
+  // A failure here is not fatal. The LLM method never needed vectors, and the embedding
+  // method can still embed them itself; only the pair panel is lost, and it says so.
+  let vectors: LabeledVector[] | null = null;
+  try {
+    vectors = await embedImplications(pool.items);
+  } catch (err) {
+    console.error("[runCohortClustering] embed", err);
+    notes.push("The near-duplicate comparison failed; the themes below are unaffected.");
+  }
+
   // --- cluster ----------------------------------------------------------------
   const clustered =
     args.method === "llm"
@@ -136,6 +153,7 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
           minSimilarity: args.minSimilarity ?? cohortDefaultSimilarity(),
           criteria: args.criteria,
           bridging: args.bridging === true,
+          vectors: vectors ?? undefined,
         });
 
   if (!clustered)
@@ -144,16 +162,11 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
   const themes = deriveCohortThemes(clustered.themes, pool.groupOf);
 
   // --- cross-group near-duplicates --------------------------------------------
-  // Its own embedding call, so this panel exists under both methods. A failure here loses
-  // the pair list and nothing else: the grid is the point of the run.
-  let nearDuplicates: CohortClusterResponse["nearDuplicates"] = [];
-  try {
-    const vectors = await embedImplications(pool.items);
-    nearDuplicates = topCrossGroupPairs(centerVectors(vectors), pool.groupOf);
-  } catch (err) {
-    console.error("[runCohortClustering] pairs", err);
-    notes.push("The near-duplicate comparison failed; the themes above are unaffected.");
-  }
+  // From the vectors embedded above, centered — the threshold only means anything in that
+  // space (see the anisotropy note in lib/analysis/cluster.ts).
+  const nearDuplicates: CohortClusterResponse["nearDuplicates"] = vectors
+    ? topCrossGroupPairs(centerVectors(vectors), pool.groupOf)
+    : [];
 
   // --- the write-up -----------------------------------------------------------
   let narrative: CohortClusterResponse["narrative"] = null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useId, useState } from "react";
 import { csvCell, download } from "@/components/admin/exportUtils";
 import { membershipCounts } from "@/lib/analysis/implication-cluster-shape";
 import { COHORT_CSV_HEADER, cohortCsvRows } from "@/lib/analysis/cohort-csv";
@@ -21,6 +22,36 @@ function seconds(ms: number): string {
 }
 
 export function CohortRunView({ run, label }: { run: CohortClusterResponse; label: string }) {
+  // Which theme cards are expanded. Controlled, so clicking a theme's name in the grid can
+  // open its card — the grid is the reading a facilitator starts from, and "what is
+  // actually in this row" is always the next question.
+  //
+  // onToggle keeps this in step with the summary's own native toggle, so the state never
+  // disagrees with what is on screen.
+  const [openThemes, setOpenThemes] = useState<ReadonlySet<number>>(new Set());
+  // Two runs can sit side by side, so the anchor ids have to be unique per view.
+  const viewId = useId().replace(/[^a-zA-Z0-9-]/g, "");
+  const themeDomId = (i: number) => `${viewId}-theme-${i}`;
+
+  function setThemeOpen(i: number, open: boolean) {
+    setOpenThemes((prev) => {
+      if (prev.has(i) === open) return prev;
+      const next = new Set(prev);
+      if (open) next.add(i);
+      else next.delete(i);
+      return next;
+    });
+  }
+
+  function pickTheme(i: number) {
+    setThemeOpen(i, true);
+    // After the card has had a frame to expand, so the scroll lands on the opened card
+    // rather than where it used to end.
+    requestAnimationFrame(() => {
+      document.getElementById(themeDomId(i))?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  }
+
   const itemById = new Map(run.items.map((i) => [i.id, i]));
   const groupById = new Map(run.groups.map((g) => [g.id, g]));
   const inThemes = membershipCounts(run.themes);
@@ -152,7 +183,7 @@ export function CohortRunView({ run, label }: { run: CohortClusterResponse; labe
       )}
 
       <div className="mt-3">
-        <CohortGrid run={run} />
+        <CohortGrid run={run} onPickTheme={pickTheme} />
       </div>
 
       {run.narrative && (
@@ -182,7 +213,13 @@ export function CohortRunView({ run, label }: { run: CohortClusterResponse; labe
 
       <div className="mt-4 flex flex-col gap-2.5">
         {run.themes.map((t, i) => (
-          <details key={i} className="rounded-[3px] border border-black/15 bg-paper p-2.5">
+          <details
+            key={i}
+            id={themeDomId(i)}
+            open={openThemes.has(i)}
+            onToggle={(e) => setThemeOpen(i, e.currentTarget.open)}
+            className="scroll-mt-4 rounded-[3px] border border-black/15 bg-paper p-2.5"
+          >
             <summary className="cursor-pointer list-none">
               <span className="text-[13.5px] font-bold">{t.label}</span>
               <span className="ml-2 text-[11px] uppercase tracking-[0.06em] text-muted">
