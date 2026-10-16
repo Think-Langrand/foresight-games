@@ -2,6 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 import type { SynthesisExercise } from "@/components/design-groups/AnswerPanels";
+import { PLAIN_WORDS_PROSE } from "@/lib/analysis/theme-guidance";
 import {
   SUMMARY_LIMITS,
   summaryDigest,
@@ -72,7 +73,12 @@ const SYSTEM =
   "Keep risks and opportunities as the group's, condensed, not as your advice. Where the material " +
   "pulls in different directions or the group disagrees, name the tension without resolving it. " +
   "This will be read before the group writes its hopes and fears, so make what is at stake vivid " +
-  "and specific — who is affected, and how.";
+  "and specific — who is affected, and how.\n\n" +
+  // The PROSE variant deliberately. The names variant tells the model to pick the one item
+  // that carries the weight and that one clause is enough, which would fight both the
+  // `risks`/`opportunities`/`tensions` arrays above and this prompt's own instruction to
+  // keep what the group wrote: four real risks have to come back as four.
+  PLAIN_WORDS_PROSE;
 
 export async function summarizeSynthesis(
   ex: SynthesisExercise,

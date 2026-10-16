@@ -55,6 +55,7 @@ import {
   stepZoom,
 } from "@/components/workshop/MapControls";
 import { SuggestThemesRail } from "@/components/workshop/synthesis/SuggestThemesRail";
+import { ideaProvenance, type ThemeIdea } from "@/lib/theme-ideas-shape";
 import { ThemeJoinSearch } from "@/components/workshop/synthesis/ThemeJoinSearch";
 import { ThemeLineagePanel } from "@/components/workshop/synthesis/ThemeLineagePanel";
 import { useRailBand } from "@/components/workshop/synthesis/useRailBand";
@@ -68,7 +69,7 @@ import {
 import { Dot, ThemeRail } from "@/components/workshop/synthesis/ThemeRail";
 import { PromptRail } from "@/components/workshop/synthesis/PromptRail";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
-import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
+import type { AdminTools, ClusterMethod } from "@/lib/analysis/implication-cluster-shape";
 
 // Cards, the Week 2 wheel, or the freeform canvas — the three places step 1's body can be.
 type ClusterView = "cards" | "map" | "canvas";
@@ -166,7 +167,6 @@ export function ClusterBoard({
   onMoveCard,
   onMoveTheme,
   onStartTheme,
-  onPark,
   onDeleteCard,
   onDeleteTheme,
   onMerge,
@@ -179,6 +179,8 @@ export function ClusterBoard({
   themeId,
   onPickTheme,
   canvas,
+  savedThemeIdeas,
+  themeIdeaWrites,
 }: {
   board: SynthesisBoard;
   // Week 2 ancestry, keyed by Week 2 card id — a seeded card points at one via sourceCardId.
@@ -196,7 +198,6 @@ export function ClusterBoard({
   // keeps the card where it is and puts a twin copy in the new theme (a map circle that
   // was already clustered).
   onStartTheme: (card: RippleCard, copy?: boolean) => void;
-  onPark: (card: RippleCard, parked: boolean) => void;
   onDeleteCard: (card: RippleCard) => void;
   // Deleting a theme also decides the fate of what it holds — see DeleteThemeModal.
   onDeleteTheme: (theme: RippleCard, mode: DeleteThemeMode) => void;
@@ -221,6 +222,18 @@ export function ClusterBoard({
   // exploration step, so moving between steps keeps you on the theme you were working on.
   themeId: string | null;
   onPickTheme: (id: string | null) => void;
+  // Theme NAMES a facilitator saved for the group to read, from lib/theme-ideas-shape. Every
+  // viewer gets these — they are the point of the feature. Names only: the shape carries no
+  // member ids, because sessions.config reaches every member's board whatever is rendered.
+  savedThemeIdeas: ThemeIdea[];
+  // Facilitator-only, and grouped rather than four loose props for the same reason `canvas`
+  // is grouped. Absent for members, which is what keeps the controls off their board.
+  themeIdeaWrites?: {
+    busy: boolean;
+    error: string | null;
+    onSave: (themes: { label: string; method: ClusterMethod }[]) => void;
+    onRemove: (ideaId: string) => void;
+  };
   // The freeform canvas, wired from the view that owns the writes. Absent = no Canvas tab.
   // What crosses this boundary is geometry and keys; the twin rules stay on the other side.
   canvas?: {
@@ -310,7 +323,6 @@ export function ClusterBoard({
       else next.add(id);
       return next;
     });
-  const [showParked, setShowParked] = useState(false);
   // The theme awaiting a delete decision. Nothing is written until the modal is answered,
   // so a theme never vanishes and then reappears when the route refuses.
   const [pendingDelete, setPendingDelete] = useState<RippleCard | null>(null);
@@ -399,12 +411,6 @@ export function ClusterBoard({
       }
       return;
     }
-    if (zone === "parked") {
-      if (card.cardKind === "theme") return; // a theme is emptied and deleted, never parked
-      if (!card.parked) onPark(card, true);
-      return;
-    }
-    if (card.parked) onPark(card, false); // dragged back out of the drawer
     // "newtheme:rail" / "newtheme:row" / "newtheme:empty" — one zone id each, so only the
     // slot under the pointer lights up, whichever of them a breakpoint is showing.
     if (zone.startsWith("newtheme")) {
@@ -1109,14 +1115,6 @@ export function ClusterBoard({
                         Move out of theme
                       </CardMenuItem>
                     )}
-                    <CardMenuItem
-                      onClick={() => {
-                        close();
-                        onPark(card, !card.parked);
-                      }}
-                    >
-                      {card.parked ? "Restore from parked" : "Park"}
-                    </CardMenuItem>
                     {/* Copying is deliberately easy — the care goes into showing where a
                         group HAS doubled up, not into making it hard to do. */}
                     {card.cardKind === null && !card.parked && board.themes.length > 1 && (
@@ -1991,7 +1989,9 @@ export function ClusterBoard({
           fold={directionsPref}
         />
 
-        {admin && (
+        {/* Both, or neither: the rail's save controls have nothing to call without the
+            writes, and the writes reach the board only through the rail. */}
+        {admin && themeIdeaWrites && (
           <section className="rail-dark -mx-3 -mb-4 border-t border-ink px-3 pb-4 pt-4">
             <SuggestThemesRail
               admin={admin}
@@ -1999,6 +1999,8 @@ export function ClusterBoard({
               editable={editable}
               busy={busy}
               onCreateThemeFrom={onCreateThemeFrom}
+              savedThemeIdeas={savedThemeIdeas}
+              ideaWrites={themeIdeaWrites}
             />
           </section>
         )}
@@ -2881,31 +2883,38 @@ export function ClusterBoard({
         </section>
       )}
 
-      {/* ---- parked ---- */}
-      <section
-        {...zoneProps("parked")}
-        className={
-          "rounded-[3px] border border-dashed p-3 " +
-          (zoneLit("parked") ? "border-coral bg-coral/10 " : "border-black/15 ")
-        }
-      >
-        <button
-          onClick={() => setShowParked((v) => !v)}
-          aria-expanded={showParked}
-          className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted hover:text-ink"
-        >
-          {showParked ? "▾" : "▸"} Parked ({board.parked.length})
-        </button>
-        <p className="mt-1 text-[11.5px] italic text-muted">
-          Drag anything you&rsquo;ve set aside here. Nothing is deleted — drag it back out any
-          time.
-        </p>
-        {showParked && board.parked.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {board.parked.map((c) => renderSlot(c, "parked", null, "x", board.parked, "w-56"))}
-          </div>
-        )}
-      </section>
+      {/* ---- the facilitator's saved theme names ----
+
+          In the slot the Parked drawer used to hold, and outside the {!focus} wrapper for the
+          same reason it was: present in every view AND while a theme sheet is open. That last
+          case is the most useful one — you are inside a theme trying to name it, and other
+          people's names for roughly that pile are right there.
+
+          NOT dashed. On this board a dashed border means "drop here" (the new-theme slots,
+          the loose-cards row, the drawer this replaces), and this is not a drop target.
+
+          Names only, and that is enforced in lib/theme-ideas-shape: ThemeIdea carries no
+          member ids, because sessions.config ships to every member's board whatever this
+          renders. */}
+      {savedThemeIdeas.length > 0 && (
+        <section className="rounded-[3px] border border-[var(--hairline)] bg-card p-3">
+          <h3 className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
+            Potential theme ideas and thought starters
+          </h3>
+          <p className="mt-1 max-w-[70ch] text-[11.5px] italic leading-[1.45] text-muted">
+            These are possible themes that were compiled using {ideaProvenance(savedThemeIdeas)}.
+            Feel free to discard, use, or adapt as needed. They are only meant to be a helper.
+          </p>
+          <ul className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5">
+            {savedThemeIdeas.map((idea) => (
+              <li key={idea.id} className="flex items-start gap-1.5 text-[13px] leading-[1.4]">
+                <Dot />
+                {idea.name}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Which other theme should this implication ALSO sit in. Themes it is already in
           are listed and disabled rather than hidden, so the picker doubles as the answer
