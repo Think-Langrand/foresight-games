@@ -20,8 +20,10 @@ const RIPPLES_TABLES = [
 
 // Shared live-view engine: one initial fetch of the aggregated API payload, then
 // refetch whenever Supabase realtime reports a change to the session's rows. No
-// steady polling — an idle room costs nothing. Falls back to a slow poll only if
-// realtime isn't configured (missing anon key).
+// steady polling — an idle room costs nothing. Falls back to a slow poll when realtime
+// is not configured (missing anon key) OR when the channel cannot carry events.
+const LIVE_POLL_MS = 8000;
+
 function useLiveView<T>(
   code: string,
   path: string,
@@ -65,6 +67,21 @@ function useLiveView<T>(
     };
 
     let cleanup = () => {};
+
+    // The degraded-mode poll, shared by both branches: realtime not configured at all,
+    // or a channel that exists but cannot carry events.
+    let poll: ReturnType<typeof setInterval> | null = null;
+    const startPoll = () => {
+      if (poll) return; // idempotent: several CHANNEL_ERRORs must not stack intervals
+      poll = setInterval(() => {
+        if (document.visibilityState !== "hidden") fetchOnce();
+      }, LIVE_POLL_MS);
+    };
+    const stopPoll = () => {
+      if (poll) clearInterval(poll);
+      poll = null;
+    };
+
     if (sb) {
       const channel = sb.channel(`live:${code}`);
       for (const table of tables) {
@@ -74,16 +91,34 @@ function useLiveView<T>(
           kick
         );
       }
-      channel.subscribe();
+      channel.subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          // Re-read on every (re)subscribe. supabase-js rejoins a dropped socket on its
+          // own, but nothing replays the rows that changed while it was down, so without
+          // this the board sits at its pre-drop state until the next change event happens
+          // to land on it. The member's OWN writes still paint through the optimistic
+          // overlay, which is what makes the stall invisible: nothing looks broken, they
+          // simply stop seeing everyone else. Same pattern as useCanvasLayout below.
+          stopPoll();
+          fetchOnce();
+          return;
+        }
+        // A socket that can never be established — hotel wifi, a guest VPN that blocks
+        // wss:// — never reaches SUBSCRIBED, so healing on resubscribe does not help it.
+        // Fall back to the same slow poll the no-realtime branch uses, and give it up if
+        // the channel recovers.
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          startPoll();
+        }
+      });
       cleanup = () => {
+        stopPoll();
         sb.removeChannel(channel);
       };
     } else {
-      // Degraded mode: no realtime → gentle 8s poll so the view still updates.
-      const t = setInterval(() => {
-        if (document.visibilityState !== "hidden") fetchOnce();
-      }, 8000);
-      cleanup = () => clearInterval(t);
+      // No realtime configured (missing anon key): the poll is the only sync path.
+      startPoll();
+      cleanup = stopPoll;
     }
 
     // Catch up on anything missed while the tab was backgrounded.
