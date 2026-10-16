@@ -98,7 +98,12 @@ loadEnv();
 const argv = process.argv.slice(2);
 const command = argv[0] ?? "";
 const flag = (name) => argv.includes(`--${name}`);
+// Both `--file x` and `--file=x`. Without the second form, `--file=newer.json` looked
+// like it worked and silently imported the default fixture instead — and
+// `--min-prior-match=0` silently re-armed the guard it was meant to relax.
 const opt = (name, fallback) => {
+  const joined = argv.find((a) => a.startsWith(`--${name}=`));
+  if (joined) return joined.slice(`--${name}=`.length);
   const i = argv.indexOf(`--${name}`);
   return i > -1 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : fallback;
 };
@@ -232,6 +237,11 @@ async function readTarget() {
 
   const groups = await q(sb.from("design_groups").select("*").eq("project_id", project.id).order("sort"));
   const wanted = GROUP_OVERRIDE ?? fixture.raw.groupName ?? "";
+  // A blank name must not fall through to the substring pass, where `includes("")` is true
+  // of every group — in a single-group project that silently picked the only one.
+  if (!norm(wanted)) {
+    throw new Error('The file has no "groupName". Name the group with --group.');
+  }
   let matches = groups.filter((g) => norm(g.name) === norm(wanted));
   if (matches.length === 0) {
     matches = groups.filter((g) => norm(g.name).includes(norm(wanted)) || norm(wanted).includes(norm(g.name)));
@@ -318,14 +328,18 @@ function resolveParents(fixture, target) {
 
   const out = new Map();
   for (const c of fixture.newCards) {
-    // 1. the parent is another card this run is importing — same (deterministic) id on the target
-    if (newIds.has(c.parentId)) {
-      out.set(c.id, { how: "new", parentId: c.parentId });
-      continue;
-    }
-    // 2. the parent is already on the target board, by id
+    // 1. ON THE BOARD, by id — checked BEFORE the file, because a card this run would also
+    // import may already be there from an earlier one, and then the board is the truth
+    // about it. Taking the file's word instead skipped every refusal that reads the real
+    // parent row (greyed, parked, sticky, unreachable, order drifted) and computed the
+    // child's order from the file's chain rather than the board's depth.
     if (byTargetId.has(c.parentId)) {
       out.set(c.id, { how: "id", parentId: c.parentId });
+      continue;
+    }
+    // 2. not there yet, but this run is inserting it — same deterministic id
+    if (newIds.has(c.parentId)) {
+      out.set(c.id, { how: "new", parentId: c.parentId });
       continue;
     }
     // 3. fall back to the parent's text, but only when it is unambiguous
@@ -562,6 +576,27 @@ function cascadeVictims(target, removing) {
   return [...victims.values()];
 }
 
+// Cards on ANY board whose lineage points at something we are about to delete. The
+// source_card_id FK is `on delete set null` (migration 0017), not cascade — so deleting
+// ours would not take these with it, it would quietly cut their lineage and leave the old
+// wording sitting on a Session 3 tray with nothing behind it. Worse, the
+// `(code, source_card_id)` unique index stops biting once the value is null, so the next
+// seed adds a second copy of every one of them.
+async function lineageHolders(removing) {
+  const ids = removing.map((c) => c.id);
+  if (ids.length === 0) return [];
+  const out = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    out.push(
+      ...(await q(
+        sb.from("ripple_cards").select("id,code,text,source_card_id").in("source_card_id", chunk)
+      ))
+    );
+  }
+  return out;
+}
+
 async function removeOurs(target) {
   const removing = ourCards(target);
   console.log(`\nREMOVE  ${removing.length} card(s) on ${target.exercise.session_code} carry the facilitator note`);
@@ -577,6 +612,22 @@ async function removeOurs(target) {
         `and the parent FK cascades. Reparent or delete them first:`
     );
     for (const v of victims) console.error(`    ${v.id.slice(0, 8)} "${short(v.text, 70)}"`);
+    process.exit(1);
+  }
+
+  const holders = await lineageHolders(removing);
+  if (holders.length > 0) {
+    const byBoard = new Map();
+    for (const h of holders) byBoard.set(h.code, (byBoard.get(h.code) ?? 0) + 1);
+    console.error(
+      `\n✗ Refusing: ${holders.length} card(s) on another board were seeded FROM cards this ` +
+        `would delete (${[...byBoard].map(([c, n]) => `${c}: ${n}`).join(", ")}).`
+    );
+    console.error(
+      `    Deleting would not remove them — it would null their lineage and leave the old ` +
+        `wording there, and the next seed would add a second copy of each.`
+    );
+    console.error(`    Clear them from that board first, then run this again.`);
     process.exit(1);
   }
 
@@ -666,6 +717,21 @@ if (command === "remove") {
     `\nTARGET  ${isProd ? "PROD" : "dev"} ${URL.replace(/^https?:\/\//, "").replace(/\/.*$/, "")}\n` +
       `        group "${target.group.name}" · board ${target.exercise.session_code} · ${target.cards.length} cards`
   );
+  // The same "am I pointed at the right board?" check the import does — and it belongs
+  // here more than there, because this is the command that deletes. It was guarding only
+  // the additive one.
+  const fp = priorMatch(fixture, target);
+  console.log(
+    `FINGERPRINT  ${fp.byId + fp.byText}/${fp.total} of the file's pre-existing cards are on ` +
+      `this board → ${fp.ratio.toFixed(2)} (need ≥ ${MIN_PRIOR_MATCH.toFixed(2)})`
+  );
+  if (fp.ratio < MIN_PRIOR_MATCH) {
+    console.error(
+      `\n✗ Refusing: this may be the wrong database or the wrong group. ` +
+        `Lower --min-prior-match if you mean it.`
+    );
+    process.exit(1);
+  }
   await removeOurs(target);
   console.log("done");
   process.exit(0);
