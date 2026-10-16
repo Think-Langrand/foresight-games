@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CARD_TEXT_MAX } from "@/lib/ripples-types";
-import { ZoomControls, orderColor, stepZoom, type Zoom } from "@/components/workshop/MapControls";
+import {
+  ZoomControls,
+  orderColor,
+  orderOnText,
+  stepZoom,
+  type Zoom,
+} from "@/components/workshop/MapControls";
 import {
   NODE_RADIUS as NODE_R,
   blockers,
@@ -1313,7 +1319,14 @@ export function CanvasBoard({
                     width: NODE_R * 2,
                     height: NODE_R * 2,
                     background: n.dim ? "var(--paper)" : orderColor(n.depth),
-                    color: n.dim ? "color-mix(in srgb, var(--ink) 40%, var(--paper))" : "#fff",
+                    // orderOnText, not a flat white: the depth palette cycles and lands on
+                    // lime every fourth order, where white text on a light green circle is
+                    // barely there. The order chips and the card stamps have always asked
+                    // the palette which text colour its fill wants; the canvas circles were
+                    // the one place that assumed.
+                    color: n.dim
+                      ? "color-mix(in srgb, var(--ink) 40%, var(--paper))"
+                      : orderOnText(n.depth),
                     border: `2px solid ${n.dim ? "var(--hairline)" : "transparent"}`,
                     boxShadow: showThemes.length ? "0 0 0 3px var(--ink)" : undefined,
                     opacity: n.dim ? 0.45 : 1,
