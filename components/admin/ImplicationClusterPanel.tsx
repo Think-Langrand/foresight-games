@@ -8,13 +8,15 @@ import {
   type ImplicationClusterResponse,
 } from "@/lib/analysis/implication-cluster-shape";
 import { download } from "@/components/admin/exportUtils";
-import { requestClustering } from "@/lib/analysis/implication-cluster-client";
+import { requestClustering, saveThemeIdeas } from "@/lib/analysis/implication-cluster-client";
 
 // Facilitator tool: propose how a group's Week 2 implications could be clustered, so
 // Session 3 does not start on a blank board.
 //
-// READ-ONLY. Nothing here touches the Week 3 board — run it as often as you like, on real
-// group material, and nothing changes until someone decides what to do with the output.
+// The run itself is READ-ONLY — as often as you like, on real group material, and nothing
+// changes. The one write is opt-in and explicit: tick the names worth keeping and save them
+// for the group to read during the clustering step. That stores NAMES on the Week 3 board's
+// config, never a theme card and never the implications inside a suggestion.
 //
 // Two methods, side by side so they can be compared before either is trusted. The
 // difference is stated on the page rather than left to be inferred, because it is the one
@@ -28,11 +30,16 @@ export function ImplicationClusterPanel({
   projectId,
   groupId,
   sources,
+  saveToExerciseId,
 }: {
   projectId: string;
   groupId: string;
   // The group's implications weeks, newest-relevant first. Empty when there are none.
   sources: { exerciseId: string; title: string; count: number }[];
+  // The SYNTHESIS week whose board the names are saved to. Absent = no saving offered, which
+  // is what a group with no Week 3 board gets. This panel is mounted inside the Session 3
+  // tab, so the active exercise is already the right one.
+  saveToExerciseId?: string;
 }) {
   const [sourceId, setSourceId] = useState(sources[0]?.exerciseId ?? "");
   const [method, setMethod] = useState<ClusterMethod>("llm");
@@ -41,6 +48,12 @@ export function ImplicationClusterPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImplicationClusterResponse | null>(null);
+  // Which of THIS run's themes are ticked. Indices belong to one result, so a new run clears
+  // them. The panel owns the save itself — unlike the board's rail, there is no realtime view
+  // here that needs the write to go through its owner.
+  const [pickedIdx, setPickedIdx] = useState<Set<number>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
 
   const source = sources.find((s) => s.exerciseId === sourceId) ?? sources[0];
 
@@ -57,9 +70,36 @@ export function ImplicationClusterPanel({
     );
   }
 
+  async function save() {
+    if (!saveToExerciseId || !result || pickedIdx.size === 0) return;
+    setSaving(true);
+    setSaved(null);
+    setError(null);
+    try {
+      const picked = [...pickedIdx].sort((a, b) => a - b).map((i) => result.themes[i]).filter(Boolean);
+      const res = await saveThemeIdeas(projectId, groupId, {
+        exerciseId: saveToExerciseId,
+        themes: picked.map((t) => ({ label: t.label, method: result.method })),
+      });
+      // Duplicates are reported rather than hidden: ticking a name the group already has is
+      // a no-op, and silently saying "saved" would make it look like it landed twice.
+      setSaved(
+        `Saved ${res.added}${res.duplicates > 0 ? ` · ${res.duplicates} already there` : ""}. ` +
+          `The group now reads ${res.themeIdeas.length} name${res.themeIdeas.length === 1 ? "" : "s"}.`
+      );
+      setPickedIdx(new Set());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Saving the theme names failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function run() {
     setBusy(true);
     setError(null);
+    setPickedIdx(new Set()); // indices belong to one result
+    setSaved(null);
     try {
       setResult(
         await requestClustering(projectId, groupId, {
@@ -198,6 +238,14 @@ export function ImplicationClusterPanel({
               Export JSON
             </button>
           )}
+          {result && saveToExerciseId && (
+            <button onClick={save} disabled={saving || pickedIdx.size === 0} className={btn}>
+              {saving
+                ? "Saving…"
+                : `Save ${pickedIdx.size || ""} name${pickedIdx.size === 1 ? "" : "s"} for the group`}
+            </button>
+          )}
+          {saved && <span className="text-[12px] font-bold text-blue">{saved}</span>}
           {error && <span className="text-[12px] font-bold text-coral">{error}</span>}
         </div>
       </div>
@@ -235,6 +283,24 @@ export function ImplicationClusterPanel({
             {result.themes.map((t, i) => (
               <details key={i} className="rounded-[3px] border border-black/15 bg-paper p-2.5">
                 <summary className="cursor-pointer list-none">
+                  {saveToExerciseId && (
+                    <input
+                      type="checkbox"
+                      checked={pickedIdx.has(i)}
+                      // The summary toggles the <details> on click; ticking is not expanding.
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) =>
+                        setPickedIdx((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(i);
+                          else next.delete(i);
+                          return next;
+                        })
+                      }
+                      aria-label={`Save the name "${t.label}" for the group`}
+                      className="mr-2 align-[-0.1em]"
+                    />
+                  )}
                   <span className="text-[13.5px] font-bold">{t.label}</span>
                   <span className="ml-2 text-[11px] uppercase tracking-[0.06em] text-muted">
                     {t.memberIds.length} implication{t.memberIds.length === 1 ? "" : "s"}

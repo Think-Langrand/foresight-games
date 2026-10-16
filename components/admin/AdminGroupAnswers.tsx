@@ -395,6 +395,9 @@ export function AdminGroupAnswers({
                     projectId={projectId}
                     groupId={groupId}
                     sources={clusterSources}
+                    // This panel is inside the Session 3 tab, so the active week IS the
+                    // synthesis board whose config the saved names live on.
+                    saveToExerciseId={active.exerciseId}
                   />
                 </div>
               }

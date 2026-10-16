@@ -2,7 +2,12 @@ import "server-only";
 
 import OpenAI from "openai";
 import { centerVectors, clusterVectors, type LabeledVector } from "./cluster";
-import { GROUPING_GUIDANCE, NAME_SHAPE, composeClusterPrompt } from "./theme-guidance";
+import {
+  GROUPING_GUIDANCE,
+  NAME_SHAPE,
+  PLAIN_WORDS,
+  composeClusterPrompt,
+} from "./theme-guidance";
 import { mapPool } from "./suggest";
 import {
   GROUPING_PRESETS,
@@ -253,6 +258,8 @@ async function labelImplicationCluster(
             NAME_SHAPE +
             "\n\n" +
             GROUPING_GUIDANCE +
+            "\n\n" +
+            PLAIN_WORDS +
             (criteria?.trim() ? `\n\nThe facilitator asks: ${criteria.trim()}` : ""),
         },
         { role: "user", content: `Implications in this cluster:\n${digest}` },

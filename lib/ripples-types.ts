@@ -8,6 +8,7 @@
 
 import type { WorkshopSession } from "@/lib/workshop-types";
 import { coerceSummary, type SynthesisSummary } from "@/lib/synthesis-summary-shape";
+import { coerceThemeIdeas, type ThemeIdea } from "@/lib/theme-ideas-shape";
 
 // ---------------------------------------------------------------------------
 // Phases (facilitator-advanced, all teams move together)
@@ -236,6 +237,11 @@ export interface RipplesConfig {
   // hopes & fears step. Written by the admin summary route, never by a member; this table
   // is in the realtime publication, so writing it here is what makes it land live.
   summary: SynthesisSummary | null;
+  // Week 3 only: theme NAMES a facilitator saved from a clustering run, for the group to read
+  // beside the tray during the clustering step. Written by the admin theme-ideas route, never
+  // by a member. A bare array rather than a nullable object, like `questions` and
+  // `resolutions`, so the render path needs no null check.
+  themeIdeas: ThemeIdea[];
 }
 
 // The default reflection questions (used unless an admin overrides them).
@@ -263,6 +269,7 @@ export const DEFAULT_RIPPLES_CONFIG: RipplesConfig = {
   scoringEnabled: false,
   questions: DEFAULT_QUESTIONS,
   summary: null,
+  themeIdeas: [],
 };
 
 // Coerce a raw jsonb blob (or null) into a complete, well-typed config by merging
@@ -305,6 +312,7 @@ export function resolveConfig(raw: Record<string, unknown> | null | undefined): 
         ? (r.questions as unknown[]).filter((q): q is string => typeof q === "string" && q.trim().length > 0)
         : DEFAULT_QUESTIONS,
     summary: coerceSummary(r.summary),
+    themeIdeas: coerceThemeIdeas(r.themeIdeas),
   };
 }
 

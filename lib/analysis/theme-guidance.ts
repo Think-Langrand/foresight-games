@@ -71,6 +71,68 @@ export const NAME_SHAPE =
   "length to aim for. What the shift leads to, who it affects and what it puts at risk all " +
   "belong in the one-sentence summary, NOT in the name.";
 
+// Write like a person. Every prompt here that produces text a human reads carries this.
+//
+// The patterns are the ones from Wikipedia's "Signs of AI writing" that can actually occur in
+// a twelve-word phrase or a short paragraph — most of that catalogue is about headings,
+// emojis and conclusions, which a theme name cannot have. These are the ones observed in real
+// output from this very tool: the first pass of facilitator-written implications ran to
+// "becomes a function in its own right" and "creating accountability vacuums, value deadlock,
+// and chronic neglect", and had to be rewritten by hand.
+//
+// Stated as words to avoid rather than as "sound natural", because a model given the second
+// instruction produces the same prose and adds a sentence claiming it is plain.
+//
+// WHY THERE ARE TWO VARIANTS. These tells divide into ones about vocabulary, which hold
+// wherever the model is writing, and two about LENGTH, which only hold for a name. "Name the
+// one that carries the weight" and "one clause is enough" are right for twelve words on a
+// card and wrong for a paragraph: the summary prompts ask for several risks and several
+// opportunities, and a group with four real risks must be able to return four. Sent verbatim
+// to a prose prompt they contradict that prompt's own instructions and the strongest reading
+// of them wins, which is how a facilitator ends up with one risk out of four.
+const SHARED_TELLS = [
+  "Inflated significance: pivotal, crucial, vital, key, era, landscape, paradigm, " +
+    "underscores, redefines, reshapes, transforms, marks a shift.",
+  "Filler vocabulary: navigate, leverage, foster, enhance, robust, holistic, nuanced, " +
+    "intricate, interplay, tapestry, realm, seamless, dynamic, delve.",
+  "Dodging the verb \"is\": serves as, stands as, emerges as, represents a, acts as.",
+  "A trailing -ing clause that fakes depth: \"…, reshaping how trust works\".",
+  "\"Not just X but Y\", \"at its core\", \"the real question is\".",
+] as const;
+
+// The two that are about a NAME's length. Only the naming prompts get these.
+const NAME_LENGTH_TELLS = [
+  "Three of anything: \"trust, capacity and legitimacy\". Name the one that carries the weight.",
+  "Em dashes and semicolons. One clause is enough.",
+] as const;
+
+// The prose equivalents. The rule-of-three one keeps the real tell — padding to three for
+// rhythm — without telling a prompt that asked for a list to return one item.
+const PROSE_LENGTH_TELLS = [
+  "Padding a list to three for rhythm. If the material holds two, give two; if it holds " +
+    "four, give four. Never invent a third to round out a sentence.",
+  "Em dashes and semicolons. A comma or a full stop does the same work.",
+] as const;
+
+export const PLAIN_WORD_TELLS = [...SHARED_TELLS, ...NAME_LENGTH_TELLS] as const;
+
+const ORDINARY_WORDS =
+  "\n\nOrdinary words for ordinary things: people, money, staff, rules, time, who decides. " +
+  "The group's own domain words are fine — surveillance, accreditation, legitimacy — but a " +
+  "word that appears only in strategy documents is not.";
+
+// For the prompts that write a theme NAME.
+export const PLAIN_WORDS =
+  "Write like a person, in the plainest words that are true. These are the tells that give a " +
+  `machine away, and every one of them turns up in theme names:\n${bullets(PLAIN_WORD_TELLS)}` +
+  ORDINARY_WORDS;
+
+// For the prompts that write a PARAGRAPH or a list a facilitator reads.
+export const PLAIN_WORDS_PROSE =
+  "Write like a person, in the plainest words that are true. These are the tells that give a " +
+  `machine away:\n${bullets([...SHARED_TELLS, ...PROSE_LENGTH_TELLS])}` +
+  ORDINARY_WORDS;
+
 // --- the grouping prompt, composed ------------------------------------------------
 // Here rather than in implication-cluster.ts (which is server-only) because the admin
 // playground seeds its editable prompt box from this. That matters: `promptOverride`
@@ -110,5 +172,6 @@ export function composeClusterPrompt(framing: "group" | "cohort"): string {
     framing === "cohort" ? SYSTEM_COHORT : SYSTEM_GROUP,
     GROUPING_GUIDANCE,
     THEME_INSTRUCTIONS,
+    PLAIN_WORDS,
   ].join("\n\n");
 }

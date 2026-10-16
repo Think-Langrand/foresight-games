@@ -1,6 +1,8 @@
-// Browser-side calls to the admin clustering routes. Shared by the admin answers page and
-// the live board's rail, so the request shape and the error wording live in one place.
-// Every route re-checks the session server-side; these helpers only carry the request.
+// Browser-side calls to the admin clustering routes, plus the two writes that hang off a
+// clustering run: the Week 3 summary and the theme names saved for a group to read. Shared by
+// the admin answers page and the live board's rail, so the request shape and the error
+// wording live in one place. Every route re-checks the session server-side; these helpers
+// only carry the request.
 
 import type {
   ClusterMethod,
@@ -8,6 +10,7 @@ import type {
   SimilarResponse,
 } from "./implication-cluster-shape";
 import type { SynthesisSummary } from "@/lib/synthesis-summary-shape";
+import type { ThemeIdea } from "@/lib/theme-ideas-shape";
 
 export interface ClusterRequest {
   sourceExerciseId: string;
@@ -69,4 +72,37 @@ export function requestSummary(
     body,
     "Summary failed"
   );
+}
+
+// --- the theme names a group reads -------------------------------------------------------
+
+// Append names from a run. A DELTA, not the whole list: the facilitator's client may not yet
+// have heard about a save made from another run, and sending the full list would lose it.
+// Both calls return the list as the row now holds it, so the caller sets state from the
+// server's answer rather than from an optimistic guess.
+export function saveThemeIdeas(
+  projectId: string,
+  groupId: string,
+  body: { exerciseId: string; themes: { label: string; method: ClusterMethod }[] }
+): Promise<{ themeIdeas: ThemeIdea[]; added: number; duplicates: number }> {
+  return post(
+    `/api/admin/projects/${projectId}/design-groups/${groupId}/theme-ideas`,
+    body,
+    "Saving the theme names failed"
+  );
+}
+
+export async function removeThemeIdea(
+  projectId: string,
+  groupId: string,
+  body: { exerciseId: string; ideaId: string }
+): Promise<{ themeIdeas: ThemeIdea[] }> {
+  const qs = new URLSearchParams({ exerciseId: body.exerciseId, ideaId: body.ideaId });
+  const res = await fetch(
+    `/api/admin/projects/${projectId}/design-groups/${groupId}/theme-ideas?${qs}`,
+    { method: "DELETE" }
+  );
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error || `Removing the theme name failed (${res.status}).`);
+  return data as { themeIdeas: ThemeIdea[] };
 }

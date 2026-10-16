@@ -185,6 +185,18 @@ describe("resolveConfig", () => {
     expect(c.chipsPerPlayer).toBe(DEFAULT_RIPPLES_CONFIG.chipsPerPlayer);
   });
 
+  it("carries saved theme names through, and empties a malformed list", () => {
+    // resolveConfig is a whitelist that rebuilds the config field by field, so a key it does
+    // not know is silently dropped — the row would hold the names and view.config would not.
+    const themeIdeas = [
+      { id: "a", name: "Trust moves outward", method: "embedding", savedAt: "2026-10-16T00:00:00.000Z" },
+    ];
+    expect(resolveConfig({ themeIdeas }).themeIdeas).toEqual(themeIdeas);
+    expect(resolveConfig({ themeIdeas: "nope" as unknown }).themeIdeas).toEqual([]);
+    expect(resolveConfig({ themeIdeas: [{ name: "no id" }] }).themeIdeas).toEqual([]);
+    expect(resolveConfig({}).themeIdeas).toEqual([]);
+  });
+
   it("carries the facilitator's summary through, and nulls a malformed one", () => {
     const summary = {
       overview: "Trust moves to people.",
