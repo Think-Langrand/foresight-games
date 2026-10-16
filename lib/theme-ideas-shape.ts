@@ -116,18 +116,27 @@ export function removeThemeIdea(existing: ThemeIdea[], id: string): ThemeIdea[] 
   return existing.filter((i) => i.id !== id);
 }
 
-// The one sentence participants are told about where these came from.
+// How the saved names were arrived at, as a clause that completes "compiled using …".
 //
-// The embedding line has to say "only named": that method's whole trap is that the
-// facilitator's criteria steer the NAMES and not the grouping, which both existing clustering
-// UIs already spell out in their own words. The mixed line deliberately does not tag each name
-// with its method — clutter at participant altitude, and it invites a question with no useful
-// answer. A facilitator who wants a clean story saves from one method.
+// NOT k-means, which is the guess everyone makes. lib/analysis/cluster.ts is UPGMA
+// average-linkage agglomerative clustering over OpenAI embeddings — a hierarchical method.
+// The difference is not pedantic: k-means needs the number of clusters up front, while this
+// discovers it by merging the closest pair until the best remaining merge falls below a
+// similarity threshold. That is why the presets are broad/balanced/tight and not "give me
+// five themes", and it is the kind of thing a public-health audience with researchers in it
+// will notice.
+//
+// The model path has no algorithm at all — it read every implication and decided — so the
+// clause has to follow the method rather than being one fixed sentence. A mixed list says
+// both and does not tag which name came from which: clutter at participant altitude, and it
+// invites a question with no useful answer.
 export function ideaProvenance(ideas: ThemeIdea[]): string {
   if (ideas.length === 0) return "";
   const methods = new Set(ideas.map((i) => i.method));
-  if (methods.size > 1) return "Grouped by wording, or by a model reading all of them.";
+  if (methods.size > 1) {
+    return "both hierarchical clustering and a model reading all of them";
+  }
   return methods.has("llm")
-    ? "A model read every implication and grouped them."
-    : "Grouped by similar wording; a model only named them.";
+    ? "a model that read every implication and grouped them"
+    : "hierarchical clustering, which groups implications with similar wording";
 }

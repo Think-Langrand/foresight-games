@@ -2899,10 +2899,11 @@ export function ClusterBoard({
       {savedThemeIdeas.length > 0 && (
         <section className="rounded-[3px] border border-[var(--hairline)] bg-card p-3">
           <h3 className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
-            Other ways these could group ({savedThemeIdeas.length})
+            Potential theme ideas and thought starters
           </h3>
           <p className="mt-1 max-w-[70ch] text-[11.5px] italic leading-[1.45] text-muted">
-            AI suggestions, not decisions. {ideaProvenance(savedThemeIdeas)}
+            These are possible themes that were compiled using {ideaProvenance(savedThemeIdeas)}.
+            Feel free to discard, use, or adapt as needed. They are only meant to be a helper.
           </p>
           <ul className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5">
             {savedThemeIdeas.map((idea) => (

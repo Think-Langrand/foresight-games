@@ -130,24 +130,37 @@ describe("removeThemeIdea", () => {
 });
 
 describe("ideaProvenance", () => {
-  it("says the model did the grouping when every saved name came from it", () => {
+  it("names the model when every saved name came from it", () => {
     expect(ideaProvenance([idea("A", { method: "llm" }), idea("B", { method: "llm" })])).toBe(
-      "A model read every implication and grouped them."
+      "a model that read every implication and grouped them"
     );
   });
 
-  it("says a model only NAMED the groups when they came from similarity", () => {
-    // The trap of the embedding method is that criteria steer the names and not the
-    // grouping. The sentence has to carry that or it misleads.
-    expect(ideaProvenance([idea("A")])).toBe(
-      "Grouped by similar wording; a model only named them."
-    );
+  it("says hierarchical clustering for the similarity method, never k-means", () => {
+    // lib/analysis/cluster.ts is UPGMA average-linkage agglomerative clustering over
+    // embeddings. k-means is the guess everyone makes and it is wrong: k-means needs the
+    // number of clusters up front, while this discovers it from a similarity threshold —
+    // which is why the presets are broad/balanced/tight rather than "give me five themes".
+    const line = ideaProvenance([idea("A")]);
+    expect(line).toBe("hierarchical clustering, which groups implications with similar wording");
+    expect(line.toLowerCase()).not.toContain("k-means");
+    expect(line.toLowerCase()).not.toContain("kmeans");
   });
 
   it("covers both without tagging each name", () => {
     expect(ideaProvenance([idea("A"), idea("B", { method: "llm" })])).toBe(
-      "Grouped by wording, or by a model reading all of them."
+      "both hierarchical clustering and a model reading all of them"
     );
+  });
+
+  it("completes the sentence the group actually reads", () => {
+    // The panel renders "These are possible themes that were compiled using {this}." so the
+    // clause has to read as a noun phrase, not a sentence.
+    for (const ideas of [[idea("A")], [idea("B", { method: "llm" })], [idea("A"), idea("B", { method: "llm" })]]) {
+      const sentence = `These are possible themes that were compiled using ${ideaProvenance(ideas)}.`;
+      expect(sentence).not.toMatch(/using [A-Z]/); // not a new sentence
+      expect(sentence.endsWith(".")).toBe(true);
+    }
   });
 
   it("says nothing when nothing is saved", () => {

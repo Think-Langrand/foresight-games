@@ -428,7 +428,7 @@ export function SuggestThemesRail({
                 {/* The sentence the group is shown, so the facilitator can see what a mixed
                     list reads like before the group does. */}
                 <p className="mt-1.5 text-[10.5px] italic leading-[1.4] text-muted">
-                  They read: &ldquo;AI suggestions, not decisions. {ideaProvenance(savedThemeIdeas)}&rdquo;
+                  The group reads: &ldquo;…compiled using {ideaProvenance(savedThemeIdeas)}.&rdquo;
                 </p>
               </>
             )}
