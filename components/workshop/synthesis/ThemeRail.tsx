@@ -239,7 +239,12 @@ export function ThemeRail({
                   // filled — so the rail read as a row of drop boxes even on the canvas
                   // step, where the board itself is where cards go. A card that is as tall
                   // as what it holds reads as an item.
-                  (editing ? "min-h-[9rem] " : "") +
+                  // Sizes to content, but capped — otherwise a catch-all theme with thirty
+                  // implications renders a 450px card and pushes every other theme, and the
+                  // rail's own footer, below the fold. `aspect-square` used to be what
+                  // bounded this, which is why the inner list's min-h-0 / flex-1 /
+                  // overflow-hidden went inert the moment it was removed.
+                  (editing ? "min-h-[9rem] " : "max-h-[11rem] ") +
                   // One border width in every state, so picking a square never nudges the
                   // rail's layout. The fill carries the state; the border only firms up.
                   "border " +

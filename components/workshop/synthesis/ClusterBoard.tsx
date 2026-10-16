@@ -281,11 +281,12 @@ export function ClusterBoard({
   // named by a Week 2 id. It gets its own slot and a shorter readout: its words and where
   // it sits, with no ordinal and no chain, because there is no chain to show.
   const [peekOwn, setPeekOwn] = useState<string | null>(null);
-  // Whether the key change at the head of the peeked chain is shown in full. Clamped by
-  // default: the real ones run eight lines and swamp the chain they are the head of, which
-  // is why they were clamped in the first place. A click is cheaper than a native tooltip
-  // for text that long, and the tooltip stays for the hover case.
-  const [keyChangeOpen, setKeyChangeOpen] = useState(false);
+  // WHICH card's key change is shown in full — not a boolean. `peek` changes on mouse-enter
+  // over every node, so a panel-wide flag meant expanding one key change then sweeping the
+  // pointer left every following chain unclamped, pushing it out of the panel's own
+  // max-height: exactly what the clamp exists to prevent. Keyed by card, it resets itself
+  // the moment the peek moves, with no effect to forget.
+  const [keyChangeOpenFor, setKeyChangeOpenFor] = useState<string | null>(null);
   // Which branch the map draws. Deliberately NOT keyFilter, which also filters the tray:
   // stepping through the maps would then narrow the card list as a side effect, and
   // landing on a key change whose implications are all clustered would leave the tray
@@ -1627,23 +1628,33 @@ export function ClusterBoard({
                           well was redundant — and wrong once the chain started showing the
                           group's renamed words against the Week 2 text on the card. */}
                       {level.order > 0 && !level.here && <Dot />}
-                      {level.order === 0 ? (
-                        // The whole paragraph on demand. A button rather than a hover so
-                        // it survives being read on a tablet, where there is no hover at
-                        // all and the title attribute shows nothing.
+                      {level.here ? (
+                        // The marker wins over everything, at any order. Hovering a KEY
+                        // CHANGE circle yields a single level that is both order 0 and
+                        // `here`, and the expandable branch below used to swallow it — the
+                        // chain then showed the text with nothing saying where you were.
+                        <span className="min-w-0">◀ this one</span>
+                      ) : level.order === 0 ? (
+                        // The whole paragraph on demand. A button rather than a hover so it
+                        // survives being read on a tablet, where there is no hover at all
+                        // and the title attribute shows nothing.
                         <button
                           type="button"
-                          onClick={() => setKeyChangeOpen((v) => !v)}
-                          aria-expanded={keyChangeOpen}
+                          onClick={() =>
+                            setKeyChangeOpenFor((cur) =>
+                              peekCard && cur === peekCard.id ? null : (peekCard?.id ?? null)
+                            )
+                          }
+                          aria-expanded={Boolean(peekCard && keyChangeOpenFor === peekCard.id)}
                           className={
                             "min-w-0 text-left hover:text-blue " +
-                            (keyChangeOpen ? "" : "line-clamp-2")
+                            (peekCard && keyChangeOpenFor === peekCard.id ? "" : "line-clamp-2")
                           }
                         >
                           {text}
                         </button>
                       ) : (
-                        <span className="min-w-0">{level.here ? "◀ this one" : text}</span>
+                        <span className="min-w-0">{text}</span>
                       )}
                     </p>
                   ))}

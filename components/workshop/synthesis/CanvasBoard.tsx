@@ -737,7 +737,10 @@ export function CanvasBoard({
 
     // Middle button pans, and so does space held. So does any drag for someone who cannot
     // edit — there is nothing for them to draw, and the board should still be navigable.
-    if (e.button === 1 || spaceHeld || !editable) {
+    // Space pans on a LEFT press only. Ungated, a right-press with Space held entered pan
+    // behind the context menu, and if that button's pointerup never arrived the board kept
+    // scrolling on bare hover.
+    if (e.button === 1 || (spaceHeld && e.button === 0) || !editable) {
       if (e.button === 1) e.preventDefault(); // or the browser starts its own autoscroll
       pan();
       return;
@@ -1435,7 +1438,11 @@ export function CanvasBoard({
                   // stopped for the same reason the dismiss button stops it — the surface
                   // captures the pointer and would start a marquee under the cursor.
                   title={c.title || c.label}
-                  onPointerDown={(e) => e.stopPropagation()}
+                  // pointerEvents below so the title can be hovered — but the press is NOT
+                  // stopped. Stopping it left a dead strip along the top edge of every pile,
+                  // which is exactly where a hand starts the drag to box that pile: the
+                  // press reached nothing, not a draw and not even a Space-pan. This caption
+                  // needs hover, not clicks, so the press is left to bubble to the surface.
                   className="bg-board font-bold uppercase tracking-[0.05em] text-muted"
                   style={{
                     pointerEvents: "auto",
