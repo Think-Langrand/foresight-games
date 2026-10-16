@@ -56,7 +56,7 @@ import { createClient } from "@supabase/supabase-js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const PROD_REF = "ratkqnumupciffxnsbhk";
-const DEFAULT_FILE = "docs/data/facilitator-additions-group-2-the-known-and-unknown-2026-10-15.json";
+const DEFAULT_FILE = "docs/data/facilitator-additions-group-2-the-known-and-unknown-2026-10-16.json";
 
 // Mirrored from lib/ripples-types.ts:70-81. Scripts cannot import lib/ — 37 of those modules
 // open with `import "server-only"`, which throws under plain node, and there is no TS runner.
