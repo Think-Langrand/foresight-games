@@ -60,6 +60,12 @@ const DEPTH_OF = new Map(TREE_ORDERS.map((o, i) => [o, i]));
 const MAX_TREE_DEPTH = TREE_ORDERS.length - 1; // lib/ripples-types.ts:91
 const CARD_TEXT_MAX = 500; // lib/ripples-types.ts:139
 const CARD_DESCRIPTION_MAX = 1000; // lib/ripples-types.ts:142
+
+// The admin views mark a facilitator addition by this prefix on the card's description —
+// isFacilitatorCard in lib/ripples-types.ts. There is no boolean column to set, so the note
+// IS the marker, and every row written here must carry it or it will be indistinguishable
+// from the group's own work. Mirrored rather than imported, like TREE_ORDERS above.
+const FACILITATOR_NOTE = "Facilitator addition";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function loadEnv() {
@@ -497,6 +503,16 @@ function report(fixture, target, parents, checks, fingerprint) {
   return problems;
 }
 
+// Every imported card carries the marker note, whatever the file said. The file's own
+// descriptions happen to start with it, but "happens to" is not a contract: without the note
+// the card is indistinguishable from the group's own work in the admin views.
+function facilitatorNote(description) {
+  const d = (description ?? "").trim();
+  if (!d) return `${FACILITATOR_NOTE}.`;
+  if (d.startsWith(FACILITATOR_NOTE)) return d;
+  return `${FACILITATOR_NOTE}. ${d}`;
+}
+
 // ---------------------------------------------------------------- write
 async function importMap(target, checks) {
   // Waves by depth, so a parent always exists before its children. Within a wave, the file's own
@@ -520,7 +536,7 @@ async function importMap(target, checks) {
       card_order: order,
       parent_card_id: parentId,
       text: (card.text ?? "").trim(),
-      description: card.description ?? null,
+      description: facilitatorNote(card.description),
       card_kind: null,
       section: null,
       source_card_id: null, // a chain card, not seeded across from another week

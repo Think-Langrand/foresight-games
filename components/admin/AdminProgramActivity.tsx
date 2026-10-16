@@ -367,7 +367,7 @@ function WeekPanels({
 
       {active.answers.kind === "worksheet" && <WorksheetPanel ex={active.answers} showMeta />}
       {active.answers.kind === "implications" && (
-        <ImplicationsPanel ex={active.answers} view={mapView} setView={setMapView} showMeta />
+        <ImplicationsPanel ex={active.answers} view={mapView} setView={setMapView} showMeta isAdmin />
       )}
       {active.answers.kind === "synthesis" && <SynthesisPanel ex={active.answers} showMeta />}
       {active.answers.kind === "placeholder" && (
