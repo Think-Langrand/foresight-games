@@ -43,7 +43,16 @@ function flatten(cards: RippleCard[]): Row[] {
   return rows;
 }
 
-export function ImplicationList({ cards, scenarioTitle }: { cards: RippleCard[]; scenarioTitle: string }) {
+export function ImplicationList({
+  cards,
+  scenarioTitle,
+  nodeExtra,
+}: {
+  cards: RippleCard[];
+  scenarioTitle: string;
+  // A marker drawn after a row's text — same hook and name as the tree and the wheel.
+  nodeExtra?: (card: RippleCard) => React.ReactNode;
+}) {
   const rows = useMemo(() => flatten(cards), [cards]);
   const [filter, setFilter] = useState<Filter>("ALL");
 
@@ -117,6 +126,7 @@ export function ImplicationList({ cards, scenarioTitle }: { cards: RippleCard[];
                 style={{ paddingLeft: filter === "ALL" ? depth * INDENT : 0 }}
               >
                 {card.text}
+                {nodeExtra?.(card)}
               </td>
             </tr>
           ))}

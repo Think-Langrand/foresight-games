@@ -10,6 +10,7 @@ import {
   depthOfOrder,
   enumerateChains,
   isCardKind,
+  isFacilitatorCard,
   isTreeOrder,
   longestChain,
   maxRenderedDepth,
@@ -584,5 +585,52 @@ describe("planReparent", () => {
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
     expect(plan.moves.map((m) => m.cardId)).toEqual(["B", "A"]);
+  });
+});
+
+describe("isFacilitatorCard", () => {
+  const T = "team-1";
+  const NOTE = "Facilitator addition. Focused extension F01; KC2.";
+
+  it("is true for a chain card carrying the importer's note", () => {
+    expect(isFacilitatorCard(card("c1", "SECOND", "r1", T, 1, { description: NOTE }))).toBe(true);
+  });
+
+  it("is false for a card the group wrote", () => {
+    expect(isFacilitatorCard(card("c1", "SECOND", "r1", T, 1))).toBe(false);
+  });
+
+  it("does NOT key on authorship", () => {
+    // The regression that matters. Every card below has no author, which is true of whole
+    // boards that lost their players — dev after a fixture reseed, and two live boards. An
+    // authorship rule marked 71 of 77 cards on one board and 146 of 152 on another.
+    expect(isFacilitatorCard(card("c1", "SECOND", "r1", T, 1, { authorPlayerId: null }))).toBe(false);
+    // ...and a facilitator card is still marked even when it somehow has an author.
+    expect(
+      isFacilitatorCard(card("c2", "SECOND", "r1", T, 2, { authorPlayerId: "p1", description: NOTE }))
+    ).toBe(true);
+  });
+
+  it("is false for a key change, even one carrying the note", () => {
+    // The roots are the group's own words carried over from Session 1, never an addition.
+    expect(isFacilitatorCard(card("r1", "FIRST", null, T, 1, { description: NOTE }))).toBe(false);
+  });
+
+  it("is false for a brainstorm sticky, which is not a tree card at all", () => {
+    expect(isFacilitatorCard(card("s1", "STICKY", null, T, 1, { description: NOTE }))).toBe(false);
+  });
+
+  it("is false for an unrelated description", () => {
+    expect(
+      isFacilitatorCard(card("c1", "SECOND", "r1", T, 1, { description: "why this matters" }))
+    ).toBe(false);
+  });
+
+  it("tolerates leading whitespace on the note", () => {
+    expect(isFacilitatorCard(card("c1", "SECOND", "r1", T, 1, { description: "  " + NOTE }))).toBe(true);
+  });
+
+  it("reads a drifted order by parentId, like isTreeRoot does", () => {
+    expect(isFacilitatorCard(card("c1", "FIRST", "r1", T, 1, { description: NOTE }))).toBe(true);
   });
 });

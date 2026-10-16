@@ -398,6 +398,34 @@ export function isTreeRoot(card: RippleCard): boolean {
   return card.parentId === null && card.order !== "STICKY";
 }
 
+// The note an import writes on a card it added, and the marker the admin views read.
+//
+// This is a text prefix rather than a column because there is no column: `is_facilitator`
+// does not exist on ripple_cards. If this ever needs to survive someone clearing a card's
+// description, it wants a real boolean and a migration.
+export const FACILITATOR_NOTE = "Facilitator addition";
+
+// Was this card added by a facilitator rather than written by the group?
+//
+// NOT authorship, which is the obvious guess and is wrong. `author_player_id` is null on
+// anything the admin seeder or a script wrote, but it is ALSO null across whole boards that
+// lost their players — dev's groups after a fixture reseed, and two live boards (116 cards
+// with 9 authors; 109 with none). Keying on it marked 71 of 77 cards on one board and 146 of
+// 152 on another, i.e. the group's own work.
+//
+// So the signal is the note the importer leaves. Measured across both databases, this marks
+// exactly the cards that were imported and nothing else.
+//
+// Roots are excluded regardless: the key changes are seeded from Session 1 and are the
+// group's own words carried over, not an addition. STICKYs are not tree cards at all.
+export function isFacilitatorCard(card: RippleCard): boolean {
+  return (
+    card.order !== "STICKY" &&
+    card.parentId !== null &&
+    (card.description ?? "").trimStart().startsWith(FACILITATOR_NOTE)
+  );
+}
+
 // parentId → its children, sorted oldest-first. Roots live under the null key.
 export function buildChildrenMap(cards: RippleCard[]): Map<string | null, RippleCard[]> {
   const map = new Map<string | null, RippleCard[]>();
