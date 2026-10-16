@@ -12,7 +12,13 @@ import {
   stepZoom,
   type Zoom,
 } from "@/components/workshop/MapControls";
-import { buildChildrenMap, depthByCard, type RippleCard } from "@/lib/ripples-types";
+import {
+  buildChildrenMap,
+  depthByCard,
+  isFacilitatorCard,
+  isTreeRoot,
+  type RippleCard,
+} from "@/lib/ripples-types";
 import { sortRootsByRank } from "@/lib/ripples-scoring";
 import { branchOf, keyChangeLabel } from "@/lib/synthesis-shape";
 import type { ThemeAnswerKind } from "@/lib/synthesis-shape";
@@ -212,12 +218,17 @@ export function ImplicationsPanel({
   view,
   setView,
   seed,
+  isAdmin = false,
   ...opts
 }: {
   ex: ImplicationsExercise;
   view: MapView;
   setView: (v: MapView) => void;
   seed?: React.ReactNode;
+  // Admin only: mark the cards a facilitator added, so they can be told apart from the
+  // group's own work. Off by default, because this panel is ALSO the member session page's
+  // earlier-week tabs (SessionTabs) — participants should not see who added what here.
+  isAdmin?: boolean;
 } & PanelOpts) {
   // The tree alone (no brainstorm stickies), its depths, its key changes in rank order,
   // and what hangs under each — the counts the chips show.
@@ -291,6 +302,38 @@ export function ImplicationsPanel({
     // orderOf closes over model.depths, which model already covers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sub, model]);
+  // --- facilitator additions (admin only) ------------------------------------
+  // Two sizes of the same marker: the tree and the list have room for a word, the wheel's
+  // circles do not. Both carry the card's description on hover, which is where the import
+  // script left the provenance ("Focused extension F01; KC2."), so the question "which
+  // extension was this?" is answerable without opening the export.
+  const facilitatorCount = useMemo(
+    () => (isAdmin ? model.tree.filter(isFacilitatorCard).length : 0),
+    [isAdmin, model]
+  );
+  const addedTitle = (card: RippleCard) =>
+    card.description || "Added by a facilitator — not written by the group.";
+  const markNode = (card: RippleCard) =>
+    isAdmin && isFacilitatorCard(card) ? (
+      <span
+        title={addedTitle(card)}
+        className="mt-1 inline-block rounded-[2px] border border-blue bg-blue/10 px-1 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-blue"
+      >
+        added
+      </span>
+    ) : null;
+  const markCircle = (cardId: string) => {
+    const card = model.tree.find((c) => c.id === cardId);
+    return card && isAdmin && isFacilitatorCard(card) ? (
+      <span
+        title={addedTitle(card)}
+        className="rounded-[2px] border border-blue bg-blue/10 px-1 text-[8px] font-bold uppercase tracking-[0.06em] text-blue"
+      >
+        added
+      </span>
+    ) : null;
+  };
+
   const stepBranch = (step: -1 | 1) => {
     // Same order as the chips: the key changes, then "any" last.
     const stops: (string | null)[] = [...model.roots.map((r) => r.id), null];
@@ -339,6 +382,17 @@ export function ImplicationsPanel({
             <OrderChips orders={shown.orders} allCount={shown.total} value={orderFilter} onChange={setOrderFilter} />
           </div>
         )}
+        {/* Admin only. Says it in one line rather than leaving the markers to be counted by
+            eye, because "how much of this map is ours?" is the actual question. */}
+        {isAdmin && facilitatorCount > 0 && (
+          <p className="mb-2 text-[11px] text-muted">
+            <span className="mr-1.5 inline-block rounded-[2px] border border-blue bg-blue/10 px-1 py-px text-[9px] font-bold uppercase tracking-[0.06em] text-blue">
+              added
+            </span>
+            {facilitatorCount} of {model.tree.filter((c) => !isTreeRoot(c)).length} implications were added by a
+            facilitator, not written by the group. Only visible here.
+          </p>
+        )}
         {!hasTree ? (
           <p className="text-[13px] italic text-muted">No implications mapped yet.</p>
         ) : (
@@ -370,6 +424,7 @@ export function ImplicationsPanel({
                     return o === null ? null : { color: orderColor(o) };
                   }}
                   nodeProps={(id) => (dimmed(id) ? { style: { opacity: 0.3 } } : {})}
+                  nodeExtra={markCircle}
                 />
               )}
               {view === "tree" && (
@@ -378,12 +433,17 @@ export function ImplicationsPanel({
                   scenarioTitle={ex.scenarioTitle}
                   rootIds={branchRoot ? new Set([branchRoot.id]) : undefined}
                   dimDepth={(d) => d > 0 && orderFilter !== null && d !== orderFilter}
+                  nodeExtra={markNode}
                   zoom={zoom}
                   onFitScale={(v) => (fitScaleRef.current = v)}
                 />
               )}
               {view === "list" && (
-                <ImplicationList cards={sub ? sub.subtree : model.tree} scenarioTitle={ex.scenarioTitle} />
+                <ImplicationList
+                  cards={sub ? sub.subtree : model.tree}
+                  scenarioTitle={ex.scenarioTitle}
+                  nodeExtra={markNode}
+                />
               )}
             </div>
           </div>

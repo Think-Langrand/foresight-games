@@ -356,6 +356,7 @@ export function AdminGroupAnswers({
               view={mapView}
               setView={setMapView}
               onDelete={onDeleteAnswer}
+              isAdmin
               seed={
                 <SeedKeyChangesPanel
                   key={active.exerciseId}

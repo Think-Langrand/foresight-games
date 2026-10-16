@@ -12,7 +12,8 @@
     "db:seed:groups": "node scripts/seed-design-groups.mjs",
     "db:dump:groups": "node scripts/dump-design-groups.mjs",
     "db:seed:practice": "node scripts/seed-practice-synthesis.mjs",
-    "tags:all": "node scripts/tag-all-kernels.mjs"
+    "tags:all": "node scripts/tag-all-kernels.mjs",
+    "db:import:implications": "node scripts/import-facilitator-implications.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

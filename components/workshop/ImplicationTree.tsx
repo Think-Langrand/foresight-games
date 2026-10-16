@@ -52,6 +52,7 @@ export function ImplicationTree({
   onVote,
   rootIds,
   dimDepth,
+  nodeExtra,
   zoom,
   onFitScale,
 }: {
@@ -62,6 +63,9 @@ export function ImplicationTree({
   // all of them), and fade the nodes of the orders not in view.
   rootIds?: Set<string>;
   dimDepth?: (depth: number) => boolean;
+  // A marker drawn on a node — same hook and same name as FuturesWheel's. Undefined draws
+  // nothing, which is what the live board and the projector view pass.
+  nodeExtra?: (card: RippleCard) => React.ReactNode;
   // "fit" shrinks the whole tree to its container's width; a number is an explicit zoom.
   // Undefined = drawn at 1:1 (the live board, which scrolls sideways instead).
   zoom?: number | "fit";
@@ -265,6 +269,7 @@ export function ImplicationTree({
             ↳ from {card.sourceLabel}
           </p>
         )}
+        {nodeExtra?.(card)}
         {interactive && (challengeEnabled || deletable || editable) && !card.greyed && !editing && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {editable && (
