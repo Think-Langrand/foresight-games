@@ -9,10 +9,19 @@
 // cards into a live board by hand is not a plan. This takes an export-shaped file carrying
 // extra cards and lands them as real chain cards.
 //
-// ADDITIVE AND IDEMPOTENT. There is no `delete` and no `update` anywhere in this file. It only
-// ever inserts, and it skips anything already present, so a re-run writes nothing. Existing
-// card text is never rewritten. `plan` is the dry run and writes nothing at all; `import` runs
-// the same report first and refuses to write if it found a problem.
+//   node scripts/import-facilitator-implications.mjs remove --yes [opts] [--prod]
+//
+// IMPORT IS ADDITIVE AND IDEMPOTENT. It only ever inserts, and it skips anything already
+// present, so a re-run writes nothing. It never rewrites a card's text — so when the wording
+// in the file changes, `remove` then `import` is the way to pick it up. `plan` is the dry run
+// and writes nothing at all; `import` runs the same report first and refuses to write if it
+// found a problem.
+//
+// REMOVE DELETES, and only our own cards: those carrying the facilitator note (see
+// FACILITATOR_NOTE below). It needs --yes, and it REFUSES if anything the group wrote hangs
+// underneath a card it would delete — the parent FK cascades, so deleting ours would silently
+// take their work with it. That guard is the whole reason this is a subcommand and not a
+// one-line SQL delete.
 //
 // WHAT IT READS FROM THE FILE: `exercises[].cards` and nothing else. The sibling arrays
 // (`unclustered`, `themes[].implications`, `parked`, `orphans`) are derived projections and at
@@ -94,11 +103,11 @@ const opt = (name, fallback) => {
   return i > -1 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : fallback;
 };
 
-const COMMANDS = ["plan", "import"];
+const COMMANDS = ["plan", "import", "remove"];
 if (!COMMANDS.includes(command)) {
   console.error(
     `Usage: node scripts/import-facilitator-implications.mjs <${COMMANDS.join("|")}> ` +
-      `[--file path] [--project slug] [--group name] [--ids-only] [--min-prior-match 1.0] [--prod]`
+      `[--file path] [--project slug] [--group name] [--ids-only] [--min-prior-match 1.0] [--prod] [--yes]`
   );
   process.exit(1);
 }
@@ -116,7 +125,7 @@ if (!URL || !KEY) {
   process.exit(1);
 }
 const isProd = URL.includes(PROD_REF);
-if (isProd && command === "import" && !flag("prod")) {
+if (isProd && (command === "import" || command === "remove") && !flag("prod")) {
   console.error("That URL is the PROD project. Re-run with --prod if you mean it.");
   process.exit(1);
 }
@@ -513,6 +522,88 @@ function facilitatorNote(description) {
   return `${FACILITATOR_NOTE}. ${d}`;
 }
 
+// ---------------------------------------------------------------- remove
+// Our cards on this board: the ones carrying the note. Deliberately NOT scoped to the ids
+// still in the file — a card dropped from the file during an edit is still ours and still
+// needs clearing, which is the whole point of removing before re-importing.
+function ourCards(target) {
+  return target.cards.filter(
+    (c) =>
+      c.card_order !== "STICKY" &&
+      c.parent_card_id !== null &&
+      (c.description ?? "").trimStart().startsWith(FACILITATOR_NOTE)
+  );
+}
+
+// Anything the GROUP wrote that sits under a card we are about to delete. The self-FK is
+// ON DELETE CASCADE (migration 0007), so each of these would vanish without being named.
+function cascadeVictims(target, removing) {
+  const removingIds = new Set(removing.map((c) => c.id));
+  const children = new Map();
+  for (const c of target.cards) {
+    if (!c.parent_card_id) continue;
+    if (!children.has(c.parent_card_id)) children.set(c.parent_card_id, []);
+    children.get(c.parent_card_id).push(c);
+  }
+  // Keyed by id, and each node walked once: every card being removed is walked from, so a
+  // descendant sits under several of them at once and would otherwise be counted once per
+  // ancestor — overstating, in a refusal message, how much of the group's work is at risk.
+  const victims = new Map();
+  const seen = new Set();
+  const walk = (id) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    for (const kid of children.get(id) ?? []) {
+      if (!removingIds.has(kid.id)) victims.set(kid.id, kid);
+      walk(kid.id);
+    }
+  };
+  for (const c of removing) walk(c.id);
+  return [...victims.values()];
+}
+
+async function removeOurs(target) {
+  const removing = ourCards(target);
+  console.log(`\nREMOVE  ${removing.length} card(s) on ${target.exercise.session_code} carry the facilitator note`);
+  if (removing.length === 0) {
+    console.log("nothing to remove.");
+    return 0;
+  }
+
+  const victims = cascadeVictims(target, removing);
+  if (victims.length > 0) {
+    console.error(
+      `\n✗ Refusing: ${victims.length} card(s) the group wrote hang under cards this would delete, ` +
+        `and the parent FK cascades. Reparent or delete them first:`
+    );
+    for (const v of victims) console.error(`    ${v.id.slice(0, 8)} "${short(v.text, 70)}"`);
+    process.exit(1);
+  }
+
+  const depths = boardDepths(target.cards);
+  // Deepest first, so a partial failure leaves a shallower, still-consistent tree rather
+  // than relying on the cascade to tidy up after it.
+  const ordered = [...removing].sort((a, b) => (depths.get(b.id) ?? 0) - (depths.get(a.id) ?? 0));
+  for (const c of ordered) {
+    console.log(`  ${(c.card_order ?? "?").padEnd(9)} ${c.id.slice(0, 8)} "${short(c.text, 62)}"`);
+  }
+  if (!flag("yes")) {
+    console.error(`\nremove DELETES those ${removing.length} cards. Re-run with --yes.`);
+    process.exit(1);
+  }
+
+  let gone = 0;
+  for (const chunk of [ordered.slice(0, 200), ordered.slice(200)]) {
+    if (chunk.length === 0) continue;
+    const deleted = await q(
+      sb.from("ripple_cards").delete().eq("code", target.exercise.session_code).in("id", chunk.map((c) => c.id)).select("id")
+    );
+    gone += deleted.length;
+  }
+  console.log(`\nremoved ${gone} card(s) from ${target.exercise.session_code}`);
+  return gone;
+}
+
 // ---------------------------------------------------------------- write
 async function importMap(target, checks) {
   // Waves by depth, so a parent always exists before its children. Within a wave, the file's own
@@ -569,6 +660,17 @@ console.log(
 );
 
 const target = await readTarget();
+
+if (command === "remove") {
+  console.log(
+    `\nTARGET  ${isProd ? "PROD" : "dev"} ${URL.replace(/^https?:\/\//, "").replace(/\/.*$/, "")}\n` +
+      `        group "${target.group.name}" · board ${target.exercise.session_code} · ${target.cards.length} cards`
+  );
+  await removeOurs(target);
+  console.log("done");
+  process.exit(0);
+}
+
 const depthsOnBoard = boardDepths(target.cards);
 const parents = resolveParents(fixture, target);
 const planned = plannedDepths(fixture, parents, depthsOnBoard);
