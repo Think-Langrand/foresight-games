@@ -343,6 +343,27 @@ export function SynthesisTeamView({
   // adding it to Theme 3 must not pull it out of Theme 1. One already in `themeId` is
   // left alone. Shared by the rail's click, "new theme from N" and a themed drop.
   const clusteredIds = () => new Set([...board.clusters.values()].flat().map((c) => c.id));
+
+  // Clear the parked flag before a card is reparented. EVERY gesture that moves an
+  // implication into a theme has to do this, because parentage and `parked` are separate
+  // columns: reparenting alone moves the row and leaves the flag, and indexSynthesisBoard
+  // files a parked card under `board.parked` whatever its parent is — so the card would
+  // land in the theme and then not be drawn in it.
+  //
+  // The Parked drawer is gone from the board, so no parked card is reachable by a gesture
+  // today and zero parked rows exist in either database. This stays, and stays shared,
+  // because the flag and the park route do still exist: a legacy row surfacing through the
+  // map would otherwise vanish on the drop, and silently, since nothing errors.
+  const unparkFirst = async (card: RippleCard) => {
+    if (!card.parked) return;
+    parkLocal(card.id, false);
+    try {
+      await parkRippleCard(code, card.id, { participantId: pid, parked: false });
+    } catch (e) {
+      dropParkLocal(card.id);
+      throw e;
+    }
+  };
   const placeInTheme = async (
     card: RippleCard,
     themeId: string,
@@ -354,18 +375,7 @@ export function SynthesisTeamView({
       if (!already) await writeCopy(card, themeId);
       return;
     }
-    // A parked card ticked on the map: unpark it first, as a drag out of the drawer does.
-    // Reparenting alone would move the row and leave the flag, and the board would still
-    // file it under Parked rather than in the theme it was just put in.
-    if (card.parked) {
-      parkLocal(card.id, false);
-      try {
-        await parkRippleCard(code, card.id, { participantId: pid, parked: false });
-      } catch (e) {
-        dropParkLocal(card.id);
-        throw e;
-      }
-    }
+    await unparkFirst(card);
     if (predicted) reparentLocal(card.id, themeId, predicted);
     try {
       await reparentRippleCard(code, card.id, { participantId: pid, parentCardId: themeId });
@@ -400,6 +410,7 @@ export function SynthesisTeamView({
       // No reorder needed: the card is the only one in a brand-new theme, so whatever sort
       // it already carries orders a list of one correctly. That keeps this to two round
       // trips rather than three.
+      await unparkFirst(card);
       const predicted = orderAtDepth(1);
       if (predicted) reparentLocal(card.id, created.id, predicted);
       try {
@@ -765,6 +776,7 @@ export function SynthesisTeamView({
 
     run(async () => {
       if (changingList) {
+        await unparkFirst(card);
         try {
           await reparentRippleCard(code, card.id, { participantId: pid, parentCardId: themeId });
         } catch (e) {
