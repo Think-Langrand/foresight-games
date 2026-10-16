@@ -2,7 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 import { mapPool } from "./suggest";
-import { GROUPING_GUIDANCE, PLAIN_WORDS } from "./theme-guidance";
+import { GROUPING_GUIDANCE, PLAIN_WORDS_PROSE } from "./theme-guidance";
 import type {
   CohortGroupInfo,
   CohortItem,
@@ -106,7 +106,9 @@ export async function writeCohortNarrative(args: {
         "implications of a future scenario. Write for the facilitator's report: say what this " +
         "group's material is about and what is changing in it. Do not list the implications " +
         "back, and do not recommend actions.\n\n" +
-        GROUPING_GUIDANCE + "\n\n" + PLAIN_WORDS,
+        // PROSE, not the names variant: these are paragraphs, and "one clause is enough"
+        // would shrink a 120-word reading of a room to a sentence.
+        GROUPING_GUIDANCE + "\n\n" + PLAIN_WORDS_PROSE,
       `Project: ${args.projectName}\nGroup: ${g.name}` +
         (g.scenarioTitle ? `\nScenario: ${g.scenarioTitle}` : "") +
         `\n\nImplications:\n${mine.map((i) => `• ${i.text}`).join("\n")}`,
@@ -142,7 +144,7 @@ export async function writeCohortNarrative(args: {
       "consensus. Use the group counts; do not invent agreement the counts do not show.\n\n" +
       GROUPING_GUIDANCE +
       "\n\n" +
-      PLAIN_WORDS,
+      PLAIN_WORDS_PROSE,
     `Project: ${args.projectName}\nGroups: ${contributing.map((g) => g.name).join(", ")}` +
       (scenarios.length > 1
         ? `\nThese groups worked from DIFFERENT scenarios: ${scenarios.join("; ")}. A theme ` +

@@ -4,6 +4,7 @@ import {
   HOPES_FEARS_PITFALLS,
   NAME_SHAPE,
   PLAIN_WORDS,
+  PLAIN_WORDS_PROSE,
   THEME_INSTRUCTIONS,
   composeClusterPrompt,
 } from "./theme-guidance";
@@ -48,5 +49,35 @@ describe("PLAIN_WORDS", () => {
     // comparison with a from/to sense. A rule that forbade that would fight the exemplar.
     expect(NAME_SHAPE).toContain("Responsibility moves to communities");
     expect(PLAIN_WORDS).not.toContain("from X to Y");
+  });
+});
+
+describe("PLAIN_WORDS_PROSE", () => {
+  // The two variants exist because two of the tells are about LENGTH, and a rule that is
+  // right for twelve words on a card is wrong for a paragraph with a list in it.
+  it("carries the vocabulary tells, same as the names variant", () => {
+    for (const tell of ["pivotal", "serves as", "leverage", "Not just X but Y", "Em dashes"]) {
+      expect(PLAIN_WORDS_PROSE).toContain(tell);
+    }
+  });
+
+  it("does not tell a prompt that asked for a list to return one item", () => {
+    // synthesis-summary.ts asks for `risks` and `opportunities` ARRAYS and instructs the
+    // model to keep what the group wrote. "Name the one that carries the weight" contradicts
+    // both, and the strongest reading wins: four real risks came back as one.
+    expect(PLAIN_WORDS).toContain("Name the one that carries the weight");
+    expect(PLAIN_WORDS_PROSE).not.toContain("Name the one that carries the weight");
+  });
+
+  it("does not cap a paragraph at one clause", () => {
+    expect(PLAIN_WORDS).toContain("One clause is enough");
+    expect(PLAIN_WORDS_PROSE).not.toContain("One clause is enough");
+  });
+
+  it("still catches the real rule-of-three tell: padding to three", () => {
+    // Dropping the bullet outright would lose the tell. The prose wording keeps it and names
+    // the actual fault — inventing a third item for rhythm.
+    expect(PLAIN_WORDS_PROSE).toContain("Padding a list to three");
+    expect(PLAIN_WORDS_PROSE).toContain("if it holds four, give four");
   });
 });
