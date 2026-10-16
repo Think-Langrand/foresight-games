@@ -35,8 +35,11 @@ import {
 //
 // How far a background drag must travel ON SCREEN before it becomes a theme. Generous on
 // purpose: a stray few pixels on the way to clicking something should never mint one, and
-// the cost of the threshold being too high is one more deliberate drag.
-const DRAW_MIN_PX = 40;
+// the cost of the threshold being too high is one more deliberate drag. It cannot be the
+// whole answer, though — the drag that draws is also the drag a hand reaches for to move
+// the board, so a threshold only makes the accident rarer. Space-to-pan is what gives that
+// hand somewhere else to go.
+const DRAW_MIN_PX = 70;
 
 // The gesture it exists for: shove implications into piles, draw a boundary round a pile,
 // and that is a theme. CONTAINMENT IS MEMBERSHIP — a card whose centre sits inside a
@@ -670,6 +673,43 @@ export function CanvasBoard({
     if (mode.kind === "movebox" || mode.kind === "sizebox") setMode({ kind: "idle" });
   };
 
+  // Space turns the background drag into a pan, as it does in every board tool people
+  // arrive from. Drawing keeps the plain drag — it is what this surface is for — and this
+  // is the way out for the hand that just wants to move around, which otherwise had only
+  // the wheel, the scrollbars and a middle button most trackpads do not have.
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  useEffect(() => {
+    // Never while typing, and never when a control has focus: space is how a focused
+    // button is pressed and how a word is spaced in a theme's name field. Taking it there
+    // would break both to fix a gesture neither is involved in.
+    const typing = (t: EventTarget | null) =>
+      t instanceof HTMLElement &&
+      (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(t.tagName));
+
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat || typing(e.target)) return;
+      e.preventDefault(); // or the page scrolls under the board
+      setSpaceHeld(true);
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "Space") setSpaceHeld(false);
+    };
+    // A keyup that never arrives would leave the board stuck in pan: switching tab or
+    // window with space down is the ordinary way to lose it.
+    const clear = () => setSpaceHeld(false);
+
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", clear);
+    document.addEventListener("visibilitychange", clear);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", clear);
+      document.removeEventListener("visibilitychange", clear);
+    };
+  }, []);
+
   // ---------------- background: draw a theme, or pan ----------------
 
   // Press and drag on empty canvas to draw a theme. No arming step: making a theme is the
@@ -695,9 +735,9 @@ export function CanvasBoard({
       });
     };
 
-    // Middle button pans. So does any drag for someone who cannot edit — there is nothing
-    // for them to draw, and the board should still be navigable.
-    if (e.button === 1 || !editable) {
+    // Middle button pans, and so does space held. So does any drag for someone who cannot
+    // edit — there is nothing for them to draw, and the board should still be navigable.
+    if (e.button === 1 || spaceHeld || !editable) {
       if (e.button === 1) e.preventDefault(); // or the browser starts its own autoscroll
       pan();
       return;
@@ -837,7 +877,11 @@ export function CanvasBoard({
                   ? "crosshair"
                   : mode.kind === "pan"
                     ? "grabbing"
-                    : "pointer",
+                    : // Space down: the next drag moves the board, and the cursor is the
+                      // only thing that can say so before it happens.
+                      spaceHeld
+                      ? "grab"
+                      : "pointer",
             }}
           >
             {/* Regions sit under the nodes and take no pointer events: in this version a

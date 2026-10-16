@@ -1521,7 +1521,9 @@ export function ClusterBoard({
           "To name a theme, click the ✎ on its box and type. A double-click on the label, or its square in the rail, opens the theme on its own.",
           "Move a theme by the ⠿ on its label and everything inside travels with it. Drag a corner to resize it.",
           "Gather brings the loose implications back together by key change.",
-          "Scroll to move around the board, and use Fit to see all of it.",
+          // Space-to-pan is invisible until it is said: the plain drag draws, so a hand
+          // that wants to move the board has to be told where that gesture went.
+          "Scroll — or hold Space and drag — to move around the board, and use Fit to see all of it.",
         ]
       : view === "map"
         ? [
