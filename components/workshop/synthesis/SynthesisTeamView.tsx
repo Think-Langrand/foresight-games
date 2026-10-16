@@ -48,7 +48,12 @@ import {
 } from "@/lib/synthesis-shape";
 import type { WorksheetSection } from "@/lib/exercise-types";
 import type { AdminTools } from "@/lib/analysis/implication-cluster-shape";
-import { requestSummary } from "@/lib/analysis/implication-cluster-client";
+import {
+  removeThemeIdea as removeThemeIdeaRequest,
+  requestSummary,
+  saveThemeIdeas,
+} from "@/lib/analysis/implication-cluster-client";
+import type { ClusterMethod } from "@/lib/analysis/implication-cluster-shape";
 import { summaryInputHash } from "@/lib/synthesis-summary-shape";
 import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 import {
@@ -174,6 +179,8 @@ export function SynthesisTeamView({
   // half a minute, and the step unmounts if the facilitator looks at another one meanwhile.
   const [summarizing, setSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [savingIdeas, setSavingIdeas] = useState(false);
+  const [ideaError, setIdeaError] = useState<string | null>(null);
   // Inside a design-group session page the tabs row is the header, and the scenario toggle
   // goes up into it. Standalone, the board draws its own header as before.
   const inTabs = useInSessionTabs();
@@ -781,18 +788,6 @@ export function SynthesisTeamView({
     );
   };
 
-  const park = (card: RippleCard, parked: boolean) => {
-    parkLocal(card.id, parked);
-    run(async () => {
-      try {
-        await parkRippleCard(code, card.id, { participantId: pid, parked });
-      } catch (e) {
-        dropParkLocal(card.id);
-        throw e;
-      }
-    });
-  };
-
   // Merge two implications into one. No server action needed: edit the survivor FIRST so a
   // failure can never lose the absorbed text, then delete the other.
   //
@@ -870,6 +865,47 @@ export function SynthesisTeamView({
     }
   };
 
+  // Facilitator only: keep a clustering run's theme NAMES for the group to read, and drop one
+  // again. Same shape as summarize above — the route writes the board's config and realtime
+  // delivers it to everyone including this client; the refresh is only so the facilitator
+  // never waits on the channel.
+  //
+  // Both send a DELTA, never the whole list: this client may not have heard about a save made
+  // from another run yet, and sending the full list would quietly undo it.
+  const saveIdeas = async (themes: { label: string; method: ClusterMethod }[]) => {
+    if (!admin || themes.length === 0) return;
+    setSavingIdeas(true);
+    setIdeaError(null);
+    try {
+      await saveThemeIdeas(admin.projectId, admin.groupId, {
+        exerciseId: admin.exerciseId,
+        themes,
+      });
+      refresh();
+    } catch (e) {
+      setIdeaError(e instanceof Error ? e.message : "Saving the theme names failed.");
+    } finally {
+      setSavingIdeas(false);
+    }
+  };
+
+  const dropIdea = async (ideaId: string) => {
+    if (!admin) return;
+    setSavingIdeas(true);
+    setIdeaError(null);
+    try {
+      await removeThemeIdeaRequest(admin.projectId, admin.groupId, {
+        exerciseId: admin.exerciseId,
+        ideaId,
+      });
+      refresh();
+    } catch (e) {
+      setIdeaError(e instanceof Error ? e.message : "Removing the theme name failed.");
+    } finally {
+      setSavingIdeas(false);
+    }
+  };
+
   // ---- locked / finished -----------------------------------------------------
   // A locked week (phase HARVEST) lands here. It renders the SAME read-only panel the
   // admin viewer and the earlier-week tabs use, so the whole Week 3 artefact — themes,
@@ -941,7 +977,6 @@ export function SynthesisTeamView({
           onMoveCard={moveCard}
           onMoveTheme={moveTheme}
           onStartTheme={startThemeWith}
-          onPark={park}
           onDeleteCard={removeCard}
           onDeleteTheme={deleteTheme}
           onMerge={merge}
@@ -951,6 +986,14 @@ export function SynthesisTeamView({
           week2Cards={week2Cards}
           scenarioTitle={config.scenarioTitle}
           admin={admin}
+          // Every viewer reads the saved names; only a facilitator gets the writes, which is
+          // what keeps the save controls off a member's board.
+          savedThemeIdeas={config.themeIdeas}
+          themeIdeaWrites={
+            admin
+              ? { busy: savingIdeas, error: ideaError, onSave: saveIdeas, onRemove: dropIdea }
+              : undefined
+          }
           themeId={themeId}
           onPickTheme={setThemeId}
           canvas={{

@@ -507,7 +507,12 @@ async function createPlayGroup(world) {
       exercise: ex,
       groupRow,
       title: ex.title,
-      config: sort === WEEK.SYNTHESIS ? synthesisConfig(demo.boards[WEEK.MAP].session) : { ...(srcBoard?.session.config ?? {}), summary: null },
+      // summary and themeIdeas are the facilitator's own layer over a board's cards, so a
+      // cloned practice board starts without them rather than inheriting the demo group's.
+      config:
+        sort === WEEK.SYNTHESIS
+          ? synthesisConfig(demo.boards[WEEK.MAP].session)
+          : { ...(srcBoard?.session.config ?? {}), summary: null, themeIdeas: [] },
     });
     console.log(`    week ${sort} board: ${ex.session_code}`);
   }

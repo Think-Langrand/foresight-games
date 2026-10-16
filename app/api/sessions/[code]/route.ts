@@ -67,10 +67,19 @@ export async function PATCH(
     if (body.currentUncertaintyId) patch.currentUncertaintyId = body.currentUncertaintyId;
     if (body.config !== undefined) {
       // A config write replaces the blob wholesale, and this route is open to anyone with
-      // the code. The facilitator's Week 3 summary lives in the blob and is written only by
-      // the admin summary route, so it is carried over rather than taken from the body.
+      // the code. The facilitator's Week 3 summary and saved theme names live in the blob and
+      // are written only by their own admin routes, so they are carried over rather than
+      // taken from the body.
+      //
+      // Belt rather than a live fix: no client sends `config` today — lock/unlock patch
+      // `phase` alone — so nothing currently wipes these. The first config-editing admin UI
+      // someone writes would ship that bug silently without these two lines.
       const stored = (session.config ?? {}) as Record<string, unknown>;
-      patch.config = { ...body.config, summary: stored.summary ?? null };
+      patch.config = {
+        ...body.config,
+        summary: stored.summary ?? null,
+        themeIdeas: stored.themeIdeas ?? [],
+      };
     }
 
     if (body.phase) {

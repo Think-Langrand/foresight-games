@@ -16,15 +16,21 @@ import {
   type SuggestedTheme,
 } from "@/lib/analysis/implication-cluster-shape";
 import { requestClustering } from "@/lib/analysis/implication-cluster-client";
+import { ideaProvenance, type ThemeIdea } from "@/lib/theme-ideas-shape";
 
 // The facilitator's clustering tool, on the live board. The admin answers page has the
 // full panel (components/admin/ImplicationClusterPanel.tsx); this is the same request and
 // the same result, laid out for a rail and read beside the real tray — which is where the
 // question "how else could these go together?" actually comes up.
 //
-// The route stays read-only. "Use this" is the one write, and it goes through the board's
-// own create-theme path, so the group sees the new theme land live like any other and can
-// rename, empty or delete it the same way.
+// The clustering route stays read-only. Two different writes hang off a run, and they are
+// deliberately different buttons:
+//
+//   "Use this"  makes a REAL theme, through the board's own create-theme path, so the group
+//               sees it land live and can rename, empty or delete it like any other.
+//   "Save"      keeps a theme's NAME for the group to read beside the tray. No members, no
+//               theme card — a prompt, not a decision. Stored on the board's config by
+//               .../theme-ideas, which realtime carries to every member.
 //
 // A suggestion's members are WEEK 2 ids. The board's tray cards point at those through
 // sourceCardId (a copy through its twin), so a suggestion is resolved against the tray at
@@ -40,12 +46,23 @@ export function SuggestThemesRail({
   editable,
   busy,
   onCreateThemeFrom,
+  savedThemeIdeas,
+  ideaWrites,
 }: {
   admin: AdminTools;
   board: SynthesisBoard;
   editable: boolean;
   busy: boolean;
   onCreateThemeFrom: (cardIds: string[], text?: string) => void;
+  // What the group can already read. Shown here so the facilitator sees the same list they
+  // do, a few inches from the panel the group sees it in.
+  savedThemeIdeas: ThemeIdea[];
+  ideaWrites: {
+    busy: boolean;
+    error: string | null;
+    onSave: (themes: { label: string; method: ClusterMethod }[]) => void;
+    onRemove: (ideaId: string) => void;
+  };
 }) {
   const sources = admin.clusterSources;
   const [sourceId, setSourceId] = useState(sources[0]?.exerciseId ?? "");
@@ -56,6 +73,9 @@ export function SuggestThemesRail({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImplicationClusterResponse | null>(null);
   const [open, setOpen] = useState(true);
+  // Which of THIS run's themes are ticked to save. Indices are stable for the life of a run
+  // and meaningless across runs, so a new run clears them.
+  const [pickedIdx, setPickedIdx] = useState<Set<number>>(new Set());
 
   const source = sources.find((s) => s.exerciseId === sourceId) ?? sources[0];
 
@@ -83,6 +103,8 @@ export function SuggestThemesRail({
     if (!source) return;
     setRunning(true);
     setError(null);
+    setPickedIdx(new Set()); // indices belong to one result
+
     try {
       setResult(
         await requestClustering(admin.projectId, admin.groupId, {
@@ -130,7 +152,7 @@ export function SuggestThemesRail({
         <div className="mt-2 flex flex-col gap-2.5">
           <p className="text-[11px] italic leading-[1.4] text-muted">
             Example groupings of this group&rsquo;s Week 2 implications, to read beside the
-            tray. Nothing is written until you use one.
+            tray. Use one to make a real theme, or save a name for the group to read.
           </p>
 
           {sources.length === 0 ? (
@@ -238,7 +260,28 @@ export function SuggestThemesRail({
                   return (
                     <details key={i} className="rounded-[3px] border border-black/15 bg-paper p-2">
                       <summary className="cursor-pointer list-none">
-                        <span className="block text-[12px] font-bold leading-[1.3]">{t.label}</span>
+                        <span className="flex items-start gap-1.5">
+                          {editable && (
+                            <input
+                              type="checkbox"
+                              checked={pickedIdx.has(i)}
+                              // The summary toggles the <details> on click; a tick is not an
+                              // expand, so the event stops here.
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                setPickedIdx((prev) => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(i);
+                                  else next.delete(i);
+                                  return next;
+                                });
+                              }}
+                              aria-label={`Save the name "${t.label}" for the group`}
+                              className="mt-[3px] shrink-0"
+                            />
+                          )}
+                          <span className="block text-[12px] font-bold leading-[1.3]">{t.label}</span>
+                        </span>
                         <span className="mt-0.5 block text-[10px] uppercase tracking-[0.05em] text-muted">
                           {t.memberIds.length} implication{t.memberIds.length === 1 ? "" : "s"}
                           {t.cohesion !== null && ` · ${t.cohesion.toFixed(2)}`}
@@ -305,6 +348,32 @@ export function SuggestThemesRail({
                 })}
               </div>
 
+              {editable && (
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={() =>
+                      ideaWrites.onSave(
+                        [...pickedIdx]
+                          .sort((a, b) => a - b)
+                          .map((i) => result.themes[i])
+                          .filter(Boolean)
+                          .map((t) => ({ label: t.label, method: result.method }))
+                      )
+                    }
+                    disabled={ideaWrites.busy || pickedIdx.size === 0}
+                    title="Save these names for the group to read. No members, no theme cards."
+                    className={"w-full " + btn}
+                  >
+                    {ideaWrites.busy
+                      ? "Saving…"
+                      : `Save ${pickedIdx.size || ""} name${pickedIdx.size === 1 ? "" : "s"} for the group`}
+                  </button>
+                  {ideaWrites.error && (
+                    <span className="text-[10.5px] font-bold text-coral">{ideaWrites.error}</span>
+                  )}
+                </div>
+              )}
+
               {result.ungrouped.length > 0 && (
                 <details className="mt-2 rounded-[3px] border border-dashed border-black/25 p-2">
                   <summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-[0.05em] text-muted">
@@ -321,6 +390,49 @@ export function SuggestThemesRail({
               )}
             </div>
           )}
+
+          {/* What the group can already read, shown here so the facilitator is looking at the
+              same list the group is — including after a reload, when the run itself is gone.
+              Rendered whether or not a run is on screen. */}
+          <div className="border-t border-white/15 pt-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+              Saved for the group ({savedThemeIdeas.length})
+            </p>
+            {savedThemeIdeas.length === 0 ? (
+              <p className="mt-1 text-[11px] italic leading-[1.4] text-muted">
+                Nothing saved. Tick the names worth keeping — the group sees the names only,
+                never the implications in them.
+              </p>
+            ) : (
+              <>
+                <ul className="mt-1.5 flex flex-col gap-1">
+                  {savedThemeIdeas.map((idea) => (
+                    <li key={idea.id} className="flex items-start gap-1.5">
+                      <span className="min-w-0 flex-1 text-[11.5px] leading-[1.35]">
+                        {idea.name}
+                      </span>
+                      {editable && (
+                        <button
+                          onClick={() => ideaWrites.onRemove(idea.id)}
+                          disabled={ideaWrites.busy}
+                          aria-label={`Remove "${idea.name}"`}
+                          title="Remove this name"
+                          className="shrink-0 text-[12px] leading-none text-muted hover:text-coral disabled:opacity-40"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {/* The sentence the group is shown, so the facilitator can see what a mixed
+                    list reads like before the group does. */}
+                <p className="mt-1.5 text-[10.5px] italic leading-[1.4] text-muted">
+                  They read: &ldquo;AI suggestions, not decisions. {ideaProvenance(savedThemeIdeas)}&rdquo;
+                </p>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

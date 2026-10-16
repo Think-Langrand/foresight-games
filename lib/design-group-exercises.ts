@@ -233,10 +233,15 @@ export async function resnapshotBoardScenario(
   if (!session) return;
   const scenario = await getScenario(ctx.scenarioRef, ctx.carmelitaProjectRef);
   if (!scenario) throw new Error("SCENARIO_NOT_FOUND");
-  // The cards stay, so the facilitator's summary of them stays too.
+  // The cards stay, so the facilitator's summary of them — and the theme names saved for the
+  // group to read — stay too.
   const prior = (session.config ?? {}) as Record<string, unknown>;
   await updateSession(session.id, session.code, {
-    config: { ...buildSharedBoardConfig(scenario, ctx.carmelitaProjectRef), summary: prior.summary ?? null },
+    config: {
+      ...buildSharedBoardConfig(scenario, ctx.carmelitaProjectRef),
+      summary: prior.summary ?? null,
+      themeIdeas: prior.themeIdeas ?? [],
+    },
     prompt: scenario.title,
   });
 }
