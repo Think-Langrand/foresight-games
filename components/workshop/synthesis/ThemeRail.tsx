@@ -240,19 +240,20 @@ export function ThemeRail({
                   // step, where the board itself is where cards go. A card that is as tall
                   // as what it holds reads as an item.
                   (editing ? "min-h-[9rem] " : "") +
+                  // One border width in every state, so picking a square never nudges the
+                  // rail's layout. The fill carries the state; the border only firms up.
+                  "border " +
                   (chosen
-                    ? // Picked: a light wash plus the heavy ink border and the shadow. The
-                      // border and the lift do the work of saying "this one"; the fill only
-                      // has to tint, so the text stays ink and every chip inside it keeps
-                      // its own colour. A solid blue meant white text and four children
-                      // that had to be recoloured to survive it.
-                      "border-2 border-ink shadow-[3px_4px_0_rgba(36,36,34,0.2)] " +
+                    ? // Picked: a light wash and an ink hairline. No shadow and no heavier
+                      // border — the wash is enough, and the chrome was louder than the
+                      // thing it was marking.
+                      "border-ink " +
                       // Deeper while a drag is over it than when it is merely open, so the
                       // two states are not the same square.
                       (lit ? "scale-[1.02] bg-blue/20 " : "bg-blue/10 ")
                     : // At rest: a hairline on paper. Quiet enough that three empty themes
                       // do not look like three things demanding to be filled.
-                      "border border-[var(--hairline)] bg-paper hover:border-ink ") +
+                      "border-[var(--hairline)] bg-paper hover:border-ink ") +
                   // The drop affordance only while there is something to drop. Dragging to
                   // the rail is still how the map and list views file a card; the canvas
                   // view clusters on the board, and showing the cue there all the time was
