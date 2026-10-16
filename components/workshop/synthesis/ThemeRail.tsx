@@ -167,6 +167,9 @@ export function ThemeRail({
             const held = board.clusters.get(t.id) ?? [];
             const lit = squareLit?.(t) ?? false;
             const open = activeId === t.id;
+            // Lit (a drag is over it) or open (its sheet is showing): either way this is
+            // the one the eye should go to.
+            const chosen = lit || open;
             const state = progressFor(t);
             const insert = squareInsert?.(t) ?? null;
             const editing = renaming === t.id;
@@ -230,31 +233,46 @@ export function ThemeRail({
                 }}
                 onMouseLeave={() => setHover(null)}
                 className={
-                  "flex w-full flex-col rounded-[6px] border-2 p-2.5 text-left transition-all " +
-                  // Square normally; while its name is being typed, as tall as the field
-                  // needs. A theme name is a sentence-length thing and the square's own
-                  // line is a 10px truncate, so editing in that line would be typing into
-                  // a slot narrower than most of the names people write.
-                  (editing ? "min-h-[9rem] " : "aspect-square ") +
-                  (lit
-                    ? "scale-[1.02] border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)] "
-                    : open
-                      ? "border-ink bg-lime shadow-[3px_4px_0_rgba(36,36,34,0.2)] "
-                      : "border-ink bg-[rgba(196,255,103,0.16)] hover:bg-lime/40 ") +
-                  (pickedCount > 0 && !editing ? "cursor-copy" : "")
+                  "flex w-full flex-col rounded-[6px] p-2.5 text-left transition-all " +
+                  // Sized to its content. It used to be `aspect-square` with a 2px border
+                  // and a pale wash, which is the shape of an empty slot waiting to be
+                  // filled — so the rail read as a row of drop boxes even on the canvas
+                  // step, where the board itself is where cards go. A card that is as tall
+                  // as what it holds reads as an item.
+                  (editing ? "min-h-[9rem] " : "") +
+                  (chosen
+                    ? // Picked: solid, so which theme is open is unmistakable across a room.
+                      "border-2 border-ink bg-blue text-white shadow-[3px_4px_0_rgba(36,36,34,0.2)] " +
+                      (lit ? "scale-[1.02] " : "")
+                    : // At rest: a hairline on paper. Quiet enough that three empty themes
+                      // do not look like three things demanding to be filled.
+                      "border border-[var(--hairline)] bg-paper hover:border-ink ") +
+                  // The drop affordance only while there is something to drop. Dragging to
+                  // the rail is still how the map and list views file a card; the canvas
+                  // view clusters on the board, and showing the cue there all the time was
+                  // half of why these looked like slots.
+                  (pickedCount > 0 && !editing ? "cursor-copy ring-2 ring-blue/40 " : "")
                 }
               >
                 <span className="flex items-baseline justify-between gap-1.5">
                   {/* The number is shown as well as the name, because the map labels a
                       clustered node "Theme 3" — and once a group renames a theme, a number
                       that appears nowhere on the theme itself refers to nothing. */}
-                  <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] font-bold text-paper">
+                  <span
+                    className={
+                      "shrink-0 rounded-[2px] px-1 py-px text-[9.5px] font-bold " +
+                      (chosen ? "bg-white/25 text-white" : "bg-ink text-paper")
+                    }
+                  >
                     {i + 1}
                   </span>
                   <span
                     aria-label={STATE_LABEL[state]}
                     title={`${progressLabel}: ${STATE_LABEL[state]}`}
-                    className={"shrink-0 text-[10px] leading-none " + STATE_DOT[state]}
+                    // STATE_DOT's "started" is blue, which disappears on a blue fill.
+                    className={
+                      "shrink-0 text-[10px] leading-none " + (chosen ? "text-white" : STATE_DOT[state])
+                    }
                   >
                     {stateGlyph(state)}
                   </span>
@@ -267,7 +285,10 @@ export function ThemeRail({
                         e.stopPropagation();
                         setRenaming(t.id);
                       }}
-                      className="min-w-0 flex-1 text-left text-[10px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
+                      className={
+                        "min-w-0 flex-1 text-left text-[10px] font-bold uppercase tracking-[0.05em] hover:underline " +
+                        (chosen ? "text-white" : "text-blue")
+                      }
                     >
                       ＋ Name
                     </button>
@@ -289,7 +310,13 @@ export function ThemeRail({
                       ✎
                     </button>
                   )}
-                  <span className="shrink-0 text-[9.5px] font-bold text-muted">{held.length}</span>
+                  <span
+                    className={
+                      "shrink-0 text-[9.5px] font-bold " + (chosen ? "text-white/80" : "text-muted")
+                    }
+                  >
+                    {held.length}
+                  </span>
                 </span>
 
                 {/* The field, under the number row rather than in it: the row is four

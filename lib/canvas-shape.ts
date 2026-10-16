@@ -815,12 +815,17 @@ export interface PileGroup {
   groupId: string;
   // Already shortened by the caller; this module does no text work.
   label: string;
+  // The unshortened label, for the caption's tooltip. Carried, never read — a key change
+  // is a paragraph and `label` is the 28-character head of it, so the canvas has no way
+  // to show the whole thing without being handed it.
+  title?: string;
   cards: Pos[];
 }
 
 export interface PileLabel {
   groupId: string;
   label: string;
+  title?: string;
   count: number;
   // The DRAWN pile — the centres grown by a card's radius. The caption sits on its top edge.
   box: Rect;
@@ -894,6 +899,7 @@ export function pileLabels(groups: PileGroup[], min = MIN_PILE): PileLabel[] {
       return {
         groupId: g.groupId,
         label: g.label,
+        title: g.title,
         count: g.cards.length,
         box: {
           x: b.x - NODE_RADIUS,

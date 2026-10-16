@@ -281,6 +281,11 @@ export function ClusterBoard({
   // named by a Week 2 id. It gets its own slot and a shorter readout: its words and where
   // it sits, with no ordinal and no chain, because there is no chain to show.
   const [peekOwn, setPeekOwn] = useState<string | null>(null);
+  // Whether the key change at the head of the peeked chain is shown in full. Clamped by
+  // default: the real ones run eight lines and swamp the chain they are the head of, which
+  // is why they were clamped in the first place. A click is cheaper than a native tooltip
+  // for text that long, and the tooltip stays for the hover case.
+  const [keyChangeOpen, setKeyChangeOpen] = useState(false);
   // Which branch the map draws. Deliberately NOT keyFilter, which also filters the tray:
   // stepping through the maps would then narrow the card list as a side effect, and
   // landing on a key change whose implications are all clustered would leave the tray
@@ -360,6 +365,15 @@ export function ClusterBoard({
     walk(themeId, new Set([themeId]));
     return n;
   };
+
+  // Nothing in this theme at all: no implications (parked ones included, since they still
+  // hang off it), and none of the cards written ON it. Exactly what DeleteThemeModal calls
+  // `empty`, which is why the canvas ✕ can delete without asking — there is no second
+  // decision to make and the cascade has nothing to take.
+  const themeIsEmpty = (themeId: string): boolean =>
+    (board.clusters.get(themeId)?.length ?? 0) === 0 &&
+    board.parked.filter((c) => c.parentId === themeId).length === 0 &&
+    chainCountOf(themeId) === 0;
 
   const endDrag = () => {
     setDrag(null);
@@ -860,7 +874,7 @@ export function ClusterBoard({
   // Built from the DRAWN loose nodes, not from the board: canvasNodes drops loose cards
   // that fail the key-change filter, and that filter defaults to the FIRST key change — so
   // reading the board here would caption empty space for every key change out of view.
-  const pileGroups = new Map<string, { groupId: string; label: string; cards: Pos[] }>();
+  const pileGroups = new Map<string, { groupId: string; label: string; title: string; cards: Pos[] }>();
   if (canvasOn) {
     for (const n of canvasNodes) {
       if (n.themeIds.length > 0 || n.key === heldKey) continue;
@@ -875,6 +889,9 @@ export function ClusterBoard({
         pileGroups.set(groupId, {
           groupId,
           label: l ? keyChangeLabel(l.keyChange) : "No key change",
+          // The key change in full, for the caption's hover. `label` is its first 28
+          // characters and a key change runs to a paragraph.
+          title: l?.keyChange ?? "No key change",
           cards: [at],
         });
     }
@@ -1608,9 +1625,24 @@ export function ClusterBoard({
                           well was redundant — and wrong once the chain started showing the
                           group's renamed words against the Week 2 text on the card. */}
                       {level.order > 0 && !level.here && <Dot />}
-                      <span className={level.order === 0 ? "line-clamp-2" : "min-w-0"}>
-                        {level.here ? "◀ this one" : text}
-                      </span>
+                      {level.order === 0 ? (
+                        // The whole paragraph on demand. A button rather than a hover so
+                        // it survives being read on a tablet, where there is no hover at
+                        // all and the title attribute shows nothing.
+                        <button
+                          type="button"
+                          onClick={() => setKeyChangeOpen((v) => !v)}
+                          aria-expanded={keyChangeOpen}
+                          className={
+                            "min-w-0 text-left hover:text-blue " +
+                            (keyChangeOpen ? "" : "line-clamp-2")
+                          }
+                        >
+                          {text}
+                        </button>
+                      ) : (
+                        <span className="min-w-0">{level.here ? "◀ this one" : text}</span>
+                      )}
                     </p>
                   ))}
                 </div>
@@ -2400,6 +2432,13 @@ export function ClusterBoard({
             </div>
           ) : (
           <CanvasBoard
+            themeEmpty={themeIsEmpty}
+            // Straight to the delete, no modal: themeIsEmpty is the modal's own `empty`
+            // test, and "purge" on an empty theme removes the theme and nothing else.
+            onDeleteTheme={(themeId) => {
+              const theme = board.themes.find((t) => t.id === themeId);
+              if (theme) onDeleteTheme(theme, "purge");
+            }}
             nodes={canvasNodes}
             positions={canvasPositions}
             regions={canvasRegions}

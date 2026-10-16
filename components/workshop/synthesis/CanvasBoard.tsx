@@ -27,6 +27,11 @@ import {
 
 // The freeform clustering surface — step 1's third view, beside Map and Cards.
 //
+// How far a background drag must travel ON SCREEN before it becomes a theme. Generous on
+// purpose: a stray few pixels on the way to clicking something should never mint one, and
+// the cost of the threshold being too high is one more deliberate drag.
+const DRAW_MIN_PX = 40;
+
 // The gesture it exists for: shove implications into piles, draw a boundary round a pile,
 // and that is a theme. CONTAINMENT IS MEMBERSHIP — a card whose centre sits inside a
 // theme's region is in that theme, and dragging it clear of every region returns it to the
@@ -233,6 +238,8 @@ export function CanvasBoard({
   onRemoveFromTheme,
   onMoveRegion,
   onResizeRegion,
+  themeEmpty,
+  onDeleteTheme,
   trailing,
   nodeProps,
 }: {
@@ -255,6 +262,14 @@ export function CanvasBoard({
   // where they already are. Without that, cards still sitting at a fallback position
   // would jump to packed seats the moment the theme existed.
   onDrawRegion: (rect: Rect, claimed: CanvasCardPos[]) => void;
+  // "Nothing is in this theme" — the caller's judgement, because emptiness means no
+  // implications AND no answers, risks or opportunities, and the canvas only knows about
+  // the first. Together with onDeleteTheme it puts a ✕ on the box.
+  themeEmpty?: (themeId: string) => boolean;
+  // Deletes outright, no confirm. Only ever offered for a theme the caller calls empty,
+  // where there is nothing to decide and nothing to cascade — which is the whole reason
+  // it can skip the modal that deleting a theme otherwise goes through.
+  onDeleteTheme?: (themeId: string) => void;
   onSpreadOut: () => void;
   onGather: () => void;
   // Captions over the piles, derived by the caller. Nothing is stored, so they cannot go
@@ -719,7 +734,12 @@ export function CanvasBoard({
       // never mint a theme. And never over another
       // box — the overlap rule has to hold for the gesture that CREATES boxes too, or the
       // board can be put back into a state move and resize forbid.
-      if (r.w > 24 && r.h > 24 && mode.blocked.length === 0) {
+      // SCREEN pixels, not model units. `toModel` divides by `scale`, so a model-unit
+      // threshold shrinks as the board zooms out: at a Fit of 0.5 a 12-pixel twitch minted
+      // a theme, and at 0.3 a 7-pixel one — which is exactly the zoom a hand is at when it
+      // is dragging to get around rather than to draw. Measured on screen, the gesture
+      // costs the same wherever the zoom happens to be.
+      if (r.w * scale > DRAW_MIN_PX && r.h * scale > DRAW_MIN_PX && mode.blocked.length === 0) {
         const live = items.filter((it) => !dimmed.has(it.key));
         // The >=50%-coverage rule for SELECTION, which is what a Miro-trained hand expects
         // from a box: clipping a corner does not take a card, covering most of it does.
@@ -845,6 +865,10 @@ export function CanvasBoard({
               const editingName = renaming === r.themeId;
               const grippable = editable && movable(r.themeId) && !editingName;
               const renameable = editable && Boolean(onRenameTheme);
+              // `editable` as well as the handler, exactly like renameable: ClusterBoard
+              // passes onDeleteTheme unconditionally, and without this a locked board or
+              // the projector view would show a working ✕ to someone with no edit rights.
+              const deletable = editable && Boolean(onDeleteTheme) && (themeEmpty?.(r.themeId) ?? false);
 
               return (
                 <div key={r.themeId}>
@@ -1017,6 +1041,45 @@ export function CanvasBoard({
                           }}
                         >
                           <span aria-hidden>✎</span>
+                        </button>
+                      )}
+                      {/* An empty theme is deleted here, with no confirm. Deleting a theme
+                          normally opens a modal, because it is two decisions — whether to
+                          delete it, and what becomes of what it holds. An empty one holds
+                          nothing: there is no second decision and the cascade has nothing
+                          to take, so a dialog is pure friction on the one case that is
+                          always a mistake being undone. Themes drawn by accident are the
+                          reason this exists. */}
+                      {deletable && !live && !editingName && (
+                        <button
+                          // Same retargeting trap as the grip and the rename button: the
+                          // surface captures the pointer on pointerdown, so without this
+                          // the click never arrives.
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteTheme?.(r.themeId);
+                          }}
+                          aria-label={`Delete the empty theme ${themeLabel(r.themeId)}`}
+                          title="Delete this empty theme"
+                          className="font-normal text-muted hover:text-coral"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 24 / scale,
+                            height: 24 / scale,
+                            fontSize: 17 / scale,
+                            lineHeight: 1,
+                            marginRight: 3 / scale,
+                            verticalAlign: "-0.12em",
+                            position: "relative",
+                            zIndex: 1,
+                            pointerEvents: "auto",
+                            cursor: "pointer",
+                          }}
+                        >
+                          ✕
                         </button>
                       )}
                       {/* Bigger than the name beside it: it is the only part of the
@@ -1308,8 +1371,18 @@ export function CanvasBoard({
                 }}
               >
                 <span
+                  // The caption is the head of a key change, cut to 28 characters by
+                  // keyChangeLabel — and a key change is a paragraph. The whole thing on
+                  // hover, which needs the pointer: the wrapper is pointer-events-none so
+                  // the caption cannot eat a drag across the board, and the press is
+                  // stopped for the same reason the dismiss button stops it — the surface
+                  // captures the pointer and would start a marquee under the cursor.
+                  title={c.title || c.label}
+                  onPointerDown={(e) => e.stopPropagation()}
                   className="bg-board font-bold uppercase tracking-[0.05em] text-muted"
                   style={{
+                    pointerEvents: "auto",
+                    cursor: "help",
                     fontSize: 11 / scale,
                     lineHeight: 1.6,
                     paddingInline: 4 / scale,
