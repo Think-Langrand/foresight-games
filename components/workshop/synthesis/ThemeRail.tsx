@@ -241,9 +241,15 @@ export function ThemeRail({
                   // as what it holds reads as an item.
                   (editing ? "min-h-[9rem] " : "") +
                   (chosen
-                    ? // Picked: solid, so which theme is open is unmistakable across a room.
-                      "border-2 border-ink bg-blue text-white shadow-[3px_4px_0_rgba(36,36,34,0.2)] " +
-                      (lit ? "scale-[1.02] " : "")
+                    ? // Picked: a light wash plus the heavy ink border and the shadow. The
+                      // border and the lift do the work of saying "this one"; the fill only
+                      // has to tint, so the text stays ink and every chip inside it keeps
+                      // its own colour. A solid blue meant white text and four children
+                      // that had to be recoloured to survive it.
+                      "border-2 border-ink shadow-[3px_4px_0_rgba(36,36,34,0.2)] " +
+                      // Deeper while a drag is over it than when it is merely open, so the
+                      // two states are not the same square.
+                      (lit ? "scale-[1.02] bg-blue/20 " : "bg-blue/10 ")
                     : // At rest: a hairline on paper. Quiet enough that three empty themes
                       // do not look like three things demanding to be filled.
                       "border border-[var(--hairline)] bg-paper hover:border-ink ") +
@@ -258,21 +264,13 @@ export function ThemeRail({
                   {/* The number is shown as well as the name, because the map labels a
                       clustered node "Theme 3" — and once a group renames a theme, a number
                       that appears nowhere on the theme itself refers to nothing. */}
-                  <span
-                    className={
-                      "shrink-0 rounded-[2px] px-1 py-px text-[9.5px] font-bold " +
-                      (chosen ? "bg-white/25 text-white" : "bg-ink text-paper")
-                    }
-                  >
+                  <span className="shrink-0 rounded-[2px] bg-ink px-1 py-px text-[9.5px] font-bold text-paper">
                     {i + 1}
                   </span>
                   <span
                     aria-label={STATE_LABEL[state]}
                     title={`${progressLabel}: ${STATE_LABEL[state]}`}
-                    // STATE_DOT's "started" is blue, which disappears on a blue fill.
-                    className={
-                      "shrink-0 text-[10px] leading-none " + (chosen ? "text-white" : STATE_DOT[state])
-                    }
+                    className={"shrink-0 text-[10px] leading-none " + STATE_DOT[state]}
                   >
                     {stateGlyph(state)}
                   </span>
@@ -285,10 +283,7 @@ export function ThemeRail({
                         e.stopPropagation();
                         setRenaming(t.id);
                       }}
-                      className={
-                        "min-w-0 flex-1 text-left text-[10px] font-bold uppercase tracking-[0.05em] hover:underline " +
-                        (chosen ? "text-white" : "text-blue")
-                      }
+                      className="min-w-0 flex-1 text-left text-[10px] font-bold uppercase tracking-[0.05em] text-blue hover:underline"
                     >
                       ＋ Name
                     </button>
@@ -310,13 +305,7 @@ export function ThemeRail({
                       ✎
                     </button>
                   )}
-                  <span
-                    className={
-                      "shrink-0 text-[9.5px] font-bold " + (chosen ? "text-white/80" : "text-muted")
-                    }
-                  >
-                    {held.length}
-                  </span>
+                  <span className="shrink-0 text-[9.5px] font-bold text-muted">{held.length}</span>
                 </span>
 
                 {/* The field, under the number row rather than in it: the row is four
