@@ -71,6 +71,36 @@ export const NAME_SHAPE =
   "length to aim for. What the shift leads to, who it affects and what it puts at risk all " +
   "belong in the one-sentence summary, NOT in the name.";
 
+// Write like a person. Every prompt here that produces text a human reads carries this.
+//
+// The patterns are the ones from Wikipedia's "Signs of AI writing" that can actually occur in
+// a twelve-word phrase or a short paragraph — most of that catalogue is about headings,
+// emojis and conclusions, which a theme name cannot have. These are the ones observed in real
+// output from this very tool: the first pass of facilitator-written implications ran to
+// "becomes a function in its own right" and "creating accountability vacuums, value deadlock,
+// and chronic neglect", and had to be rewritten by hand.
+//
+// Stated as words to avoid rather than as "sound natural", because a model given the second
+// instruction produces the same prose and adds a sentence claiming it is plain.
+export const PLAIN_WORD_TELLS = [
+  "Inflated significance: pivotal, crucial, vital, key, era, landscape, paradigm, " +
+    "underscores, redefines, reshapes, transforms, marks a shift.",
+  "Filler vocabulary: navigate, leverage, foster, enhance, robust, holistic, nuanced, " +
+    "intricate, interplay, tapestry, realm, seamless, dynamic, delve.",
+  "Dodging the verb \"is\": serves as, stands as, emerges as, represents a, acts as.",
+  "A trailing -ing clause that fakes depth: \"…, reshaping how trust works\".",
+  "Three of anything: \"trust, capacity and legitimacy\". Name the one that carries the weight.",
+  "\"Not just X but Y\", \"at its core\", \"the real question is\".",
+  "Em dashes and semicolons. One clause is enough.",
+] as const;
+
+export const PLAIN_WORDS =
+  "Write like a person, in the plainest words that are true. These are the tells that give a " +
+  `machine away, and every one of them turns up in theme names:\n${bullets(PLAIN_WORD_TELLS)}` +
+  "\n\nOrdinary words for ordinary things: people, money, staff, rules, time, who decides. " +
+  "The group's own domain words are fine — surveillance, accreditation, legitimacy — but a " +
+  "word that appears only in strategy documents is not.";
+
 // --- the grouping prompt, composed ------------------------------------------------
 // Here rather than in implication-cluster.ts (which is server-only) because the admin
 // playground seeds its editable prompt box from this. That matters: `promptOverride`
@@ -110,5 +140,6 @@ export function composeClusterPrompt(framing: "group" | "cohort"): string {
     framing === "cohort" ? SYSTEM_COHORT : SYSTEM_GROUP,
     GROUPING_GUIDANCE,
     THEME_INSTRUCTIONS,
+    PLAIN_WORDS,
   ].join("\n\n");
 }

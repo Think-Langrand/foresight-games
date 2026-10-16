@@ -2,7 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 import { mapPool } from "./suggest";
-import { GROUPING_GUIDANCE } from "./theme-guidance";
+import { GROUPING_GUIDANCE, PLAIN_WORDS } from "./theme-guidance";
 import type {
   CohortGroupInfo,
   CohortItem,
@@ -106,7 +106,7 @@ export async function writeCohortNarrative(args: {
         "implications of a future scenario. Write for the facilitator's report: say what this " +
         "group's material is about and what is changing in it. Do not list the implications " +
         "back, and do not recommend actions.\n\n" +
-        GROUPING_GUIDANCE,
+        GROUPING_GUIDANCE + "\n\n" + PLAIN_WORDS,
       `Project: ${args.projectName}\nGroup: ${g.name}` +
         (g.scenarioTitle ? `\nScenario: ${g.scenarioTitle}` : "") +
         `\n\nImplications:\n${mine.map((i) => `• ${i.text}`).join("\n")}`,
@@ -140,7 +140,9 @@ export async function writeCohortNarrative(args: {
       "implications have been clustered into the themes below. Say what the cohort found " +
       "together, and name where a single group stood alone — an outlier is as useful as a " +
       "consensus. Use the group counts; do not invent agreement the counts do not show.\n\n" +
-      GROUPING_GUIDANCE,
+      GROUPING_GUIDANCE +
+      "\n\n" +
+      PLAIN_WORDS,
     `Project: ${args.projectName}\nGroups: ${contributing.map((g) => g.name).join(", ")}` +
       (scenarios.length > 1
         ? `\nThese groups worked from DIFFERENT scenarios: ${scenarios.join("; ")}. A theme ` +

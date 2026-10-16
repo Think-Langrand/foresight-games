@@ -1,6 +1,7 @@
 import "server-only";
 
 import OpenAI from "openai";
+import { PLAIN_WORDS } from "@/lib/analysis/theme-guidance";
 import type { KernelEntry } from "./types";
 
 // Best-effort LLM naming for a cluster of kernels. Given the worlds grouped into
@@ -56,7 +57,8 @@ export async function labelCluster(members: KernelEntry[]): Promise<ThemeLabel |
             "You are a foresight facilitator naming a cluster of submitted scenario 'kernels' " +
             "that an embedding model grouped together. Coin a short, evocative THEME label " +
             "(2-5 words) and a one-sentence SUMMARY of the pattern these futures share. Name " +
-            "what is common across them, not any single world.",
+            "what is common across them, not any single world.\n\n" +
+            PLAIN_WORDS,
         },
         { role: "user", content: `Worlds in this cluster:\n${digest}` },
       ],
