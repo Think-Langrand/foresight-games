@@ -4,7 +4,11 @@ import { useId, useState } from "react";
 import { csvCell, download } from "@/components/admin/exportUtils";
 import { membershipCounts } from "@/lib/analysis/implication-cluster-shape";
 import { COHORT_CSV_HEADER, cohortCsvRows } from "@/lib/analysis/cohort-csv";
-import { bucketByGroup, type CohortClusterResponse } from "@/lib/analysis/cohort-cluster-shape";
+import {
+  bucketByGroup,
+  scenariosDiffer,
+  type CohortClusterResponse,
+} from "@/lib/analysis/cohort-cluster-shape";
 import { CohortGrid } from "./CohortGrid";
 
 // One cohort run, rendered. Read-only: nothing here writes to a board.
@@ -74,7 +78,7 @@ export function CohortRunView({ run, label }: { run: CohortClusterResponse; labe
   };
 
   const groupOf = new Map(run.items.map((i) => [i.id, i.groupId]));
-  const scenariosDiffer = new Set(run.groups.map((g) => g.scenarioTitle ?? "")).size > 1;
+  const showScenario = scenariosDiffer(run.groups);
 
   function implication(id: string) {
     const item = itemById.get(id);
@@ -120,7 +124,7 @@ export function CohortRunView({ run, label }: { run: CohortClusterResponse; labe
                 {g ? g.name : "Not attributable to a group"}
                 <span className="ml-1.5 font-normal text-muted">
                   {b.ids.length}
-                  {scenariosDiffer && g?.scenarioTitle ? ` · ${g.scenarioTitle}` : ""}
+                  {showScenario && g?.scenarioTitle ? ` · ${g.scenarioTitle}` : ""}
                 </span>
               </summary>
               <ul className="mb-1.5 ml-3.5 mt-1 flex flex-col gap-1.5">{b.ids.map(implication)}</ul>

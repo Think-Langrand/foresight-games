@@ -94,6 +94,12 @@ export function CohortWorkbench({
   async function changeWeek(sort: number) {
     const seq = ++previewSeq.current;
     setWeekSort(sort);
+    // Exclusions belong to the week they were made in. Carried across, a group excluded at
+    // one week and empty or boardless at another stayed excluded, lost its column in the
+    // grid — the "never raised it" / "not in the run" collapse scopedGroupIds exists to
+    // prevent — and could not be put back, because its checkbox is disabled when it has
+    // nothing to contribute.
+    setExcluded(new Set());
     setError(null);
     setLoadingPreview(true);
     try {

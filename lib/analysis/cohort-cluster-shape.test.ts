@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   bucketByGroup,
   cohortWeeks,
+  scenariosDiffer,
   deriveCohortThemes,
   groupStateFor,
   buildGrid,
@@ -234,5 +235,39 @@ describe("bucketByGroup", () => {
     const ids = ["a", "b", "c", "d", "ghost"];
     const flat = bucketByGroup(ids, owners).flatMap((x) => x.ids);
     expect(flat.slice().sort()).toEqual(ids.slice().sort());
+  });
+});
+
+describe("scenariosDiffer", () => {
+  const g = (
+    id: string,
+    scenarioTitle: string | null,
+    state: CohortGroupInfo["state"] = "ok"
+  ): CohortGroupInfo => ({ id, name: id, color: null, scenarioTitle, itemCount: 1, state });
+
+  it("is true when contributing rooms explored different futures", () => {
+    expect(scenariosDiffer([g("a", "Thin Ice"), g("b", "Known Here")])).toBe(true);
+  });
+
+  it("is false when they all explored the same one", () => {
+    expect(scenariosDiffer([g("a", "Thin Ice"), g("b", "Thin Ice")])).toBe(false);
+  });
+
+  it("does not count a group with no scenario assigned as a second scenario", () => {
+    // The bug this replaced: `scenarioTitle ?? ""` made an unassigned group look like
+    // another future, so the grid claimed the cohort had split while the model was told
+    // they had not.
+    expect(scenariosDiffer([g("a", "Thin Ice"), g("b", null)])).toBe(false);
+  });
+
+  it("ignores groups that contributed nothing", () => {
+    // A room sitting the week out cannot have explored a different future in it.
+    expect(scenariosDiffer([g("a", "Thin Ice"), g("b", "Known Here", "missing")])).toBe(false);
+    expect(scenariosDiffer([g("a", "Thin Ice"), g("b", "Known Here", "empty")])).toBe(false);
+  });
+
+  it("is false for one room, or none", () => {
+    expect(scenariosDiffer([g("a", "Thin Ice")])).toBe(false);
+    expect(scenariosDiffer([])).toBe(false);
   });
 });

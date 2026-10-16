@@ -14,6 +14,7 @@ import {
   COHORT_PRESETS,
   DEFAULT_COHORT_PRESET,
   deriveCohortThemes,
+  scenariosDiffer,
   type CohortClusterResponse,
   type CohortItem,
   type ContextMode,
@@ -110,13 +111,15 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
       }
     : undefined;
   const contributing = pool.groups.filter((g) => g.state === "ok");
+  // Same rule the grid reads, from one place: contributing groups, named scenarios only.
   const scenarios = [
     ...new Set(contributing.map((g) => g.scenarioTitle).filter((s): s is string => Boolean(s))),
   ];
+  const differ = scenariosDiffer(pool.groups);
   const preamble = full
     ? `Project: ${args.projectName}\n` +
       `Groups in this cohort: ${contributing.map((g) => g.name).join(", ")}` +
-      (scenarios.length > 1
+      (differ
         ? `\nThese groups worked from DIFFERENT scenarios: ${scenarios.join("; ")}.`
         : scenarios.length === 1
           ? `\nScenario: ${scenarios[0]}`

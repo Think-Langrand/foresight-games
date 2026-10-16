@@ -1,6 +1,10 @@
 "use client";
 
-import { buildGrid, type CohortClusterResponse } from "@/lib/analysis/cohort-cluster-shape";
+import {
+  buildGrid,
+  scenariosDiffer,
+  type CohortClusterResponse,
+} from "@/lib/analysis/cohort-cluster-shape";
 
 // Themes down, groups across. The centrepiece of a cohort run, and the one view that
 // answers all three questions a facilitator brings to it:
@@ -27,8 +31,7 @@ export function CohortGrid({
   const contributing = run.groups.filter((g) => g.state === "ok").length;
   // Scenario titles only earn a line in the header when they actually differ — and when
   // they do, convergence across them is a materially stronger finding than within one.
-  const scenarios = new Set(run.groups.map((g) => g.scenarioTitle ?? ""));
-  const showScenario = scenarios.size > 1;
+  const showScenario = scenariosDiffer(run.groups);
   const busiest = Math.max(1, ...run.themes.flatMap((t) => t.byGroup.map((b) => b.count)));
 
   return (

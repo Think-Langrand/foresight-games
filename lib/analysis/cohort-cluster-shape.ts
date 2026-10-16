@@ -90,6 +90,20 @@ export const COHORT_PRESETS: { key: string; label: string; minSimilarity: number
 
 export const DEFAULT_COHORT_PRESET = "balanced";
 
+// Did the contributing groups work from DIFFERENT scenarios?
+//
+// Contributing only, and named only. Counting `scenarioTitle ?? ""` across every group made
+// one group with no scenario assigned — or one sitting out the run with no board — look
+// like a second scenario, so the grid said "these rooms explored different futures" while
+// cohort-cluster.ts, which filters nulls and non-contributing groups before it writes the
+// preamble, told the model the opposite. Two readings of the same run is worse than either.
+export function scenariosDiffer(groups: CohortGroupInfo[]): boolean {
+  const named = new Set(
+    groups.filter((g) => g.state === "ok" && g.scenarioTitle).map((g) => g.scenarioTitle as string)
+  );
+  return named.size > 1;
+}
+
 export function isContextMode(v: unknown): v is ContextMode {
   return v === "blind" || v === "full";
 }
