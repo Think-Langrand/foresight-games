@@ -15,6 +15,7 @@ import { AdminRippleMaps } from "@/components/admin/AdminRippleMaps";
 import { AdminDesignGroups, type AdminScenarioOption } from "@/components/admin/AdminDesignGroups";
 import { AdminTeamsManager } from "@/components/admin/AdminTeamsManager";
 import { CardGameLauncher } from "@/components/CardGameLauncher";
+import { ProjectExportButtons } from "@/components/admin/ProjectExportButtons";
 
 export const dynamic = "force-dynamic";
 
@@ -167,6 +168,7 @@ export default async function ProjectAdminPage({
             >
               Group activity →
             </Link>
+            <ProjectExportButtons projectId={project.id} slug={slug} />
           </span>
         </div>
         <p className="mt-2 max-w-[560px] text-[13px] leading-[1.5] text-muted">
