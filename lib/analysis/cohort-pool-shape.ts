@@ -19,6 +19,7 @@ import {
   implicationSeedCandidates,
   themeLabel,
 } from "@/lib/synthesis-shape";
+import { IMPLICATION_MATERIAL, type PoolMaterial } from "./theme-guidance";
 import type { RippleCard } from "@/lib/ripples-types";
 import type { CohortItem } from "./cohort-cluster-shape";
 
@@ -48,6 +49,45 @@ const LABELS: Record<PoolSource, string> = {
 export function poolSourceLabel(source: PoolSource): string {
   return LABELS[source];
 }
+
+// How each source is described TO THE MODEL. The clustering prompts were written for
+// implications and name them twice, so pooling risks through the same call would hand the
+// model a list of risks under a sentence calling them implications. `implications` reuses
+// IMPLICATION_MATERIAL by reference, which is how composeClusterPrompt recognizes the
+// default and returns the original prompt unchanged.
+export const POOL_MATERIAL: Record<PoolSource, PoolMaterial> = {
+  implications: IMPLICATION_MATERIAL,
+  risks: {
+    plural: "risks",
+    singular: "risk",
+    produced: "named the risks they saw in the themes they had built",
+    context: "theme",
+  },
+  opportunities: {
+    plural: "opportunities",
+    singular: "opportunity",
+    produced: "named the opportunities they saw in the themes they had built",
+    context: "theme",
+  },
+  stakes: {
+    plural: "risks and opportunities",
+    singular: "item",
+    produced: "named the risks and opportunities they saw in the themes they had built",
+    context: "theme",
+  },
+  hopes: {
+    plural: "hopes",
+    singular: "hope",
+    produced: "wrote what they hoped for in a future scenario",
+    context: "fear it answers",
+  },
+  fears: {
+    plural: "fears",
+    singular: "fear",
+    produced: "wrote what they feared in a future scenario",
+    context: "theme",
+  },
+};
 
 // Which week a source lives on. Implications are Session 2's tree; everything else is
 // written in Session 3, so the week selector has to follow the source rather than always

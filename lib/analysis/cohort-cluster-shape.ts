@@ -11,6 +11,7 @@
 // membership after the fact, never asked of the model, which is what deriveCohortThemes is.
 
 import type { ClusterMethod, ImplicationItem, SuggestedTheme } from "./implication-cluster-shape";
+import type { PoolSource } from "./cohort-pool-shape";
 
 // Why a group contributed nothing, which must never be confusable with "contributed zero
 // to this theme". "Group 4 never raised legitimacy" is a finding; "Group 4 had no board"
@@ -52,6 +53,9 @@ export interface CohortNarrative {
 }
 
 export interface CohortClusterResponse {
+  // WHICH material this run pooled. Recorded so a saved or exported run can never be read
+  // as being about implications when it was about risks.
+  source: PoolSource;
   method: ClusterMethod;
   criteria: string | null;
   promptOverride: string | null;
