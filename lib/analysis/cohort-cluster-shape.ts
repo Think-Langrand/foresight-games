@@ -23,6 +23,10 @@ export type ContextMode = "blind" | "full";
 
 export interface CohortItem extends ImplicationItem {
   groupId: string;
+  // Which side of the ledger this item is, when the pool has sides. Absent for an
+  // implications pool, which has none. Optional so every existing consumer is unaffected;
+  // the views that show a theme's risk/opportunity mix read it, nothing else does.
+  polarity?: "risk" | "opportunity" | "hope" | "fear";
 }
 
 export interface CohortTheme extends SuggestedTheme {
