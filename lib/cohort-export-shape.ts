@@ -57,10 +57,14 @@ export interface BoardExtras {
 }
 
 export interface ExportedWeek {
-  weekSort: number; // index in the canonical program -- the ONLY reliable cross-group key
+  weekSort: number; // position in the canonical program -- the cross-group key
   weekTitle: string; // canonical title for this week, across the project
   exerciseId: string | null; // null = this group has no row at this week
   exerciseTitle: string | null; // this group's own title, which may have drifted
+  // What the ROW itself calls its position, which is not always `weekSort`: toProgramDTO
+  // aligns by array index, so a group missing a row shifts everything after it up one.
+  // Carried so a reader can check the alignment rather than trust it. See programDivergent.
+  exerciseSort: number | null;
   type: string | null;
   sessionCode: string | null; // null = the row exists but has no board
   answers: ExerciseAnswers | null;
@@ -89,6 +93,13 @@ export interface ProjectExport {
   exportedAt: string;
   weeks: { sort: number; title: string; type: string }[];
   groups: ExportedGroup[];
+  // The groups were NOT in lockstep when this was read: they differ in week count, type,
+  // title, schedule or question keys. Week alignment is positional, so a divergent program
+  // means two groups' week 2 may not be the same session -- and `exerciseSort` on each week
+  // is how a consumer checks. Reported rather than resolved: the export's job is to record
+  // what is there, and silently comparing across a divergent program is the one thing a
+  // reader of this file must not do unknowingly.
+  programDivergent: boolean;
 }
 
 export interface ExportInput {
@@ -153,6 +164,7 @@ export function buildExportPayload(input: ExportInput): ProjectExport {
   return {
     project: input.project,
     exportedAt: input.exportedAt,
+    programDivergent: program.divergent,
     weeks: weekLabels,
     groups: groups.map((g): ExportedGroup => {
       const byId = new Map((input.exercisesByGroup[g.id] ?? []).map((e) => [e.id, e]));
@@ -172,6 +184,7 @@ export function buildExportPayload(input: ExportInput): ProjectExport {
             weekTitle: weekLabels[sort].title,
             exerciseId: ex?.id ?? null,
             exerciseTitle: ex?.title ?? null,
+            exerciseSort: ex?.sort ?? null,
             type: ex?.type ?? null,
             sessionCode: code,
             answers: ex ? (input.answersByExerciseId[ex.id] ?? null) : null,

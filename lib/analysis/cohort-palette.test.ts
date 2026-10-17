@@ -6,6 +6,7 @@ import {
   POLARITY_COLOR,
   convergenceStep,
   groupColors,
+  shadeFor,
 } from "./cohort-palette";
 
 describe("COHORT_CATEGORICAL", () => {
@@ -91,5 +92,37 @@ describe("convergenceStep", () => {
   it("does not run off the end of the ramp when a cohort has more groups than steps", () => {
     expect(convergenceStep(9, 9)).toBe(CONVERGENCE_STEPS[4]);
     expect(convergenceStep(5, 9)).toBeTruthy();
+  });
+});
+
+describe("shadeFor", () => {
+  // The bug this exists to prevent: scaling a cell's count into the ramp with Math.round
+  // sends any share below 12.5% to step 0, and step 0 is TRANSPARENT by design. On a row of
+  // [41, 5, 1, 0] the 5 and the 1 rendered with exactly the background of the 0, so the one
+  // encoding this view carries said three rooms never went there when only one hadn't.
+  it("never renders a real contribution as the absence step", () => {
+    for (const rowMax of [4, 9, 10, 41, 300]) {
+      for (const count of [1, 2, 3, 5]) {
+        if (count > rowMax) continue;
+        expect(shadeFor(count, rowMax)).not.toBe(CONVERGENCE_STEPS[0]);
+      }
+    }
+  });
+
+  it("renders nothing for an actual zero", () => {
+    expect(shadeFor(0, 41)).toBe(CONVERGENCE_STEPS[0]);
+  });
+
+  it("gives the row's biggest cell the darkest step", () => {
+    expect(shadeFor(41, 41)).toBe(CONVERGENCE_STEPS[4]);
+    expect(shadeFor(1, 1)).toBe(CONVERGENCE_STEPS[4]);
+  });
+
+  it("still separates a small contribution from a large one", () => {
+    expect(shadeFor(1, 41)).not.toBe(shadeFor(41, 41));
+  });
+
+  it("does not divide by zero on an empty row", () => {
+    expect(shadeFor(0, 0)).toBe(CONVERGENCE_STEPS[0]);
   });
 });

@@ -32,11 +32,20 @@ import type { PoolSource } from "./cohort-pool-shape";
 export interface Score {
   plausibility: number | null;
   impact: number | null;
+  // WHAT was scored, as opposed to how many members point at it. Two implications off the
+  // same key change are one piece of evidence, not two, and a theme's position must not
+  // move because one room wrote more sentences under a key change than another room did.
+  rootId: string;
 }
 
-export interface ThemeWeight extends Score {
+export interface ThemeWeight {
+  plausibility: number | null;
+  impact: number | null;
   n: number; // members that carried a score
-  missing: number; // members that did not
+  // Distinct scored things behind those members. This is the honest evidence count, and it
+  // is what a view should show: `n: 20` can mean two key changes seen twenty times.
+  roots: number;
+  missing: number; // members that did not carry a score
 }
 
 export interface FlipEntry {
@@ -50,6 +59,10 @@ export interface FlipEntry {
 
 export interface GroupFlips {
   groupId: string;
+  // Whether this room had a Session 3 board at all. `hasBoard: false` and `total: 0` are
+  // different findings -- "there was nowhere to write a fear" versus "nobody wrote one" --
+  // and a view that renders only the rooms with boards drops the first one silently.
+  hasBoard: boolean;
   entries: FlipEntry[];
   flipped: number;
   total: number;
@@ -58,11 +71,11 @@ export interface GroupFlips {
 const mean = (xs: number[]): number | null =>
   xs.length === 0 ? null : Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 100) / 100;
 
-function scoreOfRoots(roots: RippleCard[]): Score | null {
+function scoreOfRoots(roots: RippleCard[], rootId: string): Score | null {
   const p = roots.map((r) => r.plausibility).filter((x): x is number => typeof x === "number");
   const i = roots.map((r) => r.impact).filter((x): x is number => typeof x === "number");
   if (p.length === 0 && i.length === 0) return null;
-  return { plausibility: mean(p), impact: mean(i) };
+  return { plausibility: mean(p), impact: mean(i), rootId };
 }
 
 // Per pooled item, the plausibility and impact behind it. Items with nothing behind them are
@@ -86,9 +99,12 @@ export function scoresForItems(args: {
   };
 
   if (source === "implications") {
-    // The item IS a Session 2 card, so one hop to its key change.
+    // The item IS a Session 2 card, so one hop to its key change. The key change is the
+    // root id, so twenty implications off one key change weigh it once.
     for (const id of itemIds) {
-      const score = scoreOfRoots([rootOf(id)].filter((r): r is RippleCard => r !== null));
+      const root = rootOf(id);
+      if (!root) continue;
+      const score = scoreOfRoots([root], root.id);
       if (score) out.set(id, score);
     }
     return out;
@@ -107,7 +123,9 @@ export function scoresForItems(args: {
     // Distinct roots: a theme holding four implications from one key change should weigh
     // that key change once, not four times.
     const distinct = [...new Map(roots.map((r) => [r.id, r])).values()];
-    themeScores.set(theme.id, scoreOfRoots(distinct));
+    // The THEME is the root here: every risk on one theme inherits the same number, so the
+    // theme is the one piece of evidence, not each risk written on it.
+    themeScores.set(theme.id, scoreOfRoots(distinct, theme.id));
   }
 
   for (const id of itemIds) {
@@ -126,10 +144,15 @@ export function weightsForThemes(
 ): ThemeWeight[] {
   return themes.map((t) => {
     const got = t.memberIds.map((id) => scoresByItemId.get(id)).filter((s): s is Score => Boolean(s));
+    // Averaged over DISTINCT roots, identically on every source path. Averaging over
+    // members instead put a theme where the most prolific room's key change was, because
+    // eighteen implications off one key change outvoted two off another.
+    const byRoot = [...new Map(got.map((s) => [s.rootId, s])).values()];
     return {
-      plausibility: mean(got.map((s) => s.plausibility).filter((x): x is number => x !== null)),
-      impact: mean(got.map((s) => s.impact).filter((x): x is number => x !== null)),
+      plausibility: mean(byRoot.map((s) => s.plausibility).filter((x): x is number => x !== null)),
+      impact: mean(byRoot.map((s) => s.impact).filter((x): x is number => x !== null)),
       n: got.length,
+      roots: byRoot.length,
       missing: t.memberIds.length - got.length,
     };
   });
@@ -139,7 +162,12 @@ export function weightsForThemes(
 //
 // A fear left standing is kept, and is arguably the more interesting half: it is where a
 // room looked at something and could not find the other side of it.
-export function flipsForBoard(week3Cards: RippleCard[], groupId: string): GroupFlips {
+export function flipsForBoard(
+  week3Cards: RippleCard[],
+  groupId: string,
+  opts: { hasBoard?: boolean } = {}
+): GroupFlips {
+  const hasBoard = opts.hasBoard ?? true;
   const board = indexSynthesisBoard(week3Cards);
 
   // Both placements -- on the board (step 3) and on a theme (older boards) -- deduped by
@@ -163,6 +191,7 @@ export function flipsForBoard(week3Cards: RippleCard[], groupId: string): GroupF
 
   return {
     groupId,
+    hasBoard,
     entries,
     flipped: entries.filter((e) => e.flipped).length,
     total: entries.length,

@@ -1,6 +1,7 @@
 "use client";
 
 import { POLARITY_COLOR } from "@/lib/analysis/cohort-palette";
+import { axisSpan, axisTicks } from "@/lib/analysis/cohort-scatter-shape";
 import type { CohortAnalysis } from "@/lib/analysis/cohort-analysis";
 import { Figure, Swatch, Tooltip, useTip } from "./chrome";
 
@@ -55,26 +56,11 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
     );
   }
 
-  // Zoom to the data with a small margin, then widen to at least one scale point so two
-  // near-identical themes do not get flung to opposite corners by a 0.05 difference.
-  const span = (vals: number[]) => {
-    const lo = Math.min(...vals);
-    const hi = Math.max(...vals);
-    // Pad proportionally, with a small floor so a dot never sits on the axis. The floor was
-    // 0.5 and the observed spread is about 0.5, so it doubled the canvas and put every dot
-    // in the top third -- the exact failure the zoom exists to avoid, reintroduced by the
-    // padding. MIN_SPAN keeps two near-identical themes from being flung apart instead.
-    const MIN_SPAN = 0.6;
-    const pad = Math.max(0.12, (hi - lo) * 0.18);
-    let [a, b] = [lo - pad, hi + pad];
-    if (b - a < MIN_SPAN) {
-      const mid = (a + b) / 2;
-      [a, b] = [mid - MIN_SPAN / 2, mid + MIN_SPAN / 2];
-    }
-    return { lo: Math.max(1, a), hi: Math.min(5, b) };
-  };
-  const xs = span(plotted.map((d) => d.w.plausibility as number));
-  const ys = span(plotted.map((d) => d.w.impact as number));
+  // Zoomed to the data, padded OUTSIDE the nominal 1-5 scale. See lib/analysis/
+  // cohort-scatter-shape.ts for why clamping the padding back into the scale is what put a
+  // theme scoring exactly 5.0 half outside the plot.
+  const xs = axisSpan(plotted.map((d) => d.w.plausibility as number));
+  const ys = axisSpan(plotted.map((d) => d.w.impact as number));
 
   const px = (v: number) => PAD.l + ((v - xs.lo) / (xs.hi - xs.lo || 1)) * (W - PAD.l - PAD.r);
   const py = (v: number) => H - PAD.b - ((v - ys.lo) / (ys.hi - ys.lo || 1)) * (H - PAD.t - PAD.b);
@@ -93,13 +79,10 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
     return { risk, opp, any: risk + opp > 0 };
   };
 
-  const ticks = (s: { lo: number; hi: number }) => {
-    const out: number[] = [];
-    for (let v = Math.ceil(s.lo * 2) / 2; v <= s.hi + 0.001; v += 0.5) out.push(Math.round(v * 10) / 10);
-    return out.length > 1 ? out : [s.lo, s.hi];
-  };
-
-  const thin = plotted.filter((d) => d.w.n > 0 && d.w.n < 3).length;
+  // Thin means few distinct SCORED THINGS behind the dot, not few members. A theme with
+  // twenty members off two key changes is positioned by two numbers, however many sentences
+  // point at them.
+  const thin = plotted.filter((d) => d.w.roots > 0 && d.w.roots < 3).length;
 
   return (
     <Figure
@@ -128,7 +111,7 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
         `A theme's score is the mean of several key changes, so the real spread is narrow and a ` +
         `full-scale grid would put every dot in one corner. Read the positions as relative, not absolute.` +
         (thin > 0
-          ? ` ${thin} theme${thin === 1 ? " is" : "s are"} positioned from fewer than three scored members — hover for the count.`
+          ? ` ${thin} theme${thin === 1 ? " is" : "s are"} positioned from fewer than three distinct scored key changes — hover for the count.`
           : "")
       }
     >
@@ -137,7 +120,7 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
         <svg viewBox={`0 0 ${W} ${H}`} className="min-w-[640px] w-full max-w-[900px]" role="img"
           aria-label="Themes positioned by mean plausibility and impact. The table view below carries the same numbers.">
           {/* Recessive grid. */}
-          {ticks(xs).map((v) => (
+          {axisTicks(xs).map((v) => (
             <g key={`x${v}`}>
               <line x1={px(v)} y1={PAD.t} x2={px(v)} y2={H - PAD.b} stroke="var(--rule)" strokeOpacity={0.1} />
               <text x={px(v)} y={H - PAD.b + 16} textAnchor="middle" className="fill-[var(--muted)] text-[10px] tabular-nums">
@@ -145,7 +128,7 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
               </text>
             </g>
           ))}
-          {ticks(ys).map((v) => (
+          {axisTicks(ys).map((v) => (
             <g key={`y${v}`}>
               <line x1={PAD.l} y1={py(v)} x2={W - PAD.r} y2={py(v)} stroke="var(--rule)" strokeOpacity={0.1} />
               <text x={PAD.l - 8} y={py(v)} textAnchor="end" dominantBaseline="middle" className="fill-[var(--muted)] text-[10px] tabular-nums">
@@ -228,8 +211,9 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
                           plausibility {d.w.plausibility} · impact {d.w.impact}
                           <br />
                           <span className="text-[10px]">
-                            from {d.w.n} scored member{d.w.n === 1 ? "" : "s"}
-                            {d.w.missing > 0 ? `, ${d.w.missing} unscored` : ""}
+                            from {d.w.roots} scored {run.source === "implications" ? "key change" : "theme"}
+                            {d.w.roots === 1 ? "" : "s"} ({d.w.n} member{d.w.n === 1 ? "" : "s"}
+                            {d.w.missing > 0 ? `, ${d.w.missing} unscored` : ""})
                           </span>
                           {m.any ? (
                             <>

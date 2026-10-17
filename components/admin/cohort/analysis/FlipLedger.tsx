@@ -26,6 +26,7 @@ export function FlipLedger({ analysis, colors }: { analysis: CohortAnalysis; col
     (acc, f) => ({ flipped: acc.flipped + f.flipped, total: acc.total + f.total }),
     { flipped: 0, total: 0 }
   );
+  const boardless = flips.filter((f) => !f.hasBoard).length;
 
   if (flips.length === 0 || totals.total === 0) {
     return (
@@ -45,7 +46,13 @@ export function FlipLedger({ analysis, colors }: { analysis: CohortAnalysis; col
   return (
     <Figure
       title="What the rooms managed to flip"
-      lede={`Every fear written in Session 3, with the hope the room found on the other side of it. ${totals.flipped} of ${totals.total} fears across the cohort were turned around.`}
+      lede={
+        `Every fear written in Session 3, with the hope the room found on the other side of it. ` +
+        `${totals.flipped} of ${totals.total} fears across the cohort were turned around.` +
+        (boardless > 0
+          ? ` ${boardless} room${boardless === 1 ? " has" : "s have"} no Session 3 board and could not take part.`
+          : "")
+      }
       legend={
         <>
           <Swatch color={POLARITY_COLOR.fear} label="a fear, as written" />
@@ -70,6 +77,7 @@ export function FlipLedger({ analysis, colors }: { analysis: CohortAnalysis; col
                   <span className="text-[11px] text-muted">{g.scenarioTitle}</span>
                 ) : null}
                 <span className="ml-auto flex items-center gap-2">
+                  {f.hasBoard ? (
                   <span
                     className="flex h-[8px] w-[84px] overflow-hidden rounded-[2px] border border-[var(--rule)]/25"
                     role="img"
@@ -77,16 +85,21 @@ export function FlipLedger({ analysis, colors }: { analysis: CohortAnalysis; col
                   >
                     <span style={{ background: POLARITY_COLOR.hope, width: `${pct}%` }} />
                   </span>
+                  ) : null}
                   <span className="text-[11px] font-bold tabular-nums text-ink">
-                    {f.flipped}/{f.total} flipped
+                    {f.hasBoard ? `${f.flipped}/${f.total} flipped` : "no board"}
                   </span>
                 </span>
               </header>
 
-              {f.total === 0 ? (
-                // A room with a board and no fears on it. Said in words rather than left as
-                // an empty block under "0/0", which reads as a rendering gap rather than as
-                // the fact it is.
+              {/* Three different nothings, said as three different sentences. A room with
+                  no board never had the chance; a room with a board and no fears had it and
+                  did not take it; a fear with no hope is the interesting one. */}
+              {!f.hasBoard ? (
+                <p className="text-[12px] italic leading-[1.45] text-muted">
+                  No Session 3 board for this room, so there was nowhere to write a fear.
+                </p>
+              ) : f.total === 0 ? (
                 <p className="text-[12px] italic leading-[1.45] text-muted">
                   No fears written on this board, so there was nothing to flip.
                 </p>

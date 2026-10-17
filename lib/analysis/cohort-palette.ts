@@ -71,6 +71,21 @@ export const CONVERGENCE_STEPS = [
   "#275de2",
 ] as const;
 
+// The shade for ONE CELL, as its share of the biggest cell in its own row.
+//
+// Separate from convergenceStep and not a call into it, because the two scales mean
+// different things and the obvious composition is wrong: rounding a share into the ramp
+// sends anything under 12.5% to step 0, and step 0 is TRANSPARENT on purpose. A row of
+// [41, 5, 1, 0] then drew the 5 and the 1 with exactly the background of the 0, so the
+// shade -- the thing this view is read for -- said three rooms never went there when one
+// hadn't. Any real contribution gets at least the palest step; only a true zero gets none.
+export function shadeFor(count: number, rowMax: number): string {
+  if (count <= 0 || rowMax <= 0) return CONVERGENCE_STEPS[0];
+  const last = CONVERGENCE_STEPS.length - 1;
+  const step = Math.round((count / rowMax) * (last - 1)) + 1;
+  return CONVERGENCE_STEPS[Math.min(last, Math.max(1, step))];
+}
+
 export function convergenceStep(groupCount: number, totalGroups: number): string {
   if (groupCount <= 0) return CONVERGENCE_STEPS[0];
   const last = CONVERGENCE_STEPS.length - 1;

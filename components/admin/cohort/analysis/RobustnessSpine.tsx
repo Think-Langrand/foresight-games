@@ -1,11 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import {
-  OTHER_GROUP_COLOR,
-  POLARITY_COLOR,
-  convergenceStep,
-} from "@/lib/analysis/cohort-palette";
+import { OTHER_GROUP_COLOR, POLARITY_COLOR, shadeFor } from "@/lib/analysis/cohort-palette";
 import { bucketByGroup } from "@/lib/analysis/cohort-cluster-shape";
 import { poolSourceLabel } from "@/lib/analysis/cohort-pool-shape";
 import type { CohortAnalysis } from "@/lib/analysis/cohort-analysis";
@@ -35,7 +31,10 @@ import {
 export function RobustnessSpine({ analysis, colors }: { analysis: CohortAnalysis; colors: Map<string, string> }) {
   const { run, grid } = analysis;
   const { tip, show, hide } = useTip();
-  const [open, setOpen] = useState<number | null>(null);
+  // Keyed on the theme's LABEL, not its index. A re-run re-clusters, so index 3 is a
+  // different theme afterwards and an index-keyed accordion stayed open on whatever landed
+  // there -- showing one theme's members under another theme's heading.
+  const [open, setOpen] = useState<string | null>(null);
 
   const total = run.groups.filter((g) => g.state === "ok").length;
   const itemById = new Map(run.items.map((i) => [i.id, i]));
@@ -143,7 +142,7 @@ export function RobustnessSpine({ analysis, colors }: { analysis: CohortAnalysis
               // One rule, drawn: the line between "robust across futures" and the rest.
               const boundary = prev !== undefined && prev > 1 && t.groupCount === 1;
               const pol = polarityOf(t.memberIds);
-              const isOpen = open === i;
+              const isOpen = open === t.label;
               return (
                 <Fragment key={i}>
                   <tr
@@ -154,7 +153,7 @@ export function RobustnessSpine({ analysis, colors }: { analysis: CohortAnalysis
                     <th scope="row" className="py-2 pr-3 font-normal">
                       <button
                         type="button"
-                        onClick={() => setOpen(isOpen ? null : i)}
+                        onClick={() => setOpen(isOpen ? null : t.label)}
                         aria-expanded={isOpen}
                         className="text-left text-[12.5px] font-semibold leading-[1.35] text-ink hover:text-blue"
                       >
@@ -203,12 +202,7 @@ export function RobustnessSpine({ analysis, colors }: { analysis: CohortAnalysis
                             onBlur={hide}
                             className="mx-auto flex h-7 w-12 items-center justify-center rounded-[3px] border border-[var(--rule)]/25 text-[11.5px] font-bold tabular-nums"
                             style={{
-                              background: absent
-                                ? MISSING_FILL
-                                : convergenceStep(
-                                    c.count > 0 ? Math.round((c.count / rowMax) * 4) : 0,
-                                    4
-                                  ),
+                              background: absent ? MISSING_FILL : shadeFor(c.count, rowMax),
                               color: c.count / rowMax > 0.62 ? "var(--paper)" : "var(--ink)",
                             }}
                           >

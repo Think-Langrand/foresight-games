@@ -63,8 +63,8 @@ describe("scoresForItems", () => {
       week3Cards: [],
       itemIds: ["i1", "i2"],
     });
-    expect(s.get("i1")).toEqual({ plausibility: 4, impact: 5 });
-    expect(s.get("i2")).toEqual({ plausibility: 2, impact: 3 });
+    expect(s.get("i1")).toEqual({ plausibility: 4, impact: 5, rootId: "k1" });
+    expect(s.get("i2")).toEqual({ plausibility: 2, impact: 3, rootId: "k2" });
   });
 
   it("gives no score to an implication whose key change was never scored", () => {
@@ -87,7 +87,8 @@ describe("scoresForItems", () => {
       week3Cards: week3(),
       itemIds: ["rk1"],
     });
-    expect(s.get("rk1")).toEqual({ plausibility: 3, impact: 4 }); // mean of (4,5) and (2,3)
+    // mean of (4,5) and (2,3); rootId is the theme, so two risks on it weigh it once
+    expect(s.get("rk1")).toEqual({ plausibility: 3, impact: 4, rootId: "t1" });
   });
 
   it("gives no score to a board-level hope, which hangs under no theme at all", () => {
@@ -119,13 +120,14 @@ describe("weightsForThemes", () => {
 
   it("averages the scores its members carry", () => {
     const scores = new Map([
-      ["a", { plausibility: 4, impact: 5 }],
-      ["b", { plausibility: 2, impact: 3 }],
+      ["a", { plausibility: 4, impact: 5, rootId: "k1" }],
+      ["b", { plausibility: 2, impact: 3, rootId: "k2" }],
     ]);
     expect(weightsForThemes([theme(["a", "b"])], scores)[0]).toEqual({
       plausibility: 3,
       impact: 4,
       n: 2,
+      roots: 2,
       missing: 0,
     });
   });
@@ -136,11 +138,12 @@ describe("weightsForThemes", () => {
   // unscored theme at the origin would read as "the cohort thought this was implausible
   // and harmless", which is the opposite of "nobody scored it".
   it("reports how many members had a score and how many did not", () => {
-    const scores = new Map([["a", { plausibility: 4, impact: 4 }]]);
+    const scores = new Map([["a", { plausibility: 4, impact: 4, rootId: "k1" }]]);
     expect(weightsForThemes([theme(["a", "b", "c"])], scores)[0]).toEqual({
       plausibility: 4,
       impact: 4,
       n: 1,
+      roots: 1,
       missing: 2,
     });
   });
@@ -150,6 +153,7 @@ describe("weightsForThemes", () => {
       plausibility: null,
       impact: null,
       n: 0,
+      roots: 0,
       missing: 1,
     });
   });
@@ -196,6 +200,101 @@ describe("flipsForBoard", () => {
   });
 
   it("reports an empty board as nothing flipped out of nothing, not as a divide by zero", () => {
-    expect(flipsForBoard([], "g1")).toEqual({ groupId: "g1", entries: [], flipped: 0, total: 0 });
+    expect(flipsForBoard([], "g1")).toEqual({
+      groupId: "g1",
+      hasBoard: true,
+      entries: [],
+      flipped: 0,
+      total: 0,
+    });
+  });
+});
+
+// --- the honesty number -----------------------------------------------------------
+//
+// `n` is read as "how much evidence is behind this dot". It counted MEMBERS, and on the
+// implications path a theme with 18 implications off one key change and 2 off another
+// reported n: 20 when two distinct key changes were scored. Worse, the Session 3 path
+// de-duplicated by root and the implications path did not, so the same field answered two
+// different questions depending on the source, with nothing on screen saying which.
+
+describe("weights count distinct scored roots, not members", () => {
+  it("reports how many distinct key changes are behind a theme", () => {
+    const scores = new Map([
+      ["a", { plausibility: 2, impact: 2, rootId: "k1" }],
+      ["b", { plausibility: 2, impact: 2, rootId: "k1" }],
+      ["c", { plausibility: 5, impact: 5, rootId: "k2" }],
+    ]);
+    const t = { label: "T", summary: null, memberIds: ["a", "b", "c"], cohesion: null, byGroup: [], groupCount: 0 };
+    const w = weightsForThemes([t], scores)[0];
+    expect(w.roots).toBe(2);
+    expect(w.n).toBe(3);
+  });
+
+  // A theme's position must not move because one room wrote more sentences under one key
+  // change than another room did. Averaging over distinct roots is what makes the dot about
+  // the cohort's judgement rather than about who typed more.
+  it("weighs each key change once however many members hang off it", () => {
+    const scores = new Map([
+      ["a", { plausibility: 2, impact: 2, rootId: "k1" }],
+      ["b", { plausibility: 2, impact: 2, rootId: "k1" }],
+      ["c", { plausibility: 5, impact: 5, rootId: "k2" }],
+    ]);
+    const t = { label: "T", summary: null, memberIds: ["a", "b", "c"], cohesion: null, byGroup: [], groupCount: 0 };
+    expect(weightsForThemes([t], scores)[0].plausibility).toBe(3.5); // not 3
+  });
+
+  it("gives the same answer whichever source the scores came from", () => {
+    const t = { label: "T", summary: null, memberIds: ["a", "b"], cohesion: null, byGroup: [], groupCount: 0 };
+    const viaImplications = new Map([
+      ["a", { plausibility: 4, impact: 4, rootId: "k1" }],
+      ["b", { plausibility: 4, impact: 4, rootId: "k1" }],
+    ]);
+    expect(weightsForThemes([t], viaImplications)[0]).toEqual({
+      plausibility: 4,
+      impact: 4,
+      n: 2,
+      roots: 1,
+      missing: 0,
+    });
+  });
+
+  it("carries the root id through on the implications path", () => {
+    const s = scoresForItems({ source: "implications", week2Cards: week2(), week3Cards: [], itemIds: ["i1"] });
+    expect(s.get("i1")?.rootId).toBe("k1");
+  });
+
+  it("carries a synthesis item's theme as its root, so two risks on one theme weigh once", () => {
+    const s = scoresForItems({ source: "risks", week2Cards: week2(), week3Cards: week3(), itemIds: ["rk1"] });
+    expect(s.get("rk1")?.rootId).toBe("t1");
+  });
+});
+
+// --- a room with no board must not vanish ---------------------------------------
+//
+// The plan's one stated non-negotiable: "this group never raised it" and "this group had no
+// board" are different findings and must stay distinguishable. The flips list was built by
+// skipping boardless groups entirely, so such a room had no row anywhere in the flip view
+// and nothing said it existed.
+
+describe("flipsForBoard marks whether there was a board at all", () => {
+  it("reports a board that exists and carries no fears", () => {
+    const out = flipsForBoard([card("t1", { cardKind: "theme", text: "A theme" })], "g1");
+    expect(out.hasBoard).toBe(true);
+    expect(out.total).toBe(0);
+  });
+
+  it("reports an absent board as absent, not as a board with nothing on it", () => {
+    expect(flipsForBoard([], "g1", { hasBoard: false })).toEqual({
+      groupId: "g1",
+      hasBoard: false,
+      entries: [],
+      flipped: 0,
+      total: 0,
+    });
+  });
+
+  it("defaults to assuming a board when nothing says otherwise", () => {
+    expect(flipsForBoard([], "g1").hasBoard).toBe(true);
   });
 });

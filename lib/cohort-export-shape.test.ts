@@ -256,3 +256,44 @@ describe("crossGroupCsvRows", () => {
     expect(g2w2?.[1]).toBe("Session 2 -- renamed");
   });
 });
+
+// --- divergence travels with the export -----------------------------------------
+//
+// toProgramDTO aligns weeks by ARRAY INDEX, not by the rows' own `sort`. For groups that
+// run the same program those are the same thing, which is why the export can key on
+// weekSort at all. They stop being the same thing the moment one group's row is deleted
+// rather than left empty, and then index 1 pairs one group's Session 2 with another's
+// Session 3 under a single label. toProgramDTO detects exactly this and sets `divergent`;
+// the export dropped that flag on the floor, so a consumer had no way to know the
+// alignment it was trusting had failed.
+
+describe("program divergence", () => {
+  it("carries the divergent flag so a consumer can refuse to compare across weeks", () => {
+    const input = twoGroups();
+    input.program.divergent = true;
+    expect(buildExportPayload(input).programDivergent).toBe(true);
+  });
+
+  it("reports an aligned program as not divergent", () => {
+    expect(buildExportPayload(twoGroups()).programDivergent).toBe(false);
+  });
+
+  it("carries each group's own row sort, so a mismatch is checkable and not just flagged", () => {
+    const input = twoGroups();
+    input.exercisesByGroup.g2[1] = exercise("e2b", {
+      groupId: "g2",
+      sort: 3, // the row the program put at index 1 calls itself week 3
+      title: "Session 2 -- renamed",
+      sessionCode: "DDDD",
+    });
+    const w = buildExportPayload(input).groups[1].weeks[1];
+    expect(w.weekSort).toBe(1); // its position in the canonical program
+    expect(w.exerciseSort).toBe(3); // what the row itself says
+  });
+
+  it("leaves the row's own sort null for a week a group has no row at", () => {
+    const input = twoGroups();
+    delete input.program.weeks[1].slots.g2;
+    expect(buildExportPayload(input).groups[1].weeks[1].exerciseSort).toBeNull();
+  });
+});

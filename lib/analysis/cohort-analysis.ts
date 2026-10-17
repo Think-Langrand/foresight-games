@@ -11,6 +11,7 @@ import {
   scoresForItems,
   weightsForThemes,
   type GroupFlips,
+  type Score,
   type ThemeWeight,
 } from "./cohort-analysis-shape";
 import type { RippleCard } from "@/lib/ripples-types";
@@ -33,8 +34,9 @@ export interface CohortAnalysis {
   grid: GridRow[];
   // One per theme, in run.themes order.
   weights: ThemeWeight[];
-  // One per group that has a Session 3 board. A group with none is absent rather than
-  // present with zeros: "no board" and "flipped nothing" are different findings.
+  // One per group in the run, boardless ones included and marked. "No board", "a board
+  // with no fears" and "fears that were never flipped" are three different findings and all
+  // three are readable from this list.
   flips: GroupFlips[];
   // How many pooled items carried a plausibility/impact score at all. The honest headline
   // for the weight view: positioning 6 themes from 9 scored items out of 300 is a sketch,
@@ -92,7 +94,7 @@ export async function runCohortAnalysis(args: RunArgs): Promise<AnalysisResult> 
 
   // Scores are computed per group, because the lineage that reaches a score is a group's
   // own: a pooled item's id only means anything on the board it came from.
-  const scores = new Map<string, { plausibility: number | null; impact: number | null }>();
+  const scores = new Map<string, Score>();
   for (const [groupId, b] of boards) {
     const itemIds = run.items.filter((i) => i.groupId === groupId).map((i) => i.id);
     if (itemIds.length === 0) continue;
@@ -106,10 +108,12 @@ export async function runCohortAnalysis(args: RunArgs): Promise<AnalysisResult> 
     }
   }
 
+  // EVERY group gets an entry, including one with no Session 3 board. Skipping those made
+  // a room disappear from the flip view with nothing anywhere saying it existed, which is
+  // the one distinction this whole feature is read for.
   const flips: GroupFlips[] = [];
   for (const [groupId, b] of boards) {
-    if (b.week3.length === 0) continue; // no Session 3 board: nothing to say, so say nothing
-    flips.push(flipsForBoard(b.week3, groupId));
+    flips.push(flipsForBoard(b.week3, groupId, { hasBoard: b.week3.length > 0 }));
   }
   // In the run's group order, so every view lists the rooms the same way.
   const order = new Map(run.groups.map((g, i) => [g.id, i]));

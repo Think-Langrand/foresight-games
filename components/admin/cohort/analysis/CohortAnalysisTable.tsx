@@ -42,10 +42,17 @@ export function CohortAnalysisTable({ analysis }: { analysis: CohortAnalysis }) 
               <tr key={i} className="border-b border-[var(--rule)]/15">
                 <th scope="row" className="max-w-[300px] py-1.5 pr-3 font-semibold">{t.label}</th>
                 <td className="px-2 py-1.5 tabular-nums">{t.groupCount}/{total}</td>
+                {/* Three states, three glyphs. A room that had no board and a room that
+                    contributed nothing both have zero items in this theme, and printing a
+                    bare 0 for the second made it indistinguishable from a room that simply
+                    did not put anything in THIS theme. The table is the screen-reader and
+                    printout path, so it is the worst place to lose that. */}
                 {grid[i].cells.map((c) => (
                   <td key={c.groupId} className="px-2 py-1.5 text-right tabular-nums">
                     {c.state === "missing" ? (
                       <abbr title={EMPTY_LABEL.missing} className="text-muted no-underline">n/a</abbr>
+                    ) : c.state === "empty" ? (
+                      <abbr title={EMPTY_LABEL.empty} className="text-muted no-underline">—</abbr>
                     ) : (
                       c.count
                     )}

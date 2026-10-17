@@ -5,7 +5,7 @@ import { OTHER_GROUP_COLOR } from "@/lib/analysis/cohort-palette";
 import { flowLayout, type FlowLink } from "@/lib/analysis/cohort-flow-shape";
 import { poolSourceLabel } from "@/lib/analysis/cohort-pool-shape";
 import type { CohortAnalysis } from "@/lib/analysis/cohort-analysis";
-import { Figure, GroupLegend, Tooltip, shortName, useTip } from "./chrome";
+import { Figure, GroupLegend, MISSING_FILL, Tooltip, shortName, useTip } from "./chrome";
 
 // VIEW 2 — how four futures feed the same concerns.
 //
@@ -35,6 +35,7 @@ export function ScenarioFlow({ analysis, colors }: { analysis: CohortAnalysis; c
     .sort((a, b) => b.t.groupCount - a.t.groupCount || b.t.memberIds.length - a.t.memberIds.length);
   const themeAt = order.map((o) => o.t);
   const groups = run.groups.filter((g) => g.state === "ok");
+  const absent = run.groups.filter((g) => g.state !== "ok");
 
   const links: FlowLink[] = [];
   themeAt.forEach((t, newIndex) => {
@@ -66,7 +67,24 @@ export function ScenarioFlow({ analysis, colors }: { analysis: CohortAnalysis; c
     <Figure
       title="How the futures feed the same concerns"
       lede={`Each scenario on the left, the cohort's themes on the right. A ribbon's thickness is how many of that room's ${poolSourceLabel(run.source).toLowerCase()} landed in that theme.`}
-      legend={<GroupLegend groups={groups} colors={colors} />}
+      legend={
+        <>
+          {/* Every room, not only the ones with ribbons. A room that contributed nothing has
+              no ribbon to notice it is missing by, so the legend is the only place it can
+              be seen at all -- and "no board" and "contributed nothing" stay distinct. */}
+          <GroupLegend groups={groups} colors={colors} />
+          {absent.map((g) => (
+            <span key={g.id} className="flex items-center gap-1.5 text-[11px] font-semibold text-muted">
+              <span
+                aria-hidden
+                className="inline-block h-[10px] w-[10px] shrink-0 rounded-[2px] border border-[var(--rule)]"
+                style={{ background: MISSING_FILL }}
+              />
+              {shortName(g.name)} — {g.state === "missing" ? "no board at this week" : "contributed nothing"}
+            </span>
+          ))}
+        </>
+      }
       footnote="Hover a ribbon or a node to isolate it. A theme fed by every scenario is one the cohort found whichever future it was given; a theme with a single ribbon is that room's alone."
     >
       <Tooltip tip={tip} />
@@ -88,7 +106,11 @@ export function ScenarioFlow({ analysis, colors }: { analysis: CohortAnalysis; c
                   key={key}
                   d={r.path}
                   fill={colors.get(r.groupId) ?? OTHER_GROUP_COLOR}
-                  opacity={dim(r.groupId) && dim(key) ? 0.08 : 0.42}
+                  opacity={
+                    hot === null || hot === r.groupId || hot === key || hot === `t${r.themeIndex}`
+                      ? 0.42
+                      : 0.08
+                  }
                   onMouseEnter={(e) => {
                     setHot(key);
                     show(
@@ -166,7 +188,29 @@ export function ScenarioFlow({ analysis, colors }: { analysis: CohortAnalysis; c
                     height={Math.max(2, n.h)}
                     rx={2}
                     fill="var(--ink)"
-                    opacity={hot ? 0.3 : 0.85}
+                    opacity={hot && hot !== `t${n.key}` ? 0.3 : 0.85}
+                    onMouseEnter={(e) => {
+                      setHot(`t${n.key}`);
+                      show(
+                        e,
+                        <>
+                          <strong>{t.label}</strong>
+                          <br />
+                          {t.groupCount} of {all} rooms · {n.value} items
+                          <br />
+                          <span className="text-[10px]">
+                            {t.byGroup
+                              .map((b) => `${shortName(groupById.get(b.groupId)?.name ?? "")}: ${b.count}`)
+                              .join(" · ")}
+                          </span>
+                        </>
+                      );
+                    }}
+                    onMouseLeave={() => {
+                      setHot(null);
+                      hide();
+                    }}
+                    style={{ cursor: "pointer" }}
                   />
                   <text
                     x={n.x + NODE_W + 8}

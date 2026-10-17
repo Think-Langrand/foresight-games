@@ -308,6 +308,20 @@ export function CohortAnalysisWorkbench({
       {/* --- the run, four ways ------------------------------------------------ */}
       {analysis ? (
         <>
+          {/* What the run could NOT do, said once and above every view rather than only on
+              the Table tab. These notes are where "Group 2 contributed nothing (no board)"
+              lives, and a facilitator reading the flow or the flips had no way to learn a
+              fourth room existed. */}
+          {analysis.run.notes.length > 0 ? (
+            <ul className="mb-4 space-y-1 border-l-2 border-coral bg-card px-3 py-2">
+              {analysis.run.notes.map((n, i) => (
+                <li key={i} className="text-[11.5px] leading-[1.45] text-ink">
+                  {n}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
           <nav className="mb-5 flex flex-wrap items-center gap-2 border-b border-[var(--rule)]/25 pb-3">
             {VIEWS.map((v) => (
               <button
