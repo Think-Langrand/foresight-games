@@ -163,6 +163,12 @@ export default async function ProjectAdminPage({
               Themes across the cohort →
             </Link>
             <Link
+              href={`/admin/projects/${slug}/cohort-analysis`}
+              className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
+            >
+              Across the cohort →
+            </Link>
+            <Link
               href={`/admin/projects/${slug}/activity`}
               className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
             >
