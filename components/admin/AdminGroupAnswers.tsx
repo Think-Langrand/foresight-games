@@ -275,6 +275,13 @@ export function AdminGroupAnswers({
               >
                 All groups this week →
               </Link>
+              {/* The member-facing handoff for this group — every week on one page. */}
+              <Link
+                href={`/project/${slug}/design-groups/${groupId}/summary`}
+                className="text-blue underline hover:text-ink"
+              >
+                Handoff →
+              </Link>
             </div>
           )}
         </div>
