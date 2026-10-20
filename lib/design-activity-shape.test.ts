@@ -118,6 +118,29 @@ describe("classifyCard · Week 3 kinds", () => {
     expect(classifyCard({ ...row("A", "SECOND", { parentId: "t1" }), cardKind: null })).toBe("implications");
   });
 
+  it("gives Week 4's kinds their own bucket, with no flag needed", () => {
+    // `response` and `milestone` exist on no other week, so the card says which board it
+    // is on by itself — unlike a plain root, which needs the `synthesis` flag. Without
+    // this they fell into `synthesis` and a Week 4 cell reported a backcasting timeline
+    // as "answers, risks, hopes & fears".
+    expect(classifyCard({ ...row("A", "FIRST"), cardKind: "response" })).toBe("commitments");
+    expect(
+      classifyCard({ ...row("A", "SECOND", { parentId: "r1", section: "w4-p1" }), cardKind: "milestone" })
+    ).toBe("commitments");
+  });
+
+  it("tallies a Week 4 board without borrowing Week 3's bucket", () => {
+    const t = tallyCards([
+      { ...row("w4", "FIRST", { seq: 1 }), cardKind: "response" },
+      { ...row("w4", "FIRST", { seq: 2 }), cardKind: "response" },
+      { ...row("w4", "SECOND", { parentId: "r1", section: "w4-p1", seq: 3 }), cardKind: "milestone" },
+      { ...row("w4", "STICKY", { section: "aspiration-statement", seq: 4 }), cardKind: null },
+    ]).get("W4")!;
+    // The aspiration rides the section substrate, so its answer counts as an `answer`,
+    // the same as any worksheet block's.
+    expect(t).toMatchObject({ commitments: 3, answers: 1, synthesis: 0, keyChanges: 0, total: 4 });
+  });
+
   it("tallies and sums the new buckets", () => {
     const t = tallyCards([
       { ...row("abc", "FIRST", { seq: 1 }), cardKind: "theme" },

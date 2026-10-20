@@ -2,12 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   CROSS_GROUP_CSV_HEADER,
   GROUP_ANSWERS_CSV_HEADER,
+  commitmentsCsvRows,
   exerciseCsvRows,
   implicationsCsvRows,
   synthesisCsvRows,
   worksheetCsvRows,
 } from "./group-answers-csv";
 import type {
+  CommitmentsExercise,
   ExerciseAnswers,
   ImplicationsExercise,
   QuestionBlock,
@@ -367,6 +369,7 @@ describe("exerciseCsvRows", () => {
       .toHaveLength(1);
     expect(exerciseCsvRows(iex({ cards: [icard("r", "FIRST")] }))).toHaveLength(1);
     expect(exerciseCsvRows(ex({ themes: [theme()] }))).toHaveLength(1);
+    expect(exerciseCsvRows(cex({ responses: [stake("r", "fund it")] }))).toHaveLength(1);
   });
 
   it("emits nothing for a placeholder week rather than throwing", () => {
@@ -394,5 +397,93 @@ describe("CSV headers", () => {
     ];
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) expect(r).toHaveLength(GROUP_ANSWERS_CSV_HEADER.length);
+  });
+});
+
+// --- Week 4 ------------------------------------------------------------------
+const cex = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
+  kind: "commitments",
+  exerciseId: "EX4",
+  title: "Session 4",
+  cards: [],
+  responses: [],
+  boldMoves: [],
+  lanes: [],
+  stranded: [],
+  orphans: [],
+  questions: [],
+  ...over,
+});
+
+describe("commitmentsCsvRows", () => {
+  it("emits six cells per row, in header order", () => {
+    const rows = commitmentsCsvRows(cex({ responses: [stake("r1", "fund joint posts")] }));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveLength(GROUP_ANSWERS_CSV_HEADER.length);
+    expect(rows[0]).toEqual(["Session 4", "Strategic responses", "response", "fund joint posts", "Ana", "2026-01-01"]);
+  });
+
+  it("stars a bold move on its own row rather than giving it a second one", () => {
+    // A bold move IS a response carrying `shortlisted`. Emitting it twice would double
+    // every picked move in any count taken off the sheet.
+    const rows = commitmentsCsvRows(
+      cex({
+        responses: [stake("r1", "picked", { shortlisted: true }), stake("r2", "not picked")],
+        boldMoves: [row("r1", "picked")],
+      })
+    );
+    expect(rows.map((r) => [r[2], r[3]])).toEqual([
+      ["response ★", "picked"],
+      ["response", "not picked"],
+    ]);
+  });
+
+  it("carries the period label and the move on every milestone row", () => {
+    // A milestone read alone says when something happens but not what it is a step
+    // towards, so the sheet has to stand on its own without the app.
+    const rows = commitmentsCsvRows(
+      cex({
+        lanes: [
+          {
+            move: row("r1", "build the data-share agreement"),
+            periods: [
+              { key: "w4-p1", label: "2027–28", milestones: [row("m1", "draft the MOU")] },
+              { key: "w4-p2", label: "2029–30", milestones: [] },
+            ],
+          },
+        ],
+      })
+    );
+    expect(rows).toEqual([
+      [
+        "Session 4",
+        "Timeline · 2027–28",
+        "milestone",
+        "build the data-share agreement — draft the MOU",
+        "Ana",
+        "2026-01-01",
+      ],
+    ]);
+  });
+
+  it("exports work that is stranded or unplaced rather than leaving a silent gap", () => {
+    const rows = commitmentsCsvRows(
+      cex({ stranded: [row("m1", "orphan beat")], orphans: [row("m2", "no period")] })
+    );
+    expect(rows.map((r) => [r[1], r[2], r[3]])).toEqual([
+      ["Timeline · move not picked", "milestone", "orphan beat"],
+      ["Unplaced", "orphan", "no period"],
+    ]);
+  });
+
+  it("emits the aspiration prompts under the labels the group saw", () => {
+    const rows = commitmentsCsvRows(
+      cex({ questions: [qblock("aspiration-statement", { label: "What are we aspiring to?", answers: [wrow("a1", "By 2035, every county has...")] })] })
+    );
+    expect(rows[0].slice(1, 4)).toEqual(["What are we aspiring to?", "question", "By 2035, every county has..."]);
+  });
+
+  it("emits nothing for an untouched board", () => {
+    expect(commitmentsCsvRows(cex())).toEqual([]);
   });
 });

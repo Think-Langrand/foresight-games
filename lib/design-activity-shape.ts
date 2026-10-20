@@ -17,7 +17,14 @@
 // kind is read first because a Week 3 theme is also a tree root and a Week 3 risk also
 // has a parent: without it a synthesis week reported "4 key changes, 31 implications".
 
-export type CardKind = "themes" | "synthesis" | "keyChanges" | "implications" | "brainstorm" | "answers";
+export type CardKind =
+  | "themes"
+  | "synthesis"
+  | "commitments"
+  | "keyChanges"
+  | "implications"
+  | "brainstorm"
+  | "answers";
 
 // The buckets are mutually exclusive and exhaustive — every card lands in exactly one.
 // Mirrors isTreeRoot + the STICKY/section filters in RipplesTeamView and
@@ -37,6 +44,11 @@ export function classifyCard(
   synthesis = false
 ): CardKind {
   if (card.cardKind === "theme") return "themes";
+  // Week 4's two kinds get their own bucket. No `commitments` flag is needed the way
+  // `synthesis` is one: `response` and `milestone` exist on no other week, so the card
+  // says which board it is on by itself. Without this they fell into `synthesis` and a
+  // Week 4 cell reported a timeline as "answers, risks, hopes & fears".
+  if (card.cardKind === "response" || card.cardKind === "milestone") return "commitments";
   if (card.cardKind) return "synthesis";
   if (card.parentId !== null) return "implications";
   if (card.order !== "STICKY") return synthesis ? "implications" : "keyChanges";
@@ -57,6 +69,7 @@ export interface ActivityCardRow {
 export interface CardTally {
   themes: number;
   synthesis: number;
+  commitments: number;
   keyChanges: number;
   implications: number;
   brainstorm: number;
@@ -70,6 +83,7 @@ export function emptyTally(): CardTally {
   return {
     themes: 0,
     synthesis: 0,
+    commitments: 0,
     keyChanges: 0,
     implications: 0,
     brainstorm: 0,

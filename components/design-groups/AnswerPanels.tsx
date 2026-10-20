@@ -109,6 +109,38 @@ export interface SynthesisExercise {
   // The facilitator's executive summary of steps 1–2, if one has been generated.
   summary: SynthesisSummary | null;
 }
+// --- Week 4 ------------------------------------------------------------------
+// One period column of one bold move's timeline. Empty cells are kept, so the shape of a
+// lane (where the group clustered its work, and where it left gaps) survives the export.
+export interface MilestoneCell {
+  key: string; // the permanent period key — see PERIODS in lib/commitments-shape
+  label: string; // its years, which are presentation and may be rewritten
+  milestones: AnswerRow[];
+}
+export interface BoldMoveLane {
+  move: AnswerRow; // the shortlisted response this lane backcasts
+  periods: MilestoneCell[]; // every period, in order, cells included when empty
+}
+export interface CommitmentsExercise {
+  kind: "commitments";
+  exerciseId: string;
+  title: string;
+  cards: RippleCard[]; // the whole shared board (responses, milestones)
+  // Step 1 lives entirely in `questions`: the aspiration prompts are authored worksheet
+  // sections, so their answers arrive as ordinary question blocks. There is no
+  // `aspiration` field on purpose — the prompts' wording is the facilitator's, not code's.
+  responses: StakeRow[]; // step 2's wall; `shortlisted` marks a bold move
+  boldMoves: AnswerRow[]; // step 3's picks, in wall order
+  lanes: BoldMoveLane[]; // step 4's timeline, one lane per bold move
+  // Milestones under a response the group has since un-ticked. Not lost and not orphaned:
+  // they return the moment the move is picked again. Reported so a reader is never left
+  // wondering where a timeline went.
+  stranded: AnswerRow[];
+  // Cards the board could not place — a milestone with an unrecognised period. Surfaced so
+  // nothing is ever silently lost; an empty list is the normal case.
+  orphans: AnswerRow[];
+  questions: QuestionBlock[]; // step 1's aspiration prompts, plus anything an admin added
+}
 export interface PlaceholderExercise {
   kind: "placeholder";
   exerciseId: string;
@@ -119,6 +151,7 @@ export type ExerciseAnswers =
   | WorksheetExercise
   | ImplicationsExercise
   | SynthesisExercise
+  | CommitmentsExercise
   | PlaceholderExercise;
 
 export const MAP_VIEWS = ["wheel", "tree", "list"] as const;

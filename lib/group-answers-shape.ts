@@ -23,6 +23,12 @@ import {
   VALUES_FIELDS,
   type ThemeAnswerKind,
 } from "@/lib/synthesis-shape";
+import {
+  PERIODS,
+  indexCommitmentsBoard,
+  milestonesFor,
+  strandedMilestones,
+} from "@/lib/commitments-shape";
 
 // Pure shaping of one design-group week's board into its read-only answers — worksheet
 // Q&A, an implications map (+ brainstorm / question blocks), or a placeholder. No I/O:
@@ -227,6 +233,40 @@ export function shapeFromView(
       // notes are invisible here.
       questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
       summary: view.config.summary,
+    };
+  }
+
+  if (render === "commitments" && view) {
+    const board = indexCommitmentsBoard(view.cards);
+    const toStake = (c: RippleCard): StakeRow => ({
+      ...toRow(c),
+      mechanism: c.description,
+      shortlisted: c.shortlisted,
+    });
+
+    return {
+      kind: "commitments",
+      exerciseId: ex.id,
+      title: ex.title,
+      cards: view.cards,
+      responses: board.responses.map(toStake),
+      boldMoves: board.boldMoves.map(toRow),
+      // Every period on every lane, empty cells included: where a group clustered its work
+      // and where it left a gap is part of the finding, and dropping empties would hide it.
+      lanes: board.boldMoves.map((move) => ({
+        move: toRow(move),
+        periods: PERIODS.map((p) => ({
+          key: p.key,
+          label: p.label,
+          milestones: milestonesFor(board, move.id, p.key).map(toRow),
+        })),
+      })),
+      stranded: strandedMilestones(board).map(toRow),
+      orphans: board.orphans.map(toRow),
+      // resolveEffectiveSections, not the raw column: a commitments week that was never
+      // customized stores [] and must fall back to the type's template, or step 1 — the
+      // whole aspiration — is invisible here.
+      questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
     };
   }
 
