@@ -156,6 +156,12 @@ export const CARD_DESCRIPTION_MAX = 1000;
 //            `opportunity` walls, all on a theme
 //   step 3 — `hope` / `fear` as ROOT cards, the board's own
 //   step 4 — a `hope` chained under the `fear` it flips
+// Week 4's cards of a kind (Commitments):
+//   step 2 — `response` as ROOT cards, the wall of strategic responses
+//   step 3 — no kind of its own: a bold move is a `response` carrying `shortlisted`
+//   step 4 — a `milestone` under the `response` it backcasts, its period in `section`
+// Step 1's aspiration prompts are authored worksheet sections, so their answers are plain
+// stickies and need no kind. See lib/commitments-shape for why that is deliberate.
 // `reading`, `assumed_role`, `question`, `tension`, `concerns`, `assumption`, `condition`,
 // `alternative`, `test`, `desired_role` and `investigate` are earlier shapes; none is
 // offered any more but every kind stays here, because a kind is the permanent link to
@@ -181,6 +187,8 @@ export const CARD_KINDS = [
   "mechanism",
   "assumed_role",
   "question",
+  "response",
+  "milestone",
 ] as const;
 export type CardKind = (typeof CARD_KINDS)[number];
 

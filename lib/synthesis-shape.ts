@@ -172,6 +172,17 @@ export function placementError(
         ? null
         : `A ${parentKind} chains to a ${flipOf(parentKind as HopeFear)}.`;
 
+    case "response":
+      // Week 4's wall. A response answers the aspiration, which is not a card, so it is a
+      // root; hung off something it is not a response to anything the board draws.
+      return root ? null : "A strategic response is a top-level card.";
+
+    case "milestone":
+      // Week 4's timeline. A milestone backcasts ONE move, and its period lives in
+      // `section`; the routes check that separately, because a parent alone does not say
+      // which column it belongs in.
+      return parentKind === "response" ? null : "A milestone belongs on a bold move.";
+
     case null:
       // A plain implication: a root in the tray, or clustered under a theme. Under another
       // implication is how Week 2's maps already read, so that stays legal too.
@@ -308,6 +319,12 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
         // Keyed by parent: a theme's own answers, or a legacy reading's.
         if (c.parentId) push(readingFields, c.parentId, c);
         else orphans.push(c);
+        break;
+      case "response":
+      case "milestone":
+        // Week 4's kinds. A Session 3 board should never hold one, so this is not a bucket
+        // but a statement that there is no bucket: it shows up rather than vanishing.
+        orphans.push(c);
         break;
       case null:
         // A plain implication: in the tray, or clustered under a theme.
