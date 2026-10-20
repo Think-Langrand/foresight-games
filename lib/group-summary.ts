@@ -117,7 +117,14 @@ export interface GroupSummary {
   flips: SummaryFlip[];
   standaloneHopes: string[];
   gaps: SummaryGaps;
+  // Session 1's uncertainties that Session 4 did NOT mark settled. Still open is the
+  // DEFAULT, so a group that never ran step 5 hands over every one of them, which is the
+  // honest answer rather than an empty list.
   unsettled: { bucket: string; text: string }[];
+  settledCount: number; // how many the group said four sessions answered
+  // How this world works, in the group's own Session 1 words. Written in September and
+  // shown nowhere until now.
+  worldReading: { label: string; answers: string[] }[];
   // ---- Week 4 -------------------------------------------------------------------------
   // The aspiration arrives as QUESTION BLOCKS, not a single string, because its prompts
   // are authored worksheet sections: the headings belong to whoever edited the program,
@@ -138,7 +145,7 @@ export interface SummaryBoldMove {
 
 // Week 1's assess block keys, in the order the handoff reads them. These are permanent
 // section keys (lib/exercise-types.ts) — minted once, never renamed.
-const UNSETTLED_BLOCKS: { key: string; bucket: string }[] = [
+export const UNSETTLED_BLOCKS: { key: string; bucket: string }[] = [
   { key: "assess-unclear", bucket: "Unclear" },
   { key: "assess-assumptions", bucket: "Assumed" },
   { key: "assess-missing", bucket: "Missing" },
@@ -240,13 +247,22 @@ export function buildGroupSummary(
   const sCards: RippleCard[] = synthesis?.kind === "synthesis" ? synthesis.cards : [];
   const sThemes: SynthesisTheme[] = synthesis?.kind === "synthesis" ? synthesis.themes : [];
 
+  // A star on a Session 3 risk is DERIVED from a Session 4 pick, never stored on the risk
+  // itself: Week 4 writes only to its own board. The deck's existing star rendering reads
+  // StakeRow.shortlisted, so projecting it here is all it takes to light up.
+  const pickedIds = new Set(
+    commitments?.kind === "commitments" ? commitments.pickedSourceIds : []
+  );
+  const star = (rows: StakeRow[]): StakeRow[] =>
+    pickedIds.size === 0 ? rows : rows.map((r) => ({ ...r, shortlisted: pickedIds.has(r.id) }));
+
   const themes: SummaryTheme[] = sThemes.map((t) => ({
     id: t.id,
     text: t.text,
     description: t.description,
     implications: t.implications.length,
-    risks: t.risks,
-    opportunities: t.opportunities,
+    risks: star(t.risks),
+    opportunities: star(t.opportunities),
   }));
 
   const fears = sCards.filter((c) => c.cardKind === "fear");
@@ -334,16 +350,38 @@ export function buildGroupSummary(
   };
 
   // ---- Week 1: what the room never settled --------------------------------------------
+  // Step 5's settled marks, if the week was run. Keyed by the Session 1 card they point at.
+  const settledIds = new Set(
+    commitments?.kind === "commitments" ? commitments.settledSourceIds : []
+  );
   const unsettled: { bucket: string; text: string }[] = [];
+  let settledCount = 0;
   if (assessment?.kind === "worksheet") {
     for (const { key, bucket } of UNSETTLED_BLOCKS) {
       const block = assessment.questions.find((q) => q.key === key);
       for (const a of block?.answers ?? []) {
         const text = a.text.trim();
-        if (text) unsettled.push({ bucket, text });
+        if (!text) continue;
+        if (settledIds.has(a.id)) settledCount += 1;
+        else unsettled.push({ bucket, text });
       }
     }
   }
+
+  // Session 1's read of the world. Two questions, asked in September, never surfaced.
+  const WORLD_BLOCKS = [
+    { key: "assess-important", label: "What feels most important or distinctive" },
+    { key: "stepping-in", label: "Stepping into the future, what is different" },
+  ];
+  const worldReading =
+    assessment?.kind === "worksheet"
+      ? WORLD_BLOCKS.flatMap(({ key, label }) => {
+          const answers = (assessment.questions.find((q) => q.key === key)?.answers ?? [])
+            .map((a) => a.text.trim())
+            .filter(Boolean);
+          return answers.length ? [{ label, answers }] : [];
+        })
+      : [];
 
   // ---- Week 4: the aspiration, the moves and their backcast ---------------------------
   const aspiration =
@@ -392,6 +430,8 @@ export function buildGroupSummary(
     standaloneHopes,
     gaps,
     unsettled,
+    settledCount,
+    worldReading,
     aspiration,
     boldMoves,
   };

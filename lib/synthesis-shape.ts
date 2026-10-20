@@ -183,6 +183,13 @@ export function placementError(
       // which column it belongs in.
       return parentKind === "response" ? null : "A milestone belongs on a bold move.";
 
+    case "pick":
+    case "settled":
+      // Week 4's handoff. Both are marks ABOUT an earlier week's card, not cards under
+      // anything on this board, so they are roots. What they point at is checked by the
+      // route against `source_card_id`, which a parent cannot express.
+      return root ? null : "That is a mark on an earlier card, not a card under this one.";
+
     case null:
       // A plain implication: a root in the tray, or clustered under a theme. Under another
       // implication is how Week 2's maps already read, so that stays legal too.
@@ -322,6 +329,8 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
         break;
       case "response":
       case "milestone":
+      case "pick":
+      case "settled":
         // Week 4's kinds. A Session 3 board should never hold one, so this is not a bucket
         // but a statement that there is no bucket: it shows up rather than vanishing.
         orphans.push(c);

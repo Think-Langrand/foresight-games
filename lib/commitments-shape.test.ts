@@ -2,6 +2,10 @@ import { describe, it, expect } from "vitest";
 import type { CardOrder, RippleCard } from "./ripples-types";
 import {
   MAX_BOLD_MOVES,
+  MAX_PICKS_PER_KIND,
+  isPicked,
+  isStillOpen,
+  pickedFrom,
   MILESTONES_PER_MOVE,
   PERIODS,
   PERIOD_KEYS,
@@ -337,5 +341,70 @@ describe("an empty board", () => {
     expect(boldMoveProgress(board)).toEqual({ picked: 0, cap: 3 });
     expect(timelineProgress(board)).toEqual({ placed: 0, capacity: 0, movesStarted: 0 });
     expect(strandedMilestones(board)).toEqual([]);
+  });
+});
+
+describe("step 5, the handoff marks", () => {
+  const mark = (id: string, kind: "pick" | "settled", sourceId: string | null, seq: number) =>
+    card(id, "FIRST", null, seq, { cardKind: kind, sourceCardId: sourceId });
+
+  it("keys both kinds by the earlier card they point at", () => {
+    const board = indexCommitmentsBoard([
+      mark("p1", "pick", "s3-risk-a", 1),
+      mark("p2", "pick", "s3-opp-b", 2),
+      mark("x1", "settled", "s1-unclear-a", 3),
+    ]);
+    expect([...board.picks.keys()].sort()).toEqual(["s3-opp-b", "s3-risk-a"]);
+    expect([...board.settled.keys()]).toEqual(["s1-unclear-a"]);
+    expect(board.orphans).toEqual([]);
+    expect(isPicked(board, "s3-risk-a")).toBe(true);
+    expect(isPicked(board, "never-picked")).toBe(false);
+  });
+
+  it("orphans a mark that points at nothing", () => {
+    // A mark with no source is a finding about nothing, and no view can draw it.
+    const board = indexCommitmentsBoard([
+      mark("good", "pick", "s3-risk-a", 1),
+      mark("bad", "pick", null, 2),
+      mark("alsoBad", "settled", null, 3),
+    ]);
+    expect(board.picks.size).toBe(1);
+    expect(board.settled.size).toBe(0);
+    expect(board.orphans.map((c) => c.id).sort()).toEqual(["alsoBad", "bad"]);
+  });
+
+  it("treats an uncertainty as STILL OPEN until the group says otherwise", () => {
+    // The default is the whole point: a group that never opens step 5 hands over every
+    // uncertainty it ever wrote, which is honest, where an empty star list would not be.
+    const empty = indexCommitmentsBoard([]);
+    expect(isStillOpen(empty, "s1-unclear-a")).toBe(true);
+
+    const board = indexCommitmentsBoard([mark("x", "settled", "s1-unclear-a", 1)]);
+    expect(isStillOpen(board, "s1-unclear-a")).toBe(false);
+    expect(isStillOpen(board, "s1-unclear-b")).toBe(true);
+  });
+
+  it("counts picks against a caller's pool, so the cap is per kind", () => {
+    // Risks and opportunities are capped separately. Scoping by the pool the caller passes
+    // is what keeps three starred risks from closing the opportunities list.
+    const board = indexCommitmentsBoard([
+      mark("p1", "pick", "r1", 1),
+      mark("p2", "pick", "r2", 2),
+      mark("p3", "pick", "r3", 3),
+      mark("p4", "pick", "o1", 4),
+    ]);
+    expect(pickedFrom(board, ["r1", "r2", "r3", "r4"])).toHaveLength(MAX_PICKS_PER_KIND);
+    expect(pickedFrom(board, ["o1", "o2"])).toEqual(["o1"]);
+    expect(pickedFrom(board, ["nothing"])).toEqual([]);
+  });
+
+  it("does not confuse a pick with a settled mark on the same id", () => {
+    const board = indexCommitmentsBoard([
+      mark("p", "pick", "shared", 1),
+      mark("x", "settled", "shared", 2),
+    ]);
+    // 0018's unique index makes this impossible on one board, but the shape stays total.
+    expect(isPicked(board, "shared")).toBe(true);
+    expect(isStillOpen(board, "shared")).toBe(false);
   });
 });

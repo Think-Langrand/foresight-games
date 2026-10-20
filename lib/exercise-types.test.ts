@@ -262,21 +262,24 @@ describe("commitments exercise type", () => {
     expect(supportsSections("commitments")).toBe(true);
   });
 
-  it("puts its three aspiration prompts on one step, as accumulating questions", () => {
+  it("splits its written fields across the two steps that have them", () => {
     const sections = EXERCISE_TYPES.commitments.sections!;
     expect(sections.map((s) => s.key)).toEqual([
       "aspiration-statement",
       "aspiration-serves",
       "aspiration-holds",
+      "handoff-committee-line",
     ]);
     // `question`, not `brainstorm`: three people in a breakout have three readings of what
     // they are aspiring to, and each answer is its own card. Migration 0027 is the record
     // of what forcing one answer per question cost.
     for (const s of sections) expect(s.kind).toBe("question");
-    // ONE step, so WorksheetSections renders a flat stack rather than nesting a second tab
-    // bar inside the board's own four tabs.
-    expect(worksheetSteps(sections)).toEqual(["Aspiration"]);
     for (const s of sections) expect(s.label.length).toBeGreaterThan(0);
+    // TWO steps, in board order. The view splits `sections` on this, so a section landing
+    // on the wrong step renders on the wrong tab, and one with no step falls to step 1.
+    expect(worksheetSteps(sections)).toEqual(["Aspiration", "The handoff"]);
+    expect(sections.filter((s) => s.step === "Aspiration")).toHaveLength(3);
+    expect(sections.filter((s) => s.step === "The handoff")).toHaveLength(1);
   });
 
   it("is session 4 of the default program, replacing the placeholder", () => {
@@ -288,6 +291,7 @@ describe("commitments exercise type", () => {
       "aspiration-statement",
       "aspiration-serves",
       "aspiration-holds",
+      "handoff-committee-line",
     ]);
   });
 });

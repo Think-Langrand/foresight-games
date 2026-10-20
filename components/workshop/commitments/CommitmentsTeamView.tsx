@@ -11,6 +11,7 @@ import { Week3Reference } from "@/components/workshop/commitments/Week3Reference
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { MovesBoard } from "@/components/workshop/commitments/MovesBoard";
 import { BacktrackTimeline } from "@/components/workshop/commitments/BacktrackTimeline";
+import { HandoffBoard } from "@/components/workshop/commitments/HandoffBoard";
 import {
   useRipplesView,
   useOptimisticCards,
@@ -50,13 +51,20 @@ const NO_CARDS: RippleCard[] = [];
 
 // Local to this file, the way Week 3 keeps its own. There is no step registry and these
 // are not worth inventing one for.
-type CommitStep = "aspiration" | "responses" | "moves" | "timeline";
-const COMMIT_STEPS: readonly CommitStep[] = ["aspiration", "responses", "moves", "timeline"];
+type CommitStep = "aspiration" | "responses" | "moves" | "timeline" | "handoff";
+const COMMIT_STEPS: readonly CommitStep[] = [
+  "aspiration",
+  "responses",
+  "moves",
+  "timeline",
+  "handoff",
+];
 const STEP_LABELS: Record<CommitStep, string> = {
   aspiration: "1 · Aspiration",
   responses: "2 · Strategic responses",
   moves: "3 · Bold moves",
   timeline: "4 · Backcasting",
+  handoff: "5 · The handoff",
 };
 
 export function CommitmentsTeamView({
@@ -67,6 +75,7 @@ export function CommitmentsTeamView({
   hiddenSections,
   sections = [],
   week3Cards = [],
+  week1Uncertainties = [],
   title,
 }: {
   code: string;
@@ -80,6 +89,9 @@ export function CommitmentsTeamView({
   // server-side from the earlier-week answers the page already loads; nothing from it is
   // copied onto this board. See Week3Reference.
   week3Cards?: RippleCard[];
+  // Session 1's three uncertainty questions, shaped on the page: a worksheet week arrives
+  // as question blocks rather than cards, so there is nothing to index here.
+  week1Uncertainties?: { key: string; bucket: string; answers: { id: string; text: string }[] }[];
   title?: string;
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
@@ -298,16 +310,73 @@ export function CommitmentsTeamView({
     });
   };
 
+  // A handoff mark: a card on THIS board pointing at an earlier week's card. Nothing on
+  // Session 1's or Session 3's board is touched, so the star the handoff deck draws is
+  // derived rather than stored. `on` false deletes the mark that already exists.
+  const toggleMark = (
+    kind: "pick" | "settled",
+    source: { id: string; text: string },
+    on: boolean
+  ) => {
+    const existing = (kind === "pick" ? board.picks : board.settled).get(source.id);
+    if (on === Boolean(existing)) return;
+    if (existing) {
+      removeLocal(existing.id);
+      run(async () => {
+        try {
+          await deleteRippleCard(code, existing.id, { participantId: pid });
+        } catch (e) {
+          unremoveLocal(existing.id);
+          throw e;
+        }
+      });
+      return;
+    }
+    run(async () => {
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "FIRST",
+        cardKind: kind,
+        sourceCardId: source.id,
+        // The source's own words ride along, so the handoff reads without a join back to
+        // a board the deck may not have loaded.
+        text: source.text,
+      });
+      if (res?.card) addLocal(res.card as RippleCard);
+    });
+  };
+
   // ---- the steps -------------------------------------------------------------
 
-  // Step 1 IS the sections, so all of them mount here, the way Week 2's Sandbox step
-  // mounts its own. Anything a facilitator adds in the program editor lands beside the
-  // three aspiration prompts, which is where extra questions belong — and means there is
-  // only ever one WorksheetSections on this board, so nothing can render twice.
+  // TWO steps carry written fields, so `sections` is split by `step`. Anything an admin
+  // adds in the program editor has no step and falls to step 1, beside the aspiration
+  // prompts, which is where an extra question belongs. The split is what keeps a section
+  // from rendering on two tabs at once.
+  const HANDOFF_STEP = "The handoff";
+  const sectionsFor = (step: "aspiration" | "handoff") =>
+    sections.filter((sec) =>
+      step === "handoff" ? sec.step === HANDOFF_STEP : sec.step !== HANDOFF_STEP
+    );
+
+  const worksheetFor = (spec: typeof sections) => (
+    <WorksheetSections
+      sections={spec}
+      cards={cards}
+      editable={editable}
+      canEdit={canEditCard}
+      busy={busy}
+      playerNames={playerNames}
+      onAdd={addSectionCard}
+      onDelete={removeCard}
+      onEdit={editCardById}
+      onReorder={reorderSectionCard}
+    />
+  );
+
   const aspirationBody =
-    sections.length > 0 ? (
+    sectionsFor("aspiration").length > 0 ? (
       <WorksheetSections
-        sections={sections}
+        sections={sectionsFor("aspiration")}
         cards={cards}
         editable={editable}
         canEdit={canEditCard}
@@ -385,6 +454,23 @@ export function CommitmentsTeamView({
           onGoToAspiration={() => setStep("aspiration")}
           onGoToResponses={() => setStep("responses")}
         />
+      )}
+
+      {step === "handoff" && (
+        <HandoffBoard
+          board={board}
+          sections={sections}
+          cards={cards}
+          week3Cards={week3Cards}
+          week1Uncertainties={week1Uncertainties}
+          editable={editable}
+          onTogglePick={(source, on) => toggleMark("pick", source, on)}
+          // The checkbox reads "still open", so ticking it REMOVES the settled mark.
+          onToggleSettled={(source, settled) => toggleMark("settled", source, settled)}
+          onGoToAspiration={() => setStep("aspiration")}
+        >
+          {sectionsFor("handoff").length > 0 && worksheetFor(sectionsFor("handoff"))}
+        </HandoffBoard>
       )}
 
       {step === "timeline" && (

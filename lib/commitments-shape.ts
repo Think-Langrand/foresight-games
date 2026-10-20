@@ -20,6 +20,11 @@
 //            response's own `sort` is already the wall's drag order, so one list has one
 //            order and the lanes cannot disagree with the wall.
 //   step 4 — `milestone` cards, children of a response, with the period in `section`.
+//   step 5 — `pick` and `settled` cards, both ROOTS carrying a `source_card_id` that points
+//            at an EARLIER week's card. Nothing on an earlier board is mutated: a star on a
+//            Session 3 risk is derived from a pick here, not stored there. That keeps every
+//            write on this board, the way every other step works, and it is why the handoff
+//            deck can render a star without Session 4 ever touching Session 3's cards.
 
 import { isTreeRoot, type RippleCard } from "@/lib/ripples-types";
 import type { ThemeProgress } from "@/lib/synthesis-shape";
@@ -79,6 +84,10 @@ export const MILESTONES_PER_MOVE = 5;
 // where step 2 stops being "started".
 export const RESPONSES_FOR_DONE = MAX_BOLD_MOVES;
 
+// Three risks and three opportunities for the handoff. Same cap, same honesty as the bold
+// moves: the UI holds it, the database does not, so an over-pick is reported not hidden.
+export const MAX_PICKS_PER_KIND = 3;
+
 // ---------------------------------------------------------------------------
 // The board
 // ---------------------------------------------------------------------------
@@ -89,6 +98,11 @@ export interface CommitmentsBoard {
   // moves: un-ticking a move must not strand its milestones, and re-ticking it must bring
   // them back. The timeline draws `boldMoves`; the data keeps the rest.
   milestones: Map<string, Map<PeriodKey, RippleCard[]>>;
+  // Step 5. Keyed by the EARLIER card each one marks, so a view that has the Session 3 or
+  // Session 1 cards in hand can ask "is this one picked" with a map lookup and never needs
+  // to scan. A source that appears twice is impossible: 0018's unique (code, source_card_id).
+  picks: Map<string, RippleCard>; // sourceCardId → the pick marking it
+  settled: Map<string, RippleCard>; // sourceCardId → the mark saying it is no longer open
   parked: RippleCard[]; // set aside, non-STICKY
   // Cards no bucket could legitimately hold: a response hung off something, a milestone with
   // no parent, a milestone whose period is missing or unrecognised, a milestone under a card
@@ -115,6 +129,8 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
   const orphans: RippleCard[] = [];
   // Flat first, bucketed into periods only once we know which parents are live.
   const byParent = new Map<string, RippleCard[]>();
+  const pickRows: RippleCard[] = [];
+  const settledRows: RippleCard[] = [];
 
   for (const c of cards) {
     // Step 1's answers live on the sections, not here. See the header.
@@ -127,6 +143,12 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
       // A response is the wall's own card; hung off something it is not a response to
       // anything this board draws.
       if (isTreeRoot(c)) responses.push(c);
+      else orphans.push(c);
+      continue;
+    }
+    if (c.cardKind === "pick" || c.cardKind === "settled") {
+      // A mark with nothing to mark is not a finding about anything.
+      if (c.sourceCardId) (c.cardKind === "pick" ? pickRows : settledRows).push(c);
       else orphans.push(c);
       continue;
     }
@@ -174,9 +196,25 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
   // The picks, in the wall's own order, so a lane's position matches its card's.
   const boldMoves = responses.filter((r) => r.shortlisted);
 
+  // Newest wins if a source somehow carries two marks. The unique index makes that
+  // impossible today, but the shape should not depend on a constraint to be total.
+  const index = (rows: RippleCard[]) => {
+    const m = new Map<string, RippleCard>();
+    for (const c of rows.sort(byOrder)) m.set(c.sourceCardId!, c);
+    return m;
+  };
+
   orphans.sort(byOrder);
 
-  return { responses, boldMoves, milestones, parked, orphans };
+  return {
+    responses,
+    boldMoves,
+    milestones,
+    picks: index(pickRows),
+    settled: index(settledRows),
+    parked,
+    orphans,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -250,4 +288,26 @@ export function timelineProgress(board: CommitmentsBoard): {
     if (n > 0) movesStarted += 1;
   }
   return { placed, capacity: board.boldMoves.length * MILESTONES_PER_MOVE, movesStarted };
+}
+
+// ---------------------------------------------------------------------------
+// Step 5: the handoff
+// ---------------------------------------------------------------------------
+// How many of a given pool the group has starred. The pool is an earlier week's cards, so
+// the caller passes their ids; this counts the marks that point at them.
+export function pickedFrom(board: CommitmentsBoard, sourceIds: Iterable<string>): string[] {
+  const out: string[] = [];
+  for (const id of sourceIds) if (board.picks.has(id)) out.push(id);
+  return out;
+}
+
+export function isPicked(board: CommitmentsBoard, sourceId: string): boolean {
+  return board.picks.has(sourceId);
+}
+
+// An earlier uncertainty is STILL OPEN unless the group has said otherwise. The default
+// matters: a group that does nothing on step 5 leaves an honest record rather than an empty
+// one, which is the opposite of how a star behaves.
+export function isStillOpen(board: CommitmentsBoard, sourceId: string): boolean {
+  return !board.settled.has(sourceId);
 }

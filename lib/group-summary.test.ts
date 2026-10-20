@@ -362,6 +362,8 @@ describe("buildGroupSummary · Session 4", () => {
     boldMoves: [],
     lanes: [],
     stranded: [],
+    pickedSourceIds: [],
+    settledSourceIds: [],
     orphans: [],
     questions: [],
     ...over,
@@ -432,5 +434,75 @@ describe("buildGroupSummary · Session 4", () => {
     );
     expect(s.has.commitments).toBe(true);
     expect(s.boldMoves).toEqual([]);
+  });
+});
+
+describe("buildGroupSummary · the curated handoff", () => {
+  const row = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
+  const stake = (id: string, text: string) => ({ ...row(id, text), mechanism: null, shortlisted: false });
+  const w4 = (over: Partial<CommitmentsExercise>): CommitmentsExercise => ({
+    kind: "commitments", exerciseId: "EX4", title: "Session 4", cards: [{ id: "c" } as never],
+    responses: [], boldMoves: [], lanes: [], stranded: [],
+    pickedSourceIds: [], settledSourceIds: [], orphans: [], questions: [],
+    ...over,
+  });
+  const w3 = (): ExerciseAnswers => ({
+    kind: "synthesis", exerciseId: "EX3", title: "Session 3", cards: [], themes: [
+      {
+        id: "t1", text: "A theme", description: null, implications: [],
+        answers: [], tensions: [], chain: [],
+        risks: [stake("r1", "starred risk"), stake("r2", "plain risk")],
+        opportunities: [stake("o1", "starred opp"), stake("o2", "plain opp")],
+      },
+    ],
+    hopesFears: [], role: [], unclustered: [], parked: [], orphans: [], questions: [], summary: null,
+  });
+  const w1 = (): ExerciseAnswers => ({
+    kind: "worksheet", exerciseId: "EX1", title: "Session 1",
+    questions: [
+      { key: "assess-important", label: "Most important", kind: "question", answers: [row("i1", "Power is local")] },
+      { key: "assess-unclear", label: "Unclear", kind: "question", answers: [row("u1", "Who funds it?"), row("u2", "Who decides?")] },
+    ],
+  });
+
+  it("derives the star on a Session 3 card from a Session 4 pick", () => {
+    // The star is NOT stored on the risk. Week 4 writes only to its own board, so the
+    // handoff deck has to project it, and this is the test that keeps it projecting.
+    const s = buildGroupSummary([w1(), w3(), w4({ pickedSourceIds: ["r1", "o1"] })], { name: "G" });
+    const t = s.themes[0];
+    expect(t.risks.map((r) => [r.text, r.shortlisted])).toEqual([
+      ["starred risk", true],
+      ["plain risk", false],
+    ]);
+    expect(t.opportunities.map((o) => [o.text, o.shortlisted])).toEqual([
+      ["starred opp", true],
+      ["plain opp", false],
+    ]);
+  });
+
+  it("leaves Session 3 alone when Session 4 has not been run", () => {
+    const s = buildGroupSummary([w1(), w3()], { name: "G" });
+    expect(s.themes[0].risks.every((r) => !r.shortlisted)).toBe(true);
+    expect(s.settledCount).toBe(0);
+  });
+
+  it("drops the uncertainties the group marked settled, and counts them", () => {
+    const s = buildGroupSummary([w1(), w3(), w4({ settledSourceIds: ["u1"] })], { name: "G" });
+    expect(s.unsettled.map((u) => u.text)).toEqual(["Who decides?"]);
+    expect(s.settledCount).toBe(1);
+  });
+
+  it("keeps every uncertainty open by default", () => {
+    // Doing nothing on step 5 must hand over the whole list, not an empty one.
+    const s = buildGroupSummary([w1(), w3(), w4({})], { name: "G" });
+    expect(s.unsettled).toHaveLength(2);
+    expect(s.settledCount).toBe(0);
+  });
+
+  it("surfaces Session 1's read of the world, which nothing else shows", () => {
+    const s = buildGroupSummary([w1(), w3()], { name: "G" });
+    expect(s.worldReading).toEqual([
+      { label: "What feels most important or distinctive", answers: ["Power is local"] },
+    ]);
   });
 });

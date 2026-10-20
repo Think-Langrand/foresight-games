@@ -193,13 +193,58 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 02 · key changes ----------------------------------------------------------------
+  // ---- 02 · how this world works -------------------------------------------------------
+  // Session 1's own read of the scenario, written in September and shown nowhere until now.
+  // It goes BEFORE the key changes because it is the ground the rest of the deck stands on:
+  // a committee reading four of these needs to know how this world works before it can read
+  // what the group thinks follows from it.
+  if (s.worldReading.length > 0) {
+    slides.push({
+      id: "world",
+      label: "How this world works",
+      node: (
+        <Slide
+          n="02"
+          title="How this world works"
+          intro={
+            <>
+              Your group&rsquo;s first read of this scenario, from Session 1. Everything after
+              this slide follows from it.
+            </>
+          }
+        >
+          <div className="flex flex-col gap-7">
+            {s.worldReading.map((block) => (
+              <div key={block.label}>
+                <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+                  {block.label}{" "}
+                  <span className="tabular-nums text-muted">{block.answers.length}</span>
+                </p>
+                <ul className="m-0 list-none p-0">
+                  {block.answers.map((a) => (
+                    <li
+                      key={a}
+                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[14.5px] leading-[1.5] last:border-b-0"
+                    >
+                      {a}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- 03 · key changes ----------------------------------------------------------------
   slides.push({
     id: "key-changes",
     label: "Key changes",
     node: (
       <Slide
-        n="02"
+        n="03"
         title="Your key changes"
         chip={<Chip tone="live">On the board</Chip>}
         intro={
@@ -226,14 +271,14 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 03 · the map --------------------------------------------------------------------
+  // ---- 04 · the map --------------------------------------------------------------------
   if (implications && s.totalImplicationCards > 0) {
     slides.push({
       id: "map",
       label: "The map",
       node: (
         <Slide
-          n="03"
+          n="04"
           title="Where the changes led"
           chip={<Chip tone="live">On the board</Chip>}
           fill
@@ -250,7 +295,7 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 04 · how the implications regrouped ---------------------------------------------
+  // ---- 05 · how the implications regrouped ---------------------------------------------
   if (s.clusterFlow.links.length > 0) {
     const spreads = s.clusterFlow.themes.map(
       (_, ti) => s.clusterFlow.links.filter((l) => l.themeIndex === ti && l.count > 0).length
@@ -261,7 +306,7 @@ export default function GroupSummaryView({
       label: "How they regrouped",
       node: (
         <Slide
-          n="04"
+          n="05"
           title="How the implications regrouped"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -279,14 +324,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 05 · themes ---------------------------------------------------------------------
+  // ---- 06 · themes ---------------------------------------------------------------------
   if (s.themes.length > 0) {
     slides.push({
       id: "themes",
       label: "Themes",
       node: (
         <Slide
-          n="05"
+          n="06"
           title="Your themes"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -363,14 +408,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 06 · risks and opportunities together -------------------------------------------
+  // ---- 07 · risks and opportunities together -------------------------------------------
   if (s.gaps.stakes > 0) {
     slides.push({
       id: "stakes",
       label: "Risks & opportunities",
       node: (
         <Slide
-          n="06"
+          n="07"
           title="What the themes put at stake"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -387,14 +432,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 07 · hopes, fears, flips --------------------------------------------------------
+  // ---- 08 · hopes, fears, flips --------------------------------------------------------
   if (s.flips.length + s.standaloneHopes.length > 0) {
     slides.push({
       id: "hopes-fears",
       label: "Hopes & fears",
       node: (
         <Slide
-          n="07"
+          n="08"
           title="Hopes, fears, and the flips"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -472,7 +517,7 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 08 · Session 4: the aspiration --------------------------------------------------
+  // ---- 09 · Session 4: the aspiration --------------------------------------------------
   // The prompts are AUTHORED SECTIONS, so their headings come from the data. The deck
   // renders what the group was actually asked rather than three hard-coded fields, which is
   // what lets a facilitator reword step 1 without this slide going stale.
@@ -482,7 +527,7 @@ export default function GroupSummaryView({
       label: "Aspiration",
       node: (
         <Slide
-          n="08"
+          n="09"
           title="What your group is aspiring to"
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
@@ -545,7 +590,7 @@ export default function GroupSummaryView({
       label: "Aspiration",
       node: (
         <Slide
-          n="08"
+          n="09"
           title="Your aspiration, and what it rests on"
           chip={<Chip tone="next">Session 4 builds this</Chip>}
           intro={
@@ -588,7 +633,7 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 09 · Session 4: the bold moves and their backcast -------------------------------
+  // ---- 10 · Session 4: the bold moves and their backcast -------------------------------
   // One table, not one slide per move: the finding is the SHAPE of the three lanes read
   // together — where the group front-loaded, and where a lane runs out. Empty cells print
   // as a dot for exactly that reason.
@@ -599,7 +644,7 @@ export default function GroupSummaryView({
       label: "Bold moves",
       node: (
         <Slide
-          n="09"
+          n="10"
           title="The moves you committed to, and when"
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
@@ -680,21 +725,23 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 10 · What we never settled -------------------------------------------
+  // ---- 11 · What we never settled -------------------------------------------
   if (s.unsettled.length > 0) {
     slides.push({
       id: "unsettled",
       label: "What we never settled",
       node: (
         <Slide
-          n="10"
+          n="11"
           title="What we never settled"
           chip={<Chip tone="next">Still open</Chip>}
           intro={
             <>
-              Disagreement is recorded, not resolved. These are your group&rsquo;s own words from
-              Session 1, and nothing in the four sessions has used them since. They are not an
-              oversight: they are what the group could not agree on, carried forward intact.
+              Your group&rsquo;s own words from Session 1, reviewed in Session 4.
+              {s.settledCount > 0
+                ? ` Four sessions answered ${s.settledCount} of them. These are the ones still open.`
+                : " These are the questions four sessions did not answer."}{" "}
+              Open is a finding, not an oversight. They go to the committee as they are.
             </>
           }
         >

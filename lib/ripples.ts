@@ -491,6 +491,10 @@ export async function addCard(input: {
   description?: string | null;
   // Groups copies of one implication living in several themes (0023).
   twinKey?: string | null;
+  // Week 4 step 5: the earlier week's card a `pick` or `settled` mark is about. Lands in
+  // 0018's unique (code, source_card_id), so a second mark on the same source is a 23505
+  // the route turns into a 409.
+  sourceCardId?: string | null;
 }): Promise<RippleCard> {
   const row = await withRetry(async () => {
     const { data, error } = await supabaseAdmin()
@@ -508,6 +512,7 @@ export async function addCard(input: {
         card_kind: input.cardKind ?? null,
         description: input.description || null,
         twin_key: input.twinKey ?? null,
+        source_card_id: input.sourceCardId ?? null,
       })
       .select("*")
       .single();

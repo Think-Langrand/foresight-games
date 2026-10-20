@@ -184,6 +184,16 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     label: "What has to be true for this to hold?",
     help: "The rules, resources, authority or relationships it depends on. If one of these failed, the aspiration would not survive it.",
   },
+  // Step 5's only written field. On its own `step`, so the board renders it on the handoff
+  // tab rather than beside the aspiration prompts: CommitmentsTeamView splits `sections` by
+  // step, and anything an admin adds with no step falls to step 1.
+  {
+    key: "handoff-committee-line",
+    kind: "question",
+    step: "The handoff",
+    label: "If the committee reads one thing, what should it be?",
+    help: "Not a summary of the session. The one line you want read first.",
+  },
 ];
 
 export const EXERCISE_TYPES: Record<string, ExerciseType> = {

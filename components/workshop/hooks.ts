@@ -560,6 +560,8 @@ export async function postRippleCard(
     description?: string | null;
     // Week 3: put an implication that is already on this board into another theme too.
     copyOfCardId?: string;
+    // Week 4 step 5: the earlier week's card a `pick` or `settled` mark is about.
+    sourceCardId?: string;
   }
 ) {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/cards`, {

@@ -410,6 +410,8 @@ const cex = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
   boldMoves: [],
   lanes: [],
   stranded: [],
+  pickedSourceIds: [],
+  settledSourceIds: [],
   orphans: [],
   questions: [],
   ...over,

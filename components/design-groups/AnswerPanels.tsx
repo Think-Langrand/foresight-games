@@ -136,6 +136,11 @@ export interface CommitmentsExercise {
   // they return the moment the move is picked again. Reported so a reader is never left
   // wondering where a timeline went.
   stranded: AnswerRow[];
+  // Step 5. The ids of the EARLIER cards each mark points at, not the marks themselves:
+  // every consumer wants to ask "is this risk starred", and the mark is only the record of
+  // the answer. Nothing on Session 1's or Session 3's board was changed to make this true.
+  pickedSourceIds: string[];
+  settledSourceIds: string[];
   // Cards the board could not place — a milestone with an unrecognised period. Surfaced so
   // nothing is ever silently lost; an empty list is the normal case.
   orphans: AnswerRow[];
