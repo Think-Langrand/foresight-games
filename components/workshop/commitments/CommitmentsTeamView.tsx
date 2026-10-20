@@ -10,6 +10,7 @@ import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/worksho
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { MovesBoard } from "@/components/workshop/commitments/MovesBoard";
+import { BacktrackTimeline } from "@/components/workshop/commitments/BacktrackTimeline";
 import {
   useRipplesView,
   useOptimisticCards,
@@ -18,12 +19,19 @@ import {
   postRippleCard,
   reorderRippleCard,
   shortlistRippleCard,
+  periodRippleCard,
 } from "@/components/workshop/hooks";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
-import type { RippleCard, RipplePhase } from "@/lib/ripples-types";
+import { childOrderOf, type RippleCard, type RipplePhase } from "@/lib/ripples-types";
 import { SORT_STEP } from "@/lib/synthesis-shape";
-import { indexCommitmentsBoard } from "@/lib/commitments-shape";
+import {
+  MILESTONES_PER_MOVE,
+  indexCommitmentsBoard,
+  milestoneCount,
+  milestonesFor,
+  type PeriodKey,
+} from "@/lib/commitments-shape";
 import type { WorksheetSection } from "@/lib/exercise-types";
 import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 
@@ -85,6 +93,8 @@ export function CommitmentsTeamView({
     editLocal,
     shortlistLocal,
     dropShortlistLocal,
+    sectionLocal,
+    dropSectionLocal,
   } = useOptimisticCards(view?.cards ?? NO_CARDS);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -251,6 +261,43 @@ export function CommitmentsTeamView({
     });
   };
 
+  // A milestone hangs off the move it backcasts, which is what makes the lane its lane
+  // and what makes a delete cascade correctly. Its PERIOD is separate, in `section`: a
+  // parent says which move, not which column.
+  const addMilestone = (move: RippleCard, period: PeriodKey, text: string) =>
+    run(async () => {
+      // The cap is per move across the whole span, so it is checked against the move and
+      // not the cell. Guarded here as well as in the composer, because the composer's
+      // `full` is a render away from the click.
+      if (milestoneCount(board, move.id) >= MILESTONES_PER_MOVE) {
+        throw new Error(`A move takes ${MILESTONES_PER_MOVE} milestones. Delete one first.`);
+      }
+      const order = childOrderOf(move.order);
+      if (!order) throw new Error("That chain is already as deep as it goes.");
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: order,
+        parentCardId: move.id,
+        cardKind: "milestone",
+        section: period,
+        text,
+        sort: (milestonesFor(board, move.id, period).length + 1) * SORT_STEP,
+      });
+      if (res?.card) addLocal(res.card as RippleCard);
+    });
+
+  const moveMilestone = (card: RippleCard, period: PeriodKey) => {
+    sectionLocal(card.id, period);
+    run(async () => {
+      try {
+        await periodRippleCard(code, card.id, { participantId: pid, period });
+      } catch (e) {
+        dropSectionLocal(card.id);
+        throw e;
+      }
+    });
+  };
+
   // ---- the steps -------------------------------------------------------------
 
   // Step 1 IS the sections, so all of them mount here, the way Week 2's Sandbox step
@@ -340,14 +387,20 @@ export function CommitmentsTeamView({
         />
       )}
 
-      {/* Step 4 is built next. The tabs are live from the first paint by house rule, so it
-          says what it will hold rather than rendering nothing. */}
       {step === "timeline" && (
-        <p className="text-[13px] italic text-muted">
-          The backcasting timeline is being built.
-          {board.boldMoves.length > 0 &&
-            ` ${board.boldMoves.length} bold move${board.boldMoves.length === 1 ? "" : "s"} ready for it.`}
-        </p>
+        <BacktrackTimeline
+          board={board}
+          sections={sections}
+          cards={cards}
+          editable={editable}
+          busy={busy}
+          onAdd={addMilestone}
+          onEdit={editCard}
+          onDelete={removeCard}
+          onMove={moveMilestone}
+          onGoToAspiration={() => setStep("aspiration")}
+          onGoToMoves={() => setStep("moves")}
+        />
       )}
     </div>
   );

@@ -20,6 +20,7 @@ import {
   type CardOrder,
 } from "@/lib/ripples-types";
 import { placementError } from "@/lib/synthesis-shape";
+import { MILESTONES_PER_MOVE, isCommitmentPeriod } from "@/lib/commitments-shape";
 
 export const dynamic = "force-dynamic";
 
@@ -227,6 +228,35 @@ export async function POST(
       copyText = original.text;
     }
 
+    // Week 4's timeline stores a milestone's two-year period in `section`. It is the one
+    // tree card that carries one, so the guard is narrow and REFUSES rather than nulling:
+    // a milestone with no period belongs to no column, which is the "in the database,
+    // drawn by no view" failure this route's other guards exist to prevent. The vocabulary
+    // is PERIODS in lib/commitments-shape.
+    if (kind === "milestone") {
+      if (!isCommitmentPeriod(body.section)) {
+        return NextResponse.json(
+          { error: "A milestone belongs in one of the timeline's periods." },
+          { status: 400 }
+        );
+      }
+      // The cap is per MOVE across the whole span, not per cell, so it counts the parent's
+      // milestone children rather than the cell's. Best effort by nature: this is a
+      // read-then-write, so two people adding at the same instant can still make a sixth.
+      // That is acceptable and visible — the lane reads "6 / 5" and the composer closes —
+      // and it is far better than no server guard at all, which let a scripted or retried
+      // request fill a lane without limit.
+      const siblings = (await listBoardCards(session.code)).filter(
+        (c) => c.parentId === parentId && c.cardKind === "milestone"
+      );
+      if (siblings.length >= MILESTONES_PER_MOVE) {
+        return NextResponse.json(
+          { error: `A move takes ${MILESTONES_PER_MOVE} milestones. Delete one first.` },
+          { status: 400 }
+        );
+      }
+    }
+
     const card = await addCard({
       sessionId: session.id,
       code: session.code,
@@ -236,8 +266,14 @@ export async function POST(
       parentId,
       text: copyText ?? text,
       sort: typeof body.sort === "number" ? body.sort : 0,
-      // A worksheet buckets sticky cards into named areas; tree cards have no section.
-      section: order === "STICKY" && typeof body.section === "string" ? body.section : null,
+      // A worksheet buckets sticky cards into named areas, and Week 4's milestones are the
+      // one kind of tree card that also carries one (its timeline period, guarded above).
+      // Every reader of worksheet sections filters on STICKY first, so the two uses cannot
+      // collide — see the note at PERIODS in lib/commitments-shape.
+      section:
+        (order === "STICKY" || kind === "milestone") && typeof body.section === "string"
+          ? body.section
+          : null,
       cardKind: kind,
       description,
       twinKey,

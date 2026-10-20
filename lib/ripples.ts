@@ -702,6 +702,23 @@ export async function setCardParked(code: string, cardId: string, parked: boolea
   if (error) throw error;
 }
 
+// Move a Week 4 milestone to another two-year period. The period lives in `section` —
+// the one tree card that carries one — so this is a plain column write; the ROUTE owns
+// checking that the card is a milestone and the key is a real period, the same way
+// setCardShortlisted leaves the kind allow-list to its caller.
+export async function setCardSection(
+  code: string,
+  cardId: string,
+  section: string
+): Promise<void> {
+  const { error } = await supabaseAdmin()
+    .from("ripple_cards")
+    .update({ section })
+    .eq("code", up(code))
+    .eq("id", cardId);
+  if (error) throw error;
+}
+
 // Delete a card (its children cascade via parent_card_id on delete cascade).
 // Delete a Week 3 card in ONE transaction (0026, public.delete_ripple_card): refuse a theme
 // that still holds implications, hand a twin's Week 2 link to a surviving sibling, then

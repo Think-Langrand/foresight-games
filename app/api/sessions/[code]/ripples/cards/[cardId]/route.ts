@@ -12,6 +12,7 @@ import {
   moveCardSource,
   scoreCard,
   setCardParked,
+  setCardSection,
   setCardShortlisted,
   updateCardDescription,
   updateCardSort,
@@ -28,6 +29,7 @@ import {
   type ReparentRefusal,
 } from "@/lib/ripples-types";
 import { placementError } from "@/lib/synthesis-shape";
+import { isCommitmentPeriod } from "@/lib/commitments-shape";
 
 // One human sentence per refusal planReparent can return — the reasons exist so the
 // message can name the real cause, like the POST route's three distinct parent refusals.
@@ -64,7 +66,8 @@ export async function PATCH(
       | "score"
       | "reparent"
       | "park"
-      | "shortlist";
+      | "shortlist"
+      | "period";
     participantId?: string;
     sort?: number;
     text?: string;
@@ -74,6 +77,9 @@ export async function PATCH(
     parentCardId?: string | null;
     parked?: boolean;
     shortlisted?: boolean;
+    // Week 4: which two-year period a milestone sits in. Validated against PERIODS rather
+    // than typed as PeriodKey, because this is parsed JSON from the wire.
+    period?: string;
   } = {};
   try {
     body = await req.json();
@@ -268,6 +274,33 @@ export async function PATCH(
       }
       await setCardShortlisted(session.code, cardId, body.shortlisted);
       return NextResponse.json({ ok: true, shortlisted: body.shortlisted });
+    }
+
+    // Move a Week 4 milestone between the timeline's two-year periods. Its own action
+    // rather than an overload of `reorder`: `sort` orders cards WITHIN a cell and the
+    // period is which cell, and migration 0022's note on not overloading `sort` for the
+    // shortlist applies here for the same reason.
+    //
+    // Refuses rather than nulls an unknown period, matching the POST route: a milestone
+    // with no period belongs to no column and would be drawn by no view.
+    if (body.action === "period") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only change your own card." }, { status: 403 });
+      }
+      if (card.cardKind !== "milestone") {
+        return NextResponse.json(
+          { error: "Only a milestone sits in a timeline period." },
+          { status: 400 }
+        );
+      }
+      if (!isCommitmentPeriod(body.period)) {
+        return NextResponse.json(
+          { error: "A milestone belongs in one of the timeline's periods." },
+          { status: 400 }
+        );
+      }
+      await setCardSection(session.code, cardId, body.period);
+      return NextResponse.json({ ok: true, period: body.period });
     }
 
     // Park a card in Week 3's tray — set aside, not deleted, and draggable back out. Uses
