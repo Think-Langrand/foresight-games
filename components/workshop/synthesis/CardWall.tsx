@@ -27,11 +27,16 @@ import {
 // colours, nothing to press. Step 3's theme deck reads a theme's risks and opportunities
 // that way, so the group meets the cards it made in the shape it made them.
 
-export type WallTone = "risk" | "opportunity" | "hope" | "fear";
+export type WallTone = "risk" | "opportunity" | "hope" | "fear" | "response";
 
 // Exported, because step 3 reads a theme's risks and opportunities back as LISTS rather
 // than as cards (see StakeList) and the two must agree about what a risk looks like: coral,
 // marked ▼. One vocabulary, two shapes.
+//
+// `response` is Week 4's and is deliberately NOT one of the warm/cool pair. The other four
+// tones encode POLARITY — something is a risk or an opportunity, a fear or a hope — and a
+// strategic response has no polarity to encode; it is a thing the group would do. Blue is
+// the brand's own accent and reads as neither good nor bad, which is the point.
 export const TONE: Record<
   WallTone,
   { chip: string; well: string; slot: string; edge: string; mark: string }
@@ -63,6 +68,13 @@ export const TONE: Record<
     slot: "border-coral/50 hover:bg-coral/15",
     edge: "border-coral",
     mark: "☂",
+  },
+  response: {
+    chip: "bg-blue text-white",
+    well: "bg-blue/10",
+    slot: "border-blue/50 hover:bg-blue/15",
+    edge: "border-blue",
+    mark: "→",
   },
 };
 

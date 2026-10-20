@@ -235,6 +235,13 @@ export async function PATCH(
     // Only the analytical cards can be shortlisted — a hope is not a finding and a theme
     // is the container. Refused by kind, the same way park refuses a theme.
     //
+    // Week 4's `response` joined them, and is the one case where the shortlist is the
+    // POINT of a step rather than a note on the side: a bold move IS a response carrying
+    // this flag, which is why Session 4 needs no rank column and no derived card. The cap
+    // of three is enforced in the UI only — counting here would be a read-then-write race
+    // on a board several people work at once, so the copy says "up to three" rather than
+    // claiming a guarantee the server does not make.
+    //
     // Assumptions joined the list because step 4 also asks which of them were challenged
     // in a way that surprised the group; that is a finding about the group's own thinking,
     // and the doc names it as a workshop output.
@@ -248,10 +255,14 @@ export async function PATCH(
       if (
         card.cardKind !== "risk" &&
         card.cardKind !== "opportunity" &&
-        card.cardKind !== "assumption"
+        card.cardKind !== "assumption" &&
+        card.cardKind !== "response"
       ) {
         return NextResponse.json(
-          { error: "Only a risk, an opportunity or an assumption can go on the shortlist." },
+          {
+            error:
+              "Only a risk, an opportunity, an assumption or a strategic response can go on the shortlist.",
+          },
           { status: 400 }
         );
       }

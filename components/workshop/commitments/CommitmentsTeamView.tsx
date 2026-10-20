@@ -8,6 +8,8 @@ import { SessionHeaderActions, useInSessionTabs } from "@/components/design-grou
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
+import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
+import { MovesBoard } from "@/components/workshop/commitments/MovesBoard";
 import {
   useRipplesView,
   useOptimisticCards,
@@ -15,10 +17,12 @@ import {
   editRippleCard,
   postRippleCard,
   reorderRippleCard,
+  shortlistRippleCard,
 } from "@/components/workshop/hooks";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import type { RippleCard, RipplePhase } from "@/lib/ripples-types";
+import { SORT_STEP } from "@/lib/synthesis-shape";
 import { indexCommitmentsBoard } from "@/lib/commitments-shape";
 import type { WorksheetSection } from "@/lib/exercise-types";
 import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
@@ -72,8 +76,16 @@ export function CommitmentsTeamView({
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
   const { pid, playerId } = useSharedBoardMembership(code, view, refresh);
-  const { cards, addLocal, removeLocal, unremoveLocal, reorderLocal, editLocal } =
-    useOptimisticCards(view?.cards ?? NO_CARDS);
+  const {
+    cards,
+    addLocal,
+    removeLocal,
+    unremoveLocal,
+    reorderLocal,
+    editLocal,
+    shortlistLocal,
+    dropShortlistLocal,
+  } = useOptimisticCards(view?.cards ?? NO_CARDS);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [showScenario, setShowScenario] = useState(true);
@@ -177,9 +189,9 @@ export function CommitmentsTeamView({
     });
   };
 
-  // Keyed by id, because WorksheetSections edits by id. Steps 2 to 4 hand whole cards
-  // around (CardWall, InlineText) and will adapt to this rather than keeping a second
-  // copy of the revert logic.
+  // Keyed by id, because WorksheetSections edits by id; `editCard` below adapts it for
+  // CardWall, which hands whole cards around, rather than keeping a second copy of the
+  // revert logic.
   const editCardById = (cardId: string, text: string) => {
     const prev = cards.find((c) => c.id === cardId)?.text;
     editLocal(cardId, text);
@@ -192,6 +204,7 @@ export function CommitmentsTeamView({
       }
     });
   };
+  const editCard = (card: RippleCard, text: string) => editCardById(card.id, text);
 
   const removeCard = (card: RippleCard) => {
     removeLocal(card.id);
@@ -200,6 +213,39 @@ export function CommitmentsTeamView({
         await deleteRippleCard(code, card.id, { participantId: pid });
       } catch (e) {
         unremoveLocal(card.id);
+        throw e;
+      }
+    });
+  };
+
+  // The board sorts by (sort, createdTime), so anything created at sort 0 would sit ahead
+  // of every card that has ever been dragged. A new response gets a sort past the end of
+  // the wall, so it appends — and because the wall's order IS the lane order on step 4,
+  // this is also what keeps the timeline's lanes in the order the group sees them.
+  const endSort = (list: RippleCard[]) => (list.length + 1) * SORT_STEP;
+
+  const addResponse = (text: string) =>
+    run(async () => {
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "FIRST",
+        cardKind: "response",
+        text,
+        sort: endSort(board.responses),
+      });
+      if (res?.card) addLocal(res.card as RippleCard);
+    });
+
+  // Picking a bold move. A real write, not client state: it survives a reload and every
+  // member of the group sees it. The overlay drops on failure so a refused tick does not
+  // leave a card looking chosen.
+  const toggleBoldMove = (card: RippleCard, shortlisted: boolean) => {
+    shortlistLocal(card.id, shortlisted);
+    run(async () => {
+      try {
+        await shortlistRippleCard(code, card.id, { participantId: pid, shortlisted });
+      } catch (e) {
+        dropShortlistLocal(card.id);
         throw e;
       }
     });
@@ -267,15 +313,40 @@ export function CommitmentsTeamView({
         </div>
       )}
 
-      {/* Steps 2 to 4 are built next. The tabs are live from the first paint by house
-          rule, so each one says what it will hold rather than rendering nothing. */}
-      {step !== "aspiration" && (
+      {step === "responses" && (
+        <ResponseBoard
+          board={board}
+          sections={sections}
+          cards={cards}
+          week3Cards={week3Cards}
+          editable={editable}
+          busy={busy}
+          onAdd={addResponse}
+          onEdit={editCard}
+          onDelete={removeCard}
+          onGoToAspiration={() => setStep("aspiration")}
+        />
+      )}
+
+      {step === "moves" && (
+        <MovesBoard
+          board={board}
+          sections={sections}
+          cards={cards}
+          editable={editable}
+          onToggle={toggleBoldMove}
+          onGoToAspiration={() => setStep("aspiration")}
+          onGoToResponses={() => setStep("responses")}
+        />
+      )}
+
+      {/* Step 4 is built next. The tabs are live from the first paint by house rule, so it
+          says what it will hold rather than rendering nothing. */}
+      {step === "timeline" && (
         <p className="text-[13px] italic text-muted">
-          {step === "responses" && "The wall of strategic responses is being built."}
-          {step === "moves" && "Choosing the three bold moves is being built."}
-          {step === "timeline" && "The backcasting timeline is being built."}
-          {board.responses.length > 0 &&
-            ` ${board.responses.length} response${board.responses.length === 1 ? "" : "s"} already on the board.`}
+          The backcasting timeline is being built.
+          {board.boldMoves.length > 0 &&
+            ` ${board.boldMoves.length} bold move${board.boldMoves.length === 1 ? "" : "s"} ready for it.`}
         </p>
       )}
     </div>
