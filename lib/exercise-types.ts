@@ -363,9 +363,11 @@ export function supportsSections(id: string): boolean {
 }
 
 // The default program seeded when a group's scenario is assigned. Session 1 = scenario
-// assessment, Session 2 = implication mapping, Session 3 = synthesis, Session 4 = TBD.
+// assessment, Session 2 = implication mapping, Session 3 = synthesis, Session 4 =
+// commitments.
 // Only new projects get this; existing groups keep whatever their rows already say, and an
-// admin changes a week's type in the program editor.
+// admin changes a week's type in the program editor. So changing a type here does NOT
+// migrate a running cohort: that is a deliberate save in the admin, per group.
 export interface ProgramWeek {
   sort: number;
   type: string;
@@ -375,7 +377,7 @@ export const DEFAULT_PROGRAM: ProgramWeek[] = [
   { sort: 0, type: "scenario-assessment", title: "Session 1 · Scenario Assessment" },
   { sort: 1, type: "implications", title: "Session 2 · Implication Mapping" },
   { sort: 2, type: "synthesis", title: "Session 3 · Synthesis" },
-  { sort: 3, type: "placeholder", title: "Session 4 · TBD" },
+  { sort: 3, type: "commitments", title: "Session 4 · Commitments" },
 ];
 
 // A CanonicalWeek is the group-AGNOSTIC content of one program week — the single thing
