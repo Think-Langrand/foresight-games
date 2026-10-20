@@ -410,8 +410,8 @@ const cex = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
   boldMoves: [],
   lanes: [],
   stranded: [],
-  pickedSourceIds: [],
-  settledSourceIds: [],
+  picks: [],
+  settledMarks: [],
   orphans: [],
   questions: [],
   ...over,
@@ -483,6 +483,22 @@ describe("commitmentsCsvRows", () => {
       cex({ questions: [qblock("aspiration-statement", { label: "What are we aspiring to?", answers: [wrow("a1", "By 2035, every county has...")] })] })
     );
     expect(rows[0].slice(1, 4)).toEqual(["What are we aspiring to?", "question", "By 2035, every county has..."]);
+  });
+
+  it("emits a row for what step 5 curated, in the mark's stored words", () => {
+    // Without these the facilitator's sheet had no trace of which three risks the group
+    // chose for the committee, or which Session 1 uncertainties it declared answered.
+    const rows = commitmentsCsvRows(
+      cex({
+        picks: [{ ...wrow("p1", "PH funding comes from one source"), sourceId: "r1" }],
+        settledMarks: [{ ...wrow("s1", "How would equity be considered?"), sourceId: "u1" }],
+      })
+    );
+    expect(rows.map((r) => [r[1], r[2], r[3]])).toEqual([
+      ["Chosen for the committee", "pick", "PH funding comes from one source"],
+      ["Settled since Session 1", "settled", "How would equity be considered?"],
+    ]);
+    for (const r of rows) expect(r).toHaveLength(GROUP_ANSWERS_CSV_HEADER.length);
   });
 
   it("emits nothing for an untouched board", () => {

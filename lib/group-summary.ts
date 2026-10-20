@@ -251,10 +251,15 @@ export function buildGroupSummary(
   // itself: Week 4 writes only to its own board. The deck's existing star rendering reads
   // StakeRow.shortlisted, so projecting it here is all it takes to light up.
   const pickedIds = new Set(
-    commitments?.kind === "commitments" ? commitments.pickedSourceIds : []
+    commitments?.kind === "commitments" ? commitments.picks.map((m) => m.sourceId) : []
   );
+  // ALWAYS projects, with no short-circuit on an empty pick set. A star on this deck means
+  // "Session 4 chose this for the committee" and nothing else, so the count a slide shows is
+  // always the pick count. The earlier version returned `rows` untouched when there were no
+  // picks, which let Week 3's own dormant `shortlisted` column light stars the group never
+  // chose, and then wiped them the moment a single pick arrived.
   const star = (rows: StakeRow[]): StakeRow[] =>
-    pickedIds.size === 0 ? rows : rows.map((r) => ({ ...r, shortlisted: pickedIds.has(r.id) }));
+    rows.map((r) => ({ ...r, shortlisted: pickedIds.has(r.id) }));
 
   const themes: SummaryTheme[] = sThemes.map((t) => ({
     id: t.id,
@@ -338,7 +343,10 @@ export function buildGroupSummary(
     untraced,
   };
 
-  const stakeRows: StakeRow[] = themes.flatMap((t) => [...t.risks, ...t.opportunities]);
+  // From the RAW Week 3 themes, not the starred projection above: `gaps` measures how far
+  // Week 3 itself got, so reading the projected rows would make `starred` report Session 4's
+  // pick count under a Week 3 heading.
+  const stakeRows: StakeRow[] = sThemes.flatMap((t) => [...t.risks, ...t.opportunities]);
   const gaps: SummaryGaps = {
     explorationAnswers: sCards.filter((c) => c.cardKind && READING_SET.has(c.cardKind)).length,
     explorationSlots: themes.length * READING_FIELDS.length,
@@ -352,7 +360,7 @@ export function buildGroupSummary(
   // ---- Week 1: what the room never settled --------------------------------------------
   // Step 5's settled marks, if the week was run. Keyed by the Session 1 card they point at.
   const settledIds = new Set(
-    commitments?.kind === "commitments" ? commitments.settledSourceIds : []
+    commitments?.kind === "commitments" ? commitments.settledMarks.map((m) => m.sourceId) : []
   );
   const unsettled: { bucket: string; text: string }[] = [];
   let settledCount = 0;

@@ -27,7 +27,6 @@
 //            deck can render a star without Session 4 ever touching Session 3's cards.
 
 import { isTreeRoot, type RippleCard } from "@/lib/ripples-types";
-import type { ThemeProgress } from "@/lib/synthesis-shape";
 
 // ---------------------------------------------------------------------------
 // The timeline's periods
@@ -64,9 +63,6 @@ export function isCommitmentPeriod(v: unknown): v is PeriodKey {
   return typeof v === "string" && PERIOD_SET.has(v);
 }
 
-export function periodLabel(key: PeriodKey): string {
-  return PERIODS.find((p) => p.key === key)?.label ?? key;
-}
 
 // ---------------------------------------------------------------------------
 // Caps
@@ -82,6 +78,7 @@ export const MILESTONES_PER_MOVE = 5;
 
 // A wall with fewer responses than the cap cannot be down-selected to the cap, so that is
 // where step 2 stops being "started".
+// Kept although nothing reads it yet: it is the threshold the step-2 directions quote.
 export const RESPONSES_FOR_DONE = MAX_BOLD_MOVES;
 
 // Three risks and three opportunities for the handoff. Same cap, same honesty as the bold
@@ -196,13 +193,22 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
   // The picks, in the wall's own order, so a lane's position matches its card's.
   const boldMoves = responses.filter((r) => r.shortlisted);
 
-  // Newest wins if a source somehow carries two marks. The unique index makes that
-  // impossible today, but the shape should not depend on a constraint to be total.
+  // Newest wins if a source somehow carries two marks, and the LOSER GOES TO ORPHANS rather
+  // than nowhere. 0018's unique (code, source_card_id) makes this unreachable from the UI,
+  // but an earlier version silently dropped the loser into no bucket at all, which is the
+  // exact failure this module's orphan contract exists to prevent.
   const index = (rows: RippleCard[]) => {
     const m = new Map<string, RippleCard>();
-    for (const c of rows.sort(byOrder)) m.set(c.sourceCardId!, c);
+    for (const c of rows.sort(byOrder)) {
+      const prev = m.get(c.sourceCardId!);
+      if (prev) orphans.push(prev);
+      m.set(c.sourceCardId!, c);
+    }
     return m;
   };
+
+  const picks = index(pickRows);
+  const settled = index(settledRows);
 
   orphans.sort(byOrder);
 
@@ -210,8 +216,8 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
     responses,
     boldMoves,
     milestones,
-    picks: index(pickRows),
-    settled: index(settledRows),
+    picks,
+    settled,
     parked,
     orphans,
   };
@@ -254,52 +260,9 @@ export function strandedMilestones(board: CommitmentsBoard): RippleCard[] {
   return out.sort(byOrder);
 }
 
-// ---------------------------------------------------------------------------
-// Per-step progress, for the step row's glyphs
-// ---------------------------------------------------------------------------
-// Step 2 is done once there is something to choose between. Under three responses there is
-// no down-select to make, only a formality.
-export function responseProgress(board: CommitmentsBoard): ThemeProgress {
-  const n = board.responses.length;
-  if (n === 0) return "empty";
-  return n >= RESPONSES_FOR_DONE ? "done" : "started";
-}
 
-// Step 3 reports the count against the cap rather than a tri-state, because "2 of 3" is the
-// thing a group needs to see. `picked` can exceed the cap: the cap is enforced in the UI and
-// not by the database, so two people ticking at once can land a fourth, and the shape's job
-// is to say so rather than to hide it.
-export function boldMoveProgress(board: CommitmentsBoard): { picked: number; cap: number } {
-  return { picked: board.boldMoves.length, cap: MAX_BOLD_MOVES };
-}
 
-// Step 4 is a fraction of what the picked moves could hold, so an unpicked wall reads as
-// capacity 0 rather than as a timeline that is somehow complete.
-export function timelineProgress(board: CommitmentsBoard): {
-  placed: number;
-  capacity: number;
-  movesStarted: number;
-} {
-  let placed = 0;
-  let movesStarted = 0;
-  for (const move of board.boldMoves) {
-    const n = milestoneCount(board, move.id);
-    placed += n;
-    if (n > 0) movesStarted += 1;
-  }
-  return { placed, capacity: board.boldMoves.length * MILESTONES_PER_MOVE, movesStarted };
-}
 
-// ---------------------------------------------------------------------------
-// Step 5: the handoff
-// ---------------------------------------------------------------------------
-// How many of a given pool the group has starred. The pool is an earlier week's cards, so
-// the caller passes their ids; this counts the marks that point at them.
-export function pickedFrom(board: CommitmentsBoard, sourceIds: Iterable<string>): string[] {
-  const out: string[] = [];
-  for (const id of sourceIds) if (board.picks.has(id)) out.push(id);
-  return out;
-}
 
 export function isPicked(board: CommitmentsBoard, sourceId: string): boolean {
   return board.picks.has(sourceId);

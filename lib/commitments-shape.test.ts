@@ -5,21 +5,16 @@ import {
   MAX_PICKS_PER_KIND,
   isPicked,
   isStillOpen,
-  pickedFrom,
   MILESTONES_PER_MOVE,
   PERIODS,
   PERIOD_KEYS,
   RESPONSES_FOR_DONE,
-  boldMoveProgress,
   canAddMilestone,
   indexCommitmentsBoard,
   isCommitmentPeriod,
   milestoneCount,
   milestonesFor,
-  periodLabel,
-  responseProgress,
   strandedMilestones,
-  timelineProgress,
 } from "./commitments-shape";
 
 function card(
@@ -93,9 +88,6 @@ describe("the period vocabulary", () => {
     for (const bad of [null, undefined, 1, {}]) expect(isCommitmentPeriod(bad)).toBe(false);
   });
 
-  it("falls back to the key when asked to label something unknown", () => {
-    expect(periodLabel("w4-p3")).toBe("2031–32");
-  });
 });
 
 describe("indexCommitmentsBoard", () => {
@@ -226,7 +218,7 @@ describe("bold moves", () => {
       response("second", 4, { sort: 2000, shortlisted: true }),
     ]);
     expect(board.boldMoves.map((m) => m.id)).toEqual(["first", "second", "third"]);
-    expect(boldMoveProgress(board)).toEqual({ picked: 3, cap: MAX_BOLD_MOVES });
+    expect(board.boldMoves).toHaveLength(MAX_BOLD_MOVES);
   });
 
   it("report a fourth pick rather than hiding it", () => {
@@ -235,8 +227,10 @@ describe("bold moves", () => {
     const board = indexCommitmentsBoard(
       ["a", "b", "c", "d"].map((id, i) => response(id, i + 1, { sort: (i + 1) * 1000, shortlisted: true }))
     );
+    // The shape never hides an over-pick: the UI holds the cap, so a concurrent fourth
+    // tick has to be visible rather than silently trimmed here.
     expect(board.boldMoves).toHaveLength(4);
-    expect(boldMoveProgress(board)).toEqual({ picked: 4, cap: 3 });
+    expect(board.boldMoves.length).toBeGreaterThan(MAX_BOLD_MOVES);
   });
 
   it("keep a stranded move's milestones, so un-ticking is reversible", () => {
@@ -253,7 +247,7 @@ describe("bold moves", () => {
     expect(board.orphans).toEqual([]);
     expect(milestoneCount(board, "dropped")).toBe(1);
     expect(strandedMilestones(board).map((c) => c.id)).toEqual(["stranded"]);
-    expect(timelineProgress(board).placed).toBe(1); // only the picked lane is on the timeline
+    expect(milestoneCount(board, "picked")).toBe(1); // only the picked lane is on the timeline
 
     // Tick it back and the milestone is simply there again.
     const repicked = indexCommitmentsBoard(
@@ -299,36 +293,6 @@ describe("the five-per-move cap", () => {
   });
 });
 
-describe("step progress", () => {
-  it("calls step 2 done only once there is something to choose between", () => {
-    const of = (n: number) =>
-      responseProgress(indexCommitmentsBoard(Array.from({ length: n }, (_, i) => response(`r${i}`, i + 1))));
-    expect(of(0)).toBe("empty");
-    expect(of(1)).toBe("started");
-    expect(of(RESPONSES_FOR_DONE - 1)).toBe("started");
-    expect(of(RESPONSES_FOR_DONE)).toBe("done");
-    expect(of(RESPONSES_FOR_DONE + 4)).toBe("done");
-  });
-
-  it("measures the timeline against what the picked moves could hold", () => {
-    const empty = indexCommitmentsBoard([response("r1", 1), response("r2", 2)]);
-    // Nothing picked, so there is no timeline to be complete. Capacity 0, not 10.
-    expect(timelineProgress(empty)).toEqual({ placed: 0, capacity: 0, movesStarted: 0 });
-
-    const board = indexCommitmentsBoard([
-      response("a", 1, { sort: 1000, shortlisted: true }),
-      response("b", 2, { sort: 2000, shortlisted: true }),
-      milestone("m1", "a", "w4-p1", 3),
-      milestone("m2", "a", "w4-p4", 4),
-    ]);
-    expect(timelineProgress(board)).toEqual({
-      placed: 2,
-      capacity: 2 * MILESTONES_PER_MOVE,
-      movesStarted: 1,
-    });
-  });
-});
-
 describe("an empty board", () => {
   it("reads as empty everywhere rather than throwing", () => {
     const board = indexCommitmentsBoard([]);
@@ -337,9 +301,7 @@ describe("an empty board", () => {
     expect(board.parked).toEqual([]);
     expect(board.orphans).toEqual([]);
     expect(board.milestones.size).toBe(0);
-    expect(responseProgress(board)).toBe("empty");
-    expect(boldMoveProgress(board)).toEqual({ picked: 0, cap: 3 });
-    expect(timelineProgress(board)).toEqual({ placed: 0, capacity: 0, movesStarted: 0 });
+    expect(milestoneCount(board, "anything")).toBe(0);
     expect(strandedMilestones(board)).toEqual([]);
   });
 });
@@ -384,18 +346,17 @@ describe("step 5, the handoff marks", () => {
     expect(isStillOpen(board, "s1-unclear-b")).toBe(true);
   });
 
-  it("counts picks against a caller's pool, so the cap is per kind", () => {
-    // Risks and opportunities are capped separately. Scoping by the pool the caller passes
-    // is what keeps three starred risks from closing the opportunities list.
+
+  it("orphans the loser when one source somehow carries two marks of a kind", () => {
+    // 0018's unique index makes this unreachable from the UI, but an earlier version let the
+    // older mark fall into NO bucket, which is the exact loss this module's orphan contract
+    // exists to prevent.
     const board = indexCommitmentsBoard([
-      mark("p1", "pick", "r1", 1),
-      mark("p2", "pick", "r2", 2),
-      mark("p3", "pick", "r3", 3),
-      mark("p4", "pick", "o1", 4),
+      mark("older", "pick", "same-source", 1),
+      mark("newer", "pick", "same-source", 2),
     ]);
-    expect(pickedFrom(board, ["r1", "r2", "r3", "r4"])).toHaveLength(MAX_PICKS_PER_KIND);
-    expect(pickedFrom(board, ["o1", "o2"])).toEqual(["o1"]);
-    expect(pickedFrom(board, ["nothing"])).toEqual([]);
+    expect(board.picks.get("same-source")?.id).toBe("newer");
+    expect(board.orphans.map((c) => c.id)).toEqual(["older"]);
   });
 
   it("does not confuse a pick with a settled mark on the same id", () => {

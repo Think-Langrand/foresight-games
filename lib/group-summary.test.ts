@@ -362,8 +362,8 @@ describe("buildGroupSummary · Session 4", () => {
     boldMoves: [],
     lanes: [],
     stranded: [],
-    pickedSourceIds: [],
-    settledSourceIds: [],
+    picks: [],
+    settledMarks: [],
     orphans: [],
     questions: [],
     ...over,
@@ -443,7 +443,7 @@ describe("buildGroupSummary · the curated handoff", () => {
   const w4 = (over: Partial<CommitmentsExercise>): CommitmentsExercise => ({
     kind: "commitments", exerciseId: "EX4", title: "Session 4", cards: [{ id: "c" } as never],
     responses: [], boldMoves: [], lanes: [], stranded: [],
-    pickedSourceIds: [], settledSourceIds: [], orphans: [], questions: [],
+    picks: [], settledMarks: [], orphans: [], questions: [],
     ...over,
   });
   const w3 = (): ExerciseAnswers => ({
@@ -468,7 +468,7 @@ describe("buildGroupSummary · the curated handoff", () => {
   it("derives the star on a Session 3 card from a Session 4 pick", () => {
     // The star is NOT stored on the risk. Week 4 writes only to its own board, so the
     // handoff deck has to project it, and this is the test that keeps it projecting.
-    const s = buildGroupSummary([w1(), w3(), w4({ pickedSourceIds: ["r1", "o1"] })], { name: "G" });
+    const s = buildGroupSummary([w1(), w3(), w4({ picks: [{ ...row("mark0", "mark 0"), sourceId: "r1" }, { ...row("mark1", "mark 1"), sourceId: "o1" }] })], { name: "G" });
     const t = s.themes[0];
     expect(t.risks.map((r) => [r.text, r.shortlisted])).toEqual([
       ["starred risk", true],
@@ -480,6 +480,31 @@ describe("buildGroupSummary · the curated handoff", () => {
     ]);
   });
 
+  it("never lets Week 3's own shortlist light a handoff star", () => {
+    // A star on this deck means "Session 4 chose this", full stop. The earlier version
+    // short-circuited on an empty pick set, so a dormant Week 3 `shortlisted` flag showed
+    // stars the group never chose, and a single Session 4 pick then wiped them.
+    const w3Starred = (): ExerciseAnswers => {
+      const base = w3() as Extract<ExerciseAnswers, { kind: "synthesis" }>;
+      base.themes[0].risks[0] = { ...base.themes[0].risks[0], shortlisted: true };
+      return base;
+    };
+    const noPicks = buildGroupSummary([w1(), w3Starred(), w4({})], { name: "G" });
+    expect(noPicks.themes[0].risks.every((r) => !r.shortlisted)).toBe(true);
+
+    // And one Session 4 pick stars exactly that one, not the Week 3 leftover.
+    const picked = buildGroupSummary(
+      [w1(), w3Starred(), w4({ picks: [{ ...row("m", "x"), sourceId: "r2" }] })],
+      { name: "G" }
+    );
+    expect(picked.themes[0].risks.map((r) => [r.id, r.shortlisted])).toEqual([
+      ["r1", false],
+      ["r2", true],
+    ]);
+    // `gaps` stays a Week 3 metric, so it still sees Week 3's own flag.
+    expect(picked.gaps.starred).toBe(1);
+  });
+
   it("leaves Session 3 alone when Session 4 has not been run", () => {
     const s = buildGroupSummary([w1(), w3()], { name: "G" });
     expect(s.themes[0].risks.every((r) => !r.shortlisted)).toBe(true);
@@ -487,7 +512,7 @@ describe("buildGroupSummary · the curated handoff", () => {
   });
 
   it("drops the uncertainties the group marked settled, and counts them", () => {
-    const s = buildGroupSummary([w1(), w3(), w4({ settledSourceIds: ["u1"] })], { name: "G" });
+    const s = buildGroupSummary([w1(), w3(), w4({ settledMarks: [{ ...row("smark0", "settled 0"), sourceId: "u1" }] })], { name: "G" });
     expect(s.unsettled.map((u) => u.text)).toEqual(["Who decides?"]);
     expect(s.settledCount).toBe(1);
   });

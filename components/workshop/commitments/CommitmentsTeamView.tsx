@@ -118,6 +118,12 @@ export function CommitmentsTeamView({
   // Declared up here with the other state, NOT inside the build branch below — several
   // early returns sit between the two, and a hook after one of them would break the order.
   const [step, setStep] = useState<CommitStep>("aspiration");
+  // Step 5's marks, keyed `<kind>:<sourceCardId>`, while their write is in flight. A mark
+  // has no id until the server mints one, so it cannot ride the card overlay the way every
+  // other write on this board does; without this the board showed nothing at all for the
+  // length of a round trip, the cap read stale, and a group ticking four risks quickly got
+  // all four.
+  const [markPending, setMarkPending] = useState<Set<string>>(() => new Set());
 
   const inTabs = useInSessionTabs();
 
@@ -317,14 +323,38 @@ export function CommitmentsTeamView({
   // A handoff mark: a card on THIS board pointing at an earlier week's card. Nothing on
   // Session 1's or Session 3's board is touched, so the star the handoff deck draws is
   // derived rather than stored. `on` false deletes the mark that already exists.
+  const markKey = (kind: "pick" | "settled", sourceId: string) => `${kind}:${sourceId}`;
+
+  // What the board should SHOW, with an in-flight write folded in. XOR: a mark that exists
+  // with a write pending is being deleted, so it reads as gone; one that does not exist with
+  // a write pending is being created, so it reads as present.
+  const isStarred = (sourceId: string) =>
+    board.picks.has(sourceId) !== markPending.has(markKey("pick", sourceId));
+  const isOpen = (sourceId: string) =>
+    !(board.settled.has(sourceId) !== markPending.has(markKey("settled", sourceId)));
+
   const toggleMark = (
     kind: "pick" | "settled",
     source: { id: string; text: string },
     on: boolean
   ) => {
+    const key = markKey(kind, source.id);
+    // One write per mark at a time. Without this a double-click sends two creates for one
+    // source, the second trips 0018's unique index, and the group is told someone else
+    // answered when nobody did.
+    if (markPending.has(key)) return;
     const existing = (kind === "pick" ? board.picks : board.settled).get(source.id);
     if (on === Boolean(existing)) return;
+    const hold = () => setMarkPending((p) => new Set(p).add(key));
+    const release = () =>
+      setMarkPending((p) => {
+        if (!p.has(key)) return p;
+        const next = new Set(p);
+        next.delete(key);
+        return next;
+      });
     if (existing) {
+      hold();
       removeLocal(existing.id);
       run(async () => {
         try {
@@ -333,9 +363,10 @@ export function CommitmentsTeamView({
           unremoveLocal(existing.id);
           throw e;
         }
-      });
+      }).finally(release);
       return;
     }
+    hold();
     run(async () => {
       const res = await postRippleCard(code, {
         participantId: pid,
@@ -347,7 +378,7 @@ export function CommitmentsTeamView({
         text: source.text,
       });
       if (res?.card) addLocal(res.card as RippleCard);
-    });
+    }).finally(release);
   };
 
   // ---- the steps -------------------------------------------------------------
@@ -379,18 +410,7 @@ export function CommitmentsTeamView({
 
   const aspirationBody =
     sectionsFor("aspiration").length > 0 ? (
-      <WorksheetSections
-        sections={sectionsFor("aspiration")}
-        cards={cards}
-        editable={editable}
-        canEdit={canEditCard}
-        busy={busy}
-        playerNames={playerNames}
-        onAdd={addSectionCard}
-        onDelete={removeCard}
-        onEdit={editCardById}
-        onReorder={reorderSectionCard}
-      />
+      worksheetFor(sectionsFor("aspiration"))
     ) : (
       <p className="text-[13px] italic text-muted">
         No blocks are set up for this step yet. A facilitator adds them in the program
@@ -436,7 +456,7 @@ export function CommitmentsTeamView({
       {step === "responses" && (
         <ResponseBoard
           board={board}
-          sections={sections}
+          sections={sectionsFor("aspiration")}
           cards={cards}
           week3Cards={week3Cards}
           editable={editable}
@@ -451,7 +471,7 @@ export function CommitmentsTeamView({
       {step === "moves" && (
         <MovesBoard
           board={board}
-          sections={sections}
+          sections={sectionsFor("aspiration")}
           cards={cards}
           editable={editable}
           onToggle={toggleBoldMove}
@@ -462,13 +482,14 @@ export function CommitmentsTeamView({
 
       {step === "handoff" && (
         <HandoffBoard
-          board={board}
-          sections={sections}
+          sections={sectionsFor("aspiration")}
           cards={cards}
           week3Cards={week3Cards}
           week1Uncertainties={week1Uncertainties}
           summaryHref={summaryHref}
           editable={editable}
+          isStarred={isStarred}
+          isOpen={isOpen}
           onTogglePick={(source, on) => toggleMark("pick", source, on)}
           // The checkbox reads "still open", so ticking it REMOVES the settled mark.
           onToggleSettled={(source, settled) => toggleMark("settled", source, settled)}
@@ -481,7 +502,7 @@ export function CommitmentsTeamView({
       {step === "timeline" && (
         <BacktrackTimeline
           board={board}
-          sections={sections}
+          sections={sectionsFor("aspiration")}
           cards={cards}
           editable={editable}
           busy={busy}

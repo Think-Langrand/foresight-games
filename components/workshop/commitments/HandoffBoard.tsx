@@ -3,12 +3,7 @@
 import { useMemo } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import type { WorksheetSection } from "@/lib/exercise-types";
-import {
-  MAX_PICKS_PER_KIND,
-  isPicked,
-  isStillOpen,
-  type CommitmentsBoard,
-} from "@/lib/commitments-shape";
+import { MAX_PICKS_PER_KIND } from "@/lib/commitments-shape";
 import { indexSynthesisBoard, isUnnamedTheme, themeLabel } from "@/lib/synthesis-shape";
 import { TONE, type WallTone } from "@/components/workshop/synthesis/CardWall";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
@@ -47,20 +42,22 @@ function Stakes({
   tone,
   title,
   groups,
-  board,
+  isStarred,
   editable,
   onToggle,
 }: {
   tone: Extract<WallTone, "risk" | "opportunity">;
   title: string;
   groups: { id: string; label: string; cards: RippleCard[] }[];
-  board: CommitmentsBoard;
+  // Resolved by the view, so a star that is still being written already counts here. The
+  // cap reads this, which is what stops a fast fourth click.
+  isStarred: (sourceId: string) => boolean;
   editable: boolean;
   onToggle: (card: RippleCard, on: boolean) => void;
 }) {
   const t = TONE[tone];
   const all = groups.flatMap((g) => g.cards);
-  const picked = all.filter((c) => isPicked(board, c.id)).length;
+  const picked = all.filter((c) => isStarred(c.id)).length;
   const atCap = picked >= MAX_PICKS_PER_KIND;
   const over = picked > MAX_PICKS_PER_KIND;
 
@@ -108,7 +105,7 @@ function Stakes({
           ) : (
             <ul className="m-0 mt-1 flex list-none flex-col p-0">
               {g.cards.map((c) => {
-                const on = isPicked(board, c.id);
+                const on = isStarred(c.id);
                 // At the cap the unstarred go genuinely disabled rather than silently
                 // doing nothing, the same rule step 3 uses for bold moves.
                 const locked = !on && atCap;
@@ -145,25 +142,27 @@ function Stakes({
 }
 
 export function HandoffBoard({
-  board,
   sections,
   cards,
   week3Cards,
   week1Uncertainties,
   summaryHref,
   editable,
+  isStarred,
+  isOpen,
   onTogglePick,
   onToggleSettled,
   onGoToAspiration,
   children,
 }: {
-  board: CommitmentsBoard;
   sections: WorksheetSection[];
   cards: RippleCard[];
   week3Cards: RippleCard[];
   week1Uncertainties: { key: string; bucket: string; answers: { id: string; text: string }[] }[];
   summaryHref?: string;
   editable: boolean;
+  isStarred: (sourceId: string) => boolean;
+  isOpen: (sourceId: string) => boolean;
   onTogglePick: (source: { id: string; text: string }, on: boolean) => void;
   onToggleSettled: (source: { id: string; text: string }, on: boolean) => void;
   onGoToAspiration: () => void;
@@ -182,7 +181,7 @@ export function HandoffBoard({
       .filter((g) => g.cards.length > 0);
 
   const openCount = week1Uncertainties.reduce(
-    (n, b) => n + b.answers.filter((a) => isStillOpen(board, a.id)).length,
+    (n, b) => n + b.answers.filter((a) => isOpen(a.id)).length,
     0
   );
   const totalUncertainties = week1Uncertainties.reduce((n, b) => n + b.answers.length, 0);
@@ -226,7 +225,7 @@ export function HandoffBoard({
           tone="risk"
           title="Top risks"
           groups={groupsOf(w3.risks)}
-          board={board}
+          isStarred={isStarred}
           editable={editable}
           onToggle={(c, on) => onTogglePick({ id: c.id, text: c.text }, on)}
         />
@@ -234,7 +233,7 @@ export function HandoffBoard({
           tone="opportunity"
           title="Top opportunities"
           groups={groupsOf(w3.opportunities)}
-          board={board}
+          isStarred={isStarred}
           editable={editable}
           onToggle={(c, on) => onTogglePick({ id: c.id, text: c.text }, on)}
         />
@@ -261,7 +260,7 @@ export function HandoffBoard({
                 </h4>
                 <ul className="m-0 mt-1 flex list-none flex-col p-0">
                   {b.answers.map((a) => {
-                    const open = isStillOpen(board, a.id);
+                    const open = isOpen(a.id);
                     return (
                       <li key={a.id}>
                         <label className="flex cursor-pointer items-start gap-2 rounded-[3px] px-1 py-1.5 text-[13px] leading-[1.45] transition-colors hover:bg-black/[0.03]">

@@ -44,11 +44,19 @@ export function classifyCard(
   synthesis = false
 ): CardKind {
   if (card.cardKind === "theme") return "themes";
-  // Week 4's two kinds get their own bucket. No `commitments` flag is needed the way
+  // ALL FOUR of Week 4's kinds get their own bucket. `pick` and `settled` were missed when
+  // step 5 added them and were tallied as Session 3 work, so when a kind is added to
+  // CARD_KINDS check this line rather than trusting the comment to have kept up. No `commitments` flag is needed the way
   // `synthesis` is one: `response` and `milestone` exist on no other week, so the card
   // says which board it is on by itself. Without this they fell into `synthesis` and a
   // Week 4 cell reported a timeline as "answers, risks, hopes & fears".
-  if (card.cardKind === "response" || card.cardKind === "milestone") return "commitments";
+  if (
+    card.cardKind === "response" ||
+    card.cardKind === "milestone" ||
+    card.cardKind === "pick" ||
+    card.cardKind === "settled"
+  )
+    return "commitments";
   if (card.cardKind) return "synthesis";
   if (card.parentId !== null) return "implications";
   if (card.order !== "STICKY") return synthesis ? "implications" : "keyChanges";
@@ -120,6 +128,7 @@ export function sumTallies(tallies: CardTally[]): CardTally {
   for (const t of tallies) {
     out.themes += t.themes;
     out.synthesis += t.synthesis;
+    out.commitments += t.commitments;
     out.keyChanges += t.keyChanges;
     out.implications += t.implications;
     out.brainstorm += t.brainstorm;

@@ -208,6 +208,23 @@ export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
       }
     }
   }
+  // Step 5. A pick is NOT emitted as another copy of the risk it points at: the response
+  // wall already carries its own stars, and these point at Session 3's cards, which the
+  // Session 3 rows above already list. The row says which earlier card was chosen, in the
+  // words the mark stored, so the sheet reads without a lookup into another week.
+  for (const m of ex.picks) {
+    rows.push([ex.title, "Chosen for the committee", "pick", m.text, m.author, m.createdAt]);
+  }
+  for (const m of ex.settledMarks) {
+    rows.push([
+      ex.title,
+      "Settled since Session 1",
+      "settled",
+      m.text,
+      m.author,
+      m.createdAt,
+    ]);
+  }
   // Work the group has not lost but cannot currently see, and work the board could not
   // place. Both belong in the export: a facilitator reading the sheet should find out here
   // rather than discovering a gap later.

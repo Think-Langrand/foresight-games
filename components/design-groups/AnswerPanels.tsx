@@ -112,6 +112,11 @@ export interface SynthesisExercise {
 // --- Week 4 ------------------------------------------------------------------
 // One period column of one bold move's timeline. Empty cells are kept, so the shape of a
 // lane (where the group clustered its work, and where it left gaps) survives the export.
+// One step-5 mark: a star on a Session 3 risk or opportunity, or a Session 1 uncertainty
+// the group declared answered.
+export interface HandoffMark extends AnswerRow {
+  sourceId: string; // the earlier week's card this is about
+}
 export interface MilestoneCell {
   key: string; // the permanent period key — see PERIODS in lib/commitments-shape
   label: string; // its years, which are presentation and may be rewritten
@@ -136,11 +141,12 @@ export interface CommitmentsExercise {
   // they return the moment the move is picked again. Reported so a reader is never left
   // wondering where a timeline went.
   stranded: AnswerRow[];
-  // Step 5. The ids of the EARLIER cards each mark points at, not the marks themselves:
-  // every consumer wants to ask "is this risk starred", and the mark is only the record of
-  // the answer. Nothing on Session 1's or Session 3's board was changed to make this true.
-  pickedSourceIds: string[];
-  settledSourceIds: string[];
+  // Step 5's marks. Each carries the earlier card it points at AND that card's words, which
+  // the mark stored when it was written, so a reader does not need the other board loaded to
+  // know what was chosen. Nothing on Session 1's or Session 3's board was changed to make
+  // this true; the star on the handoff deck is derived from these.
+  picks: HandoffMark[];
+  settledMarks: HandoffMark[];
   // Cards the board could not place — a milestone with an unrecognised period. Surfaced so
   // nothing is ever silently lost; an empty list is the normal case.
   orphans: AnswerRow[];

@@ -129,6 +129,28 @@ describe("classifyCard · Week 3 kinds", () => {
     ).toBe("commitments");
   });
 
+  it("buckets ALL FOUR of Week 4's kinds, including step 5's marks", () => {
+    // `pick` and `settled` were missed when step 5 added them and were tallied as Session 3
+    // work, so a Week 4 cell reported phantom "answers, risks, hopes & fears" on a board
+    // with no themes, risks or hopes on it at all.
+    for (const kind of ["response", "milestone", "pick", "settled"]) {
+      expect(classifyCard({ ...row("A", "FIRST"), cardKind: kind })).toBe("commitments");
+    }
+  });
+
+  it("sums the commitments bucket, like every other field", () => {
+    // sumTallies gained the field on CardTally and emptyTally but not in the fold, so a
+    // summed row counted those cards in `total` and showed 0 in the breakdown.
+    const a = tallyCards([{ ...row("w4", "FIRST", { seq: 1 }), cardKind: "response" }]).get("W4")!;
+    const b = tallyCards([{ ...row("w4", "FIRST", { seq: 2 }), cardKind: "pick" }]).get("W4")!;
+    const sum = sumTallies([a, b]);
+    expect(sum.commitments).toBe(2);
+    expect(sum.total).toBe(2);
+    // The invariant the omission broke: the buckets add up to the total.
+    const buckets = sum.themes + sum.synthesis + sum.commitments + sum.keyChanges + sum.implications + sum.brainstorm + sum.answers;
+    expect(buckets).toBe(sum.total);
+  });
+
   it("tallies a Week 4 board without borrowing Week 3's bucket", () => {
     const t = tallyCards([
       { ...row("w4", "FIRST", { seq: 1 }), cardKind: "response" },

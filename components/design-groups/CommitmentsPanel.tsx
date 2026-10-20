@@ -13,9 +13,10 @@ import {
 // wall of strategic responses with the three bold moves marked, and each move's backcast
 // timeline across the ten-year span.
 //
-// THREE consumers, deliberately one component, the same as SynthesisPanel: the admin
-// answers viewer, the member session page's earlier-week tabs, and the live board itself
-// once the week is locked. A locked week has to keep showing the whole artefact.
+// TWO consumers, deliberately one component: the admin answers viewer and the member
+// session page's earlier-week tabs. Unlike Week 3, the live board has no read-only branch
+// of its own; a locked Session 4 renders the interactive five-step board with
+// `editable` false, the way the worksheet and implications boards do.
 //
 // Step 1 is rendered by QuestionBlocks and nothing else, because the aspiration prompts are
 // authored worksheet sections. That is why this panel has no "aspiration" section of its
@@ -102,6 +103,8 @@ export function CommitmentsPanel({
   ...opts
 }: { ex: CommitmentsExercise; seed?: React.ReactNode } & PanelOpts) {
   const empty =
+    ex.picks.length === 0 &&
+    ex.settledMarks.length === 0 &&
     ex.responses.length === 0 &&
     ex.lanes.length === 0 &&
     ex.stranded.length === 0 &&
@@ -184,6 +187,35 @@ export function CommitmentsPanel({
         </div>
       )}
 
+      {/* Step 5's curation. Separate from the response wall above, because these point at
+          SESSION 3's risks and opportunities, not at anything on this board. */}
+      {(ex.picks.length > 0 || ex.settledMarks.length > 0) && (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {(
+            [
+              ["Chosen for the committee", ex.picks, "The risks and opportunities this group starred for the handoff."],
+              ["Settled since Session 1", ex.settledMarks, "Uncertainties the group says these four sessions answered. Everything else stays open."],
+            ] as const
+          ).map(([label, rows, blurb]) => (
+            <div key={label}>
+              <p className="m-0 flex items-baseline gap-2 border-b border-ink pb-2">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+                  {label} <span className="tabular-nums text-muted">{rows.length}</span>
+                </span>
+              </p>
+              <p className="m-0 mt-1 text-[12px] italic leading-[1.4] text-muted">{blurb}</p>
+              {rows.length === 0 ? (
+                <p className="m-0 mt-2 text-[13px] italic text-muted">None.</p>
+              ) : (
+                <div className="mt-2">
+                  <AnswerList answers={rows} {...opts} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Step 4. */}
       {ex.lanes.length > 0 && (
         <div>
@@ -208,7 +240,7 @@ export function CommitmentsPanel({
       />
       <Notice
         title="Could not be placed"
-        blurb="A milestone the board could not file, because its period is missing or unrecognised. Shown so it is not silently lost."
+        blurb="Cards the board could not file: a milestone with no period or no move, a response hung off something, or a mark pointing at nothing. Shown so none of it is silently lost."
         rows={ex.orphans}
         tone="coral"
         {...opts}

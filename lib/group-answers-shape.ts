@@ -262,8 +262,8 @@ export function shapeFromView(
         })),
       })),
       stranded: strandedMilestones(board).map(toRow),
-      pickedSourceIds: [...board.picks.keys()],
-      settledSourceIds: [...board.settled.keys()],
+      picks: [...board.picks].map(([sourceId, c]) => ({ ...toRow(c), sourceId })),
+      settledMarks: [...board.settled].map(([sourceId, c]) => ({ ...toRow(c), sourceId })),
       orphans: board.orphans.map(toRow),
       // resolveEffectiveSections, not the raw column: a commitments week that was never
       // customized stores [] and must fall back to the type's template, or step 1 — the
