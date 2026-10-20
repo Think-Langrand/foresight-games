@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildGroupSummary, splitKeyChange, themesByStakes } from "./group-summary";
 import type { SummaryTheme } from "./group-summary";
 import type {
+  CommitmentsExercise,
   ExerciseAnswers,
   StakeRow,
   SynthesisTheme,
@@ -257,7 +258,12 @@ describe("buildGroupSummary", () => {
   const s = buildGroupSummary(weeks, { name: "Group 1 | The Public Works", scenarioTitle: "The Public Works" });
 
   it("reports which weeks carry work", () => {
-    expect(s.has).toEqual({ assessment: true, implications: true, synthesis: true });
+    expect(s.has).toEqual({
+      assessment: true,
+      implications: true,
+      synthesis: true,
+      commitments: false,
+    });
   });
 
   it("reads the key changes with their scores and labels", () => {
@@ -328,8 +334,103 @@ describe("buildGroupSummary", () => {
 
   it("says a week is empty rather than inventing one", () => {
     const bare = buildGroupSummary([], { name: "Group 9" });
-    expect(bare.has).toEqual({ assessment: false, implications: false, synthesis: false });
+    expect(bare.has).toEqual({
+      assessment: false,
+      implications: false,
+      synthesis: false,
+      commitments: false,
+    });
     expect(bare.keyChanges).toEqual([]);
     expect(bare.gaps.explorationSlots).toBe(0);
+    // A group that has not run Session 4 still renders: the deck shows an outlined slot
+    // rather than going quietly shorter.
+    expect(bare.aspiration).toEqual([]);
+    expect(bare.boldMoves).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Week 4
+// ---------------------------------------------------------------------------
+describe("buildGroupSummary · Session 4", () => {
+  const week4 = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
+    kind: "commitments",
+    exerciseId: "EX4",
+    title: "Session 4",
+    cards: [],
+    responses: [],
+    boldMoves: [],
+    lanes: [],
+    stranded: [],
+    orphans: [],
+    questions: [],
+    ...over,
+  });
+  const row = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
+
+  it("reads the aspiration as the blocks the group was actually asked", () => {
+    // Not three fixed fields: the prompts are authored sections, so a reworded or
+    // re-counted step 1 must still come through.
+    const s = buildGroupSummary(
+      [
+        week4({
+          cards: [{ id: "c" } as never],
+          questions: [
+            { key: "aspiration-statement", label: "What are we aspiring to?", kind: "question", answers: [row("a1", "By 2035, budgets are set with residents.")] },
+            { key: "aspiration-holds", label: "What has to be true?", kind: "question", answers: [row("a2", "Statute allows pooling."), row("a3", "Councils keep signing.")] },
+            { key: "aspiration-serves", label: "Who does this serve?", kind: "question", answers: [] },
+          ],
+        }),
+      ],
+      { name: "G" }
+    );
+    expect(s.has.commitments).toBe(true);
+    // Empty blocks are dropped; the asked ones keep their own headings and order.
+    expect(s.aspiration).toEqual([
+      { label: "What are we aspiring to?", answers: ["By 2035, budgets are set with residents."] },
+      { label: "What has to be true?", answers: ["Statute allows pooling.", "Councils keep signing."] },
+    ]);
+  });
+
+  it("keeps every period on a lane, so a gap stays visible", () => {
+    const s = buildGroupSummary(
+      [
+        week4({
+          cards: [{ id: "c" } as never],
+          lanes: [
+            {
+              move: row("m", "Pool prevention budgets regionally"),
+              periods: [
+                { key: "w4-p1", label: "2027–28", milestones: [row("x", "Statute drafted")] },
+                { key: "w4-p2", label: "2029–30", milestones: [] },
+                { key: "w4-p3", label: "2031–32", milestones: [row("y", "Fund holds two years")] },
+              ],
+            },
+          ],
+        }),
+      ],
+      { name: "G" }
+    );
+    expect(s.boldMoves).toHaveLength(1);
+    expect(s.boldMoves[0].placed).toBe(2);
+    expect(s.boldMoves[0].periods.map((p) => p.milestones.length)).toEqual([1, 0, 1]);
+    expect(s.boldMoves[0].periods[1].label).toBe("2029–30");
+  });
+
+  it("counts a week with only an aspiration as worked", () => {
+    // The aspiration lives in question blocks and the rest in cards, so neither alone is
+    // the test for whether the group turned up.
+    const s = buildGroupSummary(
+      [
+        week4({
+          questions: [
+            { key: "aspiration-statement", label: "Aspiring to?", kind: "question", answers: [row("a", "Something")] },
+          ],
+        }),
+      ],
+      { name: "G" }
+    );
+    expect(s.has.commitments).toBe(true);
+    expect(s.boldMoves).toEqual([]);
   });
 });
