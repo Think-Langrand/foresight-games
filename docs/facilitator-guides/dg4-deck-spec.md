@@ -8,6 +8,28 @@
 
 ---
 
+## What changed, if you already have the first version of this spec
+
+Session 4 gained a fifth step. Everything below is the delta; the rest of the document is unchanged.
+
+| # | Change | Where |
+|---|---|---|
+| 1 | **Five steps, not four.** The deck needs five breakouts matching one for one. | Section 1, section 3 |
+| 2 | **New step 5, "The handoff."** Star up to 3 risks, star up to 3 opportunities, review which Session 1 uncertainties are still open, write one line for the committee. Its on-screen text is specced like the others. | Section 1 |
+| 3 | **New section 0**, mapping the seven things NNPHI was promised to where each one comes from. Read it first; it is why step 5 exists. | Section 0 |
+| 4 | **Agenda rebalanced.** Still 120 minutes. Breakout 5 takes 12, carved out of the other eleven rows. Backcasting keeps its 20. New row 10, lime band. | Section 2 |
+| 5 | **Progress bar reordered**, still eight phases: `01 Welcome · 02 Aspiration · 03 Breakout 1 · 04 Moves: how to · 05 Breakouts 2 + 3 · 06 Breakout 4 · 07 The handoff · 08 Share-out + close` | Section 2 |
+| 6 | **A fifth output** on slide 06: the curated handoff. | Section 2 |
+| 7 | **39 slides, not 36.** New section 08 "The handoff" at slides 31 to 35. Wrapping up renumbered to 36 to 39. | Section 3 |
+| 8 | **The old standalone "Your group's handoff" slide is gone**, folded into the breakout 5 teaching slide (32) so the deck does not describe the same artefact twice. | Section 3 |
+| 9 | **The group's handoff deck is now 11 slides, not 10.** A new slide 02, "How this world works", built from two Session 1 questions that were written in September and have never been shown anywhere. | Slide 32 |
+| 10 | **"Up to three" now covers starred risks and starred opportunities too**, not just bold moves. All three caps are enforced by the facilitator, not the software. | Section 1, section 5 |
+| 11 | **Two more CONFIRMs**, now eight in all. | Section 4 |
+
+**The one thing not to get wrong.** Do not write "pick your top three uncertainties". Groups hold between 3 and 17 of them, so for one group that is picking 3 of 3. Step 5 asks which are **still open**, with no cap, and the default is still open so a group that does nothing leaves the record honest.
+
+---
+
 ## 0. What was promised, and where each piece comes from
 
 NNPHI was told Session 4 produces a handoff combining outputs from previous sessions:
