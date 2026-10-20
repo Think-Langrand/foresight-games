@@ -8,9 +8,37 @@
 
 ---
 
+## 0. What was promised, and where each piece comes from
+
+NNPHI was told Session 4 produces a handoff combining outputs from previous sessions:
+"how the world works, its biggest shifts from today, top three risks, top three
+opportunities, an ideal vision for public health in this future, possible strategic
+directions, and unresolved uncertainties."
+
+All seven are covered. Four were already in hand, one needed only a new slide, and two
+needed a fifth step on the board.
+
+| Promised | Where it comes from | Where it shows up |
+|---|---|---|
+| How the world works | Session 1: "What feels most important or distinctive?" and "Stepping into the future, what's different" | Handoff deck, new slide 02 |
+| Its biggest shifts from today | The six key changes | Handoff deck, slide 03 |
+| Top three risks | Session 3 risks, starred on step 5 | Handoff deck, slide 07 |
+| Top three opportunities | Session 3 opportunities, starred on step 5 | Handoff deck, slide 07 |
+| An ideal vision for public health | The aspiration, Session 4 step 1 | Handoff deck, slide 09 |
+| Possible strategic directions | The strategic responses and the three bold moves | Handoff deck, slide 10 |
+| Unresolved uncertainties | Session 1's "unclear / assumptions / missing", re-asked on step 5 | Handoff deck, slide 11 |
+
+**Unresolved uncertainties are NOT derived from risks or fears.** A risk is a known
+downside with a mechanism; an uncertainty is something the group does not know. Session 1
+asked for uncertainties directly, in three questions, and those answers are the source.
+Groups hold between 3 and 17 of them, so step 5 asks which are still open rather than
+asking for a top three.
+
+---
+
 ## 1. What the app actually does (the target)
 
-Session 4 is one shared board per group with a step row at the top, the same shape as Session 3. Four steps, free navigation, all open from the first paint. The deck needs **four breakouts that match them one for one.**
+Session 4 is one shared board per group with a step row at the top, the same shape as Session 3. Five steps, free navigation, all open from the first paint. The deck needs **five breakouts that match them one for one.**
 
 | Step | Tab label in the app | What the group produces |
 |---|---|---|
@@ -18,6 +46,7 @@ Session 4 is one shared board per group with a step row at the top, the same sha
 | 2 | **2 · Strategic responses** | A wall of cards, one move per card. |
 | 3 | **3 · Bold moves** | Up to three of those responses, ticked. |
 | 4 | **4 · Backcasting** | Per bold move, up to five milestones across five two-year periods. |
+| 5 | **5 · The handoff** | The top three risks and three opportunities starred, the Session 1 uncertainties that are still open, and one line for the committee. |
 
 ### The exact on-screen text to mirror
 
@@ -52,19 +81,29 @@ Beside the prompts, a read-only rail headed **“What you said in Session 3”**
 - A milestone is something someone does or decides, with a date. Not a hope, and not a measure.
 - Gaps are allowed and often honest. A run of early milestones and nothing later usually means the hard part has not been faced yet.
 
-The aspiration is pinned read-only at the top of steps 2, 3 and 4, with an “Edit on step 1” link.
+**Step 5, the handoff.** Four blocks, in this order.
+
+1. **Top three risks.** Every Session 3 risk, under the theme it was written on, each with a star you can toggle. Counter reads “{n} of 3 starred”. At three the unstarred ones dim, exactly as step 3 behaves.
+2. **Top three opportunities.** The same, in the opportunities colour.
+3. **Still open.** Every answer the group gave Session 1's three questions, under its own heading (Unclear / Assumed / Missing), each marked still open or settled. A group can add a new one. Default is still open, so doing nothing leaves the record honest.
+4. **If the committee reads one thing.** One free-text prompt, several answers allowed, the same shape as step 1.
+
+The aspiration is pinned read-only at the top of steps 2, 3, 4 and 5, with an “Edit on step 1” link.
 
 ### Two caps, and the honest wording for each
 
 - **Three bold moves.** Enforced in the UI only. Two people ticking at the same moment can land a fourth, and the board then says “4 of 3 chosen” rather than hiding it. The deck says “up to three”, never “the portal will stop you”.
 - **Five milestones per move.** Enforced by the server as well. The composer disappears at five.
+- **Three starred risks and three starred opportunities.** Same deal as bold moves: enforced in the UI, so say “up to three”.
+- **Still-open uncertainties have no cap.** Groups hold between 3 and 17 of them. This is a review, not a down-select.
 
 ### What Session 4 does NOT have, so the deck must not promise it
 
 - No seeding or re-entry of Session 3 material. It is read-only reference beside the work.
 - No tagging a response to a theme, risk or opportunity. Responses are free-standing.
 - No ranking of the three bold moves against each other. Choosing them is the ranking.
-- No resolution of the “what we never settled” items from Session 1. They stay open.
+- No resolution of the Session 1 uncertainties. Step 5 asks which are STILL open; it does not answer them.
+- No deriving uncertainties from risks or fears. Different category, and every group flipped every fear it wrote, so there are no unflipped ones to use.
 - No revisiting the role of public health. That step was dropped in Session 3 and has not returned.
 
 ---
@@ -75,25 +114,26 @@ The aspiration is pinned read-only at the top of steps 2, 3 and 4, with an “Ed
 
 | # | Part of the session | Min | Type | Who leads |
 |---|---|---|---|---|
-| 01 | Welcome, recap of Sessions 1 to 3, what today produces | 8 | Full group | Langrand |
-| 02 | Aspiration: how to | 7 | Full group | Langrand |
-| 03 | Breakout 1 · Aspiration | 18 | Breakout | You |
-| 04 | Share-out 1 · your aspiration in one line | 7 | Full group | Langrand · groups report |
-| 05 | Responses and bold moves: how to | 10 | Full group | Langrand |
-| 06 | Breakout 2 · Strategic responses | 18 | Breakout | You |
+| 01 | Welcome, recap of Sessions 1 to 3, what today produces | 6 | Full group | Langrand |
+| 02 | Aspiration: how to | 6 | Full group | Langrand |
+| 03 | Breakout 1 · Aspiration | 15 | Breakout | You |
+| 04 | Share-out 1 · your aspiration in one line | 5 | Full group | Langrand · groups report |
+| 05 | Responses and bold moves: how to | 8 | Full group | Langrand |
+| 06 | Breakout 2 · Strategic responses | 16 | Breakout | You |
 | 07 | Breakout 3 · Bold moves | 9 | Breakout | You |
 | 08 | Backcasting: how to | 8 | Full group | Langrand |
 | 09 | Breakout 4 · Backcasting | 20 | Breakout | You |
-| 10 | Share-out 2 · what the committee gets | 10 | Full group | Langrand · groups report |
-| 11 | Next steps and close | 5 | Full group | Langrand |
+| 10 | Breakout 5 · Assemble the handoff | 12 | Breakout | You |
+| 11 | Share-out 2 · what the committee gets | 10 | Full group | Langrand · groups report |
+| 12 | Next steps and close | 5 | Full group | Langrand |
 
-Totals 120. Lime bands on rows 03, 06, 07, 09. Side notes: keep “Insights and answers are saved in the portal” under BEFORE EVERY RETURN TO THE MAIN ROOM; add a HOW THE SESSION RUNS note reading “Langrand teaches each method, then you lead four breakouts. Two share-outs.” Keep a “timings are provisional” line. **CONFIRM the split with Tom.**
+Totals 120. Lime bands on rows 03, 06, 07, 09, 10. Side notes: keep “Insights and answers are saved in the portal” under BEFORE EVERY RETURN TO THE MAIN ROOM; add a HOW THE SESSION RUNS note reading “Langrand teaches each method, then you lead four breakouts. Two share-outs.” Keep a “timings are provisional” line. **CONFIRM the split with Tom.**
 
-Breakouts 2 and 3 run back to back in the same rooms. Breakout 4 is the longest because it is the only step with nothing from an earlier week to lean on.
+Breakouts 2 and 3 run back to back in the same rooms, and so do 4 and 5. Breakout 4 is the longest because it is the only step with nothing from an earlier week to lean on. Breakout 5 is short on purpose: every card it touches is already written, so it is a choosing exercise, not a writing one.
 
 ### Progress bar (every method and breakout slide), 8 phases
 
-`01 Welcome · 02 Aspiration: how to · 03 Breakout 1 · 04 Share-out · 05 Moves: how to · 06 Breakouts 2 + 3 · 07 Breakout 4 · 08 Next steps`
+`01 Welcome · 02 Aspiration · 03 Breakout 1 · 04 Moves: how to · 05 Breakouts 2 + 3 · 06 Breakout 4 · 07 The handoff · 08 Share-out + close`
 
 Keep each label under 26 characters. Do not put every agenda row on the bar.
 
@@ -103,6 +143,7 @@ Keep each label under 26 characters. Do not put every agenda row on the bar.
 2. **A wall of strategic responses**, one move per card. More than three, so the next step is a real choice.
 3. **Three bold moves**, chosen out of that wall, that your group would defend to the steering committee.
 4. **A backcast** for each bold move: up to five milestones across 2027 to 2036, saying what happens when.
+5. **A curated handoff**: your top three risks and three opportunities starred, the Session 1 uncertainties that are still open, and one line for the committee.
 
 Keep the “Write for people who weren't in the room” card. Replace the “All of it carries forward” card with the handoff card described at slide 34.
 
@@ -110,21 +151,21 @@ Keep the “Write for people who weren't in the room” card. Replace the “All
 
 ## 3. Slide by slide
 
-Thirty-six slides. Archetypes name the library call to reach for; see the cheatsheet in the skill.
+Thirty-nine slides. Archetypes name the library call to reach for; see the cheatsheet in the skill.
 
 ### 00 · Cover
 
 **01 · Cover.** Eyebrow `NNPHI · FUTURE OF PUBLIC HEALTH · DESIGN GROUPS`. Title “Your guide to leading\nDesign Group #4”. Intro:
 
-> Session 4 is where your group commits. You will say what you are aspiring to inside this scenario, open up the moves that would get there, choose the three you would stand behind, and work backwards from 2036 to say what has to happen when. This guide leads you through the four steps.
+> Session 4 is where your group commits. You will say what you are aspiring to inside this scenario, open up the moves that would get there, choose the three you would stand behind, and work backwards from 2036 to say what has to happen when. This guide leads you through the five steps.
 
-Meta: DATE `Thursday, October 30` (**CONFIRM**) · LENGTH `120 minutes` · FORMAT `Zoom · full group + breakouts` · METHOD `Aspiration · responses · bold moves · backcasting`.
+Meta: DATE `Thursday, October 30` (**CONFIRM**) · LENGTH `120 minutes` · FORMAT `Zoom · full group + breakouts` · METHOD `Aspiration · responses · bold moves · backcasting · the handoff`.
 
 ### 01 · The session
 
 **02 · Divider.** Num 1, eyebrow `THE OVERVIEW`, title “The session”, sub “What Design Group #4 covers, what your group needs to produce, and your role in it.”
 
-**03 · How the four meetings fit together.** Four cards, blue highlight now on **Meeting 4**. Keep meetings 1 to 3 as DG3 has them, with meeting 3's output line reading “→ What matters”. Meeting 4: “Commit to a direction. Say what you are aspiring to, choose three bold moves, and backcast them. → The handoff”. Then:
+**03 · How the four meetings fit together.** Four cards, blue highlight now on **Meeting 4**. Keep meetings 1 to 3 as DG3 has them, with meeting 3's output line reading “→ What matters”. Meeting 4: “Commit to a direction. Say what you are aspiring to, choose three bold moves, backcast them, and curate what the committee reads. → The handoff”. Then:
 
 - `WHY TODAY MATTERS` (blue): “Three sessions have described what could happen and what is at stake. Not one card anywhere says what your group would do about it. Today does.”
 - `GOOD TO KNOW`: “The steering committee sets strategy. Your group supplies the aspiration, the three moves it would defend, and what each one would take.”
@@ -150,7 +191,7 @@ You: Restate the task in your own words and open the breakout · Push the group 
 **07 · Prep checklist.** Checklist:
 
 - Reread your group's hopes and fears from Session 3, including the flipped ones. They are the raw material for the aspiration.
-- Open the Session 4 board and walk the four steps: Aspiration, Strategic responses, Bold moves, Backcasting.
+- Open the Session 4 board and walk the five steps: Aspiration, Strategic responses, Bold moves, Backcasting, The handoff.
 - Add a card and delete it on each step, so nothing is new to you in the room.
 - Decide who facilitates and who records.
 - Know how to ask for help: raise a hand in Zoom, or come back to the main room.
@@ -353,45 +394,74 @@ Note: “Written from the bottom up. The last row was written first.”
 
 Side cards: `KEEP IN MIND` “The board enforces five per move, so the composer disappears when a lane is full. That is the cap, not an error.” `PRO TIP` “If a lane is all 2027 and nothing after, the group has listed next steps rather than backcast. Ask what happens in year eight.”
 
-**31 · Share-out 2: one move, and what it takes.** Blue edge, badges `FULL GROUP · LANGRAND` + `10 MIN`. Numbered: 01 Your aspiration in one line. 02 One bold move. 03 Its first milestone, and who does it.
+### 08 · The handoff
 
-`EXAMPLE REPORT`: “We are aiming at ____. One of our three moves is ____. The first thing that has to happen is ____, and ____ would do it.”
+**31 · Divider.** Num 8, eyebrow `YOUR PART · PART 08`, title “The handoff”, sub “Choose what the steering committee actually reads.”
 
-`BEFORE YOU COME BACK`: “Check all four steps are saved. The committee reads this board directly.”
+**32 · What the committee gets, and what you choose.** The teaching slide for breakout 5, and the first time co-leads see what four sessions add up to.
 
-### 08 · Wrapping up
+Left, a `numberedList` of the eleven slides in the group's handoff deck, which already exists in the portal and is built entirely from the group's own cards:
 
-**32 · Divider.** Num 8, eyebrow `PART 08`, title “Wrapping up”, sub “What happens to this work, and what to check before you go.”
+01 Title · 02 How this world works · 03 Key changes · 04 The map · 05 How you regrouped · 06 Themes · 07 Risks and opportunities · 08 Hopes and fears · 09 Your aspiration · 10 The moves you committed to, and when · 11 What is still open
 
-**33 · What happens next.** `table` of n / what happens / when:
+Right, a `labeledText` headed `WHAT STEP 5 CHANGES`: “Nine of those eleven slides are already written. Step 5 decides three things: which three risks and three opportunities carry a star, which of your Session 1 uncertainties are still open, and the one line you want read first.”
+
+`GOOD TO KNOW`: “Nothing in the deck was written by us. Every slide is your group's own cards, read back.”
+
+`SAY · TO OPEN THE BREAKOUT`:
+
+> “Everything you have made across four sessions is already in this deck. The last job is choosing what the committee's eye lands on first.”
+
+**33 · Assemble the handoff: run it.** Badges `BREAKOUT · YOU LEAD` + `12 MIN`, lime edge. `timedSteps`:
+
+- **4 min.** Star up to three risks. Read each one aloud first. The test is which three you would want the committee to act on, not which three are worst.
+- **4 min.** Star up to three opportunities. Same test.
+- **3 min.** Walk the Session 1 uncertainties. Mark the ones the last three sessions answered as settled. Add any the work surfaced.
+- **1 min.** Write the one line you want read first.
+
+`CAPTURE`: “Up to three risks and three opportunities starred, every Session 1 uncertainty reviewed, and one line for the committee.”
+
+`PACING`: “This is a choosing exercise, not a writing one. Every card is already on the board. If a group is still drafting at six minutes, they have misread the task.”
+
+**34 · What derails the handoff.** `noticeTable`:
+
+- Starring the three worst risks. → “Which three would you want them to act on? That is a different list.”
+- Marking every uncertainty settled. → “Which of these did we actually answer? Leave the rest open. Open is a finding.”
+- Marking every uncertainty still open. → “Three sessions must have settled something. What do you know now that you did not in September?”
+- Writing a summary as the one line. → “Not a summary. The one thing you want read first.”
+- A group with only three uncertainties. → “Then this is quick. What has the work surfaced since?”
+
+Side card `KEEP IN MIND`: “Uncertainty counts vary a lot. One group wrote seventeen in Session 1 and another wrote three. There is no target.”
+
+**35 · Share-out 2: one move, and what it takes.** Blue edge, badges `FULL GROUP · LANGRAND` + `10 MIN`. Numbered: 01 Your aspiration in one line. 02 One bold move and its first milestone. 03 The one thing you want the committee to read first.
+
+`EXAMPLE REPORT`: “We are aiming at ____. One of our three moves is ____, and the first thing that has to happen is ____. If the committee reads one thing, it should be ____.”
+
+`BEFORE YOU COME BACK`: “Check all five steps are saved. The committee reads this board directly.”
+
+### 09 · Wrapping up
+
+**36 · Divider.** Num 9, eyebrow `PART 09`, title “Wrapping up”, sub “What happens to this work, and what to check before you go.”
+
+**37 · What happens next.** `table` of n / what happens / when:
 
 1. Groups finish saving all four steps in the portal. · Today
 2. Co-leads send Langrand anything that did not make it into the portal. · End of this week
 3. Langrand assembles the four handoffs for the steering committee. · **CONFIRM**
 4. Steering committee session. · **CONFIRM**
 
-Side card `WHAT THE COMMITTEE GETS`: see slide 34.
+Side card `WHAT THE COMMITTEE GETS`: point back to slide 32.
 
-**34 · Your group's handoff.** This slide is new to DG4 and matters: it is the first time co-leads see what their four sessions add up to. Describe the handoff deck that exists in the portal, ten slides, built from the group's own work:
-
-01 Title · 02 Key changes · 03 The map · 04 How you regrouped · 05 Themes · 06 Risks and opportunities · 07 Hopes and fears · 08 Your aspiration · 09 The moves you committed to, and when · 10 What we never settled
-
-`GOOD TO KNOW`: “Nothing in it was written by us. Every slide is your group's own cards, read back.”
-
-`WHAT WE NEVER SETTLED`: “The last slide carries the items your group could not agree on in Session 1. They were never resolved and are not meant to be. They go to the committee open.”
-
-**CONFIRM with Tom** whether co-leads get the handoff link in the session or afterwards.
-
-**35 · Before we finish, check that you know.** Checklist:
+**38 · Before we finish, check that you know.** Checklist:
 
 - Your group's hopes and fears from Session 3, including the flipped ones.
-- The four steps: aspiration, strategic responses, bold moves, backcasting.
-- That three is a cap you enforce, not a setting the portal enforces.
+- The five steps: aspiration, strategic responses, bold moves, backcasting, the handoff.
+- That three is a cap you enforce, not a setting the portal enforces. That applies to bold moves, starred risks and starred opportunities alike.
 - Who facilitates and who records.
 - How to ask for help mid-exercise.
 - The one prompt, at the ready: “It is 2036 and this has landed. What came just before?”
 
-**36 · Closing.** “Thank you.\nSee you October 30.” (**CONFIRM**) Sub “Design Group Meeting 4 · Commitments”. Portal and contacts as DG3 v5.
+**39 · Closing.** “Thank you.\nSee you October 30.” (**CONFIRM**) Sub “Design Group Meeting 4 · Commitments”. Portal and contacts as DG3 v5.
 
 ---
 
@@ -404,15 +474,16 @@ Side card `WHAT THE COMMITTEE GETS`: see slide 34.
 5. **Steps 3 and 4 of “What happens next”**: dates for the committee handoff are unknown.
 6. **Whether co-leads see the handoff deck during the session** or are sent it after.
 7. **Whether DG4 is genuinely the last session** in the series. Everything here reads as though it is.
+8. **Whether co-leads see the handoff deck on screen during breakout 5** or are sent the link afterwards. Slide 32 assumes they see it.
 
 ## 5. QA before delivery
 
-- Count the breakouts: exactly four, numbered 1 to 4, in the order Aspiration, Strategic responses, Bold moves, Backcasting.
+- Count the breakouts: exactly five, numbered 1 to 5, in the order Aspiration, Strategic responses, Bold moves, Backcasting, The handoff.
 - Grep the rendered text for em-dashes, "leverage", "ensure", "impactful", exclamation marks, and any bullet character. Each hit is a bug.
 - Grep for “the portal will” and “you must pick three”. The three-move cap is enforced by you, not the software. Reword any sentence that says otherwise.
 - Every year range uses an en dash (2027–28), never a hyphen and never an em-dash.
 - The progress bar shows eight phases on every slide that carries one, with the right phase lit.
-- Slides 08 and 35 quote the final slide numbers. DG3 v5 shipped with two different totals in the footer (x/36 and x/32) and an index pointing at stale numbers. Do not repeat that.
+- Slides 08 and 38 quote the final slide numbers. DG3 v5 shipped with two different totals in the footer (x/36 and x/32) and an index pointing at stale numbers. Do not repeat that.
 - Every SAY quote reads aloud as something a person would say.
 - Every CAPTURE line names only things that exist as fields on the board. Check against section 1.
 - Run the skill's build and validate steps, thumbnail every slide, and fix overflow and wrapped titles.

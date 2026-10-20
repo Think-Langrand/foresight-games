@@ -187,13 +187,15 @@ Slide numbers are v5 PDF pages. Confirm them against the pptx before editing; th
 ## 5. Things to confirm with Tom before shipping
 
 1. **Minutes per breakout.** Section 2 proposes 20 / 20 / 20 / 15 with Share-out 2 at 10. Any other split that sums to 120 is fine.
-2. **DG4 framing. ANSWERED — Session 4 is now built, so this is no longer a guess.** The board has four steps: an aspiration, a wall of strategic responses, a down-select to three bold moves, and a backcast of each move across ten years in two-year steps (2027-28 to 2035-36, up to five milestones per move).
+2. **DG4 framing. ANSWERED — Session 4 is now built, so this is no longer a guess.** The board has five steps: an aspiration, a wall of strategic responses, a down-select to three bold moves, a backcast of each move across ten years in two-year steps (2027-28 to 2035-36, up to five milestones per move), and a handoff step that stars the top three risks and opportunities, reviews which Session 1 uncertainties are still open, and writes one line for the steering committee.
 
    Use this on slides 03, 06 and 40: "Session 4 turns all of it into a commitment. Your group says what it is aspiring to inside this world, opens up the moves that would get there, chooses the three it would stand behind, and works backwards from 2036 to say what has to happen when."
 
    Two things the DG3 deck can now promise accurately, because Session 4 reads them straight off the Session 3 board: the hopes and flipped fears, and the risks and opportunities per theme, all shown beside the aspiration step as the group's own words. Nothing is copied or re-entered.
 
-   What Session 4 does NOT do, so the DG3 deck must not promise it: resolve the "what we never settled" items from Session 1 (they stay open, and the handoff deck now says so), or revisit the role of public health.
+   Session 4 DOES come back to Session 1's "what we never settled" items: step 5 asks which are still open after three more sessions. It does not answer them, and whatever stays open goes to the committee open. That is the promised "unresolved uncertainties", and it is drawn from Session 1's own three questions rather than from risks or fears.
+
+   What Session 4 does NOT do, so the DG3 deck must not promise it: revisit the role of public health, or rank the three bold moves against each other.
 3. **Public health's role.** Dropped from the breakouts. Decide whether one ASK line survives at Share-out 2 or in Next steps.
 4. **Help mechanism.** Replace "click Ask for Help" with whatever Zoom mechanism will actually be used.
 5. **Portal URL and password** on slides 07 and 42: carry over from v5 unchanged, and verify against the live portal.
