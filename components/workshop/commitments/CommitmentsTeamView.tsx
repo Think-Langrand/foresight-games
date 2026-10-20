@@ -76,6 +76,7 @@ export function CommitmentsTeamView({
   sections = [],
   week3Cards = [],
   week1Uncertainties = [],
+  summaryHref,
   title,
 }: {
   code: string;
@@ -92,6 +93,9 @@ export function CommitmentsTeamView({
   // Session 1's three uncertainty questions, shaped on the page: a worksheet week arrives
   // as question blocks rather than cards, so there is nothing to index here.
   week1Uncertainties?: { key: string; bucket: string; answers: { id: string; text: string }[] }[];
+  // Where the group's handoff deck lives. Built on the page, which knows the project slug
+  // and the group id; the board should not have to rebuild a route.
+  summaryHref?: string;
   title?: string;
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
@@ -463,6 +467,7 @@ export function CommitmentsTeamView({
           cards={cards}
           week3Cards={week3Cards}
           week1Uncertainties={week1Uncertainties}
+          summaryHref={summaryHref}
           editable={editable}
           onTogglePick={(source, on) => toggleMark("pick", source, on)}
           // The checkbox reads "still open", so ticking it REMOVES the settled mark.

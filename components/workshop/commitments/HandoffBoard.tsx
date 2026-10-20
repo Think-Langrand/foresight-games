@@ -150,6 +150,7 @@ export function HandoffBoard({
   cards,
   week3Cards,
   week1Uncertainties,
+  summaryHref,
   editable,
   onTogglePick,
   onToggleSettled,
@@ -161,6 +162,7 @@ export function HandoffBoard({
   cards: RippleCard[];
   week3Cards: RippleCard[];
   week1Uncertainties: { key: string; bucket: string; answers: { id: string; text: string }[] }[];
+  summaryHref?: string;
   editable: boolean;
   onTogglePick: (source: { id: string; text: string }, on: boolean) => void;
   onToggleSettled: (source: { id: string; text: string }, on: boolean) => void;
@@ -187,6 +189,36 @@ export function HandoffBoard({
 
   return (
     <div className="flex flex-col gap-5">
+      {/* The thing this step is editing, one click away. It opens in a NEW TAB on purpose:
+          the deck is a full-screen slide view that takes the whole viewport, and navigating
+          there in place would drop the board's step, its scroll and any open composer. A
+          group should be able to look, decide, and come back to the same screen.
+          Offered before any choosing as well as after, because "what would they get right
+          now" is the question this step answers. */}
+      {summaryHref && (
+        <a
+          href={summaryHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between gap-4 rounded-[3px] border border-ink px-5 py-4 transition hover:bg-card"
+        >
+          <span className="min-w-0">
+            <span className="block text-[15px] font-extrabold uppercase tracking-tight">
+              Your handoff
+            </span>
+            <span className="mt-1 block text-[13px] leading-[1.45] text-muted">
+              Four sessions on one page. What you choose below is what a reader meets first.
+            </span>
+          </span>
+          <span className="shrink-0 text-[13px] font-bold uppercase tracking-[0.06em] text-blue">
+            Preview &rarr;
+            <span className="mt-0.5 block text-[10px] font-normal normal-case tracking-normal text-muted">
+              opens a new tab
+            </span>
+          </span>
+        </a>
+      )}
+
       <AspirationRecap sections={sections} cards={cards} onGoToAspiration={onGoToAspiration} />
 
       <div className="grid gap-4 lg:grid-cols-2">
