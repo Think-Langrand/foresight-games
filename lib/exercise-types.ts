@@ -144,55 +144,61 @@ const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
 // "removed block" heading rather than vanishing.
 const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 
-// --- Commitments (Week 4), step 1 ---------------------------------------------
-// Steps 2, 3 and 4 are code (the response wall, the down-select, the backcasting
-// timeline). Step 1 rides the ordinary section substrate, the same hybrid Week 2 uses for
-// its Sandbox, and for the same reason: a facilitator can reword these three prompts,
-// add a fourth or drop one, in the program editor with no deploy. That is why the
-// aspiration has no card kinds of its own. See lib/commitments-shape's header.
+// --- Commitments (Week 4), steps 1 and 4 --------------------------------------
+// Steps 2, 3 and 5 are code (the impact matrix, the response wall, the review). Steps 1
+// and 4 ride the ordinary section substrate, the same hybrid Week 2 uses for its Sandbox,
+// and for the same reason: a facilitator can reword these prompts, add one or drop one, in
+// the program editor with no deploy. That is why neither step has card kinds of its own.
 //
-// Keep every section here on ONE `step`: WorksheetSections then renders its flat stack
-// rather than a second tab bar nested inside the exercise's own tabs. Anything an admin
-// adds later lands on the same tab, beside these, which is where extra questions belong.
+// `step` buckets them onto a tab. Sections sharing a step render as one flat stack;
+// CommitmentsTeamView splits on this, and anything an admin adds with no step falls to
+// step 1, which is where an extra question belongs.
 //
-// Keys are permanent ids written onto every answer card's `section` — never rename one.
-// The LABEL is the editable part; the key is the link to every answer ever given.
+// KEYS ARE PERMANENT ids written onto every answer card's `section` — never rename one.
+// The LABEL is the editable part. `aspiration-statement`, `aspiration-serves`,
+// `aspiration-holds` and `handoff-committee-line` are RETIRED, not reused: the week was
+// restructured away from a three-part aspiration and a handoff step, and any card still
+// carrying one of those keys surfaces in the admin viewer under a "removed block" heading
+// rather than vanishing.
 //
 // `question` rather than `brainstorm` because each prompt accumulates short answers, one
-// card each: three people in a breakout have three readings of what they are aspiring to
-// and all three belong on the sheet. Migration 0027 is the record of what forcing one
-// answer per question cost.
+// card each: three people in a breakout have three readings and all three belong on the
+// sheet. Migration 0027 is the record of what forcing one answer per question cost.
+// Exported so the board filters `sections` on these rather than on string literals it
+// would have to keep in sync by hand.
+export const COMMITMENTS_STEP_CHANGES = "Key changes";
+export const COMMITMENTS_STEP_MOVES = "Bold moves";
+const STEP_CHANGES = COMMITMENTS_STEP_CHANGES;
+const STEP_MOVES = COMMITMENTS_STEP_MOVES;
+
 const COMMITMENTS_SECTIONS: WorksheetSection[] = [
   {
-    key: "aspiration-statement",
+    key: "w4-summary",
     kind: "question",
-    step: "Aspiration",
-    label: "What are we aspiring to in this world?",
-    help: "Not a wish for today, and not a fix. Say what it would look like from inside the scenario. A sentence that starts \u201cBy 2035\u201d works well.",
+    step: STEP_CHANGES,
+    label: "Summarize the key changes in this world.",
+    help: "What is different here, said in a few lines someone could read without the scenario in front of them.",
   },
   {
-    key: "aspiration-serves",
+    key: "w4-assumptions",
     kind: "question",
-    step: "Aspiration",
-    label: "Who does this serve, and how would they notice?",
-    help: "Name who gets what. \u201cEquity\u201d, \u201ctrust\u201d and \u201cfunding\u201d are labels; say who does something differently, and who gains or loses.",
+    step: STEP_CHANGES,
+    label: "What do we assume about how public health works today that does not hold here?",
+    help: "Not what breaks. What we take for granted now that this world quietly stops being true.",
   },
   {
-    key: "aspiration-holds",
+    key: "w4-role",
     kind: "question",
-    step: "Aspiration",
-    label: "What has to be true for this to hold?",
-    help: "The rules, resources, authority or relationships it depends on. If one of these failed, the aspiration would not survive it.",
+    step: STEP_MOVES,
+    label: "What role is public health playing in this future?",
+    help: "The role you would argue for, not the one you expect. Say it as something already true in this world.",
   },
-  // Step 5's only written field. On its own `step`, so the board renders it on the handoff
-  // tab rather than beside the aspiration prompts: CommitmentsTeamView splits `sections` by
-  // step, and anything an admin adds with no step falls to step 1.
   {
-    key: "handoff-committee-line",
+    key: "w4-bold-moves",
     kind: "question",
-    step: "The handoff",
-    label: "If the committee reads one thing, what should it be?",
-    help: "Not a summary of the session. The one line you want read first.",
+    step: STEP_MOVES,
+    label: "What three bold moves would you make to get there?",
+    help: "One move per answer. Something someone does, with your group in the room when it happens.",
   },
 ];
 

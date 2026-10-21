@@ -85,6 +85,15 @@ export const RESPONSES_FOR_DONE = MAX_BOLD_MOVES;
 // moves: the UI holds it, the database does not, so an over-pick is reported not hidden.
 export const MAX_PICKS_PER_KIND = 3;
 
+// Step 2's FLOOR, not a cap. At least this many risks and this many opportunities go on the
+// matrix, and a group may place as many more as it likes.
+//
+// A floor rather than a cap because of two facts about the real boards. Session 3's optional
+// fields came back empty in all four groups, so anything not asked for does not happen; and
+// the stake counts run from 14 to 44 per group, so a cap tuned for one group starves
+// another. A floor asks for enough to be a judgement and lets a thorough group be thorough.
+export const PLACED_FLOOR_PER_KIND = 5;
+
 // ---------------------------------------------------------------------------
 // The board
 // ---------------------------------------------------------------------------

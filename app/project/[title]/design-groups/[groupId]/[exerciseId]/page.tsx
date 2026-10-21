@@ -8,7 +8,6 @@ import { getExercise, listExercises } from "@/lib/design-group-exercises";
 import { getRippleScenario, getRippleDrivers } from "@/lib/ripples";
 import { exerciseStatus, getExerciseType, isBoardBacked, resolveEffectiveSections } from "@/lib/exercise-types";
 import { shapeExerciseAnswers } from "@/lib/group-answers";
-import { UNSETTLED_BLOCKS } from "@/lib/group-summary";
 import { RipplesTeamView } from "@/components/workshop/RipplesTeamView";
 import { CommitmentsTeamView } from "@/components/workshop/commitments/CommitmentsTeamView";
 import { SynthesisTeamView } from "@/components/workshop/synthesis/SynthesisTeamView";
@@ -173,17 +172,6 @@ export default async function DesignGroupExercisePage({
     const week3Cards = pastWeeks
       .filter((w) => w.kind === "synthesis")
       .flatMap((w) => w.cards);
-    // Session 1's three uncertainty questions, for step 5's "which of these are still
-    // open". Shaped here rather than on the client: a worksheet week arrives as question
-    // blocks, not cards, so this is a filter over what the tabs already loaded. The keys
-    // come from UNSETTLED_BLOCKS so this and the handoff deck cannot disagree about which
-    // three questions count as uncertainty.
-    const w1 = pastWeeks.find((w) => w.kind === "worksheet");
-    const week1Uncertainties = UNSETTLED_BLOCKS.flatMap(({ key, bucket }) => {
-      const block = w1?.kind === "worksheet" ? w1.questions.find((q) => q.key === key) : null;
-      if (!block || block.answers.length === 0) return [];
-      return [{ key, bucket, answers: block.answers.map((a) => ({ id: a.id, text: a.text })) }];
-    });
     return (
       <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>
         <CommitmentsTeamView
@@ -194,7 +182,6 @@ export default async function DesignGroupExercisePage({
           hiddenSections={project.homeConfig.hiddenScenarioSections}
           sections={resolveEffectiveSections(exercise.type, exercise.sections)}
           week3Cards={week3Cards}
-          week1Uncertainties={week1Uncertainties}
           summaryHref={`/project/${title}/design-groups/${groupId}/summary`}
           title={exercise.title}
         />
