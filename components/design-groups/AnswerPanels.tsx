@@ -165,7 +165,12 @@ export interface CommitmentsExercise {
   // Cards the board could not place — a milestone with an unrecognised period. Surfaced so
   // nothing is ever silently lost; an empty list is the normal case.
   orphans: AnswerRow[];
-  questions: QuestionBlock[]; // step 1's aspiration prompts, plus anything an admin added
+  questions: QuestionBlock[]; // steps 1 and 4's prompts, plus anything an admin added
+  // When the GROUP said it had finished (migration 0029), and who pressed it. Null means
+  // not submitted. It gates nothing — the board stays editable — so this is a signal to a
+  // facilitator, which is why it has to actually reach one. See CommitmentsPanel.
+  submittedAt: string | null;
+  submittedBy: string | null;
 }
 export interface PlaceholderExercise {
   kind: "placeholder";

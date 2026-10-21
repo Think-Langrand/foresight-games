@@ -38,6 +38,18 @@ import { SCORE_MAX } from "@/lib/ripples-scoring";
 // in the CSV and the shape — it simply is not part of the week any more.
 const SHOW_BACKCASTING = false;
 
+// Local to this panel. The board's own control formats the same instant in
+// ReviewBoard; both are presentation of one stored timestamp, not a shared rule.
+function submittedWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return (
+    d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) +
+    ", " +
+    d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+  );
+}
+
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
     <div className="font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-muted">
@@ -220,6 +232,7 @@ export function CommitmentsPanel({
   stakeKind?: (sourceId: string) => "risk" | "opportunity" | undefined;
 } & PanelOpts) {
   const empty =
+    !ex.submittedAt &&
     ex.picks.length === 0 &&
     ex.settledMarks.length === 0 &&
     ex.responses.length === 0 &&
@@ -238,6 +251,21 @@ export function CommitmentsPanel({
   return (
     <div className="flex flex-col gap-6">
       {seed}
+
+      {/* The group's own "we are finished". It gates nothing, so its whole value is being
+          seen: the board tells the group a facilitator can see it, and this is where a
+          facilitator sees it. Only when set — an unsubmitted week says nothing, because
+          "not submitted" is the normal state for three of the four weeks. */}
+      {ex.submittedAt && (
+        <p className="m-0 rounded-[3px] border-l-[3px] border-[var(--lime-deep)] bg-lime/20 px-4 py-2 text-[12.5px] leading-[1.45]">
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]">
+            Submitted
+          </span>{" "}
+          {submittedWhen(ex.submittedAt)}
+          {ex.submittedBy ? ` by ${ex.submittedBy}` : ""}.{" "}
+          <span className="italic text-muted">The board stayed open for edits.</span>
+        </p>
+      )}
 
       {empty && <p className="text-[13px] italic text-muted">Nothing on this board yet.</p>}
 

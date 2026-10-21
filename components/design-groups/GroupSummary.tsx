@@ -15,6 +15,7 @@
 import { themesByStakes, type GroupSummary, type SummaryKeyChange } from "@/lib/group-summary";
 import type { ImplicationsExercise, StakeRow } from "@/components/design-groups/AnswerPanels";
 import { AXIS_ENDS, AXIS_LABELS, SCORE_AXES } from "@/lib/ripples-scoring";
+import { COMMITMENTS_KEY_ROLE } from "@/lib/exercise-types";
 import ImplicationsMap from "@/components/design-groups/ImplicationsMap";
 import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffDeck";
 import ClusterMatrix from "@/components/design-groups/ClusterMatrix";
@@ -723,13 +724,21 @@ export default function GroupSummaryView({
   }
 
   // ---- 11 · Session 4: the role, and the bold moves ------------------------------------
-  // TWO SLIDES from one step, split on the authored order: the first prompt is the role and
-  // the rest are the moves. Generic on purpose — a facilitator who adds a third step-4
-  // prompt gets it on the moves slide rather than breaking either.
+  // TWO SLIDES from one step, split BY SECTION KEY. It used to split positionally — first
+  // block is the role, rest are the moves — which broke the moment a group answered the
+  // moves and skipped the role: empty blocks are dropped upstream, so the moves became
+  // element zero and three bold moves were published under "The role you would argue for".
+  //
+  // Keys are permanent ids and labels are the facilitator's, so the key is the only stable
+  // thing to match on. Still generic in the direction that matters: a facilitator who adds
+  // a fourth step-4 prompt gets it on the moves slide rather than breaking either.
   //
   // The role is its own slide because it is the one claim in four sessions that is an
   // argument rather than an observation, and a reader should meet it alone.
-  if (s.has.commitments && s.role.length > 0) {
+  const roleBlocks = s.role.filter((b) => b.key === COMMITMENTS_KEY_ROLE);
+  const moveBlocks = s.role.filter((b) => b.key !== COMMITMENTS_KEY_ROLE);
+
+  if (s.has.commitments && roleBlocks.length > 0) {
     slides.push({
       id: "role",
       label: "The role",
@@ -746,15 +755,14 @@ export default function GroupSummaryView({
             </>
           }
         >
-          <Blocks blocks={s.role.slice(0, 1)} />
+          <Blocks blocks={roleBlocks} />
         </Slide>
       ),
     });
   }
 
-  if (s.has.commitments && s.role.length > 1) {
-    const moves = s.role.slice(1);
-    const count = moves.reduce((n, b) => n + b.answers.length, 0);
+  if (s.has.commitments && moveBlocks.length > 0) {
+    const count = moveBlocks.reduce((n, b) => n + b.answers.length, 0);
     slides.push({
       id: "bold-moves",
       label: "Bold moves",
@@ -771,7 +779,7 @@ export default function GroupSummaryView({
             </>
           }
         >
-          <Blocks blocks={moves} numbered />
+          <Blocks blocks={moveBlocks} numbered />
         </Slide>
       ),
     });

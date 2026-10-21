@@ -369,6 +369,8 @@ describe("buildGroupSummary · Session 4", () => {
     settledMarks: [],
     orphans: [],
     questions: [],
+    submittedAt: null,
+    submittedBy: null,
     ...over,
   });
   const row = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
@@ -393,12 +395,14 @@ describe("buildGroupSummary · Session 4", () => {
     );
     expect(s.has.commitments).toBe(true);
     expect(s.changes).toEqual([
-      { label: "Summarize the key changes.", answers: ["Budgets are set with residents."] },
-      { label: "What no longer holds?", answers: ["That evidence decides.", "That funding is annual."] },
+      { key: "w4-summary", label: "Summarize the key changes.", answers: ["Budgets are set with residents."] },
+      { key: "w4-assumptions", label: "What no longer holds?", answers: ["That evidence decides.", "That funding is annual."] },
     ]);
+    // `key` rides along so the deck can tell the role from the moves by identity rather
+    // than by position. See "keeps the role and the moves apart" below.
     expect(s.role).toEqual([
-      { label: "What role is public health playing?", answers: ["Convenor of the evidence."] },
-      { label: "Three bold moves", answers: ["Pool prevention budgets.", "Publish every score."] },
+      { key: "w4-role", label: "What role is public health playing?", answers: ["Convenor of the evidence."] },
+      { key: "w4-bold-moves", label: "Three bold moves", answers: ["Pool prevention budgets.", "Publish every score."] },
     ]);
   });
 
@@ -417,8 +421,33 @@ describe("buildGroupSummary · Session 4", () => {
       ],
       { name: "G" }
     );
-    expect(s.changes).toEqual([{ label: "Anything else?", answers: ["One more thing."] }]);
+    expect(s.changes).toEqual([{ key: "extra", label: "Anything else?", answers: ["One more thing."] }]);
     expect(s.role).toEqual([]);
+  });
+
+  it("keeps the role and the moves apart when only the moves are answered", () => {
+    // The deck used to split step 4 POSITIONALLY: first block is the role, rest are the
+    // moves. Empty blocks are dropped here, so a group that answered the moves and skipped
+    // the role made the moves element zero, and three bold moves were published under
+    // "The role you would argue for". The key is the stable thing to split on.
+    const s = buildGroupSummary(
+      [
+        week4({
+          cards: [{ id: "c" } as never],
+          questions: [
+            { key: "w4-role", label: "The role", kind: "question", step: COMMITMENTS_STEP_MOVES, answers: [] },
+            { key: "w4-bold-moves", label: "Bold moves", kind: "question", step: COMMITMENTS_STEP_MOVES, answers: [row("m1", "Pool prevention budgets.")] },
+          ],
+        }),
+      ],
+      { name: "G" }
+    );
+    expect(s.role).toEqual([
+      { key: "w4-bold-moves", label: "Bold moves", answers: ["Pool prevention budgets."] },
+    ]);
+    // The thing that matters: nothing here is keyed as the role, so the deck draws no
+    // role slide rather than drawing the moves as one.
+    expect(s.role.some((b) => b.key === "w4-role")).toBe(false);
   });
 
   it("keeps every period on a lane, so a gap stays visible", () => {
@@ -480,6 +509,7 @@ describe("buildGroupSummary · the curated handoff", () => {
     kind: "commitments", exerciseId: "EX4", title: "Session 4", cards: [{ id: "c" } as never],
     responses: [], boldMoves: [], lanes: [], stranded: [],
     picks: [], settledMarks: [], orphans: [], questions: [],
+    submittedAt: null, submittedBy: null,
     ...over,
   });
   const w3 = (): ExerciseAnswers => ({

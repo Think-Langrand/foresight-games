@@ -136,8 +136,10 @@ export interface GroupSummary {
   // step 1 — what is different in this world, and which of today's assumptions it breaks.
   // `role` is step 4 — the role public health plays here, then the bold moves. Blocks with
   // no step fall into `changes`, which is where the editor puts anything an admin adds.
-  changes: { label: string; answers: string[] }[];
-  role: { label: string; answers: string[] }[];
+  changes: { key: string; label: string; answers: string[] }[];
+  // Carries `key` because the deck splits this one by identity: COMMITMENTS_KEY_ROLE is
+  // the role slide and everything else on the step is a move.
+  role: { key: string; label: string; answers: string[] }[];
   // Step 2's matrix, strongest first. The order IS the finding: it is the one place in four
   // sessions where the group ranked its own stakes against each other.
   placements: SummaryPlacement[];
@@ -424,13 +426,22 @@ export function buildGroupSummary(
       ? commitments.questions
           .filter((q) => q.answers.length > 0)
           .map((q) => ({
+            key: q.key,
             label: q.label || q.key,
             step: q.step,
             answers: q.answers.map((a) => a.text),
           }))
       : [];
-  const strip = (b: { label: string; answers: string[] }) => ({ label: b.label, answers: b.answers });
+  const strip = (b: { key: string; label: string; answers: string[] }) => ({
+    key: b.key,
+    label: b.label,
+    answers: b.answers,
+  });
   const changes = w4Blocks.filter((b) => b.step !== COMMITMENTS_STEP_MOVES).map(strip);
+  // `key` rides along so the deck can find the role BY IDENTITY. It used to split step 4
+  // positionally, and a group that answered the moves but skipped the role then had its
+  // three moves rendered under "The role you would argue for" — empty blocks are dropped
+  // here, so the moves became element zero. Keys are permanent; positions are not.
   const role = w4Blocks.filter((b) => b.step === COMMITMENTS_STEP_MOVES).map(strip);
 
   // Step 2's placements. Which wall each came from is derived from Week 3's own rows, the

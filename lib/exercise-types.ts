@@ -168,6 +168,10 @@ const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 // would have to keep in sync by hand.
 export const COMMITMENTS_STEP_CHANGES = "Key changes";
 export const COMMITMENTS_STEP_MOVES = "Bold moves";
+// The role's section key, named because the handoff deck gives it a slide of its own and
+// has to find it by IDENTITY rather than by position. Keys are permanent (see the header),
+// so this is the stable thing to match on; the label belongs to whoever edits the program.
+export const COMMITMENTS_KEY_ROLE = "w4-role";
 const STEP_CHANGES = COMMITMENTS_STEP_CHANGES;
 const STEP_MOVES = COMMITMENTS_STEP_MOVES;
 

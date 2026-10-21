@@ -96,7 +96,11 @@ export async function POST(
     await submitExercise(r.exercise.id, r.player.displayName);
     // Re-read rather than echoing a locally built timestamp, so the client shows the same
     // instant the database stored and a second viewer's poll agrees with it.
-    const after = await getExerciseBySessionCode(code);
+    //
+    // `r.exercise.sessionCode`, never the raw URL `code`: getExerciseBySessionCode matches
+    // exactly, so a differently-cased code would write the stamp and then fail to read it
+    // back, and the group would be told its submit did not land.
+    const after = await getExerciseBySessionCode(r.exercise.sessionCode ?? code);
     return NextResponse.json({
       ok: true,
       submittedAt: after?.submittedAt ?? null,

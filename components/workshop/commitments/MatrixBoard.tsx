@@ -133,7 +133,13 @@ function Panel({
               {g.cards.map((c) => {
                 const pick = pickFor(c.id);
                 const scores = scoresFor(c.id);
-                const touched = scores.plausibility !== null || scores.impact !== null;
+                // A PICK EXISTS counts as touched, not just a visible score. A mint that
+                // succeeds while its score write fails leaves a pick with both axes null:
+                // nothing shows on the row, but the review pane, the CSV and the deck all
+                // report a placement. Keying Clear off the scores alone made that one
+                // unremovable.
+                const touched =
+                  Boolean(pick) || scores.plausibility !== null || scores.impact !== null;
                 const done = isDone(c);
                 return (
                   <li

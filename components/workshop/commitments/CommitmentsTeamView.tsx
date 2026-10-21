@@ -144,10 +144,10 @@ export function CommitmentsTeamView({
   // all four.
   const [markPending, setMarkPending] = useState<Set<string>>(() => new Set());
   // Step 2's bridge: scores clicked on a Session 3 card whose pick does not exist yet,
-  // keyed by SOURCE id. An entry stops mattering the moment the pick lands, because
-  // `scoresFor` reads the pick first and never looks here — so there is nothing to retire
-  // and no effect syncing the two. Entries are dropped explicitly in the two places where
-  // a stale one could be read again: a failed write, and clearing a stake. See scoreStake.
+  // keyed by SOURCE id. It lives for one round trip and is dropped the moment the pick is
+  // in the optimistic cards, so there is never a stale entry waiting to be un-shadowed if
+  // that pick is later deleted — by this viewer or by a teammate. Dropped on the mint
+  // failing too, since then no pick is coming. See scoreStake.
   const [pendingScores, setPendingScores] = useState<Map<string, ScorePatchInput>>(
     () => new Map()
   );
@@ -423,10 +423,29 @@ export function CommitmentsTeamView({
         addLocal(card);
         return card.id;
       })
-      .finally(() => mintingPick.current.delete(source.id));
+      // KEPT ON SUCCESS, deliberately. Clearing it in a `finally` released the guard a
+      // microtask after addLocal and before React had committed, so a click landing in
+      // that gap saw neither the pick nor the guard and posted a SECOND pick — the exact
+      // 409 the guard exists to prevent. A settled promise is a perfectly good guard: a
+      // later caller awaits it and gets the id the first call minted.
+      //
+      // Dropped only on failure, so a retry can mint, and in clearStake, where the pick it
+      // names is deleted and the resolved id would be dead.
+      .catch((e) => {
+        mintingPick.current.delete(source.id);
+        throw e;
+      });
     mintingPick.current.set(source.id, p);
     return p;
   };
+
+  const dropPending = (sourceId: string) =>
+    setPendingScores((m) => {
+      if (!m.has(sourceId)) return m;
+      const next = new Map(m);
+      next.delete(sourceId);
+      return next;
+    });
 
   const scoreStake = (card: RippleCard, patch: ScorePatchInput) => {
     const axes = Object.keys(patch) as (keyof ScorePatchInput)[];
@@ -439,7 +458,12 @@ export function CommitmentsTeamView({
     setPendingScores((m) => new Map(m).set(card.id, { ...m.get(card.id), ...patch }));
     run(async () => {
       const pickId = await ensurePick({ id: card.id, text: card.text });
+      // `ensurePick` has already called addLocal, so the pick is in the optimistic cards
+      // and `scoresFor` will read it rather than the bridge from the very next render.
+      // Both of these are state updates in one tick, so there is no frame where the scale
+      // has neither and blinks back to empty.
       scoreLocal(pickId, patch);
+      dropPending(card.id);
       try {
         await scoreRippleCard(code, pickId, { participantId: pid, ...patch });
         settleScoreLocal(pickId);
@@ -448,15 +472,9 @@ export function CommitmentsTeamView({
         throw e;
       }
     }).then((ok) => {
-      // Only on failure. On success the entry is dropped by the effect below, once the
-      // pick is actually on the board — dropping it here would blink the scale back to
-      // empty for the length of the refetch.
-      if (!ok) setPendingScores((m) => {
-        if (!m.has(card.id)) return m;
-        const next = new Map(m);
-        next.delete(card.id);
-        return next;
-      });
+      // The mint itself failed, so there is no pick to shadow the bridge entry and it has
+      // to go or the scale shows a score the board never took.
+      if (!ok) dropPending(card.id);
     });
   };
 
@@ -465,14 +483,11 @@ export function CommitmentsTeamView({
   // at once: the score route has no "unset" and writing nulls through it is not a thing it
   // offers.
   const clearStake = (card: RippleCard) => {
-    // Drop the bridge entry too. It is normally shadowed by the pick, but deleting the pick
-    // un-shadows it, and a stale entry would put the score straight back on screen.
-    setPendingScores((m) => {
-      if (!m.has(card.id)) return m;
-      const next = new Map(m);
-      next.delete(card.id);
-      return next;
-    });
+    // Both caches name a pick that is about to stop existing. The bridge entry is normally
+    // shadowed by the pick, but deleting the pick un-shadows it and the score comes
+    // straight back on screen; the minted promise would hand the next click a dead id.
+    dropPending(card.id);
+    mintingPick.current.delete(card.id);
     toggleMark("pick", { id: card.id, text: card.text }, false);
   };
 
@@ -501,7 +516,17 @@ export function CommitmentsTeamView({
   const reviewShape = (() => {
     if (step !== "review") return null;
     const shaped = shapeFromView(
-      { id: "live", title: title || "Commitments", type: "commitments", sections },
+      {
+        id: "live",
+        title: title || "Commitments",
+        type: "commitments",
+        sections,
+        // The LOCAL stamp, not the page's: this viewer may have pressed Submit a second
+        // ago and the page prop is from the last server render. Without it the read-back
+        // would contradict the submit bar directly above it.
+        submittedAt: submitted.at,
+        submittedBy: submitted.by,
+      },
       view
     );
     return shaped.kind === "commitments" ? shaped : null;

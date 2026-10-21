@@ -42,6 +42,11 @@ export interface ShapeableExercise {
   title: string;
   type: string;
   sections: WorksheetSection[];
+  // The GROUP's submit stamp (migration 0029), for the weeks that have one. Carried into
+  // the shape rather than read separately so the admin answers viewer, the CSV and the
+  // group's own review pane all learn about it from the same place.
+  submittedAt?: string | null;
+  submittedBy?: string | null;
 }
 
 export function shapeFromView(
@@ -292,6 +297,8 @@ export function shapeFromView(
       // customized stores [] and must fall back to the type's template, or step 1 — the
       // whole aspiration — is invisible here.
       questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
+      submittedAt: ex.submittedAt ?? null,
+      submittedBy: ex.submittedBy ?? null,
     };
   }
 

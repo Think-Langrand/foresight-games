@@ -177,6 +177,19 @@ export function implicationsCsvRows(ex: ImplicationsExercise): string[][] {
 // gap is still readable from the sheet alone.
 export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
   const rows: string[][] = [];
+  // First, because it is a fact about the WEEK rather than about any card on it, and a
+  // facilitator scanning the sheet should meet it before the work. Migration 0029 promises
+  // this column exists; it did not until the review caught it.
+  if (ex.submittedAt) {
+    rows.push([
+      ex.title,
+      "Submitted",
+      "submit",
+      ex.submittedBy ? `Submitted by ${ex.submittedBy}` : "Submitted",
+      ex.submittedBy ?? "",
+      ex.submittedAt,
+    ]);
+  }
   for (const q of ex.questions) {
     for (const a of q.answers) {
       rows.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt]);

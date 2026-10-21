@@ -422,6 +422,8 @@ const cex = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
   settledMarks: [],
   orphans: [],
   questions: [],
+  submittedAt: null,
+  submittedBy: null,
   ...over,
 });
 
@@ -513,6 +515,25 @@ describe("commitmentsCsvRows", () => {
       ["Settled since Session 1", "settled", "How would equity be considered?"],
     ]);
     for (const r of rows) expect(r).toHaveLength(GROUP_ANSWERS_CSV_HEADER.length);
+  });
+
+  it("leads with the group's submit stamp, and omits it when unsubmitted", () => {
+    // Migration 0029 says this reaches a facilitator and the CSV. It reached neither until
+    // a review caught it, and the board tells the group "the facilitators can see you are
+    // finished" — so this row is what makes that sentence true.
+    const rows = commitmentsCsvRows(
+      cex({ submittedAt: "2026-10-30T15:42:00.000Z", submittedBy: "Ana" })
+    );
+    expect(rows[0]).toEqual([
+      "Session 4",
+      "Submitted",
+      "submit",
+      "Submitted by Ana",
+      "Ana",
+      "2026-10-30T15:42:00.000Z",
+    ]);
+    for (const r of rows) expect(r).toHaveLength(GROUP_ANSWERS_CSV_HEADER.length);
+    expect(commitmentsCsvRows(cex())).toEqual([]);
   });
 
   it("emits nothing for an untouched board", () => {
