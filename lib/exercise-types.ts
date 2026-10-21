@@ -191,15 +191,16 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     key: "w4-role",
     kind: "question",
     step: STEP_MOVES,
-    label: "What role is public health playing in this future?",
-    help: "The role you would argue for, not the one you expect. Say it as something already true in this world.",
+    label: "What is the aspirational role for public health in this world?",
+    help: "What the field is reaching for here, not what you expect it to settle for. Say it as something already true in this world. The moves below are how you get to it.",
   },
   {
     key: "w4-bold-moves",
     kind: "question",
     step: STEP_MOVES,
-    label: "What three bold moves would you make to get there?",
-    help: "One move per answer. Something someone does, with your group in the room when it happens.",
+    label:
+      "What are the boldest moves that can be made in public health in this scenario to help you meet your aspirations?",
+    help: "Three of them, one per answer. Something someone does, with your group in the room when it happens.",
   },
 ];
 

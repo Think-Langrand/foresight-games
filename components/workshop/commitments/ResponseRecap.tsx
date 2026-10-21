@@ -51,7 +51,7 @@ export function ResponseRecap({
           <span aria-hidden className="mr-1">
             {t.mark}
           </span>
-          Your responses
+          Strategic responses
         </span>
         <span className="font-mono text-[10px] tabular-nums text-muted">{responses.length}</span>
         <button
