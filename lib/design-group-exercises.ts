@@ -55,15 +55,23 @@ const BASE_COLS =
 const SUBMIT_COLS = "submitted_at, submitted_by";
 
 // THE BUILD RUNS NO MIGRATIONS (see AGENTS.md), so code can be live before its migration
-// is. Without this, a single missing column makes EVERY read of a week fail with 42703 and
-// takes down the whole program section of the app for every group, which is a far worse
-// outcome than a missing submit stamp on one step.
+// is. Without this, a single missing column makes EVERY read of a week fail and takes down
+// the whole program section of the app for every group, which is a far worse outcome than a
+// missing submit stamp on one step.
 //
 // Optimistic: the full list is tried first, so once 0029 is applied there is no probe and
-// no extra round trip. The flag only ever flips one way, and a process that started before
-// the migration picks the columns up on its next restart.
-let submitColsPresent = true;
-const cols = () => (submitColsPresent ? `${BASE_COLS}, ${SUBMIT_COLS}` : BASE_COLS);
+// no extra round trip.
+//
+// AND IT RE-PROBES, which the first version of this got wrong. A latched "missing" flag
+// means a server that was running when the migration was applied keeps degrading until
+// someone restarts it, and the bug that exposed is nasty: the submit WRITE succeeds, the
+// re-read omits the column, and the group is told nothing happened. So the state is a
+// deadline rather than a boolean. Cost in the genuinely-missing case is one failed query a
+// minute, against a whole process stuck in the wrong mode.
+const REPROBE_AFTER_MS = 60_000;
+let missingUntil = 0;
+const submitColsPresent = () => Date.now() >= missingUntil;
+const cols = () => (submitColsPresent() ? `${BASE_COLS}, ${SUBMIT_COLS}` : BASE_COLS);
 
 // TWO codes, because PostgREST reports a missing column differently depending on where it
 // appears. A SELECT list reaches Postgres and comes back as 42703 (undefined_column); an
@@ -80,12 +88,16 @@ async function selectWeeks<T>(
   run: (cols: string) => PromiseLike<{ data: unknown; error: unknown }>
 ): Promise<T | null> {
   let res = await run(cols());
-  if (res.error && submitColsPresent && isMissingColumn(res.error)) {
-    submitColsPresent = false;
-    console.warn(
-      "[design-group-exercises] migration 0029 is not applied on this database; " +
-        "reading weeks without the submit stamp. Submitting a week will fail until it is."
-    );
+  if (res.error && isMissingColumn(res.error)) {
+    const first = submitColsPresent();
+    missingUntil = Date.now() + REPROBE_AFTER_MS;
+    // Only on the transition, or a database without 0029 would log once a minute forever.
+    if (first) {
+      console.warn(
+        "[design-group-exercises] migration 0029 is not applied on this database; " +
+          "reading weeks without the submit stamp. Submitting a week will fail until it is."
+      );
+    }
     res = await run(cols());
   }
   if (res.error) throw res.error;
@@ -244,6 +256,10 @@ export async function submitExercise(id: string, by: string): Promise<void> {
     // the route can tell the group the truth instead of "something went wrong".
     if (error && isMissingColumn(error)) throw new Error(MIGRATION_0029_MISSING);
     if (error) throw error;
+    // The write proves the columns exist, so stop reading without them NOW rather than
+    // waiting out the re-probe window. Without this the route's own re-read right after
+    // this call can still come back empty and tell the group its submit did not land.
+    missingUntil = 0;
   });
 }
 
@@ -258,6 +274,7 @@ export async function unsubmitExercise(id: string): Promise<void> {
       .eq("id", id);
     if (error && isMissingColumn(error)) throw new Error(MIGRATION_0029_MISSING);
     if (error) throw error;
+    missingUntil = 0;
   });
 }
 
