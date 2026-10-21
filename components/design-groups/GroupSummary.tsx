@@ -20,6 +20,12 @@ import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffD
 import ClusterMatrix from "@/components/design-groups/ClusterMatrix";
 import StakesBalance from "@/components/design-groups/StakesBalance";
 
+// "What we never settled" is PARKED, not deleted. Flip this to true to bring it back:
+// it is the last slide, so nothing renumbers and no other code changes. The Session 4
+// board still collects what feeds it (step 5's "What is still open"), so the data keeps
+// accruing while the slide is hidden and the slide is correct whenever it returns.
+const SHOW_UNSETTLED = false;
+
 function Chip({ tone, children }: { tone: "live" | "next"; children: React.ReactNode }) {
   const cls =
     tone === "live" ? "border-transparent bg-lime text-ink" : "border-transparent bg-blue text-white";
@@ -725,8 +731,8 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 11 · What we never settled -------------------------------------------
-  if (s.unsettled.length > 0) {
+  // ---- 11 · What we never settled (parked, see SHOW_UNSETTLED) ---------------
+  if (SHOW_UNSETTLED && s.unsettled.length > 0) {
     slides.push({
       id: "unsettled",
       label: "What we never settled",
