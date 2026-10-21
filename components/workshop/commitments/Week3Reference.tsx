@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
+import type { Scenario } from "@/lib/foresight/types";
+import { FigureImage } from "@/components/foresight/FigureImage";
 import {
   indexSynthesisBoard,
   isUnnamedTheme,
@@ -21,6 +23,13 @@ import { Dot } from "@/components/workshop/synthesis/ThemeRail";
 //
 // Built from indexSynthesisBoard over the raw Session 3 cards, so it needs no shaping code
 // of its own and cannot disagree with how Session 3 itself reads the board.
+//
+// THE SCENARIO SITS ON TOP, and everything below it is shut. The week asks the group to
+// judge things about this world, and the world was two sessions ago: the scenario image and
+// its overview are the context every step needs, where Session 3's own cards are what you
+// reach for once you have a reason to. Shut by default is not "less important", it is the
+// rail admitting that a wall of four sessions' work open at once is not readable. Each fold
+// carries its count, so a shut one still says how much is behind it.
 
 // A hope or fear with its flip underneath, which is the pair Session 3's step 4 produced
 // and the thing worth re-reading: the same facts said twice, once as a loss and once as a
@@ -56,10 +65,13 @@ function Pair({ card, flips }: { card: RippleCard; flips: RippleCard[] }) {
 function Fold({
   label,
   count,
+  note,
   children,
 }: {
   label: string;
   count: number;
+  // A second fact worth seeing while shut, like how many fears were flipped.
+  note?: string;
   children: React.ReactNode;
 }) {
   // Open by default would bury the step under Session 3. Shut by default would let a group
@@ -80,6 +92,9 @@ function Fold({
         </span>
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.1em]">
           {label} <span className="tabular-nums text-muted">{count}</span>
+          {note && (
+            <span className="ml-2 font-normal normal-case tracking-normal text-muted">{note}</span>
+          )}
         </span>
       </button>
       {open && <div className="mt-3">{children}</div>}
@@ -87,7 +102,50 @@ function Fold({
   );
 }
 
-export function Week3Reference({ cards }: { cards: RippleCard[] }) {
+// The world the whole week is judging, at the top of the rail: the first scenario image and
+// the overview the group has been reading since Session 1. Not a fold — this is the one
+// thing that should never need a click, and it is why the rail is wide.
+function ScenarioContext({ scenario }: { scenario: Scenario }) {
+  // Ordered by `position`, which real data numbers from 2, so first-by-position rather
+  // than images[0]. Same rule ScenarioReader uses for its hero.
+  const hero = [...scenario.images]
+    .filter((im) => im.url)
+    .sort((a, b) => a.position - b.position)[0];
+  const paragraphs = (scenario.teaser ?? "")
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (!hero && paragraphs.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <FigureImage image={hero} alt={scenario.title} ratio="aspect-[16/9]" />
+      <div>
+        <div className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
+          {scenario.title}
+        </div>
+        {paragraphs.length > 0 && (
+          <div className="mt-1.5 flex flex-col gap-2">
+            {paragraphs.map((para, i) => (
+              <p key={i} className="m-0 text-[13px] leading-[1.5]">
+                {para}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function Week3Reference({
+  cards,
+  scenario,
+}: {
+  cards: RippleCard[];
+  scenario?: Scenario | null;
+}) {
   const board = useMemo(() => indexSynthesisBoard(cards), [cards]);
 
   const hopesFears = board.hopesFears;
@@ -108,10 +166,13 @@ export function Week3Reference({ cards }: { cards: RippleCard[] }) {
     };
   }, [board]);
 
+  // A group with no Session 3 work still gets the scenario, which is the half of this rail
+  // that does not depend on them having done anything.
   if (hopesFears.length === 0 && riskTotal === 0 && oppTotal === 0) {
     return (
-      <aside className="rounded-[4px] border border-[var(--rule)] px-4 py-3">
-        <p className="m-0 text-[13px] italic text-muted">
+      <aside className="flex flex-col gap-3 rounded-[4px] border border-[var(--rule)] px-4 py-3">
+        {scenario && <ScenarioContext scenario={scenario} />}
+        <p className="m-0 border-t border-[var(--rule)] pt-2 text-[13px] italic text-muted">
           Nothing from Session 3 to read back here yet.
         </p>
       </aside>
@@ -120,31 +181,28 @@ export function Week3Reference({ cards }: { cards: RippleCard[] }) {
 
   return (
     <aside className="flex flex-col gap-3 rounded-[4px] border border-[var(--rule)] px-4 py-3">
-      <div>
+      {scenario && <ScenarioContext scenario={scenario} />}
+
+      <div className={scenario ? "border-t border-[var(--rule)] pt-3" : undefined}>
         <h3 className="m-0 text-[13px] font-bold">What you said in Session 3</h3>
         <p className="m-0 mt-0.5 text-[12px] italic leading-[1.45] text-muted">
-          Your own words, for reference. Nothing here changes.
+          Your own words, for reference. Open what you need; nothing here changes.
         </p>
       </div>
 
-      {/* Hopes and fears lead, because the aspiration is built out of them. */}
-      {hopesFears.length > 0 && (
-        <div>
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.1em]">
-            Hopes &amp; fears <span className="tabular-nums text-muted">{hopesFears.length}</span>
-            {flipCount > 0 && (
-              <span className="ml-2 font-normal normal-case tracking-normal text-muted">
-                with {flipCount} {flipCount === 1 ? "flip" : "flips"}
-              </span>
-            )}
-          </div>
-          <ul className="m-0 mt-1 list-none p-0">
-            {hopesFears.map((c) => (
-              <Pair key={c.id} card={c} flips={board.chains.get(c.id) ?? []} />
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* A fold like the other three. It used to be open, which made the rail start with
+          every hope and fear the group ever wrote and buried the folds under it. */}
+      <Fold
+        label="Hopes &amp; fears"
+        count={hopesFears.length}
+        note={flipCount > 0 ? `with ${flipCount} ${flipCount === 1 ? "flip" : "flips"}` : undefined}
+      >
+        <ul className="m-0 list-none p-0">
+          {hopesFears.map((c) => (
+            <Pair key={c.id} card={c} flips={board.chains.get(c.id) ?? []} />
+          ))}
+        </ul>
+      </Fold>
 
       <Fold label="Risks" count={riskTotal}>
         <StakeList

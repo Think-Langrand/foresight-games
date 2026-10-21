@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ScenarioPanel } from "@/components/workshop/ScenarioPanel";
 import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
@@ -11,6 +11,7 @@ import { Week3Reference } from "@/components/workshop/commitments/Week3Reference
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { ResponseRecap } from "@/components/workshop/commitments/ResponseRecap";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
+import { StepProgress } from "@/components/workshop/commitments/StepProgress";
 import { ReviewBoard } from "@/components/workshop/commitments/ReviewBoard";
 import {
   useRipplesView,
@@ -28,6 +29,7 @@ import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import type { RippleCard, RipplePhase } from "@/lib/ripples-types";
 import type { ScorePatchInput } from "@/lib/ripples-scoring";
+import { cardScores } from "@/lib/ripples-scoring";
 import { SORT_STEP } from "@/lib/synthesis-shape";
 import {
   indexCommitmentsBoard,
@@ -137,6 +139,18 @@ export function CommitmentsTeamView({
   // length of a round trip, the cap read stale, and a group ticking four risks quickly got
   // all four.
   const [markPending, setMarkPending] = useState<Set<string>>(() => new Set());
+  // Step 2's bridge: scores clicked on a Session 3 card whose pick does not exist yet,
+  // keyed by SOURCE id. An entry stops mattering the moment the pick lands, because
+  // `scoresFor` reads the pick first and never looks here — so there is nothing to retire
+  // and no effect syncing the two. Entries are dropped explicitly in the two places where
+  // a stale one could be read again: a failed write, and clearing a stake. See scoreStake.
+  const [pendingScores, setPendingScores] = useState<Map<string, ScorePatchInput>>(
+    () => new Map()
+  );
+  // The in-flight create per source id, so two fast score clicks on one card mint one pick
+  // rather than racing. A ref, not state: nothing renders from it and a re-render between
+  // the two clicks must not lose it.
+  const mintingPick = useRef<Map<string, Promise<string>>>(new Map());
   // Step 5's submit stamp. Seeded from the server and then owned here, because the press
   // and its Undo both resolve to a value the response carries. See ReviewBoard's header for
   // why this is not realtime.
@@ -166,6 +180,7 @@ export function CommitmentsTeamView({
 
   // One index for all four steps; every Session 4 selector reads it.
   const board = useMemo(() => indexCommitmentsBoard(cards), [cards]);
+
 
   if (loading)
     return (
@@ -350,10 +365,10 @@ export function CommitmentsTeamView({
     }).finally(release);
   };
 
-  // Score a pick. The same shape as Week 2's scoreKeyChange, including the three-part
-  // overlay: `scoreLocal` merges so the two axis rows do not wipe each other, and the
-  // overlay's `inflight` counter is what stops this viewer being pinned to a number a
-  // teammate has since overwritten.
+  // Score a pick that already exists. The same shape as Week 2's scoreKeyChange, including
+  // the three-part overlay: `scoreLocal` merges so the two axis rows do not wipe each
+  // other, and the overlay's `inflight` counter is what stops this viewer being pinned to a
+  // number a teammate has since overwritten.
   const scorePick = (pickId: string, patch: ScorePatchInput) => {
     const axes = Object.keys(patch) as (keyof ScorePatchInput)[];
     scoreLocal(pickId, patch);
@@ -369,9 +384,105 @@ export function CommitmentsTeamView({
   };
 
   // The pick standing for a Session 3 card, with a create still in flight already counted
-  // so the floor counter and the Place control do not lag a round trip behind the click.
+  // so the counters do not lag a round trip behind the click.
   const pickFor = (sourceId: string) =>
     isStarred(sourceId) ? board.picks.get(sourceId) : undefined;
+
+  // ---- step 2: scoring is placing --------------------------------------------
+  //
+  // Step 2 shows both scales on every Session 3 card, so the FIRST click on a card has to
+  // paint before the pick that will hold the score exists. These two pieces bridge that
+  // gap, and only that gap: once the pick is on the board the ordinary `scores` overlay
+  // takes over and `pendingScores` drops the entry.
+  //
+  // `mintingPick` is keyed by source id and holds the in-flight create itself, not a
+  // boolean. Both scales clicked in quick succession must not send two creates, and 0018's
+  // unique (code, source_card_id) would turn the second into a 409 the group would read as
+  // someone else's edit. The second click awaits the same promise the first started.
+  const ensurePick = (source: { id: string; text: string }): Promise<string> => {
+    const existing = board.picks.get(source.id);
+    if (existing) return Promise.resolve(existing.id);
+    const inFlight = mintingPick.current.get(source.id);
+    if (inFlight) return inFlight;
+    const p = postRippleCard(code, {
+      participantId: pid,
+      cardOrder: "FIRST",
+      cardKind: "pick",
+      sourceCardId: source.id,
+      // The source's own words ride along, so the handoff reads without a join back to a
+      // board the deck may not have loaded.
+      text: source.text,
+    })
+      .then((res) => {
+        const card = res?.card as RippleCard | undefined;
+        if (!card) throw new Error("The board did not accept that.");
+        addLocal(card);
+        return card.id;
+      })
+      .finally(() => mintingPick.current.delete(source.id));
+    mintingPick.current.set(source.id, p);
+    return p;
+  };
+
+  const scoreStake = (card: RippleCard, patch: ScorePatchInput) => {
+    const axes = Object.keys(patch) as (keyof ScorePatchInput)[];
+    const existing = board.picks.get(card.id);
+    if (existing) {
+      scorePick(existing.id, patch);
+      return;
+    }
+    // No pick yet: paint against the SOURCE id, mint, then hand off to the real overlay.
+    setPendingScores((m) => new Map(m).set(card.id, { ...m.get(card.id), ...patch }));
+    run(async () => {
+      const pickId = await ensurePick({ id: card.id, text: card.text });
+      scoreLocal(pickId, patch);
+      try {
+        await scoreRippleCard(code, pickId, { participantId: pid, ...patch });
+        settleScoreLocal(pickId);
+      } catch (e) {
+        dropScoreLocal(pickId, axes);
+        throw e;
+      }
+    }).then((ok) => {
+      // Only on failure. On success the entry is dropped by the effect below, once the
+      // pick is actually on the board — dropping it here would blink the scale back to
+      // empty for the length of the refetch.
+      if (!ok) setPendingScores((m) => {
+        if (!m.has(card.id)) return m;
+        const next = new Map(m);
+        next.delete(card.id);
+        return next;
+      });
+    });
+  };
+
+  // Take a scored card back off the matrix. There is no placement act to undo any more, but
+  // a mis-click still has to be reversible, and deleting the pick is what clears both axes
+  // at once: the score route has no "unset" and writing nulls through it is not a thing it
+  // offers.
+  const clearStake = (card: RippleCard) => {
+    // Drop the bridge entry too. It is normally shadowed by the pick, but deleting the pick
+    // un-shadows it, and a stale entry would put the score straight back on screen.
+    setPendingScores((m) => {
+      if (!m.has(card.id)) return m;
+      const next = new Map(m);
+      next.delete(card.id);
+      return next;
+    });
+    toggleMark("pick", { id: card.id, text: card.text }, false);
+  };
+
+  // What step 2 SHOWS for a Session 3 card: the pick's scores once it exists, and the
+  // optimistic patch before it does.
+  const scoresFor = (sourceId: string) => {
+    const pick = board.picks.get(sourceId);
+    if (pick) return cardScores(pick);
+    const pending = pendingScores.get(sourceId);
+    return {
+      plausibility: pending?.plausibility ?? null,
+      impact: pending?.impact ?? null,
+    };
+  };
 
   // ---- step 5 ----------------------------------------------------------------
 
@@ -418,6 +529,14 @@ export function CommitmentsTeamView({
         ? sec.step === COMMITMENTS_STEP_MOVES
         : sec.step !== COMMITMENTS_STEP_MOVES
     );
+
+  // How many of a step's prompts have been answered at all. The unit is the PROMPT, not the
+  // answer: each takes as many answers as the group has, so counting answers would give a
+  // number with no denominator and nothing to draw a bar against.
+  const answeredCount = (spec: typeof sections) =>
+    spec.filter((sec) =>
+      cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
+    ).length;
 
   const worksheetFor = (spec: typeof sections) => (
     <WorksheetSections
@@ -473,9 +592,19 @@ export function CommitmentsTeamView({
       </div>
 
       {step === "changes" && (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className="min-w-0">{aspirationBody}</div>
-          <Week3Reference cards={week3Cards} />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="flex min-w-0 flex-col gap-5">
+            {aspirationBody}
+            {/* Counts PROMPTS with at least one answer, not answers: the prompts take as
+                many as the group has, so a tally of answers would have no denominator and
+                could not be a bar. */}
+            <StepProgress
+              done={answeredCount(sectionsFor("changes"))}
+              total={sectionsFor("changes").length}
+              noun="answered"
+            />
+          </div>
+          <Week3Reference cards={week3Cards} scenario={scenario} />
         </div>
       )}
 
@@ -483,11 +612,10 @@ export function CommitmentsTeamView({
         <MatrixBoard
           week3Cards={week3Cards}
           pickFor={pickFor}
+          scoresFor={scoresFor}
           editable={editable}
-          busy={busy}
-          onPlace={(c) => toggleMark("pick", { id: c.id, text: c.text }, true)}
-          onRemove={(c) => toggleMark("pick", { id: c.id, text: c.text }, false)}
-          onScore={scorePick}
+          onScore={scoreStake}
+          onClear={clearStake}
         />
       )}
 
@@ -497,6 +625,7 @@ export function CommitmentsTeamView({
           sections={sectionsFor("changes")}
           cards={cards}
           week3Cards={week3Cards}
+          scenario={scenario}
           editable={editable}
           busy={busy}
           onAdd={addResponse}

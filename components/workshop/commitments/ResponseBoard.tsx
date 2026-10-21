@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import type { WorksheetSection } from "@/lib/exercise-types";
+import type { Scenario } from "@/lib/foresight/types";
 import type { CommitmentsBoard } from "@/lib/commitments-shape";
 import { RESPONSES_FOR_DONE } from "@/lib/commitments-shape";
 import { CardWall } from "@/components/workshop/synthesis/CardWall";
@@ -46,6 +47,7 @@ export function ResponseBoard({
   sections,
   cards,
   week3Cards,
+  scenario,
   editable,
   busy,
   onAdd,
@@ -57,6 +59,7 @@ export function ResponseBoard({
   sections: WorksheetSection[];
   cards: RippleCard[];
   week3Cards: RippleCard[];
+  scenario?: Scenario | null;
   editable: boolean;
   busy: boolean;
   onAdd: (text: string) => AddResult;
@@ -79,7 +82,7 @@ export function ResponseBoard({
         onGoToAspiration={onGoToAspiration}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
           <CardWall
             tone="response"
@@ -104,7 +107,7 @@ export function ResponseBoard({
             fold={responseDirections}
           />
         </div>
-        <Week3Reference cards={week3Cards} />
+        <Week3Reference cards={week3Cards} scenario={scenario} />
       </div>
 
       <ConfirmModal
