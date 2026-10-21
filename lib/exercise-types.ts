@@ -176,15 +176,16 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     key: "w4-summary",
     kind: "question",
     step: STEP_CHANGES,
-    label: "Summarize the key changes in this world.",
-    help: "What is different here, said in a few lines someone could read without the scenario in front of them.",
+    label: "How has the field of public health changed the most in this world?",
+    help: "A big-picture question. Not a list of differences, and not one programme: the shape of the field, said so that someone who missed every session would understand it.",
   },
   {
     key: "w4-assumptions",
     kind: "question",
     step: STEP_CHANGES,
-    label: "What do we assume about how public health works today that does not hold here?",
-    help: "Not what breaks. What we take for granted now that this world quietly stops being true.",
+    label:
+      "What are the biggest assumptions about public health in today's world that aren't true in this scenario?",
+    help: "Not what breaks. What nobody argues about today, because everyone takes it for granted, and this world quietly stops being true.",
   },
   {
     key: "w4-role",

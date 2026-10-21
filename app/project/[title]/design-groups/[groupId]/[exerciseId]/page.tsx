@@ -172,6 +172,12 @@ export default async function DesignGroupExercisePage({
     const week3Cards = pastWeeks
       .filter((w) => w.kind === "synthesis")
       .flatMap((w) => w.cards);
+    // Session 2, for the same reason and by the same route. The rail uses only its roots,
+    // the six key changes, which are the group's own earlier answer to very nearly what
+    // step 1 asks. Selection again, not another query.
+    const week2Cards = pastWeeks
+      .filter((w) => w.kind === "implications")
+      .flatMap((w) => w.cards);
     return (
       <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>
         <CommitmentsTeamView
@@ -182,6 +188,7 @@ export default async function DesignGroupExercisePage({
           hiddenSections={project.homeConfig.hiddenScenarioSections}
           sections={resolveEffectiveSections(exercise.type, exercise.sections)}
           week3Cards={week3Cards}
+          week2Cards={week2Cards}
           summaryHref={`/project/${title}/design-groups/${groupId}/summary`}
           submittedAt={exercise.submittedAt}
           submittedBy={exercise.submittedBy}

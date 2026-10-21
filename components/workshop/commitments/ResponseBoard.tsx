@@ -47,6 +47,7 @@ export function ResponseBoard({
   sections,
   cards,
   week3Cards,
+  week2Cards,
   scenario,
   editable,
   busy,
@@ -59,6 +60,7 @@ export function ResponseBoard({
   sections: WorksheetSection[];
   cards: RippleCard[];
   week3Cards: RippleCard[];
+  week2Cards?: RippleCard[];
   scenario?: Scenario | null;
   editable: boolean;
   busy: boolean;
@@ -107,7 +109,7 @@ export function ResponseBoard({
             fold={responseDirections}
           />
         </div>
-        <Week3Reference cards={week3Cards} scenario={scenario} />
+        <Week3Reference cards={week3Cards} week2Cards={week2Cards} scenario={scenario} />
       </div>
 
       <ConfirmModal

@@ -86,6 +86,7 @@ export function CommitmentsTeamView({
   hiddenSections,
   sections = [],
   week3Cards = [],
+  week2Cards = [],
   summaryHref,
   submittedAt: submittedAtProp = null,
   submittedBy: submittedByProp = null,
@@ -102,6 +103,9 @@ export function CommitmentsTeamView({
   // server-side from the earlier-week answers the page already loads; nothing from it is
   // copied onto this board. See Week3Reference.
   week3Cards?: RippleCard[];
+  // Session 2's board, for the key changes in the rail. Roots only are used; see
+  // Week3Reference. Shaped server-side on the page like week3Cards, and never copied here.
+  week2Cards?: RippleCard[];
   // Session 1's three uncertainty questions, shaped on the page: a worksheet week arrives
   // as question blocks rather than cards, so there is nothing to index here.
   // Where the group's handoff deck lives. Built on the page, which knows the project slug
@@ -604,7 +608,11 @@ export function CommitmentsTeamView({
               noun="answered"
             />
           </div>
-          <Week3Reference cards={week3Cards} scenario={scenario} />
+          <Week3Reference
+            cards={week3Cards}
+            week2Cards={week2Cards}
+            scenario={scenario}
+          />
         </div>
       )}
 
@@ -625,6 +633,7 @@ export function CommitmentsTeamView({
           sections={sectionsFor("changes")}
           cards={cards}
           week3Cards={week3Cards}
+          week2Cards={week2Cards}
           scenario={scenario}
           editable={editable}
           busy={busy}

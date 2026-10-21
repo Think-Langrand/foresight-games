@@ -12,6 +12,7 @@ import {
 import { StakeList, type StakeGroup } from "@/components/workshop/synthesis/StakeList";
 import { TONE } from "@/components/workshop/synthesis/CardWall";
 import { Dot } from "@/components/workshop/synthesis/ThemeRail";
+import { splitKeyChange } from "@/lib/group-summary";
 
 // Session 3, read back on Session 4. The group spent a whole session naming what this
 // world puts at stake; this is that work in a quieter shape, beside the step that uses it.
@@ -66,18 +67,22 @@ function Fold({
   label,
   count,
   note,
+  defaultOpen = false,
   children,
 }: {
   label: string;
   count: number;
   // A second fact worth seeing while shut, like how many fears were flipped.
   note?: string;
+  // One section may lead. The key changes do on this week, because step 1 asks what changed
+  // and those six lines are the group's own previous answer to very nearly that question.
+  // Everything else stays shut, or the rail is a wall again.
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
-  // Open by default would bury the step under Session 3. Shut by default would let a group
-  // forget it is there, so the count rides the summary line: a closed fold still says how
-  // much is behind it.
-  const [open, setOpen] = useState(false);
+  // Shut by default would let a group forget a section is there, so the count rides the
+  // summary line: a closed fold still says how much is behind it.
+  const [open, setOpen] = useState(defaultOpen);
   if (count === 0) return null;
   return (
     <div className="border-t border-[var(--rule)] pt-2">
@@ -141,15 +146,30 @@ function ScenarioContext({ scenario }: { scenario: Scenario }) {
 
 export function Week3Reference({
   cards,
+  week2Cards = [],
   scenario,
 }: {
   cards: RippleCard[];
+  // Session 2's board. Only its ROOTS are used — the six key changes — which is the one
+  // piece of Week 2 this week leans on. Passed as raw cards for the same reason Session 3
+  // is: there is then only ever one copy of them and nothing to keep in sync.
+  week2Cards?: RippleCard[];
   scenario?: Scenario | null;
 }) {
   const board = useMemo(() => indexSynthesisBoard(cards), [cards]);
 
   const hopesFears = board.hopesFears;
   const flipCount = [...board.chains.values()].flat().length;
+
+  // Session 2's key changes: the tree ROOTS of that board, split the way the handoff deck
+  // splits them, so a group that typed "POWER: …" gets its own label back.
+  const keyChanges = useMemo(
+    () =>
+      week2Cards
+        .filter((c) => c.order === "FIRST")
+        .map((c) => ({ id: c.id, ...splitKeyChange(c.text) })),
+    [week2Cards]
+  );
 
   // Risks and opportunities, grouped under the theme each was written on. Session 3's own
   // step 3 shows them exactly this way.
@@ -166,14 +186,14 @@ export function Week3Reference({
     };
   }, [board]);
 
-  // A group with no Session 3 work still gets the scenario, which is the half of this rail
+  // A group with no earlier work still gets the scenario, which is the part of this rail
   // that does not depend on them having done anything.
-  if (hopesFears.length === 0 && riskTotal === 0 && oppTotal === 0) {
+  if (hopesFears.length === 0 && riskTotal === 0 && oppTotal === 0 && keyChanges.length === 0) {
     return (
       <aside className="flex flex-col gap-3 rounded-[4px] border border-[var(--rule)] px-4 py-3">
         {scenario && <ScenarioContext scenario={scenario} />}
         <p className="m-0 border-t border-[var(--rule)] pt-2 text-[13px] italic text-muted">
-          Nothing from Session 3 to read back here yet.
+          Nothing from the earlier sessions to read back here yet.
         </p>
       </aside>
     );
@@ -184,14 +204,35 @@ export function Week3Reference({
       {scenario && <ScenarioContext scenario={scenario} />}
 
       <div className={scenario ? "border-t border-[var(--rule)] pt-3" : undefined}>
-        <h3 className="m-0 text-[13px] font-bold">What you said in Session 3</h3>
+        <h3 className="m-0 text-[13px] font-bold">Exercise context</h3>
         <p className="m-0 mt-0.5 text-[12px] italic leading-[1.45] text-muted">
-          Your own words, for reference. Open what you need; nothing here changes.
+          Your own words from the earlier sessions. Open what you need; nothing here changes.
         </p>
       </div>
 
-      {/* A fold like the other three. It used to be open, which made the rail start with
-          every hope and fear the group ever wrote and buried the folds under it. */}
+      {/* FIRST, and the one section that opens itself. Step 1 asks how the field has
+          changed most in this world, and these six lines are the group's own earlier answer
+          to very nearly that question, so they are the thing to have in view. */}
+      <Fold label="Key changes" count={keyChanges.length} defaultOpen>
+        <ul className="m-0 flex list-none flex-col p-0">
+          {keyChanges.map((k) => (
+            <li
+              key={k.id}
+              className="border-b border-black/10 py-2 text-[13px] leading-[1.45] last:border-b-0"
+            >
+              {k.label && (
+                <span className="mr-1.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.08em] text-blue">
+                  {k.label}
+                </span>
+              )}
+              <span>{k.body}</span>
+            </li>
+          ))}
+        </ul>
+      </Fold>
+
+      {/* A fold like the others. It used to be open, which made the rail start with every
+          hope and fear the group ever wrote and buried the rest under it. */}
       <Fold
         label="Hopes &amp; fears"
         count={hopesFears.length}
