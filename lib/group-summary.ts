@@ -24,6 +24,7 @@ import type {
 import type { RippleCard } from "@/lib/ripples-types";
 import { orderLabelForDepth, TREE_ORDERS } from "@/lib/ripples-types";
 import { READING_FIELDS } from "@/lib/synthesis-shape";
+import { COMMITMENTS_STEP_MOVES } from "@/lib/exercise-types";
 
 // A key change, split so the page can lead with the label the group typed. Three groups
 // prefixed theirs ("POWER: …"), one numbered them ("1. …"), one wrote plain sentences — so
@@ -126,11 +127,35 @@ export interface GroupSummary {
   // shown nowhere until now.
   worldReading: { label: string; answers: string[] }[];
   // ---- Week 4 -------------------------------------------------------------------------
-  // The aspiration arrives as QUESTION BLOCKS, not a single string, because its prompts
-  // are authored worksheet sections: the headings belong to whoever edited the program,
-  // so the deck renders what was asked rather than assuming three fixed fields.
-  aspiration: { label: string; answers: string[] }[];
+  // Week 4's written work arrives as QUESTION BLOCKS, not fixed strings, because its
+  // prompts are authored worksheet sections: the headings belong to whoever edited the
+  // program, so the deck renders what the group was actually asked. A facilitator can
+  // reword step 1 or step 4 without any slide here going stale.
+  //
+  // SPLIT ON THE AUTHORED STEP, because the two halves are different slides. `changes` is
+  // step 1 — what is different in this world, and which of today's assumptions it breaks.
+  // `role` is step 4 — the role public health plays here, then the bold moves. Blocks with
+  // no step fall into `changes`, which is where the editor puts anything an admin adds.
+  changes: { label: string; answers: string[] }[];
+  role: { label: string; answers: string[] }[];
+  // Step 2's matrix, strongest first. The order IS the finding: it is the one place in four
+  // sessions where the group ranked its own stakes against each other.
+  placements: SummaryPlacement[];
+  // Parked with the backcasting step, not removed: when the timeline returns for the next
+  // workshop its lanes fill and the slide behind SHOW_BACKCASTING draws again.
   boldMoves: SummaryBoldMove[];
+}
+
+// One risk or opportunity the group placed on step 2's impact x plausibility matrix.
+// `kind` is DERIVED here rather than stored on the pick: this builder holds Week 3 and
+// Week 4 together, which is the only place that can say which wall a placement came from.
+export interface SummaryPlacement {
+  id: string; // the Session 3 card, so a slide can tie a placement to the theme it sits in
+  text: string;
+  kind: "risk" | "opportunity";
+  plausibility: number | null;
+  impact: number | null;
+  rank: number | null; // plausibility x impact, or null while either axis is unset
 }
 
 // One bold move and its backcast, for the handoff's timeline slide. `periods` carries
@@ -391,12 +416,54 @@ export function buildGroupSummary(
         })
       : [];
 
-  // ---- Week 4: the aspiration, the moves and their backcast ---------------------------
-  const aspiration =
+  // ---- Week 4: what changes, the matrix, the role and the moves ------------------------
+  // Split on the authored step, the same split CommitmentsPanel makes, so the deck reads
+  // the week in the order it was worked. A block with no step at all joins `changes`.
+  const w4Blocks =
     commitments?.kind === "commitments"
       ? commitments.questions
           .filter((q) => q.answers.length > 0)
-          .map((q) => ({ label: q.label || q.key, answers: q.answers.map((a) => a.text) }))
+          .map((q) => ({
+            label: q.label || q.key,
+            step: q.step,
+            answers: q.answers.map((a) => a.text),
+          }))
+      : [];
+  const strip = (b: { label: string; answers: string[] }) => ({ label: b.label, answers: b.answers });
+  const changes = w4Blocks.filter((b) => b.step !== COMMITMENTS_STEP_MOVES).map(strip);
+  const role = w4Blocks.filter((b) => b.step === COMMITMENTS_STEP_MOVES).map(strip);
+
+  // Step 2's placements. Which wall each came from is derived from Week 3's own rows, the
+  // one thing this builder can do that no single-week shape can: a pick carries its
+  // source's id and words, not its kind. A placement whose source is no longer on Week 3's
+  // board — a risk an admin deleted after it was placed — is dropped rather than guessed
+  // at, because a coral chip that is really an opportunity is worse than a missing one.
+  const riskIds = new Set(sThemes.flatMap((t) => t.risks.map((r) => r.id)));
+  const oppIds = new Set(sThemes.flatMap((t) => t.opportunities.map((o) => o.id)));
+  const placements: SummaryPlacement[] =
+    commitments?.kind === "commitments"
+      ? commitments.picks.flatMap((p) => {
+          const kind = riskIds.has(p.sourceId)
+            ? ("risk" as const)
+            : oppIds.has(p.sourceId)
+              ? ("opportunity" as const)
+              : null;
+          if (!kind) return [];
+          return [
+            {
+              id: p.sourceId,
+              text: p.text,
+              kind,
+              plausibility: p.plausibility,
+              impact: p.impact,
+              rank: p.rank,
+            },
+          ];
+        })
+        // Sorted HERE and not merely inherited from shapeFromView, which already sorts.
+        // The slide numbers these by position, so "strongest first" has to be true of the
+        // field itself or the printed ranks quietly lie. Unscored placements last.
+        .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1))
       : [];
 
   const boldMoves: SummaryBoldMove[] =
@@ -440,7 +507,9 @@ export function buildGroupSummary(
     unsettled,
     settledCount,
     worldReading,
-    aspiration,
+    changes,
+    role,
+    placements,
     boldMoves,
   };
 }
