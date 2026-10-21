@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured } from "@/lib/workshop";
 import { getPlayerByParticipant } from "@/lib/ripples";
 import {
+  MIGRATION_0029_MISSING,
   getExerciseBySessionCode,
   submitExercise,
   unsubmitExercise,
@@ -54,6 +55,14 @@ async function resolve(code: string, participantId: string) {
   return { player, exercise };
 }
 
+// A read of a week degrades gracefully when migration 0029 is missing, but a write cannot:
+// there is nowhere to put the stamp. Say so, rather than "something went wrong", so whoever
+// sees it knows it is an unapplied migration and not their board.
+const failed = (err: unknown, what: "Submitting" | "Undoing") =>
+  err instanceof Error && err.message === MIGRATION_0029_MISSING
+    ? { error: `${what} is not available yet on this server.`, status: 503 }
+    : { error: `${what === "Submitting" ? "Failed to submit." : "Failed to undo."}`, status: 500 };
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ code: string }> }
@@ -95,7 +104,8 @@ export async function POST(
     });
   } catch (err) {
     console.error("[POST ripples/board-submit]", err);
-    return NextResponse.json({ error: "Failed to submit." }, { status: 500 });
+    const { error, status } = failed(err, "Submitting");
+    return NextResponse.json({ error }, { status });
   }
 }
 
@@ -124,6 +134,7 @@ export async function DELETE(
     return NextResponse.json({ ok: true, submittedAt: null, submittedBy: null });
   } catch (err) {
     console.error("[DELETE ripples/board-submit]", err);
-    return NextResponse.json({ error: "Failed to undo." }, { status: 500 });
+    const { error, status } = failed(err, "Undoing");
+    return NextResponse.json({ error }, { status });
   }
 }
