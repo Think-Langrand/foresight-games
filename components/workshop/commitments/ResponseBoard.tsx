@@ -13,10 +13,14 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { AspirationRecap } from "@/components/workshop/commitments/AspirationRecap";
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
 
-// STEP 2 — strategic responses. One wall, filled as fast as the group can type: what could
-// we actually do that moves us towards the aspiration? The aspiration sits above the wall
-// and Session 3's risks and opportunities sit beside it, so responses are written against
-// what the group already found rather than from memory.
+// STEP 3 — strategic responses. One wall, filled as fast as the group can type: what could
+// we actually do about any of this? Step 1's reading of the world sits above the wall and
+// Session 3's risks and opportunities sit beside it, so responses are written against what
+// the group already found rather than from memory.
+//
+// NOTHING ON THIS WALL IS CHOSEN. Step 4 does not pick three of these; it asks the group to
+// write three bold moves with this wall as raw material, which is why there is no star here
+// and no counter. The old down-select is parked (see MovesBoard).
 //
 // NO TAGGING. A response points at nothing: no theme, no risk, no opportunity. Session 3
 // is the evidence for that decision — every optional field on that board came back empty
@@ -32,9 +36,9 @@ const responseDirections = makePrefStore(
 
 const RESPONSE_DIRECTIONS = [
   "One move per card. Say what someone would do, not what should be true.",
-  "Volume first. You are choosing three of these on the next step, so give yourselves something to choose between.",
-  `Aim for more than ${RESPONSES_FOR_DONE}. A wall of three is a formality, not a choice.`,
-  "A response can be uncomfortable. The next step is where you decide whether you mean it.",
+  "Volume first. The next step asks for three bold moves and this wall is what you build them from, so give yourselves material.",
+  `Aim for more than ${RESPONSES_FOR_DONE}. A wall of three leaves you nothing to combine.`,
+  "A response can be uncomfortable. Nothing here commits you to it.",
 ];
 
 export function ResponseBoard({
@@ -90,9 +94,9 @@ export function ResponseBoard({
             onAdd={onAdd}
             onEdit={onEdit}
             onRequestDelete={setPending}
-            // Step 3's picks, shown here too: a group that has already chosen should see
-            // which cards are spoken for without changing tab.
-            badgeFor={(c) => (c.shortlisted ? "★ a bold move" : null)}
+            // NO badgeFor. `shortlisted` is dormant data from the parked down-select, and a
+            // star here would mark a choice this week no longer asks anyone to make — on
+            // boards worked under the old shape it would light cards at random.
           />
           <Directions
             title="Opening the option space"
