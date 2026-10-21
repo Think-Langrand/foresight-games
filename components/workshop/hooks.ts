@@ -683,6 +683,38 @@ export async function parkRippleCard(
 
 // Set a key change's shared plausibility/impact score. Send only the axis that changed;
 // the route leaves an absent axis alone.
+// The GROUP's "we are finished with this week" — Session 4's review step. Returns the
+// stamp the SERVER stored, which the caller shows verbatim: on a shared board two people
+// can press this seconds apart, and the response is the authority on whose press counted.
+//
+// Not postRippleSubmit, a few lines further down: that is the solo path and marks one
+// player. See the board-submit route's header.
+export async function submitRippleBoard(
+  code: string,
+  body: { participantId: string }
+): Promise<{ submittedAt: string | null; submittedBy: string | null }> {
+  const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/board-submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
+export async function unsubmitRippleBoard(
+  code: string,
+  body: { participantId: string }
+): Promise<{ submittedAt: string | null; submittedBy: string | null }> {
+  const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/board-submit`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
+}
+
 export async function scoreRippleCard(
   code: string,
   cardId: string,

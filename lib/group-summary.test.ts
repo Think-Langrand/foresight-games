@@ -439,6 +439,15 @@ describe("buildGroupSummary · Session 4", () => {
 
 describe("buildGroupSummary · the curated handoff", () => {
   const row = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
+  // A step-2 matrix placement. Unscored unless a test says otherwise: the star on the deck
+  // is derived from the placement existing, not from how it was scored.
+  const mark = (id: string, text: string, sourceId: string, p: number | null = null, i: number | null = null) => ({
+    ...row(id, text),
+    sourceId,
+    plausibility: p,
+    impact: i,
+    rank: p !== null && i !== null ? p * i : null,
+  });
   const stake = (id: string, text: string) => ({ ...row(id, text), mechanism: null, shortlisted: false });
   const w4 = (over: Partial<CommitmentsExercise>): CommitmentsExercise => ({
     kind: "commitments", exerciseId: "EX4", title: "Session 4", cards: [{ id: "c" } as never],
@@ -468,7 +477,7 @@ describe("buildGroupSummary · the curated handoff", () => {
   it("derives the star on a Session 3 card from a Session 4 pick", () => {
     // The star is NOT stored on the risk. Week 4 writes only to its own board, so the
     // handoff deck has to project it, and this is the test that keeps it projecting.
-    const s = buildGroupSummary([w1(), w3(), w4({ picks: [{ ...row("mark0", "mark 0"), sourceId: "r1" }, { ...row("mark1", "mark 1"), sourceId: "o1" }] })], { name: "G" });
+    const s = buildGroupSummary([w1(), w3(), w4({ picks: [mark("mark0", "mark 0", "r1"), mark("mark1", "mark 1", "o1")] })], { name: "G" });
     const t = s.themes[0];
     expect(t.risks.map((r) => [r.text, r.shortlisted])).toEqual([
       ["starred risk", true],
@@ -494,7 +503,7 @@ describe("buildGroupSummary · the curated handoff", () => {
 
     // And one Session 4 pick stars exactly that one, not the Week 3 leftover.
     const picked = buildGroupSummary(
-      [w1(), w3Starred(), w4({ picks: [{ ...row("m", "x"), sourceId: "r2" }] })],
+      [w1(), w3Starred(), w4({ picks: [mark("m", "x", "r2")] })],
       { name: "G" }
     );
     expect(picked.themes[0].risks.map((r) => [r.id, r.shortlisted])).toEqual([
@@ -512,7 +521,7 @@ describe("buildGroupSummary · the curated handoff", () => {
   });
 
   it("drops the uncertainties the group marked settled, and counts them", () => {
-    const s = buildGroupSummary([w1(), w3(), w4({ settledMarks: [{ ...row("smark0", "settled 0"), sourceId: "u1" }] })], { name: "G" });
+    const s = buildGroupSummary([w1(), w3(), w4({ settledMarks: [mark("smark0", "settled 0", "u1")] })], { name: "G" });
     expect(s.unsettled.map((u) => u.text)).toEqual(["Who decides?"]);
     expect(s.settledCount).toBe(1);
   });

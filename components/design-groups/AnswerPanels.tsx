@@ -32,6 +32,12 @@ export interface QuestionBlock {
   key: string;
   label: string;
   kind: "brainstorm" | "question";
+  // The authored WorksheetSection.step this block sits on, when it has one. Carried so a
+  // panel can read a week back IN STEP ORDER: Session 4's prompts live on two different
+  // steps with the matrix and the response wall between them, and rendering all four
+  // prompts in a single run would put step 4 before step 2.
+  // Undefined for a spec that sets no steps, which is most of them.
+  step?: string;
   removed?: boolean; // answers under a section key no longer in the spec
   answers: AnswerRow[];
 }
@@ -116,6 +122,15 @@ export interface SynthesisExercise {
 // the group declared answered.
 export interface HandoffMark extends AnswerRow {
   sourceId: string; // the earlier week's card this is about
+  // Session 4 step 2's matrix placement. A `pick` is a tree root on the Week 4 board, so it
+  // carries the same plausibility/impact columns a Week 2 key change does, scored on the
+  // same two 1-to-5 scales. Null until the group scores that axis: placing and scoring are
+  // two acts, and a half-scored placement plots nothing.
+  plausibility: number | null;
+  impact: number | null;
+  // rankValue = plausibility x impact, or null while either axis is unset. The ORDER, not
+  // the score: the handoff deck and the review step both lead with the highest.
+  rank: number | null;
 }
 export interface MilestoneCell {
   key: string; // the permanent period key — see PERIODS in lib/commitments-shape

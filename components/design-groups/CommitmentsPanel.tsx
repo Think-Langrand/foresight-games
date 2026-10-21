@@ -6,22 +6,37 @@ import {
   type AnswerRow,
   type BoldMoveLane,
   type CommitmentsExercise,
+  type HandoffMark,
   type PanelOpts,
 } from "@/components/design-groups/AnswerPanels";
+import { COMMITMENTS_STEP_MOVES } from "@/lib/exercise-types";
+import { SCORE_MAX } from "@/lib/ripples-scoring";
 
-// Read-only rendering of a Week 4 (commitments) week: the aspiration the group wrote, its
-// wall of strategic responses with the three bold moves marked, and each move's backcast
-// timeline across the ten-year span.
+// Read-only rendering of a Week 4 (commitments) week, in the order the week is worked:
 //
-// TWO consumers, deliberately one component: the admin answers viewer and the member
-// session page's earlier-week tabs. Unlike Week 3, the live board has no read-only branch
-// of its own; a locked Session 4 renders the interactive five-step board with
-// `editable` false, the way the worksheet and implications boards do.
+//   1  the key changes, and the assumptions they break   (authored sections)
+//   2  Session 3's risks and opportunities on the matrix (placements, with their scores)
+//   3  the wall of strategic responses
+//   4  the role, and three bold moves                    (authored sections)
 //
-// Step 1 is rendered by QuestionBlocks and nothing else, because the aspiration prompts are
-// authored worksheet sections. That is why this panel has no "aspiration" section of its
-// own: the prompts' wording belongs to whoever edited the program, and hard-coding a
-// heading here would start a second copy of it that could drift.
+// THREE consumers, deliberately one component: the admin answers viewer, the member session
+// page's earlier-week tabs, and the live board's own step 5. Unlike Week 3, a locked
+// Session 4 renders the interactive five-step board with `editable` false; this panel is
+// what step 5 shows the group while the board is still open, which is why the review pane
+// and the admin view cannot disagree about what was written.
+//
+// Steps 1 and 4 are rendered by QuestionBlocks and nothing else, because their prompts are
+// authored worksheet sections. That is why this panel hard-codes no headings for them: the
+// wording belongs to whoever edited the program, and a copy here would start drifting.
+// The blocks are SPLIT on their authored step so the week reads in order — all four prompts
+// in one run would put step 4 above step 2.
+//
+// PARKED, NOT DELETED. The backcasting timeline and the Session 1 uncertainties review are
+// wanted for the next workshop, so `Lane`, the lanes/stranded/settled fields and their
+// shaping all stay; one flag decides whether they draw. Same pattern as SHOW_UNSETTLED in
+// GroupSummary.tsx. Boards worked under the old shape still hold this data, and it is still
+// in the CSV and the shape — it simply is not part of the week any more.
+const SHOW_BACKCASTING = false;
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -34,6 +49,8 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 // One lane of the timeline, as a row of period cells. Every period shows, empty ones
 // included: where a group clustered its milestones and where it left a gap is part of the
 // finding, and dropping the empties would quietly straighten the lane out.
+//
+// Only reachable with SHOW_BACKCASTING on. Kept whole for the next workshop.
 function Lane({ lane, ...opts }: { lane: BoldMoveLane } & PanelOpts) {
   const placed = lane.periods.reduce((n, p) => n + p.milestones.length, 0);
   return (
@@ -68,9 +85,9 @@ function Lane({ lane, ...opts }: { lane: BoldMoveLane } & PanelOpts) {
   );
 }
 
-// A notice for work that is on the board but not currently drawn by the timeline. Both
-// cases are reported rather than quietly omitted: a reader who is not told will find the
-// gap later and have no way to tell whether the group did the work.
+// A notice for work that is on the board but not currently drawn. Both cases are reported
+// rather than quietly omitted: a reader who is not told will find the gap later and have no
+// way to tell whether the group did the work.
 function Notice({
   title,
   blurb,
@@ -97,11 +114,111 @@ function Notice({
   );
 }
 
+// Step 2's matrix, read back as a ranked list rather than as a grid. A list is the right
+// read-only form: the grid answers "where does this sit relative to everything else", which
+// is a question for the people placing the cards, and a reader of the handoff wants the
+// order — what the group said matters most, first.
+//
+// `stakeKind` is optional because only a caller holding SESSION 3's board can say whether a
+// placement came from a risk or an opportunity. A pick stores its source's id and words, not
+// its kind, and nothing was added to it to make this easier: the live board and the handoff
+// deck both have Week 3 loaded and pass it, the admin viewer shapes one week at a time and
+// does not, and gets the same list without the colour.
+function Placements({
+  picks,
+  stakeKind,
+  ...opts
+}: {
+  picks: HandoffMark[];
+  stakeKind?: (sourceId: string) => "risk" | "opportunity" | undefined;
+} & PanelOpts) {
+  const scored = picks.filter((p) => p.rank !== null);
+  const unscored = picks.filter((p) => p.rank === null);
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-ink pb-2">
+        <h3 className="m-0 text-[14px] font-bold">
+          On the matrix{" "}
+          <span className="font-mono text-[10px] font-normal tabular-nums text-muted">
+            {picks.length}
+          </span>
+        </h3>
+        <span className="shrink-0 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
+          {scored.length} scored
+        </span>
+      </div>
+      <p className="m-0 mt-1 text-[12px] italic leading-[1.4] text-muted">
+        Session 3&rsquo;s risks and opportunities the group placed, strongest first. The score
+        is plausibility multiplied by impact, each on a 1 to {SCORE_MAX} scale.
+      </p>
+
+      <ol className="m-0 mt-2 list-none p-0">
+        {[...scored, ...unscored].map((p, i) => {
+          const kind = stakeKind?.(p.sourceId);
+          return (
+            <li
+              key={p.id}
+              className="flex gap-3 border-b border-[var(--hairline)] py-[9px] last:border-b-0"
+            >
+              {/* The rank reads as the ordinal of the SCORED ones only, so an unscored
+                  placement does not take a number it has not earned. */}
+              <span className="w-5 shrink-0 pt-[1px] text-right font-mono text-[11px] tabular-nums text-muted">
+                {p.rank === null ? "·" : i + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block max-w-[76ch] text-[14px] leading-[1.45]">{p.text}</span>
+                <span className="mt-[2px] flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
+                  {kind && (
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className={
+                          "inline-block h-2.5 w-2.5 rounded-full " +
+                          (kind === "risk" ? "bg-coral" : "bg-lime")
+                        }
+                      />
+                      {kind}
+                    </span>
+                  )}
+                  {p.rank === null ? (
+                    <span className="italic normal-case tracking-normal">
+                      Placed, not scored yet
+                    </span>
+                  ) : (
+                    <span className="tabular-nums">
+                      P {p.plausibility} · I {p.impact} · {p.rank}
+                    </span>
+                  )}
+                </span>
+              </span>
+              {opts.onDelete && (
+                <button
+                  type="button"
+                  onClick={() => opts.onDelete?.(p)}
+                  className="shrink-0 text-[11px] text-muted underline hover:text-coral"
+                >
+                  Delete
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 export function CommitmentsPanel({
   ex,
   seed,
+  stakeKind,
   ...opts
-}: { ex: CommitmentsExercise; seed?: React.ReactNode } & PanelOpts) {
+}: {
+  ex: CommitmentsExercise;
+  seed?: React.ReactNode;
+  stakeKind?: (sourceId: string) => "risk" | "opportunity" | undefined;
+} & PanelOpts) {
   const empty =
     ex.picks.length === 0 &&
     ex.settledMarks.length === 0 &&
@@ -111,8 +228,12 @@ export function CommitmentsPanel({
     ex.orphans.length === 0 &&
     ex.questions.every((q) => q.answers.length === 0);
 
-  const picked = ex.boldMoves.length;
-  const boldIds = new Set(ex.boldMoves.map((m) => m.id));
+  // Split on the authored step so the week reads in the order it is worked. A block with no
+  // step at all — anything an admin added to this week by hand — stays with step 1 rather
+  // than being dropped, which is also where the editor puts it by default.
+  const answered = ex.questions.filter((q) => q.answers.length > 0);
+  const changeBlocks = answered.filter((q) => q.step !== COMMITMENTS_STEP_MOVES);
+  const moveBlocks = answered.filter((q) => q.step === COMMITMENTS_STEP_MOVES);
 
   return (
     <div className="flex flex-col gap-6">
@@ -121,13 +242,14 @@ export function CommitmentsPanel({
       {empty && <p className="text-[13px] italic text-muted">Nothing on this board yet.</p>}
 
       {/* Step 1. The prompts are the facilitator's, so their headings come from the data. */}
-      {ex.questions.some((q) => q.answers.length > 0) && (
-        <QuestionBlocks questions={ex.questions} {...opts} />
-      )}
+      {changeBlocks.length > 0 && <QuestionBlocks questions={changeBlocks} {...opts} />}
 
-      {/* Step 2, with step 3 marked on it rather than listed twice: a bold move is one of
-          these cards carrying `shortlisted`, and giving it a second home here would make
-          the three picks look like three extra responses. */}
+      {/* Step 2. */}
+      {ex.picks.length > 0 && <Placements picks={ex.picks} stakeKind={stakeKind} {...opts} />}
+
+      {/* Step 3. No star: the three-move down-select is parked with the backcasting, so a
+          `shortlisted` flag here is leftover data from the old shape and marking it would
+          show a choice this week no longer asks anyone to make. */}
       {ex.responses.length > 0 && (
         <div>
           <div className="flex items-baseline justify-between gap-3 border-b border-ink pb-2">
@@ -137,87 +259,59 @@ export function CommitmentsPanel({
                 {ex.responses.length}
               </span>
             </h3>
-            <span className="shrink-0 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
-              {picked} picked as bold {picked === 1 ? "move" : "moves"}
-            </span>
           </div>
           <ul className="m-0 list-none p-0">
-            {ex.responses.map((r) => {
-              const bold = boldIds.has(r.id);
-              return (
-                <li
-                  key={r.id}
-                  className="flex gap-3 border-b border-[var(--hairline)] py-[9px] last:border-b-0"
-                >
-                  {/* The star carries the pick, and the bold weight repeats it, so the
-                      three chosen are findable without relying on one small glyph. */}
-                  <span
-                    className="w-3 shrink-0 pt-[2px] text-center text-[12px] text-amber"
-                    title={bold ? "Picked as a bold move" : undefined}
-                  >
-                    {bold ? "★" : ""}
-                  </span>
-                  <span className="min-w-0">
-                    <span
-                      className={
-                        "block max-w-[76ch] text-[14px] leading-[1.45] " + (bold ? "font-bold" : "")
-                      }
-                    >
-                      {r.text}
+            {ex.responses.map((r) => (
+              <li
+                key={r.id}
+                className="flex gap-3 border-b border-[var(--hairline)] py-[9px] last:border-b-0"
+              >
+                <span className="min-w-0">
+                  <span className="block max-w-[76ch] text-[14px] leading-[1.45]">{r.text}</span>
+                  {r.mechanism && (
+                    <span className="mt-[2px] block text-[13px] italic text-muted">
+                      {r.mechanism}
                     </span>
-                    {r.mechanism && (
-                      <span className="mt-[2px] block text-[13px] italic text-muted">
-                        {r.mechanism}
-                      </span>
-                    )}
-                  </span>
-                  {opts.onDelete && (
-                    <button
-                      type="button"
-                      onClick={() => opts.onDelete?.(r)}
-                      className="ml-auto shrink-0 text-[11px] text-muted underline hover:text-coral"
-                    >
-                      Delete
-                    </button>
                   )}
-                </li>
-              );
-            })}
+                </span>
+                {opts.onDelete && (
+                  <button
+                    type="button"
+                    onClick={() => opts.onDelete?.(r)}
+                    className="ml-auto shrink-0 text-[11px] text-muted underline hover:text-coral"
+                  >
+                    Delete
+                  </button>
+                )}
+              </li>
+            ))}
           </ul>
         </div>
       )}
 
-      {/* Step 5's curation. Separate from the response wall above, because these point at
-          SESSION 3's risks and opportunities, not at anything on this board. */}
-      {(ex.picks.length > 0 || ex.settledMarks.length > 0) && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {(
-            [
-              ["Chosen for the committee", ex.picks, "The risks and opportunities this group starred for the handoff."],
-              ["Settled since Session 1", ex.settledMarks, "Uncertainties the group says these four sessions answered. Everything else stays open."],
-            ] as const
-          ).map(([label, rows, blurb]) => (
-            <div key={label}>
-              <p className="m-0 flex items-baseline gap-2 border-b border-ink pb-2">
-                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-                  {label} <span className="tabular-nums text-muted">{rows.length}</span>
-                </span>
-              </p>
-              <p className="m-0 mt-1 text-[12px] italic leading-[1.4] text-muted">{blurb}</p>
-              {rows.length === 0 ? (
-                <p className="m-0 mt-2 text-[13px] italic text-muted">None.</p>
-              ) : (
-                <div className="mt-2">
-                  <AnswerList answers={rows} {...opts} />
-                </div>
-              )}
-            </div>
-          ))}
+      {/* Step 4. Authored sections again, so again no heading of ours. */}
+      {moveBlocks.length > 0 && <QuestionBlocks questions={moveBlocks} {...opts} />}
+
+      {/* Parked. See SHOW_BACKCASTING. */}
+      {SHOW_BACKCASTING && ex.settledMarks.length > 0 && (
+        <div>
+          <p className="m-0 flex items-baseline gap-2 border-b border-ink pb-2">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+              Settled since Session 1{" "}
+              <span className="tabular-nums text-muted">{ex.settledMarks.length}</span>
+            </span>
+          </p>
+          <p className="m-0 mt-1 text-[12px] italic leading-[1.4] text-muted">
+            Uncertainties the group says these four sessions answered. Everything else stays
+            open.
+          </p>
+          <div className="mt-2">
+            <AnswerList answers={ex.settledMarks} {...opts} />
+          </div>
         </div>
       )}
 
-      {/* Step 4. */}
-      {ex.lanes.length > 0 && (
+      {SHOW_BACKCASTING && ex.lanes.length > 0 && (
         <div>
           <h3 className="m-0 mb-1 text-[14px] font-bold">Backcasting</h3>
           <p className="m-0 mb-3 text-[12.5px] italic text-muted">
@@ -231,16 +325,21 @@ export function CommitmentsPanel({
         </div>
       )}
 
-      <Notice
-        title="Milestones on a move that is no longer picked"
-        blurb="Nothing is lost. These sit under a response the group un-picked, and they come back on the timeline the moment it is chosen again."
-        rows={ex.stranded}
-        tone="amber"
-        {...opts}
-      />
+      {SHOW_BACKCASTING && (
+        <Notice
+          title="Milestones on a move that is no longer picked"
+          blurb="Nothing is lost. These sit under a response the group un-picked, and they come back on the timeline the moment it is chosen again."
+          rows={ex.stranded}
+          tone="amber"
+          {...opts}
+        />
+      )}
+
+      {/* Never parked. An orphan is the board telling a reader it could not file something,
+          and suppressing that is how work goes missing silently. */}
       <Notice
         title="Could not be placed"
-        blurb="Cards the board could not file: a milestone with no period or no move, a response hung off something, or a mark pointing at nothing. Shown so none of it is silently lost."
+        blurb="Cards the board could not file: a response hung off something, a mark pointing at nothing, or work from a step this week no longer runs. Shown so none of it is silently lost."
         rows={ex.orphans}
         tone="coral"
         {...opts}

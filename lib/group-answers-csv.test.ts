@@ -245,6 +245,14 @@ describe("synthesisCsvRows", () => {
 // arrays, so a dropped field fails nothing at compile time.
 
 const wrow = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
+// A Week 4 mark: a step-2 matrix placement, or a settled uncertainty, which is never scored.
+const wmark = (id: string, text: string, sourceId: string, p: number | null = null, i: number | null = null) => ({
+  ...wrow(id, text),
+  sourceId,
+  plausibility: p,
+  impact: i,
+  rank: p !== null && i !== null ? p * i : null,
+});
 
 const qblock = (
   key: string,
@@ -490,8 +498,8 @@ describe("commitmentsCsvRows", () => {
     // chose for the committee, or which Session 1 uncertainties it declared answered.
     const rows = commitmentsCsvRows(
       cex({
-        picks: [{ ...wrow("p1", "PH funding comes from one source"), sourceId: "r1" }],
-        settledMarks: [{ ...wrow("s1", "How would equity be considered?"), sourceId: "u1" }],
+        picks: [wmark("p1", "PH funding comes from one source", "r1")],
+        settledMarks: [wmark("s1", "How would equity be considered?", "u1")],
       })
     );
     expect(rows.map((r) => [r[1], r[2], r[3]])).toEqual([

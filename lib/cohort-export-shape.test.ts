@@ -35,6 +35,8 @@ const exercise = (id: string, over: Partial<DesignGroupExercise> = {}): DesignGr
   closed: false,
   opensAt: null,
   sections: [],
+  submittedAt: null,
+  submittedBy: null,
   createdTime: "2026-01-01",
   ...over,
 });

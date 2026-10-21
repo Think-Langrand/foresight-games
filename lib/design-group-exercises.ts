@@ -23,6 +23,11 @@ export interface DesignGroupExercise {
   closed: boolean; // admin close — members can't open it (independent of lock + schedule)
   opensAt: string | null;
   sections: WorksheetSection[]; // per-exercise question snapshot; [] = fall back to code template
+  // The GROUP's own "we are finished" (migration 0029), not an admin act and not a lock:
+  // the board stays editable after it, so a group can still fix a typo in its handoff.
+  // `submittedBy` is the display name captured at the moment of the press.
+  submittedAt: string | null;
+  submittedBy: string | null;
   createdTime: string;
 }
 
@@ -37,10 +42,13 @@ interface ExerciseRow {
   closed: boolean;
   opens_at: string | null;
   sections: unknown; // jsonb
+  submitted_at: string | null;
+  submitted_by: string | null;
   created_at: string;
 }
 
-const COLS = "id, group_id, sort, title, type, session_code, locked, closed, opens_at, sections, created_at";
+const COLS =
+  "id, group_id, sort, title, type, session_code, locked, closed, opens_at, sections, submitted_at, submitted_by, created_at";
 
 function fromRow(r: ExerciseRow): DesignGroupExercise {
   return {
@@ -54,6 +62,8 @@ function fromRow(r: ExerciseRow): DesignGroupExercise {
     closed: r.closed ?? false,
     opensAt: r.opens_at ?? null,
     sections: resolveSections(r.sections),
+    submittedAt: r.submitted_at ?? null,
+    submittedBy: r.submitted_by ?? null,
     createdTime: r.created_at,
   };
 }
@@ -72,6 +82,31 @@ export async function listExercises(groupId: string): Promise<DesignGroupExercis
     return (data ?? []) as ExerciseRow[];
   });
   return rows.map(fromRow);
+}
+
+// Resolve a week from its BOARD's code. The board-submit route knows only the code in its
+// URL, the way every other board route does, and submit is recorded on the week rather
+// than on the session — so this is the hop between the two.
+//
+// maybeSingle, not single: session_code has no unique constraint. In practice one code
+// belongs to one week (provisionExerciseBoard mints a fresh one per week), and a duplicate
+// would mean a provisioning bug. Erring here rather than picking the first row arbitrarily
+// means such a bug surfaces as a 500 with this stack instead of a submit landing on
+// whichever week the planner happened to return.
+export async function getExerciseBySessionCode(
+  code: string
+): Promise<DesignGroupExercise | null> {
+  if (!supabaseConfigured()) return null;
+  const row = await withRetry(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from("design_group_exercises")
+      .select(COLS)
+      .eq("session_code", code)
+      .maybeSingle();
+    if (error) throw error;
+    return (data ?? null) as ExerciseRow | null;
+  });
+  return row ? fromRow(row) : null;
 }
 
 export async function getExercise(id: string): Promise<DesignGroupExercise | null> {
@@ -141,6 +176,41 @@ export async function updateExercise(id: string, patch: UpdateExercisePatch): Pr
   if (patch.sections !== undefined) fields.sections = resolveSections(patch.sections);
   await withRetry(async () => {
     const { error } = await supabaseAdmin().from("design_group_exercises").update(fields).eq("id", id);
+    if (error) throw error;
+  });
+}
+
+// ---------- the group's own submit (migration 0029) ----------
+//
+// Not in UpdateExercisePatch on purpose. Everything in that patch is an ADMIN edit made
+// from the program editor, and these two columns are written by participants from the
+// board's last step. Keeping them out means no admin form can set them by accident, and
+// the one place that can is the board-submit route.
+//
+// Submitting does NOT lock the board. See migration 0029's header for why.
+export async function submitExercise(id: string, by: string): Promise<void> {
+  await withRetry(async () => {
+    const { error } = await supabaseAdmin()
+      .from("design_group_exercises")
+      .update({
+        submitted_at: new Date().toISOString(),
+        submitted_by: by.trim().slice(0, 120) || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+    if (error) throw error;
+  });
+}
+
+// Undo. Clears both columns rather than keeping a trail: the control reads
+// "Submitted <when> · Undo", so a stale name beside a null timestamp would be a lie about
+// a submit that no longer stands.
+export async function unsubmitExercise(id: string): Promise<void> {
+  await withRetry(async () => {
+    const { error } = await supabaseAdmin()
+      .from("design_group_exercises")
+      .update({ submitted_at: null, submitted_by: null, updated_at: new Date().toISOString() })
+      .eq("id", id);
     if (error) throw error;
   });
 }

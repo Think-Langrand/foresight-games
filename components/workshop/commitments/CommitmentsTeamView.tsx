@@ -11,6 +11,7 @@ import { Week3Reference } from "@/components/workshop/commitments/Week3Reference
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { ResponseRecap } from "@/components/workshop/commitments/ResponseRecap";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
+import { ReviewBoard } from "@/components/workshop/commitments/ReviewBoard";
 import {
   useRipplesView,
   useOptimisticCards,
@@ -19,7 +20,10 @@ import {
   postRippleCard,
   scoreRippleCard,
   reorderRippleCard,
+  submitRippleBoard,
+  unsubmitRippleBoard,
 } from "@/components/workshop/hooks";
+import { shapeFromView } from "@/lib/group-answers-shape";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import type { RippleCard, RipplePhase } from "@/lib/ripples-types";
@@ -81,6 +85,8 @@ export function CommitmentsTeamView({
   sections = [],
   week3Cards = [],
   summaryHref,
+  submittedAt: submittedAtProp = null,
+  submittedBy: submittedByProp = null,
   title,
 }: {
   code: string;
@@ -99,6 +105,11 @@ export function CommitmentsTeamView({
   // Where the group's handoff deck lives. Built on the page, which knows the project slug
   // and the group id; the board should not have to rebuild a route.
   summaryHref?: string;
+  // The GROUP's submit stamp (migration 0029), read server-side on the page. Seeds local
+  // state rather than being read directly: it is not on the board's realtime channel, so
+  // after a press the client is the only thing that knows until the next page load.
+  submittedAt?: string | null;
+  submittedBy?: string | null;
   title?: string;
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
@@ -126,6 +137,13 @@ export function CommitmentsTeamView({
   // length of a round trip, the cap read stale, and a group ticking four risks quickly got
   // all four.
   const [markPending, setMarkPending] = useState<Set<string>>(() => new Set());
+  // Step 5's submit stamp. Seeded from the server and then owned here, because the press
+  // and its Undo both resolve to a value the response carries. See ReviewBoard's header for
+  // why this is not realtime.
+  const [submitted, setSubmitted] = useState<{ at: string | null; by: string | null }>({
+    at: submittedAtProp,
+    by: submittedByProp,
+  });
 
   const inTabs = useInSessionTabs();
 
@@ -355,12 +373,41 @@ export function CommitmentsTeamView({
   const pickFor = (sourceId: string) =>
     isStarred(sourceId) ? board.picks.get(sourceId) : undefined;
 
+  // ---- step 5 ----------------------------------------------------------------
+
+  // What the group is approving, shaped exactly the way the admin viewer and the CSV shape
+  // it, so the three cannot disagree. From `view` (the SERVER's cards) and not from the
+  // optimistic `cards`: everywhere else on this board the overlay is the right answer, but
+  // a review pane must not show a line as written when its write is still in flight.
+  //
+  // Deliberately NOT useMemo — several early returns sit above this line and a hook here
+  // would break the hook order. The guard on `step` is what keeps it off the other four
+  // steps' render path; on this one it walks the board once.
+  const reviewShape = (() => {
+    if (step !== "review") return null;
+    const shaped = shapeFromView(
+      { id: "live", title: title || "Commitments", type: "commitments", sections },
+      view
+    );
+    return shaped.kind === "commitments" ? shaped : null;
+  })();
+
+  // The server's stamp is the authority on both of these: on a shared board two people can
+  // press Submit seconds apart, and the response says whose press counted.
+  const submitWeek = () =>
+    run(async () => {
+      const r = await submitRippleBoard(code, { participantId: pid });
+      setSubmitted({ at: r.submittedAt, by: r.submittedBy });
+    });
+
+  const undoSubmit = () =>
+    run(async () => {
+      await unsubmitRippleBoard(code, { participantId: pid });
+      setSubmitted({ at: null, by: null });
+    });
+
   // ---- the steps -------------------------------------------------------------
 
-  // TWO steps carry written fields, so `sections` is split by `step`. Anything an admin
-  // adds in the program editor has no step and falls to step 1, beside the aspiration
-  // prompts, which is where an extra question belongs. The split is what keeps a section
-  // from rendering on two tabs at once.
   // TWO steps carry written fields. Anything an admin adds with no step, or with a step
   // string that matches neither, falls to step 1 beside the summary prompts, which is where
   // an extra question belongs. The two branches are disjoint, so no section can render on
@@ -478,11 +525,26 @@ export function CommitmentsTeamView({
         </div>
       )}
 
-      {step === "review" && (
-        <p className="text-[13px] italic text-muted">
-          The review and submit step is being built.
-        </p>
-      )}
+      {/* Step 5. The read-back is shaped from the SERVER's view, not the optimistic cards:
+          this is the pane a group approves, so it should show what is actually stored rather
+          than what is still in flight. Everywhere else on this board the overlay is the
+          right answer; here a line that has not landed yet must not look landed. */}
+      {step === "review" &&
+        (reviewShape ? (
+          <ReviewBoard
+            shaped={reviewShape}
+            week3Cards={week3Cards}
+            summaryHref={summaryHref}
+            submittedAt={submitted.at}
+            submittedBy={submitted.by}
+            editable={editable}
+            busy={busy}
+            onSubmit={submitWeek}
+            onUndo={undoSubmit}
+          />
+        ) : (
+          <p className="text-[13px] italic text-muted">Opening the board…</p>
+        ))}
     </div>
   );
 

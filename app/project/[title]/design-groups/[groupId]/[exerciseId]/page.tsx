@@ -183,6 +183,8 @@ export default async function DesignGroupExercisePage({
           sections={resolveEffectiveSections(exercise.type, exercise.sections)}
           week3Cards={week3Cards}
           summaryHref={`/project/${title}/design-groups/${groupId}/summary`}
+          submittedAt={exercise.submittedAt}
+          submittedBy={exercise.submittedBy}
           title={exercise.title}
         />
       </SessionTabs>
