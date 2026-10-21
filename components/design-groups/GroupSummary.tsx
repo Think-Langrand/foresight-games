@@ -1,8 +1,9 @@
 // The group's handoff, as a deck: one full-screen slide per section.
 //
 // Server-rendered from lib/group-summary.buildGroupSummary and handed to HandoffDeck, which
-// owns only the stepping. Slides 02 to 05 are the group's own work; 06 and 07 are the
-// Session 4 slots, drawn as outlines so the deck reads as a draft.
+// owns only the stepping. Every slide is the group's own work now that Session 4 is built;
+// slide 08 keeps an outlined fallback for a group that has not run it yet, so the deck is
+// honest about what is missing rather than silently shorter.
 //
 // Slide 03 mounts ImplicationsMap: the real Session 2 map, split, with the branch you pick
 // read out as sentences beside it.
@@ -18,6 +19,12 @@ import ImplicationsMap from "@/components/design-groups/ImplicationsMap";
 import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffDeck";
 import ClusterMatrix from "@/components/design-groups/ClusterMatrix";
 import StakesBalance from "@/components/design-groups/StakesBalance";
+
+// "What we never settled" is PARKED, not deleted. Flip this to true to bring it back:
+// it is the last slide, so nothing renumbers and no other code changes. The Session 4
+// board still collects what feeds it (step 5's "What is still open"), so the data keeps
+// accruing while the slide is hidden and the slide is correct whenever it returns.
+const SHOW_UNSETTLED = false;
 
 function Chip({ tone, children }: { tone: "live" | "next"; children: React.ReactNode }) {
   const cls =
@@ -192,13 +199,58 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 02 · key changes ----------------------------------------------------------------
+  // ---- 02 · how this world works -------------------------------------------------------
+  // Session 1's own read of the scenario, written in September and shown nowhere until now.
+  // It goes BEFORE the key changes because it is the ground the rest of the deck stands on:
+  // a committee reading four of these needs to know how this world works before it can read
+  // what the group thinks follows from it.
+  if (s.worldReading.length > 0) {
+    slides.push({
+      id: "world",
+      label: "How this world works",
+      node: (
+        <Slide
+          n="02"
+          title="How this world works"
+          intro={
+            <>
+              Your group&rsquo;s first read of this scenario, from Session 1. Everything after
+              this slide follows from it.
+            </>
+          }
+        >
+          <div className="flex flex-col gap-7">
+            {s.worldReading.map((block) => (
+              <div key={block.label}>
+                <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+                  {block.label}{" "}
+                  <span className="tabular-nums text-muted">{block.answers.length}</span>
+                </p>
+                <ul className="m-0 list-none p-0">
+                  {block.answers.map((a) => (
+                    <li
+                      key={a}
+                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[14.5px] leading-[1.5] last:border-b-0"
+                    >
+                      {a}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- 03 · key changes ----------------------------------------------------------------
   slides.push({
     id: "key-changes",
     label: "Key changes",
     node: (
       <Slide
-        n="02"
+        n="03"
         title="Your key changes"
         chip={<Chip tone="live">On the board</Chip>}
         intro={
@@ -225,14 +277,14 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 03 · the map --------------------------------------------------------------------
+  // ---- 04 · the map --------------------------------------------------------------------
   if (implications && s.totalImplicationCards > 0) {
     slides.push({
       id: "map",
       label: "The map",
       node: (
         <Slide
-          n="03"
+          n="04"
           title="Where the changes led"
           chip={<Chip tone="live">On the board</Chip>}
           fill
@@ -249,7 +301,7 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 04 · how the implications regrouped ---------------------------------------------
+  // ---- 05 · how the implications regrouped ---------------------------------------------
   if (s.clusterFlow.links.length > 0) {
     const spreads = s.clusterFlow.themes.map(
       (_, ti) => s.clusterFlow.links.filter((l) => l.themeIndex === ti && l.count > 0).length
@@ -260,7 +312,7 @@ export default function GroupSummaryView({
       label: "How they regrouped",
       node: (
         <Slide
-          n="04"
+          n="05"
           title="How the implications regrouped"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -278,14 +330,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 05 · themes ---------------------------------------------------------------------
+  // ---- 06 · themes ---------------------------------------------------------------------
   if (s.themes.length > 0) {
     slides.push({
       id: "themes",
       label: "Themes",
       node: (
         <Slide
-          n="05"
+          n="06"
           title="Your themes"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -362,14 +414,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 06 · risks and opportunities together -------------------------------------------
+  // ---- 07 · risks and opportunities together -------------------------------------------
   if (s.gaps.stakes > 0) {
     slides.push({
       id: "stakes",
       label: "Risks & opportunities",
       node: (
         <Slide
-          n="06"
+          n="07"
           title="What the themes put at stake"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -386,14 +438,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 07 · hopes, fears, flips --------------------------------------------------------
+  // ---- 08 · hopes, fears, flips --------------------------------------------------------
   if (s.flips.length + s.standaloneHopes.length > 0) {
     slides.push({
       id: "hopes-fears",
       label: "Hopes & fears",
       node: (
         <Slide
-          n="07"
+          n="08"
           title="Hopes, fears, and the flips"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -471,72 +523,231 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 08 · Session 4: the aspiration --------------------------------------------------
-  slides.push({
-    id: "aspiration",
-    label: "Aspiration",
-    node: (
-      <Slide
-        n="08"
-        title="Your aspiration, and what it rests on"
-        chip={<Chip tone="next">Session 4 builds this</Chip>}
-        intro={
-          <>
-            The one section with no source in the program so far. Your group has {hopeCount} hopes
-            and {s.flips.length} fears, and not one of them says what it would take. Session 4
-            takes the pairs from the hopes and fears slide and asks what you are actually aspiring to inside
-            this world.
-          </>
-        }
-      >
-        <div className="border border-blue border-l-[3px] bg-card px-7 py-6">
-          <p className="m-0 mb-3 font-mono text-[10px] uppercase tracking-[0.16em] text-blue">
-            Session 4 · the group&rsquo;s aspiration
-          </p>
-          <blockquote className="m-0 mb-5 max-w-[36ch] text-[clamp(18px,2.4vw,26px)] font-light italic leading-[1.35]">
-            The aspiration your group would stand behind, written in their words.
-          </blockquote>
-          <ul className="m-0 list-none border-t border-ink p-0">
-            {(
-              [
-                ["Rests on", "The rules, resources, authority or relationships it depends on"],
-                ["Assumes", "What the group is taking for granted, said out loud"],
-                ["Who enables it", "Who would have to do something differently"],
-                ["Whose outcomes change", "Who gains, who loses, who is left out"],
-                ["Breaks if", "The condition that would undo it"],
-              ] as const
-            ).map(([k, v]) => (
-              <li
-                key={k}
-                className="grid grid-cols-1 gap-x-4 gap-y-1 border-b border-[var(--hairline)] py-[13px] text-[14.5px] last:border-b-0 sm:grid-cols-[auto_1fr]"
+  // ---- 09 · Session 4: the aspiration --------------------------------------------------
+  // The prompts are AUTHORED SECTIONS, so their headings come from the data. The deck
+  // renders what the group was actually asked rather than three hard-coded fields, which is
+  // what lets a facilitator reword step 1 without this slide going stale.
+  if (s.has.commitments && s.aspiration.length > 0) {
+    slides.push({
+      id: "aspiration",
+      label: "Aspiration",
+      node: (
+        <Slide
+          n="09"
+          title="What your group is aspiring to"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              The one section with no source earlier in the program. Your {hopeCount} hopes and{" "}
+              {s.flips.length} fears said what you wanted and what you feared; this says what
+              you are aiming at, in your own words.
+            </>
+          }
+        >
+          <div className="flex flex-col gap-6">
+            {s.aspiration.map((block, i) => (
+              <div
+                key={block.label}
+                className={
+                  i === 0
+                    ? "border border-blue border-l-[3px] bg-card px-7 py-6"
+                    : "border-t border-ink pt-4"
+                }
               >
-                <span className="whitespace-nowrap pt-1 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted">
-                  {k}
-                </span>
-                <span className="italic text-muted">{v}</span>
-              </li>
+                <p className="m-0 mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-blue">
+                  {block.label}
+                </p>
+                {/* The first prompt is the aspiration itself, so it is set as the quote the
+                    rest of the slide hangs off. The others read as answers. */}
+                {i === 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {block.answers.map((a) => (
+                      <blockquote
+                        key={a}
+                        className="m-0 max-w-[46ch] text-[clamp(17px,2vw,24px)] font-light leading-[1.35]"
+                      >
+                        {a}
+                      </blockquote>
+                    ))}
+                  </div>
+                ) : block.answers.length === 1 ? (
+                  <p className="m-0 max-w-[76ch] text-[15px] leading-[1.5]">{block.answers[0]}</p>
+                ) : (
+                  <ul className="m-0 flex list-none flex-col p-0">
+                    {block.answers.map((a) => (
+                      <li
+                        key={a}
+                        className="max-w-[76ch] border-b border-[var(--hairline)] py-[9px] text-[15px] leading-[1.5] last:border-b-0"
+                      >
+                        {a}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             ))}
-          </ul>
-        </div>
-      </Slide>
-    ),
-  });
+          </div>
+        </Slide>
+      ),
+    });
+  } else {
+    slides.push({
+      id: "aspiration",
+      label: "Aspiration",
+      node: (
+        <Slide
+          n="09"
+          title="Your aspiration, and what it rests on"
+          chip={<Chip tone="next">Session 4 builds this</Chip>}
+          intro={
+            <>
+              The one section with no source in the program so far. Your group has {hopeCount} hopes
+              and {s.flips.length} fears, and not one of them says what it would take. Session 4
+              takes the pairs from the hopes and fears slide and asks what you are actually aspiring to inside
+              this world.
+            </>
+          }
+        >
+          <div className="border border-blue border-l-[3px] bg-card px-7 py-6">
+            <p className="m-0 mb-3 font-mono text-[10px] uppercase tracking-[0.16em] text-blue">
+              Session 4 · the group&rsquo;s aspiration
+            </p>
+            <blockquote className="m-0 mb-5 max-w-[36ch] text-[clamp(18px,2.4vw,26px)] font-light italic leading-[1.35]">
+              The aspiration your group would stand behind, written in their words.
+            </blockquote>
+            <ul className="m-0 list-none border-t border-ink p-0">
+              {(
+                [
+                  ["What it serves", "Who gains, and how they would notice"],
+                  ["What has to be true", "The rules, resources, authority or relationships it depends on"],
+                ] as const
+              ).map(([k, v]) => (
+                <li
+                  key={k}
+                  className="grid grid-cols-1 gap-x-4 gap-y-1 border-b border-[var(--hairline)] py-[13px] text-[14.5px] last:border-b-0 sm:grid-cols-[auto_1fr]"
+                >
+                  <span className="whitespace-nowrap pt-1 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted">
+                    {k}
+                  </span>
+                  <span className="italic text-muted">{v}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Slide>
+      ),
+    });
+  }
 
-  // ---- 09 · Session 4: what we never settled -------------------------------------------
-  if (s.unsettled.length > 0) {
+  // ---- 10 · Session 4: the bold moves and their backcast -------------------------------
+  // One table, not one slide per move: the finding is the SHAPE of the three lanes read
+  // together — where the group front-loaded, and where a lane runs out. Empty cells print
+  // as a dot for exactly that reason.
+  if (s.boldMoves.length > 0) {
+    const periods = s.boldMoves[0].periods;
+    slides.push({
+      id: "bold-moves",
+      label: "Bold moves",
+      node: (
+        <Slide
+          n="10"
+          title="The moves you committed to, and when"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              {s.boldMoves.length} {s.boldMoves.length === 1 ? "move" : "moves"} chosen out of
+              everything on the wall, each backcast across ten years. This is the only part of
+              the program that says what your group would actually do.
+            </>
+          }
+        >
+          <div className="overflow-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <caption className="sr-only">
+                Each bold move with its milestones, by the two-year period they fall in.
+              </caption>
+              <thead>
+                <tr>
+                  <th
+                    scope="col"
+                    className="sticky left-0 z-10 border-b border-ink bg-paper px-2 py-2 text-left align-bottom font-mono text-[9.5px] font-normal uppercase tracking-[0.12em] text-muted"
+                  >
+                    Bold move
+                  </th>
+                  {periods.map((p) => (
+                    <th
+                      key={p.key}
+                      scope="col"
+                      className="border-b border-ink px-2 py-2 align-bottom text-left font-mono text-[10px] font-bold uppercase tracking-[0.08em]"
+                    >
+                      {p.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {s.boldMoves.map((m, i) => (
+                  <tr key={m.id}>
+                    <th
+                      scope="row"
+                      className="sticky left-0 z-10 max-w-[34ch] border-b border-[var(--hairline)] bg-paper px-2 py-3 text-left align-top text-[13.5px] font-bold leading-[1.35]"
+                    >
+                      <span className="mr-2 font-mono text-[10px] font-bold text-blue">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      {m.text}
+                      <span className="mt-1 block font-mono text-[9.5px] font-normal uppercase tracking-[0.1em] text-muted">
+                        {m.placed} {m.placed === 1 ? "milestone" : "milestones"}
+                      </span>
+                    </th>
+                    {m.periods.map((p) => (
+                      <td
+                        key={p.key}
+                        className="border-b border-l border-[var(--hairline)] px-2 py-3 align-top"
+                      >
+                        {p.milestones.length === 0 ? (
+                          <span className="font-mono text-[12px] text-muted">·</span>
+                        ) : (
+                          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                            {p.milestones.map((t) => (
+                              <li key={t} className="text-[12.5px] leading-[1.4]">
+                                {t}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="m-0 mt-4 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted">
+              · = nothing placed in that period
+            </p>
+          </div>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- 11 · What we never settled (parked, see SHOW_UNSETTLED) ---------------
+  if (SHOW_UNSETTLED && s.unsettled.length > 0) {
     slides.push({
       id: "unsettled",
       label: "What we never settled",
       node: (
         <Slide
-          n="09"
+          n="11"
           title="What we never settled"
-          chip={<Chip tone="next">Session 4 builds this</Chip>}
+          chip={<Chip tone="next">Still open</Chip>}
           intro={
             <>
-              Disagreement is recorded, not resolved. These are your group&rsquo;s own words from
-              Session 1, and nothing downstream has used them yet. This deck is where they come
-              back.
+              Your group&rsquo;s own words from Session 1, reviewed in Session 4.
+              {s.settledCount > 0
+                ? ` Four sessions answered ${s.settledCount} of them. These are the ones still open.`
+                : " These are the questions four sessions did not answer."}{" "}
+              Open is a finding, not an oversight. They go to the committee as they are.
             </>
           }
         >

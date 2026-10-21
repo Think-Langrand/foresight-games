@@ -20,6 +20,7 @@ import {
   type CardOrder,
 } from "@/lib/ripples-types";
 import { placementError } from "@/lib/synthesis-shape";
+import { MILESTONES_PER_MOVE, isCommitmentPeriod } from "@/lib/commitments-shape";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,10 @@ export async function POST(
     // Week 3: put an implication that is already on this board into ANOTHER theme too.
     // Its text is read from the original, never from the client.
     copyOfCardId?: string | null;
+    // Week 4 step 5: the EARLIER week's card this mark is about. Only `pick` and `settled`
+    // carry one, and 0018's unique (code, source_card_id) makes a second mark on the same
+    // source a 409 rather than a duplicate.
+    sourceCardId?: string | null;
   } = {};
   try {
     body = await req.json();
@@ -227,6 +232,66 @@ export async function POST(
       copyText = original.text;
     }
 
+    // Week 4's timeline stores a milestone's two-year period in `section`. It is the one
+    // tree card that carries one, so the guard is narrow and REFUSES rather than nulling:
+    // a milestone with no period belongs to no column, which is the "in the database,
+    // drawn by no view" failure this route's other guards exist to prevent. The vocabulary
+    // is PERIODS in lib/commitments-shape.
+    // --- a handoff mark (Week 4 step 5) ------------------------------------------
+    //
+    // A `pick` or a `settled` is a statement ABOUT an earlier week's card. It is written
+    // here rather than as a flag on that card so Week 4 never writes to Week 1's or Week
+    // 3's board: every step of this week writes to this board and nothing else. The star
+    // the handoff deck draws on a Session 3 risk is derived from one of these, not stored
+    // on the risk.
+    //
+    // The source is NOT validated against the other board here. The POST route is scoped
+    // to one session code and has no group context to resolve another week's card with;
+    // the shape layer only ever shows a mark whose source is in the cards it was handed,
+    // so a mark pointing at nothing is invisible rather than wrong. The admin seed route
+    // is the place that does cross-week resolution, and it has the groupId to do it.
+    let sourceCardId: string | null = null;
+    if (kind === "pick" || kind === "settled") {
+      if (typeof body.sourceCardId !== "string" || !body.sourceCardId) {
+        return NextResponse.json(
+          { error: "That mark has to point at an earlier card." },
+          { status: 400 }
+        );
+      }
+      sourceCardId = body.sourceCardId;
+    } else if (body.sourceCardId) {
+      // Anything else carrying one would land in 0018's unique index and start competing
+      // with admin seeding for the same key.
+      return NextResponse.json(
+        { error: "Only a handoff mark points at an earlier card." },
+        { status: 400 }
+      );
+    }
+
+    if (kind === "milestone") {
+      if (!isCommitmentPeriod(body.section)) {
+        return NextResponse.json(
+          { error: "A milestone belongs in one of the timeline's periods." },
+          { status: 400 }
+        );
+      }
+      // The cap is per MOVE across the whole span, not per cell, so it counts the parent's
+      // milestone children rather than the cell's. Best effort by nature: this is a
+      // read-then-write, so two people adding at the same instant can still make a sixth.
+      // That is acceptable and visible — the lane reads "6 / 5" and the composer closes —
+      // and it is far better than no server guard at all, which let a scripted or retried
+      // request fill a lane without limit.
+      const siblings = (await listBoardCards(session.code)).filter(
+        (c) => c.parentId === parentId && c.cardKind === "milestone"
+      );
+      if (siblings.length >= MILESTONES_PER_MOVE) {
+        return NextResponse.json(
+          { error: `A move takes ${MILESTONES_PER_MOVE} milestones. Delete one first.` },
+          { status: 400 }
+        );
+      }
+    }
+
     const card = await addCard({
       sessionId: session.id,
       code: session.code,
@@ -236,11 +301,18 @@ export async function POST(
       parentId,
       text: copyText ?? text,
       sort: typeof body.sort === "number" ? body.sort : 0,
-      // A worksheet buckets sticky cards into named areas; tree cards have no section.
-      section: order === "STICKY" && typeof body.section === "string" ? body.section : null,
+      // A worksheet buckets sticky cards into named areas, and Week 4's milestones are the
+      // one kind of tree card that also carries one (its timeline period, guarded above).
+      // Every reader of worksheet sections filters on STICKY first, so the two uses cannot
+      // collide — see the note at PERIODS in lib/commitments-shape.
+      section:
+        (order === "STICKY" || kind === "milestone") && typeof body.section === "string"
+          ? body.section
+          : null,
       cardKind: kind,
       description,
       twinKey,
+      sourceCardId,
     });
     return NextResponse.json({ card });
   } catch (err) {

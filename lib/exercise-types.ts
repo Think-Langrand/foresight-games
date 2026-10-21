@@ -15,7 +15,12 @@
 //   - brainstorm → a free wall of stickies
 //   - question   → a prompt with accumulating short answer cards (concurrency-safe)
 
-export type ExerciseRender = "implications" | "worksheet" | "synthesis" | "placeholder";
+export type ExerciseRender =
+  | "implications"
+  | "worksheet"
+  | "synthesis"
+  | "commitments"
+  | "placeholder";
 export type SectionKind = "brainstorm" | "question";
 
 export interface WorksheetSection {
@@ -139,6 +144,58 @@ const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
 // "removed block" heading rather than vanishing.
 const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 
+// --- Commitments (Week 4), step 1 ---------------------------------------------
+// Steps 2, 3 and 4 are code (the response wall, the down-select, the backcasting
+// timeline). Step 1 rides the ordinary section substrate, the same hybrid Week 2 uses for
+// its Sandbox, and for the same reason: a facilitator can reword these three prompts,
+// add a fourth or drop one, in the program editor with no deploy. That is why the
+// aspiration has no card kinds of its own. See lib/commitments-shape's header.
+//
+// Keep every section here on ONE `step`: WorksheetSections then renders its flat stack
+// rather than a second tab bar nested inside the exercise's own tabs. Anything an admin
+// adds later lands on the same tab, beside these, which is where extra questions belong.
+//
+// Keys are permanent ids written onto every answer card's `section` — never rename one.
+// The LABEL is the editable part; the key is the link to every answer ever given.
+//
+// `question` rather than `brainstorm` because each prompt accumulates short answers, one
+// card each: three people in a breakout have three readings of what they are aspiring to
+// and all three belong on the sheet. Migration 0027 is the record of what forcing one
+// answer per question cost.
+const COMMITMENTS_SECTIONS: WorksheetSection[] = [
+  {
+    key: "aspiration-statement",
+    kind: "question",
+    step: "Aspiration",
+    label: "What are we aspiring to in this world?",
+    help: "Not a wish for today, and not a fix. Say what it would look like from inside the scenario. A sentence that starts \u201cBy 2035\u201d works well.",
+  },
+  {
+    key: "aspiration-serves",
+    kind: "question",
+    step: "Aspiration",
+    label: "Who does this serve, and how would they notice?",
+    help: "Name who gets what. \u201cEquity\u201d, \u201ctrust\u201d and \u201cfunding\u201d are labels; say who does something differently, and who gains or loses.",
+  },
+  {
+    key: "aspiration-holds",
+    kind: "question",
+    step: "Aspiration",
+    label: "What has to be true for this to hold?",
+    help: "The rules, resources, authority or relationships it depends on. If one of these failed, the aspiration would not survive it.",
+  },
+  // Step 5's only written field. On its own `step`, so the board renders it on the handoff
+  // tab rather than beside the aspiration prompts: CommitmentsTeamView splits `sections` by
+  // step, and anything an admin adds with no step falls to step 1.
+  {
+    key: "handoff-committee-line",
+    kind: "question",
+    step: "The handoff",
+    label: "If the committee reads one thing, what should it be?",
+    help: "Not a summary of the session. The one line you want read first.",
+  },
+];
+
 export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   "scenario-assessment": {
     id: "scenario-assessment",
@@ -172,6 +229,16 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
     render: "synthesis",
     boardBacked: true,
     sections: SYNTHESIS_SECTIONS,
+  },
+  // Week 4: say the aspiration, open a wall of strategic responses, down-select three as
+  // bold moves, then backcast each across ten years in two-year steps. Step 1 is sections,
+  // steps 2 to 4 are code, all on one board.
+  commitments: {
+    id: "commitments",
+    label: "Commitments (Aspiration, Responses, Bold Moves, Backcasting)",
+    render: "commitments",
+    boardBacked: true,
+    sections: COMMITMENTS_SECTIONS,
   },
   placeholder: {
     id: "placeholder",
@@ -295,18 +362,22 @@ export function isBoardBacked(id: string): boolean {
 }
 
 // Does this type render editable worksheet-style question/brainstorm blocks (the section
-// substrate)? Worksheets do; the implications and synthesis boards also render blocks
-// alongside their own steps, so all three expose the admin block editor and carry
-// per-exercise `sections`.
+// substrate)? Worksheets do; the implications, synthesis and commitments boards also render
+// blocks alongside their own steps, so all four expose the admin block editor and carry
+// per-exercise `sections`. Commitments goes furthest: its whole first step IS sections.
 export function supportsSections(id: string): boolean {
   const r = EXERCISE_TYPES[id]?.render;
-  return r === "worksheet" || r === "implications" || r === "synthesis";
+  return (
+    r === "worksheet" || r === "implications" || r === "synthesis" || r === "commitments"
+  );
 }
 
 // The default program seeded when a group's scenario is assigned. Session 1 = scenario
-// assessment, Session 2 = implication mapping, Session 3 = synthesis, Session 4 = TBD.
+// assessment, Session 2 = implication mapping, Session 3 = synthesis, Session 4 =
+// commitments.
 // Only new projects get this; existing groups keep whatever their rows already say, and an
-// admin changes a week's type in the program editor.
+// admin changes a week's type in the program editor. So changing a type here does NOT
+// migrate a running cohort: that is a deliberate save in the admin, per group.
 export interface ProgramWeek {
   sort: number;
   type: string;
@@ -316,7 +387,7 @@ export const DEFAULT_PROGRAM: ProgramWeek[] = [
   { sort: 0, type: "scenario-assessment", title: "Session 1 · Scenario Assessment" },
   { sort: 1, type: "implications", title: "Session 2 · Implication Mapping" },
   { sort: 2, type: "synthesis", title: "Session 3 · Synthesis" },
-  { sort: 3, type: "placeholder", title: "Session 4 · TBD" },
+  { sort: 3, type: "commitments", title: "Session 4 · Commitments" },
 ];
 
 // A CanonicalWeek is the group-AGNOSTIC content of one program week — the single thing

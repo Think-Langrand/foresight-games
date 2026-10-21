@@ -8,7 +8,9 @@ import { getExercise, listExercises } from "@/lib/design-group-exercises";
 import { getRippleScenario, getRippleDrivers } from "@/lib/ripples";
 import { exerciseStatus, getExerciseType, isBoardBacked, resolveEffectiveSections } from "@/lib/exercise-types";
 import { shapeExerciseAnswers } from "@/lib/group-answers";
+import { UNSETTLED_BLOCKS } from "@/lib/group-summary";
 import { RipplesTeamView } from "@/components/workshop/RipplesTeamView";
+import { CommitmentsTeamView } from "@/components/workshop/commitments/CommitmentsTeamView";
 import { SynthesisTeamView } from "@/components/workshop/synthesis/SynthesisTeamView";
 import { WorksheetView } from "@/components/workshop/WorksheetView";
 import { SessionTabs } from "@/components/design-groups/SessionTabs";
@@ -159,6 +161,46 @@ export default async function DesignGroupExercisePage({
     );
   }
 
+  if (render === "commitments") {
+    // Week 4 reads Week 3's board rather than seeding copies of it: its hopes, flips,
+    // risks and opportunities are reference here, not material to drag, so there is only
+    // ever one copy of them and nothing to keep in sync. Week 3's board is already loaded
+    // above (a synthesis week's shaped answers carry its whole card array), so this is
+    // pure selection, not an extra query.
+    //
+    // The cards only, never the shaped exercise: that also carries the summary, the role
+    // answers, the parked pile and a second copy of these same cards.
+    const week3Cards = pastWeeks
+      .filter((w) => w.kind === "synthesis")
+      .flatMap((w) => w.cards);
+    // Session 1's three uncertainty questions, for step 5's "which of these are still
+    // open". Shaped here rather than on the client: a worksheet week arrives as question
+    // blocks, not cards, so this is a filter over what the tabs already loaded. The keys
+    // come from UNSETTLED_BLOCKS so this and the handoff deck cannot disagree about which
+    // three questions count as uncertainty.
+    const w1 = pastWeeks.find((w) => w.kind === "worksheet");
+    const week1Uncertainties = UNSETTLED_BLOCKS.flatMap(({ key, bucket }) => {
+      const block = w1?.kind === "worksheet" ? w1.questions.find((q) => q.key === key) : null;
+      if (!block || block.answers.length === 0) return [];
+      return [{ key, bucket, answers: block.answers.map((a) => ({ id: a.id, text: a.text })) }];
+    });
+    return (
+      <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>
+        <CommitmentsTeamView
+          code={session.code}
+          scenario={scenario}
+          drivers={drivers}
+          basePath={`/project/${title}`}
+          hiddenSections={project.homeConfig.hiddenScenarioSections}
+          sections={resolveEffectiveSections(exercise.type, exercise.sections)}
+          week3Cards={week3Cards}
+          week1Uncertainties={week1Uncertainties}
+          summaryHref={`/project/${title}/design-groups/${groupId}/summary`}
+          title={exercise.title}
+        />
+      </SessionTabs>
+    );
+  }
   if (render === "implications") {
     return (
       <SessionTabs currentTitle={exercise.title} pastWeeks={pastWeeks}>

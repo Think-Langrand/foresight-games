@@ -3,6 +3,7 @@ import type {
   ImplicationsExercise,
   SynthesisExercise,
   WorksheetExercise,
+  CommitmentsExercise,
 } from "@/components/design-groups/AnswerPanels";
 import { enumerateChains } from "@/lib/ripples-types";
 
@@ -163,6 +164,79 @@ export function implicationsCsvRows(ex: ImplicationsExercise): string[][] {
   return rows;
 }
 
+// A commitments week: the aspiration prompts, the response wall with its bold moves
+// starred, then each move's timeline a period at a time.
+//
+// A bold move is NOT given a row of its own. It is a response carrying `shortlisted`, and
+// emitting it twice would double every picked move in a count. The star in the Kind cell
+// is how the sheet says which three were chosen, the same way synthesisCsvRows marks a
+// shortlisted risk.
+//
+// Empty period cells emit nothing, because a CSV row per empty cell is noise — but the
+// period's label rides every milestone row, so where a lane clustered and where it left a
+// gap is still readable from the sheet alone.
+export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
+  const rows: string[][] = [];
+  for (const q of ex.questions) {
+    for (const a of q.answers) {
+      rows.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt]);
+    }
+  }
+  for (const r of ex.responses) {
+    rows.push([
+      ex.title,
+      "Strategic responses",
+      r.shortlisted ? "response ★" : "response",
+      r.text,
+      r.author,
+      r.createdAt,
+    ]);
+  }
+  for (const lane of ex.lanes) {
+    for (const cell of lane.periods) {
+      for (const m of cell.milestones) {
+        // The move's text rides each row: a milestone read on its own says when something
+        // happens but not what it is a step towards.
+        rows.push([
+          ex.title,
+          `Timeline · ${cell.label}`,
+          "milestone",
+          `${lane.move.text} — ${m.text}`,
+          m.author,
+          m.createdAt,
+        ]);
+      }
+    }
+  }
+  // Step 5. A pick is NOT emitted as another copy of the risk it points at: the response
+  // wall already carries its own stars, and these point at Session 3's cards, which the
+  // Session 3 rows above already list. The row says which earlier card was chosen, in the
+  // words the mark stored, so the sheet reads without a lookup into another week.
+  for (const m of ex.picks) {
+    rows.push([ex.title, "Chosen for the committee", "pick", m.text, m.author, m.createdAt]);
+  }
+  for (const m of ex.settledMarks) {
+    rows.push([
+      ex.title,
+      "Settled since Session 1",
+      "settled",
+      m.text,
+      m.author,
+      m.createdAt,
+    ]);
+  }
+  // Work the group has not lost but cannot currently see, and work the board could not
+  // place. Both belong in the export: a facilitator reading the sheet should find out here
+  // rather than discovering a gap later.
+  for (const m of ex.stranded) {
+    rows.push([ex.title, "Timeline · move not picked", "milestone", m.text, m.author, m.createdAt]);
+  }
+  for (const o of ex.orphans) {
+    rows.push([ex.title, "Unplaced", "orphan", o.text, o.author, o.createdAt]);
+  }
+  return rows;
+}
+
 // One week, whichever kind it is. See the header comment for why the exhaustive default
 // matters more than it looks.
 export function exerciseCsvRows(ex: ExerciseAnswers): string[][] {
@@ -173,8 +247,10 @@ export function exerciseCsvRows(ex: ExerciseAnswers): string[][] {
       return implicationsCsvRows(ex);
     case "synthesis":
       return synthesisCsvRows(ex);
-    // A week with no board has nothing to export. Not an error: Session 4 is in every
-    // group's program and is not built yet.
+    case "commitments":
+      return commitmentsCsvRows(ex);
+    // A week with no board has nothing to export. Not an error: a facilitator can set any
+    // week to "To be designed", and a group's later weeks sit there until they are built.
     case "placeholder":
       return [];
     default: {

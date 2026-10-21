@@ -14,6 +14,7 @@ import {
   type QuestionBlock,
 } from "@/components/design-groups/AnswerPanels";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
+import { CommitmentsPanel } from "@/components/design-groups/CommitmentsPanel";
 import { implicationSeedCandidates } from "@/lib/synthesis-shape";
 import { ImplicationClusterPanel } from "@/components/admin/ImplicationClusterPanel";
 import { GROUP_ANSWERS_CSV_HEADER, exerciseCsvRows } from "@/lib/group-answers-csv";
@@ -230,6 +231,8 @@ export function AdminGroupAnswers({
       (ex.kind === "implications" &&
         (ex.cards.length > 0 || ex.brainstorm.length > 0 || ex.questions.some((q) => q.answers.length > 0))) ||
       (ex.kind === "synthesis" &&
+        (ex.cards.length > 0 || ex.questions.some((q) => q.answers.length > 0))) ||
+      (ex.kind === "commitments" &&
         (ex.cards.length > 0 || ex.questions.some((q) => q.answers.length > 0)))
   );
   const activeBoardBacked = active && active.kind !== "placeholder";
@@ -361,6 +364,9 @@ export function AdminGroupAnswers({
                 />
               }
             />
+          )}
+          {active && active.kind === "commitments" && (
+            <CommitmentsPanel ex={active} onDelete={onDeleteAnswer} />
           )}
           {active && active.kind === "synthesis" && (
             <SynthesisPanel

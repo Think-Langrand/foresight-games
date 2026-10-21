@@ -205,6 +205,9 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
   const [parks, setParks] = useState<Map<string, boolean>>(() => new Map());
   const [descs, setDescs] = useState<Map<string, string | null>>(() => new Map());
   const [shorts, setShorts] = useState<Map<string, boolean>>(() => new Map());
+  // Week 4's timeline: which two-year period a milestone was just dragged into. The
+  // period lives in `section`, so this overlays that column rather than a dedicated one.
+  const [sections, setSections] = useState<Map<string, string>>(() => new Map());
   // `inflight` counts this card's score writes that haven't come back yet. While any is
   // outstanding the overlay has to stand, because the server list in hand may predate it.
   const [scores, setScores] = useState<Map<string, { patch: ScorePatch; inflight: number }>>(
@@ -298,6 +301,18 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
       }
       return changed ? next : prev;
     });
+    setSections((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, v] of prev) {
+        const server = serverCards.find((c) => c.id === id);
+        if (!server || server.section === v) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
     // Per-AXIS, not per-object: the two score rows write independently, so a
     // plausibility round-trip landing first must not drop a still-pending impact.
     //
@@ -337,7 +352,8 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
       !reparents.size &&
       !parks.size &&
       !descs.size &&
-      !shorts.size
+      !shorts.size &&
+      !sections.size
     )
       return merged;
     return merged
@@ -350,7 +366,8 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
           !reparents.has(c.id) &&
           !parks.has(c.id) &&
           !descs.has(c.id) &&
-          !shorts.has(c.id)
+          !shorts.has(c.id) &&
+          !sections.has(c.id)
         )
           return c;
         const move = reparents.get(c.id);
@@ -363,9 +380,10 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
           ...(parks.has(c.id) ? { parked: parks.get(c.id)! } : {}),
           ...(descs.has(c.id) ? { description: descs.get(c.id)! } : {}),
           ...(shorts.has(c.id) ? { shortlisted: shorts.get(c.id)! } : {}),
+          ...(sections.has(c.id) ? { section: sections.get(c.id)! } : {}),
         };
       });
-  }, [serverCards, adds, deletes, sorts, edits, scores, reparents, parks, descs, shorts]);
+  }, [serverCards, adds, deletes, sorts, edits, scores, reparents, parks, descs, shorts, sections]);
 
   const addLocal = useCallback((c: RippleCard) => setAdds((p) => [...p, c]), []);
   const removeLocal = useCallback((id: string) => setDeletes((p) => new Set(p).add(id)), []);
@@ -409,6 +427,20 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
   const dropShortlistLocal = useCallback(
     (id: string) =>
       setShorts((p) => {
+        if (!p.has(id)) return p;
+        const next = new Map(p);
+        next.delete(id);
+        return next;
+      }),
+    []
+  );
+  const sectionLocal = useCallback(
+    (id: string, section: string) => setSections((p) => new Map(p).set(id, section)),
+    []
+  );
+  const dropSectionLocal = useCallback(
+    (id: string) =>
+      setSections((p) => {
         if (!p.has(id)) return p;
         const next = new Map(p);
         next.delete(id);
@@ -492,6 +524,8 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     describeLocal,
     shortlistLocal,
     dropShortlistLocal,
+    sectionLocal,
+    dropSectionLocal,
     scoreLocal,
     settleScoreLocal,
     dropScoreLocal,
@@ -526,6 +560,8 @@ export async function postRippleCard(
     description?: string | null;
     // Week 3: put an implication that is already on this board into another theme too.
     copyOfCardId?: string;
+    // Week 4 step 5: the earlier week's card a `pick` or `settled` mark is about.
+    sourceCardId?: string;
   }
 ) {
   const res = await fetch(`/api/sessions/${encodeURIComponent(code)}/ripples/cards`, {
@@ -610,6 +646,24 @@ export async function shortlistRippleCard(
 }
 
 // Park a card in Week 3's tray, or unpark it. Nothing is deleted either way.
+// Move a Week 4 milestone to another two-year period. `period` is one of PERIODS' keys
+// (lib/commitments-shape); the route refuses anything else with a 400 rather than storing
+// a milestone that belongs to no column.
+export async function periodRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; period: string }
+) {
+  const res = await fetch(`/api/sessions/${code}/ripples/cards/${cardId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "period", ...body }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Could not move that milestone.");
+  return data as { ok: true; period: string };
+}
+
 export async function parkRippleCard(
   code: string,
   cardId: string,

@@ -316,6 +316,27 @@ describe("placementError", () => {
     no(null, "fear");
   });
 
+  // --- Week 4: the commitments board ----------------------------------------
+  // Both the add-a-card and the reparent routes check placementError, so these are what
+  // keep the two from drifting apart on Session 4's kinds.
+
+  it("lets a strategic response be a root and nothing else", () => {
+    ok("response", undefined);
+    no("response", null); // under an implication
+    no("response", "theme");
+    no("response", "response"); // a response does not answer another response
+    no("response", "milestone");
+  });
+
+  it("lets a milestone hang off a bold move and nowhere else", () => {
+    ok("milestone", "response");
+    no("milestone", undefined); // a milestone with no move backcasts nothing
+    no("milestone", null);
+    no("milestone", "theme");
+    no("milestone", "milestone"); // the timeline is lanes, not chains
+    no("milestone", "hope");
+  });
+
   // --- Week 3 step 2: what's at stake ---------------------------------------
   it("puts a risk or opportunity on the board (the role step) or on a theme (older boards), nowhere else", () => {
     for (const kind of ["risk", "opportunity"] as const) {

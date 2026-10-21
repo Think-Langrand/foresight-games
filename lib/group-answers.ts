@@ -22,7 +22,10 @@ export async function shapeExerciseAnswers(
   // over a board full of work — with no error anywhere.
   if (
     ex.sessionCode &&
-    (render === "worksheet" || render === "implications" || render === "synthesis")
+    (render === "worksheet" ||
+      render === "implications" ||
+      render === "synthesis" ||
+      render === "commitments")
   ) {
     const session = await getSessionByCode(ex.sessionCode);
     if (session) view = await getRipplesView(session);

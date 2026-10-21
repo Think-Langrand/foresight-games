@@ -17,7 +17,14 @@
 // kind is read first because a Week 3 theme is also a tree root and a Week 3 risk also
 // has a parent: without it a synthesis week reported "4 key changes, 31 implications".
 
-export type CardKind = "themes" | "synthesis" | "keyChanges" | "implications" | "brainstorm" | "answers";
+export type CardKind =
+  | "themes"
+  | "synthesis"
+  | "commitments"
+  | "keyChanges"
+  | "implications"
+  | "brainstorm"
+  | "answers";
 
 // The buckets are mutually exclusive and exhaustive — every card lands in exactly one.
 // Mirrors isTreeRoot + the STICKY/section filters in RipplesTeamView and
@@ -37,6 +44,19 @@ export function classifyCard(
   synthesis = false
 ): CardKind {
   if (card.cardKind === "theme") return "themes";
+  // ALL FOUR of Week 4's kinds get their own bucket. `pick` and `settled` were missed when
+  // step 5 added them and were tallied as Session 3 work, so when a kind is added to
+  // CARD_KINDS check this line rather than trusting the comment to have kept up. No `commitments` flag is needed the way
+  // `synthesis` is one: `response` and `milestone` exist on no other week, so the card
+  // says which board it is on by itself. Without this they fell into `synthesis` and a
+  // Week 4 cell reported a timeline as "answers, risks, hopes & fears".
+  if (
+    card.cardKind === "response" ||
+    card.cardKind === "milestone" ||
+    card.cardKind === "pick" ||
+    card.cardKind === "settled"
+  )
+    return "commitments";
   if (card.cardKind) return "synthesis";
   if (card.parentId !== null) return "implications";
   if (card.order !== "STICKY") return synthesis ? "implications" : "keyChanges";
@@ -57,6 +77,7 @@ export interface ActivityCardRow {
 export interface CardTally {
   themes: number;
   synthesis: number;
+  commitments: number;
   keyChanges: number;
   implications: number;
   brainstorm: number;
@@ -70,6 +91,7 @@ export function emptyTally(): CardTally {
   return {
     themes: 0,
     synthesis: 0,
+    commitments: 0,
     keyChanges: 0,
     implications: 0,
     brainstorm: 0,
@@ -106,6 +128,7 @@ export function sumTallies(tallies: CardTally[]): CardTally {
   for (const t of tallies) {
     out.themes += t.themes;
     out.synthesis += t.synthesis;
+    out.commitments += t.commitments;
     out.keyChanges += t.keyChanges;
     out.implications += t.implications;
     out.brainstorm += t.brainstorm;

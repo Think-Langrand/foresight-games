@@ -107,7 +107,7 @@ export interface GroupSummary {
   scenarioTitle: string | null;
   // Which weeks actually have a board with work on it, so the page can say "not yet" rather
   // than render an empty section as if it were the finding.
-  has: { assessment: boolean; implications: boolean; synthesis: boolean };
+  has: { assessment: boolean; implications: boolean; synthesis: boolean; commitments: boolean };
   keyChanges: SummaryKeyChange[];
   orderCounts: SummaryOrderCount[];
   totalImplicationCards: number;
@@ -117,12 +117,35 @@ export interface GroupSummary {
   flips: SummaryFlip[];
   standaloneHopes: string[];
   gaps: SummaryGaps;
+  // Session 1's uncertainties that Session 4 did NOT mark settled. Still open is the
+  // DEFAULT, so a group that never ran step 5 hands over every one of them, which is the
+  // honest answer rather than an empty list.
   unsettled: { bucket: string; text: string }[];
+  settledCount: number; // how many the group said four sessions answered
+  // How this world works, in the group's own Session 1 words. Written in September and
+  // shown nowhere until now.
+  worldReading: { label: string; answers: string[] }[];
+  // ---- Week 4 -------------------------------------------------------------------------
+  // The aspiration arrives as QUESTION BLOCKS, not a single string, because its prompts
+  // are authored worksheet sections: the headings belong to whoever edited the program,
+  // so the deck renders what was asked rather than assuming three fixed fields.
+  aspiration: { label: string; answers: string[] }[];
+  boldMoves: SummaryBoldMove[];
+}
+
+// One bold move and its backcast, for the handoff's timeline slide. `periods` carries
+// every period in order, empty ones included: a move with everything in the first column
+// and nothing after it has not been backcast, and dropping the empties would hide that.
+export interface SummaryBoldMove {
+  id: string;
+  text: string;
+  placed: number;
+  periods: { key: string; label: string; milestones: string[] }[];
 }
 
 // Week 1's assess block keys, in the order the handoff reads them. These are permanent
 // section keys (lib/exercise-types.ts) — minted once, never renamed.
-const UNSETTLED_BLOCKS: { key: string; bucket: string }[] = [
+export const UNSETTLED_BLOCKS: { key: string; bucket: string }[] = [
   { key: "assess-unclear", bucket: "Unclear" },
   { key: "assess-assumptions", bucket: "Assumed" },
   { key: "assess-missing", bucket: "Missing" },
@@ -186,7 +209,10 @@ export function themesByStakes(themes: SummaryTheme[]): LetteredTheme[] {
     .sort((a, b) => stakes(b.theme) - stakes(a.theme) || a.boardIndex - b.boardIndex);
 }
 
-function pick(weeks: ExerciseAnswers[], kind: "worksheet" | "implications" | "synthesis") {
+function pick(
+  weeks: ExerciseAnswers[],
+  kind: "worksheet" | "implications" | "synthesis" | "commitments"
+) {
   return weeks.find((w) => w.kind === kind);
 }
 
@@ -197,6 +223,7 @@ export function buildGroupSummary(
   const assessment = pick(weeks, "worksheet");
   const implications = pick(weeks, "implications");
   const synthesis = pick(weeks, "synthesis");
+  const commitments = pick(weeks, "commitments");
 
   // ---- Week 2: key changes and their chains -------------------------------------------
   const cards: RippleCard[] = implications?.kind === "implications" ? implications.cards : [];
@@ -220,13 +247,27 @@ export function buildGroupSummary(
   const sCards: RippleCard[] = synthesis?.kind === "synthesis" ? synthesis.cards : [];
   const sThemes: SynthesisTheme[] = synthesis?.kind === "synthesis" ? synthesis.themes : [];
 
+  // A star on a Session 3 risk is DERIVED from a Session 4 pick, never stored on the risk
+  // itself: Week 4 writes only to its own board. The deck's existing star rendering reads
+  // StakeRow.shortlisted, so projecting it here is all it takes to light up.
+  const pickedIds = new Set(
+    commitments?.kind === "commitments" ? commitments.picks.map((m) => m.sourceId) : []
+  );
+  // ALWAYS projects, with no short-circuit on an empty pick set. A star on this deck means
+  // "Session 4 chose this for the committee" and nothing else, so the count a slide shows is
+  // always the pick count. The earlier version returned `rows` untouched when there were no
+  // picks, which let Week 3's own dormant `shortlisted` column light stars the group never
+  // chose, and then wiped them the moment a single pick arrived.
+  const star = (rows: StakeRow[]): StakeRow[] =>
+    rows.map((r) => ({ ...r, shortlisted: pickedIds.has(r.id) }));
+
   const themes: SummaryTheme[] = sThemes.map((t) => ({
     id: t.id,
     text: t.text,
     description: t.description,
     implications: t.implications.length,
-    risks: t.risks,
-    opportunities: t.opportunities,
+    risks: star(t.risks),
+    opportunities: star(t.opportunities),
   }));
 
   const fears = sCards.filter((c) => c.cardKind === "fear");
@@ -302,7 +343,10 @@ export function buildGroupSummary(
     untraced,
   };
 
-  const stakeRows: StakeRow[] = themes.flatMap((t) => [...t.risks, ...t.opportunities]);
+  // From the RAW Week 3 themes, not the starred projection above: `gaps` measures how far
+  // Week 3 itself got, so reading the projected rows would make `starred` report Session 4's
+  // pick count under a Week 3 heading.
+  const stakeRows: StakeRow[] = sThemes.flatMap((t) => [...t.risks, ...t.opportunities]);
   const gaps: SummaryGaps = {
     explorationAnswers: sCards.filter((c) => c.cardKind && READING_SET.has(c.cardKind)).length,
     explorationSlots: themes.length * READING_FIELDS.length,
@@ -314,16 +358,60 @@ export function buildGroupSummary(
   };
 
   // ---- Week 1: what the room never settled --------------------------------------------
+  // Step 5's settled marks, if the week was run. Keyed by the Session 1 card they point at.
+  const settledIds = new Set(
+    commitments?.kind === "commitments" ? commitments.settledMarks.map((m) => m.sourceId) : []
+  );
   const unsettled: { bucket: string; text: string }[] = [];
+  let settledCount = 0;
   if (assessment?.kind === "worksheet") {
     for (const { key, bucket } of UNSETTLED_BLOCKS) {
       const block = assessment.questions.find((q) => q.key === key);
       for (const a of block?.answers ?? []) {
         const text = a.text.trim();
-        if (text) unsettled.push({ bucket, text });
+        if (!text) continue;
+        if (settledIds.has(a.id)) settledCount += 1;
+        else unsettled.push({ bucket, text });
       }
     }
   }
+
+  // Session 1's read of the world. Two questions, asked in September, never surfaced.
+  const WORLD_BLOCKS = [
+    { key: "assess-important", label: "What feels most important or distinctive" },
+    { key: "stepping-in", label: "Stepping into the future, what is different" },
+  ];
+  const worldReading =
+    assessment?.kind === "worksheet"
+      ? WORLD_BLOCKS.flatMap(({ key, label }) => {
+          const answers = (assessment.questions.find((q) => q.key === key)?.answers ?? [])
+            .map((a) => a.text.trim())
+            .filter(Boolean);
+          return answers.length ? [{ label, answers }] : [];
+        })
+      : [];
+
+  // ---- Week 4: the aspiration, the moves and their backcast ---------------------------
+  const aspiration =
+    commitments?.kind === "commitments"
+      ? commitments.questions
+          .filter((q) => q.answers.length > 0)
+          .map((q) => ({ label: q.label || q.key, answers: q.answers.map((a) => a.text) }))
+      : [];
+
+  const boldMoves: SummaryBoldMove[] =
+    commitments?.kind === "commitments"
+      ? commitments.lanes.map((lane) => ({
+          id: lane.move.id,
+          text: lane.move.text,
+          placed: lane.periods.reduce((n, p) => n + p.milestones.length, 0),
+          periods: lane.periods.map((p) => ({
+            key: p.key,
+            label: p.label,
+            milestones: p.milestones.map((m) => m.text),
+          })),
+        }))
+      : [];
 
   return {
     groupName: group.name,
@@ -332,6 +420,13 @@ export function buildGroupSummary(
       assessment: assessment?.kind === "worksheet" && assessment.questions.some((q) => q.answers.length > 0),
       implications: cards.length > 0,
       synthesis: sCards.length > 0,
+      // A Week 4 board counts as worked once ANY of its three steps has something on it:
+      // the aspiration lives in question blocks and the rest in cards, so neither alone
+      // is the test.
+      commitments:
+        commitments?.kind === "commitments" &&
+        (commitments.cards.length > 0 ||
+          commitments.questions.some((q) => q.answers.length > 0)),
     },
     keyChanges,
     orderCounts,
@@ -343,5 +438,9 @@ export function buildGroupSummary(
     standaloneHopes,
     gaps,
     unsettled,
+    settledCount,
+    worldReading,
+    aspiration,
+    boldMoves,
   };
 }
