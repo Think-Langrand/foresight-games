@@ -153,6 +153,61 @@ export const SYSTEM_COHORT =
   "pooled below. Your job is to propose the themes that run across the whole cohort, so " +
   "the facilitator can show every room what they collectively found.";
 
+// WHAT is being clustered. The prompts above were written for implications and say so
+// twice, which is wrong the moment a cohort run pools the risks, opportunities, hopes or
+// fears the groups wrote in Session 3 instead: the model would get a list of risks under a
+// sentence telling it they are implications.
+//
+// `produced` completes "SEVERAL groups each …", so it reads as the sentence the original
+// hard-coded. IMPLICATION_MATERIAL reproduces that sentence exactly, and is the default
+// everywhere, so an existing run's prompt is unchanged to the byte.
+export interface PoolMaterial {
+  plural: string;
+  singular: string;
+  produced: string;
+  // What each item's own context line is called in the digest. For implications it is the
+  // key change they hang under; for a risk it is the theme it was written on; for a
+  // flipped hope it is the fear it answers.
+  context: string;
+}
+
+export const IMPLICATION_MATERIAL: PoolMaterial = {
+  plural: "implications",
+  singular: "implication",
+  produced: "mapped out the implications of a future scenario",
+  context: "key change",
+};
+
+function cohortSystem(m: PoolMaterial): string {
+  if (m === IMPLICATION_MATERIAL) return SYSTEM_COHORT;
+  return (
+    "You are a foresight facilitator preparing a plenary session. SEVERAL groups each " +
+    `${m.produced}, and all of their ${m.plural} are ` +
+    "pooled below. Your job is to propose the themes that run across the whole cohort, so " +
+    "the facilitator can show every room what they collectively found."
+  );
+}
+
+function groupSystem(m: PoolMaterial): string {
+  if (m === IMPLICATION_MATERIAL) return SYSTEM_GROUP;
+  return (
+    `You are a foresight facilitator preparing a workshop. A group ${m.produced}; your ` +
+    `job is to propose how those ${m.plural} could be clustered into themes, so the ` +
+    "group has somewhere to start rather than a blank board."
+  );
+}
+
+// THEME_INSTRUCTIONS names the singular twice in its per-item rules. Substituted rather
+// than duplicated, so the mechanical rules the response schema depends on can never drift
+// between one material and another.
+function themeInstructionsFor(m: PoolMaterial): string {
+  if (m === IMPLICATION_MATERIAL) return THEME_INSTRUCTIONS;
+  return THEME_INSTRUCTIONS.replace("An implication MAY", `A ${m.singular} MAY`).replace(
+    "implication that fits nothing well",
+    `${m.singular} that fits nothing well`
+  );
+}
+
 // The mechanics the response schema depends on. Changing these changes what comes back.
 export const THEME_INSTRUCTIONS =
   "Name each theme as a STATEMENT ABOUT CHANGE — 'Responsibility moves to communities " +
@@ -167,11 +222,14 @@ export const THEME_INSTRUCTIONS =
   "implication that fits nothing well should be left out of every theme rather than " +
   "pushed into the nearest one; outliers are useful to see.";
 
-export function composeClusterPrompt(framing: "group" | "cohort"): string {
+export function composeClusterPrompt(
+  framing: "group" | "cohort",
+  material: PoolMaterial = IMPLICATION_MATERIAL
+): string {
   return [
-    framing === "cohort" ? SYSTEM_COHORT : SYSTEM_GROUP,
+    framing === "cohort" ? cohortSystem(material) : groupSystem(material),
     GROUPING_GUIDANCE,
-    THEME_INSTRUCTIONS,
+    themeInstructionsFor(material),
     PLAIN_WORDS,
   ].join("\n\n");
 }

@@ -1,14 +1,39 @@
-import type { SynthesisExercise } from "@/components/design-groups/AnswerPanels";
+import type {
+  ExerciseAnswers,
+  ImplicationsExercise,
+  SynthesisExercise,
+  WorksheetExercise,
+} from "@/components/design-groups/AnswerPanels";
+import { enumerateChains } from "@/lib/ripples-types";
 
-// The synthesis week's rows for the facilitator's CSV export, as raw cells.
+// Every design-group week's rows for a CSV export, as raw cells. One builder per exercise
+// kind, plus exerciseCsvRows to dispatch across the ExerciseAnswers union.
 //
-// Pure and separate from the export button because this is the one consumer of
+// Pure and separate from the export buttons because this is the one consumer of
 // ExerciseAnswers with no safety net at all: it pushes untyped string arrays, so adding a
 // card kind neither fails to compile nor fails a test — it just silently drops that kind
 // from the export the facilitator takes into the next workshop. Four kinds went missing
-// this way before it was extracted.
+// this way before synthesisCsvRows was extracted; the worksheet and implications builders
+// joined it here when the cross-group export needed them too, rather than being copied.
 //
-// Columns match the sheet's header: Week, Section, Kind, Content, Author, Created.
+// exerciseCsvRows is the structural fix for that whole class of bug: its default branch is
+// typed `never`, so a new member of the ExerciseAnswers union cannot be added without this
+// file failing to compile. It throws at runtime as well, because a cast upstream can
+// defeat the compiler but should not be able to drop a week from an export in silence.
+
+// Columns every builder below emits, in order. The sheet's header.
+export const GROUP_ANSWERS_CSV_HEADER = [
+  "Week",
+  "Section",
+  "Kind",
+  "Content",
+  "Author",
+  "Created",
+] as const;
+
+// The cross-group export's header: the same columns with the group in front, so four
+// groups' weeks can sit in one sheet and still be told apart.
+export const CROSS_GROUP_CSV_HEADER = ["Group", ...GROUP_ANSWERS_CSV_HEADER] as const;
 
 export function synthesisCsvRows(ex: SynthesisExercise): string[][] {
   const rows: string[][] = [];
@@ -100,4 +125,63 @@ export function synthesisCsvRows(ex: SynthesisExercise): string[][] {
     rows.push([ex.title, "Unplaceable", "orphan", a.text, a.author, a.createdAt]);
   }
   return rows;
+}
+
+// A worksheet week: one row per answer, under the question as the group saw it. Answers
+// under a retired section key are kept — the section left the spec, the group's work did
+// not — and arrive here already marked `removed` by the shaping layer.
+export function worksheetCsvRows(ex: WorksheetExercise): string[][] {
+  const rows: string[][] = [];
+  for (const q of ex.questions) {
+    for (const a of q.answers) {
+      rows.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt]);
+    }
+  }
+  return rows;
+}
+
+// An implications week: every root-to-leaf causal chain as one arrow-joined row, then the
+// sandbox notes and any question answers.
+//
+// A chain has no single author or time — it is several people's cards read end to end — so
+// those two cells are deliberately blank rather than filled with the root's. The per-card
+// authorship is in the JSON export; inventing one here would misattribute the chain.
+export function implicationsCsvRows(ex: ImplicationsExercise): string[][] {
+  const rows: string[][] = [];
+  const teamId = ex.cards[0]?.teamId ?? "";
+  for (const c of enumerateChains(ex.cards, [], teamId)) {
+    rows.push([ex.title, "Implication chain", "implications", c.chain.join(" → "), "", ""]);
+  }
+  for (const n of ex.brainstorm) {
+    rows.push([ex.title, "Brainstorm", "brainstorm", n.text, n.author, n.createdAt]);
+  }
+  for (const q of ex.questions) {
+    for (const a of q.answers) {
+      rows.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt]);
+    }
+  }
+  return rows;
+}
+
+// One week, whichever kind it is. See the header comment for why the exhaustive default
+// matters more than it looks.
+export function exerciseCsvRows(ex: ExerciseAnswers): string[][] {
+  switch (ex.kind) {
+    case "worksheet":
+      return worksheetCsvRows(ex);
+    case "implications":
+      return implicationsCsvRows(ex);
+    case "synthesis":
+      return synthesisCsvRows(ex);
+    // A week with no board has nothing to export. Not an error: Session 4 is in every
+    // group's program and is not built yet.
+    case "placeholder":
+      return [];
+    default: {
+      const never: never = ex;
+      throw new Error(
+        `exerciseCsvRows: unhandled exercise kind ${JSON.stringify((never as { kind?: unknown }).kind)}`
+      );
+    }
+  }
 }

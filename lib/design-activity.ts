@@ -19,12 +19,26 @@ export interface BoardPeople {
   submitted: number;
 }
 
+// One participant device on one board. Self-asserted and usually "You" -- design-group
+// boards auto-join with whatever nickname is in localStorage and never prompt -- so this is
+// a participation record, not a roster of people.
+export interface RosterEntry {
+  playerId: string;
+  displayName: string | null;
+  submittedAt: string | null;
+}
+
 export interface ProgramActivity {
   program: ProgramDTO;
   groups: DesignGroup[];
   exercisesByGroup: Record<string, DesignGroupExercise[]>;
   tallyByCode: Record<string, CardTally>;
   peopleByCode: Record<string, BoardPeople>;
+  // Per board, the players behind those counts, with when each submitted. Built from the
+  // same rows peopleByCode is counted from, so it costs nothing extra and the two can
+  // never disagree. The activity page uses only the counts; the project export needs the
+  // detail, since per-group participation is itself a finding.
+  rosterByCode: Record<string, RosterEntry[]>;
   namesByPlayerId: Record<string, string>;
   // Epoch ms at which the rows were read. The page hands it to the client component for its
   // "4m ago" labels — stamped here, once, so the SSR and hydration passes agree.
@@ -95,12 +109,18 @@ export async function getProgramActivity(projectId: string): Promise<ProgramActi
   );
 
   const peopleByCode: Record<string, BoardPeople> = {};
+  const rosterByCode: Record<string, RosterEntry[]> = {};
   const namesByPlayerId: Record<string, string> = {};
   for (const p of players) {
     const code = p.code.toUpperCase();
     const seen = (peopleByCode[code] ??= { players: 0, submitted: 0 });
     seen.players += 1;
     if (p.submitted_at) seen.submitted += 1;
+    (rosterByCode[code] ??= []).push({
+      playerId: p.id,
+      displayName: p.display_name,
+      submittedAt: p.submitted_at,
+    });
     if (p.display_name) namesByPlayerId[p.id] = p.display_name;
   }
 
@@ -111,6 +131,7 @@ export async function getProgramActivity(projectId: string): Promise<ProgramActi
     exercisesByGroup,
     tallyByCode: Object.fromEntries(tallies),
     peopleByCode,
+    rosterByCode,
     namesByPlayerId,
     readAt: Date.now(),
   };

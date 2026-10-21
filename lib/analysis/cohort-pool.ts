@@ -1,5 +1,11 @@
-// Pooling every design group's implications for one project into a single list, with the
+// Pooling every design group's material for one project into a single list, with the
 // provenance needed to read it back apart afterwards.
+//
+// WHICH material is the `source` option -- Session 2's implications (the original and the
+// default), or Session 3's risks, opportunities, hopes or fears. See cohort-pool-shape.ts
+// for why that generalizes: nothing downstream of this file consumes anything but
+// CohortItem, so pooling a different kind of card answers the same convergence question
+// about different material.
 //
 // Server-side (it queries), but it does no model work and writes nothing: the result is
 // just "here is the cohort's material, and here is which groups had none".
@@ -12,7 +18,7 @@ import { listDesignGroups } from "@/lib/design-groups";
 import { listExercises } from "@/lib/design-group-exercises";
 import { getExerciseType } from "@/lib/exercise-types";
 import { listBoardCards } from "@/lib/ripples";
-import { implicationSeedCandidates } from "@/lib/synthesis-shape";
+import { itemsFromBoard, poolSourceRender, type PoolSource } from "./cohort-pool-shape";
 import {
   cohortWeeks,
   groupStateFor,
@@ -22,6 +28,7 @@ import {
 } from "./cohort-cluster-shape";
 
 export interface CohortPool {
+  source: PoolSource;
   weeks: WeekChoice[];
   week: { sort: number; title: string } | null;
   groups: CohortGroupInfo[];
@@ -31,6 +38,9 @@ export interface CohortPool {
 }
 
 export interface PoolOptions {
+  // Which material to pool. Defaults to implications, which is what this did before the
+  // source existed, so an omitted source cannot change an existing run.
+  source?: PoolSource;
   // Which week to pool. Defaults to the one covering the most groups.
   weekSort?: number;
   // groupId -> exerciseId, for a group holding more than one implications week.
@@ -39,25 +49,35 @@ export interface PoolOptions {
   groupIds?: string[];
 }
 
+// The original entry point, kept so every existing caller is untouched.
 export async function poolCohortImplications(
+  projectId: string,
+  opts: Omit<PoolOptions, "source"> = {}
+): Promise<CohortPool> {
+  return poolCohortItems(projectId, { ...opts, source: "implications" });
+}
+
+export async function poolCohortItems(
   projectId: string,
   opts: PoolOptions = {}
 ): Promise<CohortPool> {
+  const source: PoolSource = opts.source ?? "implications";
+  const render = poolSourceRender(source);
   const all = await listDesignGroups(projectId);
   const wanted = opts.groupIds?.length ? new Set(opts.groupIds) : null;
   const groups = wanted ? all.filter((g) => wanted.has(g.id)) : all;
 
-  // Every group's implications weeks. One query per group, in parallel.
+  // Every group's weeks that could carry this source. One query per group, in parallel.
   const perGroup = await Promise.all(
     groups.map(async (g) => ({
       group: g,
       exercises: (await listExercises(g.id))
-        .filter((e) => getExerciseType(e.type)?.render === "implications")
+        .filter((e) => getExerciseType(e.type)?.render === render)
         .map((e) => ({ id: e.id, sort: e.sort, title: e.title, sessionCode: e.sessionCode })),
     }))
   );
 
-  // Only weeks a group can actually contribute from. An implications exercise with no
+  // Only weeks a group can actually contribute from. An exercise with no
   // session code has no board behind it, so counting it would make the week selector say
   // "in 4 groups" while the group list directly below it marks one of them "(no board)" —
   // two numbers for the same thing, disagreeing on screen.
@@ -89,7 +109,7 @@ export async function poolCohortImplications(
     picked.map(async (p) => {
       if (!p.exercise?.sessionCode) return { ...p, candidates: [] };
       const cards = await listBoardCards(p.exercise.sessionCode);
-      return { ...p, candidates: implicationSeedCandidates(cards) };
+      return { ...p, candidates: itemsFromBoard(cards, source, p.group.id) };
     })
   );
 
@@ -97,7 +117,7 @@ export async function poolCohortImplications(
   const groupOf = new Map<string, string>();
   const info: CohortGroupInfo[] = read.map((p) => {
     for (const c of p.candidates) {
-      items.push({ id: c.id, text: c.text, keyChange: c.keyChange, groupId: p.group.id });
+      items.push(c);
       groupOf.set(c.id, p.group.id);
     }
     return {
@@ -114,6 +134,7 @@ export async function poolCohortImplications(
   });
 
   return {
+    source,
     weeks,
     week: chosen ? { sort: chosen.sort, title: chosen.title } : null,
     groups: info,

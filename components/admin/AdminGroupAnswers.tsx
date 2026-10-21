@@ -13,11 +13,10 @@ import {
   type MapView,
   type QuestionBlock,
 } from "@/components/design-groups/AnswerPanels";
-import { enumerateChains } from "@/lib/ripples-types";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
 import { implicationSeedCandidates } from "@/lib/synthesis-shape";
 import { ImplicationClusterPanel } from "@/components/admin/ImplicationClusterPanel";
-import { synthesisCsvRows } from "@/lib/group-answers-csv";
+import { GROUP_ANSWERS_CSV_HEADER, exerciseCsvRows } from "@/lib/group-answers-csv";
 
 // Admin view of a design group's answers, one tab per exercise (week). Each tab renders in
 // its exercise's natural shape (the shared read-only panels in AnswerPanels) — worksheet
@@ -216,25 +215,11 @@ export function AdminGroupAnswers({
   const base = `answers-${slugify(data.groupName)}-${stamp}`;
   const exportJson = () => download(JSON.stringify(data, null, 2), `${base}.json`, "application/json");
   const exportCsv = () => {
-    const lines = [["Week", "Section", "Kind", "Content", "Author", "Created"].map(csvCell).join(",")];
+    // Every row builder lives in lib/group-answers-csv.ts, unit-tested, and is shared with
+    // the project-wide cross-group export. Nothing is shaped here.
+    const lines = [GROUP_ANSWERS_CSV_HEADER.map(csvCell).join(",")];
     for (const ex of exercises) {
-      if (ex.kind === "worksheet") {
-        for (const q of ex.questions)
-          for (const a of q.answers)
-            lines.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt].map(csvCell).join(","));
-      } else if (ex.kind === "implications") {
-        const teamId = ex.cards[0]?.teamId ?? "";
-        for (const c of enumerateChains(ex.cards, [], teamId))
-          lines.push([ex.title, "Implication chain", "implications", c.chain.join(" → "), "", ""].map(csvCell).join(","));
-        for (const n of ex.brainstorm)
-          lines.push([ex.title, "Brainstorm", "brainstorm", n.text, n.author, n.createdAt].map(csvCell).join(","));
-        for (const q of ex.questions)
-          for (const a of q.answers)
-            lines.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt].map(csvCell).join(","));
-      } else if (ex.kind === "synthesis") {
-        // Extracted and unit-tested — see lib/group-answers-csv.ts for why.
-        for (const row of synthesisCsvRows(ex)) lines.push(row.map(csvCell).join(","));
-      }
+      for (const row of exerciseCsvRows(ex)) lines.push(row.map(csvCell).join(","));
     }
     download("﻿" + lines.join("\r\n"), `${base}.csv`, "text/csv;charset=utf-8;");
   };
@@ -289,6 +274,13 @@ export function AdminGroupAnswers({
                 className="text-blue underline hover:text-ink"
               >
                 All groups this week →
+              </Link>
+              {/* The member-facing handoff for this group — every week on one page. */}
+              <Link
+                href={`/project/${slug}/design-groups/${groupId}/summary`}
+                className="text-blue underline hover:text-ink"
+              >
+                Handoff →
               </Link>
             </div>
           )}

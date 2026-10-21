@@ -7,6 +7,8 @@ import {
   NAME_SHAPE,
   PLAIN_WORDS,
   composeClusterPrompt,
+  IMPLICATION_MATERIAL,
+  type PoolMaterial,
 } from "./theme-guidance";
 import { mapPool } from "./suggest";
 import {
@@ -131,7 +133,12 @@ export interface LlmClusterOpts {
   tagOf?: (item: ImplicationItem) => string | null;
   // Shared context before the list, e.g. the project and the scenarios in play.
   preamble?: string | null;
+  // WHAT is being clustered. Defaults to implications, which reproduces the original
+  // prompt to the byte; a cohort run over Session 3 risks or fears passes its own.
+  material?: PoolMaterial;
 }
+
+const capitalize = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 export async function clusterByLlm(
   items: ImplicationItem[],
@@ -139,6 +146,7 @@ export async function clusterByLlm(
   opts: LlmClusterOpts = {}
 ): Promise<ImplicationClusterResponse | null> {
   if (!process.env.OPENAI_API_KEY || items.length === 0) return null;
+  const material = opts.material ?? IMPLICATION_MATERIAL;
   const { toShort, toReal } = shortKeys(items);
 
   // The key change each implication came from is included deliberately: it is real context
@@ -148,8 +156,8 @@ export async function clusterByLlm(
     .map((it) => {
       const tag = opts.tagOf?.(it);
       return (
-        `${toShort.get(it.id)}: ${it.text} [from key change: ${it.keyChange}` +
-        `${tag ? `; ${tag}` : ""}]`
+        `${toShort.get(it.id)}: ${it.text}` +
+        (it.keyChange ? ` [from ${material.context}: ${it.keyChange}` + `${tag ? `; ${tag}` : ""}]` : tag ? ` [${tag}]` : "")
       );
     })
     .join("\n");
@@ -163,7 +171,7 @@ export async function clusterByLlm(
           role: "system",
           content:
             opts.promptOverride?.trim() ||
-            composeClusterPrompt(opts.framing === "cohort" ? "cohort" : "group"),
+            composeClusterPrompt(opts.framing === "cohort" ? "cohort" : "group", material),
         },
         {
           role: "user",
@@ -171,7 +179,7 @@ export async function clusterByLlm(
             (opts.preamble?.trim() ? `${opts.preamble.trim()}\n\n` : "") +
             (criteria?.trim()
               ? `The facilitator asks you to group them this way:\n${criteria.trim()}\n\n`
-              : "") + `Implications:\n${digest}`,
+              : "") + `${capitalize(material.plural)}:\n${digest}`,
         },
       ],
       response_format: {

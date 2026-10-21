@@ -12,15 +12,9 @@ import {
   stepZoom,
   type Zoom,
 } from "@/components/workshop/MapControls";
-import {
-  buildChildrenMap,
-  depthByCard,
-  isFacilitatorCard,
-  isTreeRoot,
-  type RippleCard,
-} from "@/lib/ripples-types";
-import { sortRootsByRank } from "@/lib/ripples-scoring";
-import { branchOf, keyChangeLabel } from "@/lib/synthesis-shape";
+import { isFacilitatorCard, isTreeRoot, type RippleCard } from "@/lib/ripples-types";
+import { buildMapModel, defaultBranch } from "@/lib/implication-map-shape";
+import { branchOf } from "@/lib/synthesis-shape";
 import type { ThemeAnswerKind } from "@/lib/synthesis-shape";
 import type { SynthesisSummary } from "@/lib/synthesis-summary-shape";
 
@@ -230,45 +224,16 @@ export function ImplicationsPanel({
   // earlier-week tabs (SessionTabs) — participants should not see who added what here.
   isAdmin?: boolean;
 } & PanelOpts) {
-  // The tree alone (no brainstorm stickies), its depths, its key changes in rank order,
-  // and what hangs under each — the counts the chips show.
-  const model = useMemo(() => {
-    const tree = ex.cards.filter((c) => c.order !== "STICKY");
-    const depths = depthByCard(tree);
-    const children = buildChildrenMap(tree);
-    const everyRoot = sortRootsByRank((children.get(null) ?? []).filter((c) => depths.has(c.id)));
-    const countUnder = (id: string): number => {
-      let n = 0;
-      const walk = (x: string) => {
-        for (const k of children.get(x) ?? []) {
-          if (!depths.has(k.id)) continue;
-          n += 1;
-          walk(k.id);
-        }
-      };
-      walk(id);
-      return n;
-    };
-    // Only key changes the group actually mapped under — a chip reading "0" is noise, and a
-    // branch with nothing in it is a hub and no wheel. The whole map still draws them all.
-    const roots = everyRoot.filter((r) => countUnder(r.id) > 0);
-    const keyChanges = roots.map((r) => ({ key: r.id, label: keyChangeLabel(r.text), title: r.text, count: countUnder(r.id) }));
-    const orderCounts = new Map<number, number>();
-    for (const c of tree) {
-      const d = depths.get(c.id);
-      if (d !== undefined && d > 0) orderCounts.set(d, (orderCounts.get(d) ?? 0) + 1);
-    }
-    const orders = [...orderCounts.keys()].sort((a, b) => a - b).map((o) => ({ order: o, count: orderCounts.get(o)! }));
-    const total = orders.reduce((n, o) => n + o.count, 0);
-    return { tree, depths, roots, keyChanges, orders, total };
-  }, [ex.cards]);
+  // lib/implication-map-shape owns this so the handoff's split layout opens on the same
+  // branch with the same pickable roots. See that module's header.
+  const model = useMemo(() => buildMapModel(ex.cards), [ex.cards]);
   const hasTree = model.tree.length > 0;
 
   // Which branch (null = every key change), which order, and how close. Nothing picked yet
   // (`undefined`) opens on the FIRST key change, the top-ranked one, like the live board;
   // null is "Any key change" chosen on purpose.
   const [branchPick, setBranch] = useState<string | null | undefined>(undefined);
-  const branch = branchPick === undefined ? (model.roots[0]?.id ?? null) : branchPick;
+  const branch = branchPick === undefined ? defaultBranch(model) : branchPick;
   const [orderFilter, setOrderFilter] = useState<number | null>(null);
   const [zoom, setZoom] = useState<Zoom>("fit");
   const fitScaleRef = useRef(1);
