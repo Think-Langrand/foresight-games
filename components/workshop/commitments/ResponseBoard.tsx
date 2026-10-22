@@ -36,10 +36,10 @@ const responseDirections = makePrefStore(
 );
 
 const RESPONSE_DIRECTIONS = [
-  "One move per card. Say what someone would do, not what should be true.",
-  "Volume first. The next step asks for three bold moves and this wall is what you build them from, so give yourselves material.",
-  `Aim for more than ${RESPONSES_FOR_DONE}. A wall of three leaves you nothing to combine.`,
-  "A response can be uncomfortable. Nothing here commits you to it.",
+  "One move per card. Name who acts and what they do.",
+  "Go for quantity. Step 4 asks for three bold moves, and you build them out of this wall.",
+  `Aim for well more than ${RESPONSES_FOR_DONE}. You want enough here to combine two into something stronger.`,
+  "Write the uncomfortable ones too. Nothing on this wall is a commitment.",
 ];
 
 export function ResponseBoard({
@@ -93,8 +93,8 @@ export function ResponseBoard({
             editable={editable}
             busy={busy}
             tall
-            slotQuestion="What could we do that moves us towards this?"
-            addLabel="One move, said as something someone does…"
+            slotQuestion="What could we do about any of this?"
+            addLabel="One move. Who does what…"
             emptyHint="What would it take to get there?"
             onAdd={onAdd}
             onEdit={onEdit}
@@ -104,7 +104,7 @@ export function ResponseBoard({
             // boards worked under the old shape it would light cards at random.
           />
           <Directions
-            title="Opening the option space"
+            title="Filling the wall"
             lines={RESPONSE_DIRECTIONS}
             fold={responseDirections}
           />

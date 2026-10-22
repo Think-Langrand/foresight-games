@@ -161,7 +161,7 @@ function Placements({
         </span>
       </div>
       <p className="m-0 mt-1 text-[12px] italic leading-[1.4] text-muted">
-        Session 3&rsquo;s risks and opportunities the group placed, strongest first. The score
+        The Session 3 risks and opportunities your group placed, strongest first. The score
         is plausibility multiplied by impact, each on a 1 to {SCORE_MAX} scale.
       </p>
 
@@ -195,7 +195,7 @@ function Placements({
                   )}
                   {p.rank === null ? (
                     <span className="italic normal-case tracking-normal">
-                      Placed, not scored yet
+                      No score yet
                     </span>
                   ) : (
                     <span className="tabular-nums">
@@ -367,7 +367,7 @@ export function CommitmentsPanel({
           and suppressing that is how work goes missing silently. */}
       <Notice
         title="Could not be placed"
-        blurb="Cards the board could not file: a response hung off something, a mark pointing at nothing, or work from a step this week no longer runs. Shown so none of it is silently lost."
+        blurb="Cards the board could not file, usually a response attached to something that was later deleted, or work from a step this week no longer runs. Listed here so none of it goes missing."
         rows={ex.orphans}
         tone="coral"
         {...opts}

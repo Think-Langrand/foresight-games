@@ -32,7 +32,7 @@ export function ResponseRecap({
             onClick={onGoToResponses}
             className="text-blue underline hover:no-underline"
           >
-            Open the option space first
+            Fill the wall first
           </button>
         </p>
       </div>
@@ -64,8 +64,8 @@ export function ResponseRecap({
       </div>
 
       <p className="m-0 px-4 pt-3 text-[12.5px] italic leading-[1.45] text-muted">
-        These are yours from step 3. You are not picking from them. Look for two that are
-        stronger together, or one that makes another possible.
+        Your responses from step 3, here as raw material. Build your three moves out of them:
+        look for two that are stronger together, or one that makes another possible.
       </p>
 
       <ul className="m-0 list-none px-4 py-3">

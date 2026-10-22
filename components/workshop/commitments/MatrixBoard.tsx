@@ -23,7 +23,7 @@ import { StepProgress } from "@/components/workshop/commitments/StepProgress";
 // earlier version had one, and it read as a gate in front of the only thing the step
 // actually asks for. The pick a score needs is minted lazily on the first click.
 //
-// WHY A PICK AND NOT THE RISK ITSELF. Session 3's risks cannot be scored where they live:
+// WHY A PICK CARRIES THE SCORE. Session 3's risks cannot be scored where they live:
 // the score route refuses anything that is not a tree ROOT, resolves the card by the URL's
 // session code, and needs a player identity on that same board. A Week 3 per-theme risk
 // fails all three, and a locked Week 3 board refuses every write anyway. A `pick` is a Week
@@ -31,8 +31,9 @@ import { StepProgress } from "@/components/workshop/commitments/StepProgress";
 // board, the existing score route, `matrixCells` and `ImpactMatrix` all take it unchanged.
 // So the first score on a card mints its pick, and both score rows then write to the pick.
 //
-// A FLOOR, NOT A CAP. See PLACED_FLOOR_PER_KIND. The group chooses which to score, which is
-// the judgement the step is for; it is not asked to score all 44 of them.
+// THE FLOOR IS A MINIMUM. See PLACED_FLOOR_PER_KIND. The group scores as many as it wants
+// above that floor, and choosing which ones is the judgement the step is for. Scoring all 44
+// was never the ask.
 
 const matrixDirections = makePrefStore(
   "commitments.directions.matrix",
@@ -41,11 +42,11 @@ const matrixDirections = makePrefStore(
 );
 
 const MATRIX_DIRECTIONS = [
-  `Score at least ${PLACED_FLOOR_PER_KIND} risks and ${PLACED_FLOOR_PER_KIND} opportunities. Score more if they matter; there is no ceiling.`,
-  "A card reaches the matrix when both of its scales are set. Leave the ones you have nothing to say about alone.",
-  "Plausibility is not the same as nearness. Ask whether this is already happening, or whether it needs several other things to happen first.",
-  "Impact is how much changes if it lands, not how much you dislike it.",
-  "Score as a group, with one person recording. Two people scoring the same card race each other.",
+  `Score at least ${PLACED_FLOOR_PER_KIND} risks and ${PLACED_FLOOR_PER_KIND} opportunities. Keep going past that for any others that matter.`,
+  "A card reaches the matrix once both scales are set. Skip any card your group has no view on.",
+  "Plausibility means likelihood. Something far off can still be near certain. Ask whether this is already happening, or whether several other things have to happen first.",
+  "Impact is how much would change if it landed. A risk you hate can still be low impact.",
+  "Score as a group with one person recording. Two people scoring the same card will overwrite each other.",
 ];
 
 type Kind = "risk" | "opportunity";
@@ -197,7 +198,7 @@ function Panel({
                       ))}
                       {touched && !done && (
                         <p className="m-0 text-[11px] italic text-muted">
-                          Both scores put it on the matrix.
+                          Set both scales to put this on the matrix.
                         </p>
                       )}
                     </div>
@@ -343,7 +344,7 @@ export function MatrixBoard({
       </div>
 
       <Directions
-        title="Ranking what is at stake"
+        title="Scoring the stakes"
         lines={MATRIX_DIRECTIONS}
         fold={matrixDirections}
       />

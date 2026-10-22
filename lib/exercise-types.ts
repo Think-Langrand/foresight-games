@@ -181,30 +181,30 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     kind: "question",
     step: STEP_CHANGES,
     label: "How has the field of public health changed the most in this world?",
-    help: "A big-picture question. Not a list of differences, and not one programme: the shape of the field, said so that someone who missed every session would understand it.",
+    help: "Describe how the whole field works in this world. Write it so someone who missed every session could follow you.",
   },
   {
     key: "w4-assumptions",
     kind: "question",
     step: STEP_CHANGES,
     label:
-      "What are the biggest assumptions about public health in today's world that aren't true in this scenario?",
-    help: "Not what breaks. What nobody argues about today, because everyone takes it for granted, and this world quietly stops being true.",
+      "Which of today's assumptions about public health stop being true in this scenario?",
+    help: "Look for what nobody argues about today, because everyone takes it for granted. In this world it no longer holds.",
   },
   {
     key: "w4-role",
     kind: "question",
     step: STEP_MOVES,
     label: "What is the aspirational role for public health in this world?",
-    help: "What the field is reaching for here, not what you expect it to settle for. Say it as something already true in this world. The moves below are how you get to it.",
+    help: "Write what the field is reaching for, not what you expect it to settle for. Put it in the present tense, as though this world has already arrived. The moves below are how you get there.",
   },
   {
     key: "w4-bold-moves",
     kind: "question",
     step: STEP_MOVES,
     label:
-      "What are the boldest moves that can be made in public health in this scenario to help you meet your aspirations?",
-    help: "Three of them, one per answer. Something someone does, with your group in the room when it happens.",
+      "What are the boldest moves public health could make in this world to reach that role?",
+    help: "Write three, one per answer. Name who acts and what they do, concretely enough that you could picture it happening.",
   },
 ];
 
@@ -242,12 +242,13 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
     boardBacked: true,
     sections: SYNTHESIS_SECTIONS,
   },
-  // Week 4: say the aspiration, open a wall of strategic responses, down-select three as
-  // bold moves, then backcast each across ten years in two-year steps. Step 1 is sections,
-  // steps 2 to 4 are code, all on one board.
+  // Week 4: read the world back, rank Session 3's risks and opportunities on the impact x
+  // plausibility matrix, open a wall of strategic responses, then write a role and three
+  // bold moves built from that wall, and review the whole week. Steps 1 and 4 are sections,
+  // steps 2, 3 and 5 are code, all on one board.
   commitments: {
     id: "commitments",
-    label: "Commitments (Aspiration, Responses, Bold Moves, Backcasting)",
+    label: "Commitments (Key changes, Matrix, Responses, Role & bold moves)",
     render: "commitments",
     boardBacked: true,
     sections: COMMITMENTS_SECTIONS,

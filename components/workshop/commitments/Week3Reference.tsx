@@ -17,7 +17,7 @@ import { splitKeyChange } from "@/lib/group-summary";
 // Session 3, read back on Session 4. The group spent a whole session naming what this
 // world puts at stake; this is that work in a quieter shape, beside the step that uses it.
 //
-// REFERENCE, NOT MATERIAL. Nothing here is editable and nothing is seeded onto this week's
+// READ-ONLY REFERENCE. Nothing here is editable and nothing is seeded onto this week's
 // board: these are Session 3's own cards, read server-side from the board the group
 // already worked, so there is only ever one copy of them. Editing a hope happens in
 // Session 3, where it was written.
@@ -28,8 +28,8 @@ import { splitKeyChange } from "@/lib/group-summary";
 // THE SCENARIO SITS ON TOP, and everything below it is shut. The week asks the group to
 // judge things about this world, and the world was two sessions ago: the scenario image and
 // its overview are the context every step needs, where Session 3's own cards are what you
-// reach for once you have a reason to. Shut by default is not "less important", it is the
-// rail admitting that a wall of four sessions' work open at once is not readable. Each fold
+// reach for once you have a reason to. Everything below the scenario is shut by default
+// because a wall of four sessions' work, all open at once, is not readable. Each fold
 // carries its count, so a shut one still says how much is behind it.
 
 // A hope or fear with its flip underneath, which is the pair Session 3's step 4 produced
@@ -204,9 +204,10 @@ export function Week3Reference({
       {scenario && <ScenarioContext scenario={scenario} />}
 
       <div className={scenario ? "border-t border-[var(--rule)] pt-3" : undefined}>
-        <h3 className="m-0 text-[13px] font-bold">Exercise context</h3>
+        <h3 className="m-0 text-[13px] font-bold">The world, and your earlier work</h3>
         <p className="m-0 mt-0.5 text-[12px] italic leading-[1.45] text-muted">
-          Your own words from the earlier sessions. Open what you need; nothing here changes.
+          Your own words from the earlier sessions. Open what you need. To change any of it,
+          go back to the session where it was written.
         </p>
       </div>
 

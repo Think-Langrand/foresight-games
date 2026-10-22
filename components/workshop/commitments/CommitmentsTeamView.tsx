@@ -60,6 +60,17 @@ import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 
 const NO_CARDS: RippleCard[] = [];
 
+// Steps 1 and 4 both render sections, so both can be empty, and both said this in their own
+// copy of the markup. One component, used twice.
+function NoPrompts() {
+  return (
+    <p className="text-[13px] italic text-muted">
+      No prompts are set up for this step yet. A facilitator can add them in the program
+      editor.
+    </p>
+  );
+}
+
 // Local to this file, the way Week 3 keeps its own. There is no step registry and these
 // are not worth inventing one for.
 type CommitStep = "changes" | "matrix" | "responses" | "moves" | "review";
@@ -184,7 +195,6 @@ export function CommitmentsTeamView({
 
   // One index for all four steps; every Session 4 selector reads it.
   const board = useMemo(() => indexCommitmentsBoard(cards), [cards]);
-
 
   if (loading)
     return (
@@ -586,10 +596,7 @@ export function CommitmentsTeamView({
     sectionsFor("changes").length > 0 ? (
       worksheetFor(sectionsFor("changes"))
     ) : (
-      <p className="text-[13px] italic text-muted">
-        No blocks are set up for this step yet. A facilitator adds them in the program
-        editor.
-      </p>
+      <NoPrompts />
     );
 
   const stepBody = (
@@ -673,14 +680,7 @@ export function CommitmentsTeamView({
           material, not a menu to choose from, which is what the microcopy has to carry. */}
       {step === "moves" && (
         <div className="flex flex-col gap-6">
-          {sectionsFor("moves").length > 0 ? (
-            worksheetFor(sectionsFor("moves"))
-          ) : (
-            <p className="text-[13px] italic text-muted">
-              No blocks are set up for this step yet. A facilitator adds them in the program
-              editor.
-            </p>
-          )}
+          {sectionsFor("moves").length > 0 ? worksheetFor(sectionsFor("moves")) : <NoPrompts />}
           <ResponseRecap
             responses={board.responses}
             onGoToResponses={() => setStep("responses")}
