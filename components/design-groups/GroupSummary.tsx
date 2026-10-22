@@ -15,6 +15,7 @@
 import { themesByStakes, type GroupSummary, type SummaryKeyChange } from "@/lib/group-summary";
 import type { ImplicationsExercise, StakeRow } from "@/components/design-groups/AnswerPanels";
 import { AXIS_ENDS, AXIS_LABELS, SCORE_AXES } from "@/lib/ripples-scoring";
+import { COMMITMENTS_KEY_ROLE } from "@/lib/exercise-types";
 import ImplicationsMap from "@/components/design-groups/ImplicationsMap";
 import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffDeck";
 import ClusterMatrix from "@/components/design-groups/ClusterMatrix";
@@ -25,6 +26,11 @@ import StakesBalance from "@/components/design-groups/StakesBalance";
 // board still collects what feeds it (step 5's "What is still open"), so the data keeps
 // accruing while the slide is hidden and the slide is correct whenever it returns.
 const SHOW_UNSETTLED = false;
+
+// The backcast timeline, parked with Session 4's step that fills it. Same pattern as
+// SHOW_UNSETTLED: the shaping in lib/group-summary.ts keeps running, so a board worked
+// under the old shape still carries its lanes and the slide is correct whenever it returns.
+const SHOW_BACKCASTING = false;
 
 function Chip({ tone, children }: { tone: "live" | "next"; children: React.ReactNode }) {
   const cls =
@@ -71,6 +77,89 @@ function Slide({
         {children}
       </div>
     </>
+  );
+}
+
+// A run of authored question blocks, as Session 4's slides want them. The prompts are
+// WorksheetSections, so the heading is always the group's own wording and never ours.
+//
+// The FIRST block is set as the quote the slide hangs off and the rest read as answers,
+// which is the shape every Session 4 step happens to have: one claim, then what it rests
+// on. `numbered` is for the moves, where the count is part of the point.
+function Blocks({
+  blocks,
+  numbered = false,
+}: {
+  blocks: { label: string; answers: string[] }[];
+  numbered?: boolean;
+}) {
+  // The numbering runs ACROSS blocks, so "three bold moves" stays 01 02 03 even when a
+  // facilitator has split them over two prompts. Precomputed rather than counted during the
+  // render: a counter mutated inside map is a re-render hazard, and lint rightly refuses it.
+  const startAt: number[] = [];
+  blocks.reduce((acc, b) => {
+    startAt.push(acc);
+    return acc + b.answers.length;
+  }, 0);
+
+  return (
+    <div className="flex flex-col gap-6">
+      {blocks.map((block, i) => (
+        <div
+          key={block.label}
+          className={
+            i === 0 && !numbered
+              ? "border border-blue border-l-[3px] bg-card px-7 py-6"
+              : "border-t border-ink pt-4"
+          }
+        >
+          <p className="m-0 mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-blue">
+            {block.label}
+          </p>
+          {numbered ? (
+            <ol className="m-0 flex list-none flex-col p-0">
+              {block.answers.map((a, j) => (
+                <li
+                  key={a}
+                  className="grid grid-cols-[auto_1fr] items-start gap-x-4 border-b border-[var(--hairline)] py-[13px] last:border-b-0"
+                >
+                  <span className="pt-[5px] font-mono text-[11px] tabular-nums text-muted">
+                    {String(startAt[i] + j + 1).padStart(2, "0")}
+                  </span>
+                  <span className="max-w-[66ch] text-[clamp(15px,1.3vw,18px)] leading-[1.45]">
+                    {a}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : i === 0 ? (
+            <div className="flex flex-col gap-3">
+              {block.answers.map((a) => (
+                <blockquote
+                  key={a}
+                  className="m-0 max-w-[46ch] text-[clamp(17px,2vw,24px)] font-light leading-[1.35]"
+                >
+                  {a}
+                </blockquote>
+              ))}
+            </div>
+          ) : block.answers.length === 1 ? (
+            <p className="m-0 max-w-[76ch] text-[15px] leading-[1.5]">{block.answers[0]}</p>
+          ) : (
+            <ul className="m-0 flex list-none flex-col p-0">
+              {block.answers.map((a) => (
+                <li
+                  key={a}
+                  className="max-w-[76ch] border-b border-[var(--hairline)] py-[9px] text-[15px] leading-[1.5] last:border-b-0"
+                >
+                  {a}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -438,14 +527,93 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 08 · hopes, fears, flips --------------------------------------------------------
+  // ---- 07b · the matrix, if Session 4 placed anything -----------------------------------
+  // Its own slide rather than a second block under 07, because the two answer different
+  // questions and one slide asking both reads as a single muddled chart. 07 is Week 3's:
+  // which THEMES carry the most at stake. This is Week 4's: of everything on those walls,
+  // which individual stakes did the group rank highest, and how far apart are they.
+  //
+  // A RANKED LIST, not the grid the board draws. The grid is for placing — it answers
+  // "where does this sit relative to the others" while you are still deciding. A reader of
+  // the handoff wants the order, and a 5x5 grid of 10 chips on a slide is mostly empty.
+  // The scores are printed beside each line so the ranking is checkable rather than asserted.
+  if (s.placements.length > 0) {
+    const scored = s.placements.filter((p) => p.rank !== null);
+    const risks = s.placements.filter((p) => p.kind === "risk").length;
+    slides.push({
+      id: "matrix",
+      label: "What matters most",
+      node: (
+        <Slide
+          n="08"
+          title="Which stakes you ranked highest"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              {s.placements.length} of your risks and opportunities placed on impact against
+              plausibility, strongest first. {risks}{" "}
+              {risks === 1 ? "is a risk" : "are risks"}, {s.placements.length - risks}{" "}
+              {s.placements.length - risks === 1 ? "an opportunity" : "opportunities"}. This is
+              the one place in four sessions where your group ranked its own stakes against
+              each other.
+            </>
+          }
+        >
+          <ol className="m-0 list-none border-t-[1.5px] border-ink p-0">
+            {s.placements.map((p, i) => (
+              <li
+                key={p.id}
+                className="grid grid-cols-[auto_1fr_auto] items-start gap-x-4 gap-y-1 border-b border-[var(--hairline)] py-[13px] last:border-b-0"
+              >
+                <span className="pt-[3px] font-mono text-[11px] tabular-nums text-muted">
+                  {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-baseline gap-2">
+                    <span
+                      aria-hidden
+                      className={
+                        "mt-[6px] inline-block h-2.5 w-2.5 shrink-0 rounded-full " +
+                        (p.kind === "risk" ? "bg-coral" : "bg-lime")
+                      }
+                    />
+                    <span className="max-w-[72ch] text-[15px] leading-[1.5]">{p.text}</span>
+                  </span>
+                </span>
+                <span className="whitespace-nowrap pt-[3px] font-mono text-[10px] uppercase tracking-[0.1em] tabular-nums text-muted">
+                  {p.rank === null ? "not scored" : `P ${p.plausibility} · I ${p.impact}`}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="m-0 mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-coral" />
+              Risk
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-lime" />
+              Opportunity
+            </span>
+            <span className="normal-case tracking-normal">
+              Ranked by plausibility multiplied by impact, each 1 to 5.
+              {scored.length < s.placements.length &&
+                ` ${s.placements.length - scored.length} placed but not scored, listed last.`}
+            </span>
+          </p>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- 09 · hopes, fears, flips --------------------------------------------------------
   if (s.flips.length + s.standaloneHopes.length > 0) {
     slides.push({
       id: "hopes-fears",
       label: "Hopes & fears",
       node: (
         <Slide
-          n="08"
+          n="09"
           title="Hopes, fears, and the flips"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -523,127 +691,112 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 09 · Session 4: the aspiration --------------------------------------------------
-  // The prompts are AUTHORED SECTIONS, so their headings come from the data. The deck
-  // renders what the group was actually asked rather than three hard-coded fields, which is
-  // what lets a facilitator reword step 1 without this slide going stale.
-  if (s.has.commitments && s.aspiration.length > 0) {
+  // ---- 10 · Session 4: what changes here, and what it breaks ---------------------------
+  // The prompts are AUTHORED SECTIONS, so every heading on this slide and the next comes
+  // from the data. The deck renders what the group was actually asked rather than fixed
+  // fields, which is what lets a facilitator reword a step without a slide going stale.
+  //
+  // This slide is Session 4 reading the scenario back in the group's own words. It is NOT
+  // slide 03: that one is Week 2's six key changes, which were written against today. This
+  // is what the group says is different once the world has already arrived, and which of
+  // today's assumptions stop holding — the second prompt is the one the committee needs,
+  // because an assumption nobody has noticed is still load-bearing is how a plan fails.
+  if (s.has.commitments && s.changes.length > 0) {
     slides.push({
-      id: "aspiration",
-      label: "Aspiration",
+      id: "changes",
+      label: "What changes",
       node: (
         <Slide
-          n="09"
-          title="What your group is aspiring to"
+          n="10"
+          title="What is different, and what stops holding"
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
             <>
-              The one section with no source earlier in the program. Your {hopeCount} hopes and{" "}
-              {s.flips.length} fears said what you wanted and what you feared; this says what
-              you are aiming at, in your own words.
+              Your group&rsquo;s reading of this world after three sessions inside it, and the
+              assumptions about how public health works today that it quietly ends.
             </>
           }
         >
-          <div className="flex flex-col gap-6">
-            {s.aspiration.map((block, i) => (
-              <div
-                key={block.label}
-                className={
-                  i === 0
-                    ? "border border-blue border-l-[3px] bg-card px-7 py-6"
-                    : "border-t border-ink pt-4"
-                }
-              >
-                <p className="m-0 mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-blue">
-                  {block.label}
-                </p>
-                {/* The first prompt is the aspiration itself, so it is set as the quote the
-                    rest of the slide hangs off. The others read as answers. */}
-                {i === 0 ? (
-                  <div className="flex flex-col gap-3">
-                    {block.answers.map((a) => (
-                      <blockquote
-                        key={a}
-                        className="m-0 max-w-[46ch] text-[clamp(17px,2vw,24px)] font-light leading-[1.35]"
-                      >
-                        {a}
-                      </blockquote>
-                    ))}
-                  </div>
-                ) : block.answers.length === 1 ? (
-                  <p className="m-0 max-w-[76ch] text-[15px] leading-[1.5]">{block.answers[0]}</p>
-                ) : (
-                  <ul className="m-0 flex list-none flex-col p-0">
-                    {block.answers.map((a) => (
-                      <li
-                        key={a}
-                        className="max-w-[76ch] border-b border-[var(--hairline)] py-[9px] text-[15px] leading-[1.5] last:border-b-0"
-                      >
-                        {a}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        </Slide>
-      ),
-    });
-  } else {
-    slides.push({
-      id: "aspiration",
-      label: "Aspiration",
-      node: (
-        <Slide
-          n="09"
-          title="Your aspiration, and what it rests on"
-          chip={<Chip tone="next">Session 4 builds this</Chip>}
-          intro={
-            <>
-              The one section with no source in the program so far. Your group has {hopeCount} hopes
-              and {s.flips.length} fears, and not one of them says what it would take. Session 4
-              takes the pairs from the hopes and fears slide and asks what you are actually aspiring to inside
-              this world.
-            </>
-          }
-        >
-          <div className="border border-blue border-l-[3px] bg-card px-7 py-6">
-            <p className="m-0 mb-3 font-mono text-[10px] uppercase tracking-[0.16em] text-blue">
-              Session 4 · the group&rsquo;s aspiration
-            </p>
-            <blockquote className="m-0 mb-5 max-w-[36ch] text-[clamp(18px,2.4vw,26px)] font-light italic leading-[1.35]">
-              The aspiration your group would stand behind, written in their words.
-            </blockquote>
-            <ul className="m-0 list-none border-t border-ink p-0">
-              {(
-                [
-                  ["What it serves", "Who gains, and how they would notice"],
-                  ["What has to be true", "The rules, resources, authority or relationships it depends on"],
-                ] as const
-              ).map(([k, v]) => (
-                <li
-                  key={k}
-                  className="grid grid-cols-1 gap-x-4 gap-y-1 border-b border-[var(--hairline)] py-[13px] text-[14.5px] last:border-b-0 sm:grid-cols-[auto_1fr]"
-                >
-                  <span className="whitespace-nowrap pt-1 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted">
-                    {k}
-                  </span>
-                  <span className="italic text-muted">{v}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Blocks blocks={s.changes} />
         </Slide>
       ),
     });
   }
 
-  // ---- 10 · Session 4: the bold moves and their backcast -------------------------------
+  // ---- 11 · Session 4: the role, and the bold moves ------------------------------------
+  // TWO SLIDES from one step, split BY SECTION KEY. It used to split positionally — first
+  // block is the role, rest are the moves — which broke the moment a group answered the
+  // moves and skipped the role: empty blocks are dropped upstream, so the moves became
+  // element zero and three bold moves were published under "The role you would argue for".
+  //
+  // Keys are permanent ids and labels are the facilitator's, so the key is the only stable
+  // thing to match on. Still generic in the direction that matters: a facilitator who adds
+  // a fourth step-4 prompt gets it on the moves slide rather than breaking either.
+  //
+  // The role is its own slide because it is the one claim in four sessions that is an
+  // argument rather than an observation, and a reader should meet it alone.
+  const roleBlocks = s.role.filter((b) => b.key === COMMITMENTS_KEY_ROLE);
+  const moveBlocks = s.role.filter((b) => b.key !== COMMITMENTS_KEY_ROLE);
+
+  if (s.has.commitments && roleBlocks.length > 0) {
+    slides.push({
+      id: "role",
+      label: "The role",
+      node: (
+        <Slide
+          n="11"
+          title="The role you would argue for"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              The one section with no source earlier in the program. Your {hopeCount} hopes and{" "}
+              {s.flips.length} fears said what you wanted and what you feared; this says what
+              public health is actually for in this world.
+            </>
+          }
+        >
+          <Blocks blocks={roleBlocks} />
+        </Slide>
+      ),
+    });
+  }
+
+  if (s.has.commitments && moveBlocks.length > 0) {
+    const count = moveBlocks.reduce((n, b) => n + b.answers.length, 0);
+    slides.push({
+      id: "bold-moves",
+      label: "Bold moves",
+      node: (
+        <Slide
+          n="12"
+          title="The moves you would make"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              {count} {count === 1 ? "move" : "moves"}, chosen out of everything on your
+              response wall. This is the only part of the program that says what your group
+              would actually do.
+            </>
+          }
+        >
+          <Blocks blocks={moveBlocks} numbered />
+        </Slide>
+      ),
+    });
+  }
+
+
+  // ---- The backcast table (parked, see SHOW_BACKCASTING) -------------------------------
   // One table, not one slide per move: the finding is the SHAPE of the three lanes read
   // together — where the group front-loaded, and where a lane runs out. Empty cells print
   // as a dot for exactly that reason.
-  if (s.boldMoves.length > 0) {
+  //
+  // Parked with the step that fills it. Session 4 no longer backcasts, so `boldMoves` comes
+  // back empty for every group worked under the new shape and this slide would never draw
+  // anyway; the flag is here so that turning backcasting back on for the next workshop is
+  // one line in each of the two places, not a rebuild. Its id and label collide with the
+  // step-4 moves slide above on purpose: only one of the two can ever be in the deck.
+  if (SHOW_BACKCASTING && s.boldMoves.length > 0) {
     const periods = s.boldMoves[0].periods;
     slides.push({
       id: "bold-moves",
@@ -731,14 +884,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 11 · What we never settled (parked, see SHOW_UNSETTLED) ---------------
+  // ---- 13 · What we never settled (parked, see SHOW_UNSETTLED) ---------------
   if (SHOW_UNSETTLED && s.unsettled.length > 0) {
     slides.push({
       id: "unsettled",
       label: "What we never settled",
       node: (
         <Slide
-          n="11"
+          n="13"
           title="What we never settled"
           chip={<Chip tone="next">Still open</Chip>}
           intro={

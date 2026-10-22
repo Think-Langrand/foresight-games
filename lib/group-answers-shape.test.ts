@@ -482,13 +482,13 @@ describe("shapeFromView — commitments weeks (Week 4)", () => {
     // would make step 1 — the whole aspiration — invisible in the admin viewer.
     const shaped = shapeFromView(
       ex("commitments", []),
-      view([card("a1", "STICKY", { section: "aspiration-statement", seq: 1 })])
+      view([card("a1", "STICKY", { section: "w4-summary", seq: 1 })])
     );
     if (shaped.kind !== "commitments") throw new Error("expected commitments");
 
     const template = EXERCISE_TYPES.commitments.sections ?? [];
     expect(shaped.questions.map((q) => q.key)).toEqual(template.map((s) => s.key));
-    const first = shaped.questions.find((q) => q.key === "aspiration-statement");
+    const first = shaped.questions.find((q) => q.key === "w4-summary");
     expect(first?.answers.map((a) => a.text)).toEqual(["a1-text"]);
     expect(first?.label).toBe(template[0].label);
   });

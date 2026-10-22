@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ScenarioPanel } from "@/components/workshop/ScenarioPanel";
 import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
@@ -9,62 +9,73 @@ import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
-import { MovesBoard } from "@/components/workshop/commitments/MovesBoard";
-import { BacktrackTimeline } from "@/components/workshop/commitments/BacktrackTimeline";
-import { HandoffBoard } from "@/components/workshop/commitments/HandoffBoard";
+import { ResponseRecap } from "@/components/workshop/commitments/ResponseRecap";
+import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
+import { StepProgress } from "@/components/workshop/commitments/StepProgress";
+import { ReviewBoard } from "@/components/workshop/commitments/ReviewBoard";
 import {
   useRipplesView,
   useOptimisticCards,
   deleteRippleCard,
   editRippleCard,
   postRippleCard,
+  scoreRippleCard,
   reorderRippleCard,
-  shortlistRippleCard,
-  periodRippleCard,
+  submitRippleBoard,
+  unsubmitRippleBoard,
 } from "@/components/workshop/hooks";
+import { shapeFromView } from "@/lib/group-answers-shape";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
-import { childOrderOf, type RippleCard, type RipplePhase } from "@/lib/ripples-types";
+import type { RippleCard, RipplePhase } from "@/lib/ripples-types";
+import type { ScorePatchInput } from "@/lib/ripples-scoring";
+import { cardScores } from "@/lib/ripples-scoring";
 import { SORT_STEP } from "@/lib/synthesis-shape";
 import {
-  MILESTONES_PER_MOVE,
   indexCommitmentsBoard,
-  milestoneCount,
-  milestonesFor,
-  type PeriodKey,
 } from "@/lib/commitments-shape";
-import type { WorksheetSection } from "@/lib/exercise-types";
+import {
+  COMMITMENTS_STEP_MOVES,
+  type WorksheetSection,
+} from "@/lib/exercise-types";
 import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 
-// Session 4, the COMMITMENTS board. Four steps on one shared board:
+// Session 4, the COMMITMENTS board. Five steps on one shared board, and the whole week
+// builds the handoff rather than curating it in a step of its own:
 //
-//   1. Aspiration            what we are aspiring to, who it serves, what has to be true
-//   2. Strategic responses   a wall of moves that would get us there
-//   3. Bold moves            down-select to three
-//   4. Backcasting           each move's milestones across ten years, in two-year steps
+//   1. Key changes       summarize this world, and what it stops making true
+//   2. Risks & opps      Session 3's stakes placed on the impact x plausibility matrix
+//   3. Responses         a wall of moves
+//   4. Role & moves      the role public health plays here, and three bold moves
+//   5. Review            read the whole week back, then submit
 //
-// Step 1 is the ordinary section substrate, so its prompts are the facilitator's and are
-// edited in the program editor rather than here. Steps 2 to 4 are code. See
+// Steps 1 and 4 ride the section substrate, so their prompts are the facilitator's and are
+// edited in the program editor rather than here. Steps 2, 3 and 5 are code. See
 // lib/commitments-shape's header for why the week is split that way.
+//
+// PARKED, NOT DELETED. The backcasting timeline and the three-move down-select are wanted
+// for the next workshop, so `BacktrackTimeline` and `MovesBoard` stay in the tree, their
+// card kinds stay in CARD_KINDS, and their write paths stay on the routes. They are simply
+// not in COMMIT_STEPS. Putting either back is adding its entry here and its branch below.
 
 const NO_CARDS: RippleCard[] = [];
 
 // Local to this file, the way Week 3 keeps its own. There is no step registry and these
 // are not worth inventing one for.
-type CommitStep = "aspiration" | "responses" | "moves" | "timeline" | "handoff";
+type CommitStep = "changes" | "matrix" | "responses" | "moves" | "review";
 const COMMIT_STEPS: readonly CommitStep[] = [
-  "aspiration",
+  "changes",
+  "matrix",
   "responses",
   "moves",
-  "timeline",
-  "handoff",
+  "review",
 ];
 const STEP_LABELS: Record<CommitStep, string> = {
-  aspiration: "1 · Aspiration",
-  responses: "2 · Strategic responses",
-  moves: "3 · Bold moves",
-  timeline: "4 · Backcasting",
-  handoff: "5 · The handoff",
+  changes: "1 \u00b7 Key changes",
+  matrix: "2 \u00b7 Risks & opportunities",
+  responses: "3 \u00b7 Strategic responses",
+  moves: "4 \u00b7 Role & bold moves",
+  review: "5 \u00b7 Review & submit",
 };
 
 export function CommitmentsTeamView({
@@ -75,8 +86,10 @@ export function CommitmentsTeamView({
   hiddenSections,
   sections = [],
   week3Cards = [],
-  week1Uncertainties = [],
+  week2Cards = [],
   summaryHref,
+  submittedAt: submittedAtProp = null,
+  submittedBy: submittedByProp = null,
   title,
 }: {
   code: string;
@@ -90,12 +103,19 @@ export function CommitmentsTeamView({
   // server-side from the earlier-week answers the page already loads; nothing from it is
   // copied onto this board. See Week3Reference.
   week3Cards?: RippleCard[];
+  // Session 2's board, for the key changes in the rail. Roots only are used; see
+  // Week3Reference. Shaped server-side on the page like week3Cards, and never copied here.
+  week2Cards?: RippleCard[];
   // Session 1's three uncertainty questions, shaped on the page: a worksheet week arrives
   // as question blocks rather than cards, so there is nothing to index here.
-  week1Uncertainties?: { key: string; bucket: string; answers: { id: string; text: string }[] }[];
   // Where the group's handoff deck lives. Built on the page, which knows the project slug
   // and the group id; the board should not have to rebuild a route.
   summaryHref?: string;
+  // The GROUP's submit stamp (migration 0029), read server-side on the page. Seeds local
+  // state rather than being read directly: it is not on the board's realtime channel, so
+  // after a press the client is the only thing that knows until the next page load.
+  submittedAt?: string | null;
+  submittedBy?: string | null;
   title?: string;
 }) {
   const { view, error, loading, refresh } = useRipplesView(code);
@@ -107,23 +127,41 @@ export function CommitmentsTeamView({
     unremoveLocal,
     reorderLocal,
     editLocal,
-    shortlistLocal,
-    dropShortlistLocal,
-    sectionLocal,
-    dropSectionLocal,
+    scoreLocal,
+    settleScoreLocal,
+    dropScoreLocal,
   } = useOptimisticCards(view?.cards ?? NO_CARDS);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [showScenario, setShowScenario] = useState(true);
   // Declared up here with the other state, NOT inside the build branch below — several
   // early returns sit between the two, and a hook after one of them would break the order.
-  const [step, setStep] = useState<CommitStep>("aspiration");
+  const [step, setStep] = useState<CommitStep>("changes");
   // Step 5's marks, keyed `<kind>:<sourceCardId>`, while their write is in flight. A mark
   // has no id until the server mints one, so it cannot ride the card overlay the way every
   // other write on this board does; without this the board showed nothing at all for the
   // length of a round trip, the cap read stale, and a group ticking four risks quickly got
   // all four.
   const [markPending, setMarkPending] = useState<Set<string>>(() => new Set());
+  // Step 2's bridge: scores clicked on a Session 3 card whose pick does not exist yet,
+  // keyed by SOURCE id. It lives for one round trip and is dropped the moment the pick is
+  // in the optimistic cards, so there is never a stale entry waiting to be un-shadowed if
+  // that pick is later deleted — by this viewer or by a teammate. Dropped on the mint
+  // failing too, since then no pick is coming. See scoreStake.
+  const [pendingScores, setPendingScores] = useState<Map<string, ScorePatchInput>>(
+    () => new Map()
+  );
+  // The in-flight create per source id, so two fast score clicks on one card mint one pick
+  // rather than racing. A ref, not state: nothing renders from it and a re-render between
+  // the two clicks must not lose it.
+  const mintingPick = useRef<Map<string, Promise<string>>>(new Map());
+  // Step 5's submit stamp. Seeded from the server and then owned here, because the press
+  // and its Undo both resolve to a value the response carries. See ReviewBoard's header for
+  // why this is not realtime.
+  const [submitted, setSubmitted] = useState<{ at: string | null; by: string | null }>({
+    at: submittedAtProp,
+    by: submittedByProp,
+  });
 
   const inTabs = useInSessionTabs();
 
@@ -146,6 +184,7 @@ export function CommitmentsTeamView({
 
   // One index for all four steps; every Session 4 selector reads it.
   const board = useMemo(() => indexCommitmentsBoard(cards), [cards]);
+
 
   if (loading)
     return (
@@ -268,57 +307,8 @@ export function CommitmentsTeamView({
       if (res?.card) addLocal(res.card as RippleCard);
     });
 
-  // Picking a bold move. A real write, not client state: it survives a reload and every
-  // member of the group sees it. The overlay drops on failure so a refused tick does not
-  // leave a card looking chosen.
-  const toggleBoldMove = (card: RippleCard, shortlisted: boolean) => {
-    shortlistLocal(card.id, shortlisted);
-    run(async () => {
-      try {
-        await shortlistRippleCard(code, card.id, { participantId: pid, shortlisted });
-      } catch (e) {
-        dropShortlistLocal(card.id);
-        throw e;
-      }
-    });
-  };
 
-  // A milestone hangs off the move it backcasts, which is what makes the lane its lane
-  // and what makes a delete cascade correctly. Its PERIOD is separate, in `section`: a
-  // parent says which move, not which column.
-  const addMilestone = (move: RippleCard, period: PeriodKey, text: string) =>
-    run(async () => {
-      // The cap is per move across the whole span, so it is checked against the move and
-      // not the cell. Guarded here as well as in the composer, because the composer's
-      // `full` is a render away from the click.
-      if (milestoneCount(board, move.id) >= MILESTONES_PER_MOVE) {
-        throw new Error(`A move takes ${MILESTONES_PER_MOVE} milestones. Delete one first.`);
-      }
-      const order = childOrderOf(move.order);
-      if (!order) throw new Error("That chain is already as deep as it goes.");
-      const res = await postRippleCard(code, {
-        participantId: pid,
-        cardOrder: order,
-        parentCardId: move.id,
-        cardKind: "milestone",
-        section: period,
-        text,
-        sort: (milestonesFor(board, move.id, period).length + 1) * SORT_STEP,
-      });
-      if (res?.card) addLocal(res.card as RippleCard);
-    });
 
-  const moveMilestone = (card: RippleCard, period: PeriodKey) => {
-    sectionLocal(card.id, period);
-    run(async () => {
-      try {
-        await periodRippleCard(code, card.id, { participantId: pid, period });
-      } catch (e) {
-        dropSectionLocal(card.id);
-        throw e;
-      }
-    });
-  };
 
   // A handoff mark: a card on THIS board pointing at an earlier week's card. Nothing on
   // Session 1's or Session 3's board is touched, so the star the handoff deck draws is
@@ -330,8 +320,6 @@ export function CommitmentsTeamView({
   // a write pending is being created, so it reads as present.
   const isStarred = (sourceId: string) =>
     board.picks.has(sourceId) !== markPending.has(markKey("pick", sourceId));
-  const isOpen = (sourceId: string) =>
-    !(board.settled.has(sourceId) !== markPending.has(markKey("settled", sourceId)));
 
   const toggleMark = (
     kind: "pick" | "settled",
@@ -381,17 +369,203 @@ export function CommitmentsTeamView({
     }).finally(release);
   };
 
+  // Score a pick that already exists. The same shape as Week 2's scoreKeyChange, including
+  // the three-part overlay: `scoreLocal` merges so the two axis rows do not wipe each
+  // other, and the overlay's `inflight` counter is what stops this viewer being pinned to a
+  // number a teammate has since overwritten.
+  const scorePick = (pickId: string, patch: ScorePatchInput) => {
+    const axes = Object.keys(patch) as (keyof ScorePatchInput)[];
+    scoreLocal(pickId, patch);
+    run(async () => {
+      try {
+        await scoreRippleCard(code, pickId, { participantId: pid, ...patch });
+        settleScoreLocal(pickId);
+      } catch (e) {
+        dropScoreLocal(pickId, axes);
+        throw e;
+      }
+    });
+  };
+
+  // The pick standing for a Session 3 card, with a create still in flight already counted
+  // so the counters do not lag a round trip behind the click.
+  const pickFor = (sourceId: string) =>
+    isStarred(sourceId) ? board.picks.get(sourceId) : undefined;
+
+  // ---- step 2: scoring is placing --------------------------------------------
+  //
+  // Step 2 shows both scales on every Session 3 card, so the FIRST click on a card has to
+  // paint before the pick that will hold the score exists. These two pieces bridge that
+  // gap, and only that gap: once the pick is on the board the ordinary `scores` overlay
+  // takes over and `pendingScores` drops the entry.
+  //
+  // `mintingPick` is keyed by source id and holds the in-flight create itself, not a
+  // boolean. Both scales clicked in quick succession must not send two creates, and 0018's
+  // unique (code, source_card_id) would turn the second into a 409 the group would read as
+  // someone else's edit. The second click awaits the same promise the first started.
+  const ensurePick = (source: { id: string; text: string }): Promise<string> => {
+    const existing = board.picks.get(source.id);
+    if (existing) return Promise.resolve(existing.id);
+    const inFlight = mintingPick.current.get(source.id);
+    if (inFlight) return inFlight;
+    const p = postRippleCard(code, {
+      participantId: pid,
+      cardOrder: "FIRST",
+      cardKind: "pick",
+      sourceCardId: source.id,
+      // The source's own words ride along, so the handoff reads without a join back to a
+      // board the deck may not have loaded.
+      text: source.text,
+    })
+      .then((res) => {
+        const card = res?.card as RippleCard | undefined;
+        if (!card) throw new Error("The board did not accept that.");
+        addLocal(card);
+        return card.id;
+      })
+      // KEPT ON SUCCESS, deliberately. Clearing it in a `finally` released the guard a
+      // microtask after addLocal and before React had committed, so a click landing in
+      // that gap saw neither the pick nor the guard and posted a SECOND pick — the exact
+      // 409 the guard exists to prevent. A settled promise is a perfectly good guard: a
+      // later caller awaits it and gets the id the first call minted.
+      //
+      // Dropped only on failure, so a retry can mint, and in clearStake, where the pick it
+      // names is deleted and the resolved id would be dead.
+      .catch((e) => {
+        mintingPick.current.delete(source.id);
+        throw e;
+      });
+    mintingPick.current.set(source.id, p);
+    return p;
+  };
+
+  const dropPending = (sourceId: string) =>
+    setPendingScores((m) => {
+      if (!m.has(sourceId)) return m;
+      const next = new Map(m);
+      next.delete(sourceId);
+      return next;
+    });
+
+  const scoreStake = (card: RippleCard, patch: ScorePatchInput) => {
+    const axes = Object.keys(patch) as (keyof ScorePatchInput)[];
+    const existing = board.picks.get(card.id);
+    if (existing) {
+      scorePick(existing.id, patch);
+      return;
+    }
+    // No pick yet: paint against the SOURCE id, mint, then hand off to the real overlay.
+    setPendingScores((m) => new Map(m).set(card.id, { ...m.get(card.id), ...patch }));
+    run(async () => {
+      const pickId = await ensurePick({ id: card.id, text: card.text });
+      // `ensurePick` has already called addLocal, so the pick is in the optimistic cards
+      // and `scoresFor` will read it rather than the bridge from the very next render.
+      // Both of these are state updates in one tick, so there is no frame where the scale
+      // has neither and blinks back to empty.
+      scoreLocal(pickId, patch);
+      dropPending(card.id);
+      try {
+        await scoreRippleCard(code, pickId, { participantId: pid, ...patch });
+        settleScoreLocal(pickId);
+      } catch (e) {
+        dropScoreLocal(pickId, axes);
+        throw e;
+      }
+    }).then((ok) => {
+      // The mint itself failed, so there is no pick to shadow the bridge entry and it has
+      // to go or the scale shows a score the board never took.
+      if (!ok) dropPending(card.id);
+    });
+  };
+
+  // Take a scored card back off the matrix. There is no placement act to undo any more, but
+  // a mis-click still has to be reversible, and deleting the pick is what clears both axes
+  // at once: the score route has no "unset" and writing nulls through it is not a thing it
+  // offers.
+  const clearStake = (card: RippleCard) => {
+    // Both caches name a pick that is about to stop existing. The bridge entry is normally
+    // shadowed by the pick, but deleting the pick un-shadows it and the score comes
+    // straight back on screen; the minted promise would hand the next click a dead id.
+    dropPending(card.id);
+    mintingPick.current.delete(card.id);
+    toggleMark("pick", { id: card.id, text: card.text }, false);
+  };
+
+  // What step 2 SHOWS for a Session 3 card: the pick's scores once it exists, and the
+  // optimistic patch before it does.
+  const scoresFor = (sourceId: string) => {
+    const pick = board.picks.get(sourceId);
+    if (pick) return cardScores(pick);
+    const pending = pendingScores.get(sourceId);
+    return {
+      plausibility: pending?.plausibility ?? null,
+      impact: pending?.impact ?? null,
+    };
+  };
+
+  // ---- step 5 ----------------------------------------------------------------
+
+  // What the group is approving, shaped exactly the way the admin viewer and the CSV shape
+  // it, so the three cannot disagree. From `view` (the SERVER's cards) and not from the
+  // optimistic `cards`: everywhere else on this board the overlay is the right answer, but
+  // a review pane must not show a line as written when its write is still in flight.
+  //
+  // Deliberately NOT useMemo — several early returns sit above this line and a hook here
+  // would break the hook order. The guard on `step` is what keeps it off the other four
+  // steps' render path; on this one it walks the board once.
+  const reviewShape = (() => {
+    if (step !== "review") return null;
+    const shaped = shapeFromView(
+      {
+        id: "live",
+        title: title || "Commitments",
+        type: "commitments",
+        sections,
+        // The LOCAL stamp, not the page's: this viewer may have pressed Submit a second
+        // ago and the page prop is from the last server render. Without it the read-back
+        // would contradict the submit bar directly above it.
+        submittedAt: submitted.at,
+        submittedBy: submitted.by,
+      },
+      view
+    );
+    return shaped.kind === "commitments" ? shaped : null;
+  })();
+
+  // The server's stamp is the authority on both of these: on a shared board two people can
+  // press Submit seconds apart, and the response says whose press counted.
+  const submitWeek = () =>
+    run(async () => {
+      const r = await submitRippleBoard(code, { participantId: pid });
+      setSubmitted({ at: r.submittedAt, by: r.submittedBy });
+    });
+
+  const undoSubmit = () =>
+    run(async () => {
+      await unsubmitRippleBoard(code, { participantId: pid });
+      setSubmitted({ at: null, by: null });
+    });
+
   // ---- the steps -------------------------------------------------------------
 
-  // TWO steps carry written fields, so `sections` is split by `step`. Anything an admin
-  // adds in the program editor has no step and falls to step 1, beside the aspiration
-  // prompts, which is where an extra question belongs. The split is what keeps a section
-  // from rendering on two tabs at once.
-  const HANDOFF_STEP = "The handoff";
-  const sectionsFor = (step: "aspiration" | "handoff") =>
+  // TWO steps carry written fields. Anything an admin adds with no step, or with a step
+  // string that matches neither, falls to step 1 beside the summary prompts, which is where
+  // an extra question belongs. The two branches are disjoint, so no section can render on
+  // two tabs at once.
+  const sectionsFor = (which: "changes" | "moves") =>
     sections.filter((sec) =>
-      step === "handoff" ? sec.step === HANDOFF_STEP : sec.step !== HANDOFF_STEP
+      which === "moves"
+        ? sec.step === COMMITMENTS_STEP_MOVES
+        : sec.step !== COMMITMENTS_STEP_MOVES
     );
+
+  // How many of a step's prompts have been answered at all. The unit is the PROMPT, not the
+  // answer: each takes as many answers as the group has, so counting answers would give a
+  // number with no denominator and nothing to draw a bar against.
+  const answeredCount = (spec: typeof sections) =>
+    spec.filter((sec) =>
+      cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
+    ).length;
 
   const worksheetFor = (spec: typeof sections) => (
     <WorksheetSections
@@ -409,8 +583,8 @@ export function CommitmentsTeamView({
   );
 
   const aspirationBody =
-    sectionsFor("aspiration").length > 0 ? (
-      worksheetFor(sectionsFor("aspiration"))
+    sectionsFor("changes").length > 0 ? (
+      worksheetFor(sectionsFor("changes"))
     ) : (
       <p className="text-[13px] italic text-muted">
         No blocks are set up for this step yet. A facilitator adds them in the program
@@ -446,74 +620,94 @@ export function CommitmentsTeamView({
         ))}
       </div>
 
-      {step === "aspiration" && (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className="min-w-0">{aspirationBody}</div>
-          <Week3Reference cards={week3Cards} />
+      {step === "changes" && (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="flex min-w-0 flex-col gap-5">
+            {aspirationBody}
+            {/* Counts PROMPTS with at least one answer, not answers: the prompts take as
+                many as the group has, so a tally of answers would have no denominator and
+                could not be a bar. */}
+            <StepProgress
+              done={answeredCount(sectionsFor("changes"))}
+              total={sectionsFor("changes").length}
+              noun="answered"
+            />
+          </div>
+          <Week3Reference
+            cards={week3Cards}
+            week2Cards={week2Cards}
+            scenario={scenario}
+          />
         </div>
+      )}
+
+      {step === "matrix" && (
+        <MatrixBoard
+          week3Cards={week3Cards}
+          pickFor={pickFor}
+          scoresFor={scoresFor}
+          editable={editable}
+          onScore={scoreStake}
+          onClear={clearStake}
+        />
       )}
 
       {step === "responses" && (
         <ResponseBoard
           board={board}
-          sections={sectionsFor("aspiration")}
+          sections={sectionsFor("changes")}
           cards={cards}
           week3Cards={week3Cards}
+          week2Cards={week2Cards}
+          scenario={scenario}
           editable={editable}
           busy={busy}
           onAdd={addResponse}
           onEdit={editCard}
           onDelete={removeCard}
-          onGoToAspiration={() => setStep("aspiration")}
+          onGoToAspiration={() => setStep("changes")}
         />
       )}
 
+      {/* Step 4. The prompts are sections; the responses below them are READ-ONLY raw
+          material, not a menu to choose from, which is what the microcopy has to carry. */}
       {step === "moves" && (
-        <MovesBoard
-          board={board}
-          sections={sectionsFor("aspiration")}
-          cards={cards}
-          editable={editable}
-          onToggle={toggleBoldMove}
-          onGoToAspiration={() => setStep("aspiration")}
-          onGoToResponses={() => setStep("responses")}
-        />
+        <div className="flex flex-col gap-6">
+          {sectionsFor("moves").length > 0 ? (
+            worksheetFor(sectionsFor("moves"))
+          ) : (
+            <p className="text-[13px] italic text-muted">
+              No blocks are set up for this step yet. A facilitator adds them in the program
+              editor.
+            </p>
+          )}
+          <ResponseRecap
+            responses={board.responses}
+            onGoToResponses={() => setStep("responses")}
+          />
+        </div>
       )}
 
-      {step === "handoff" && (
-        <HandoffBoard
-          sections={sectionsFor("aspiration")}
-          cards={cards}
-          week3Cards={week3Cards}
-          week1Uncertainties={week1Uncertainties}
-          summaryHref={summaryHref}
-          editable={editable}
-          isStarred={isStarred}
-          isOpen={isOpen}
-          onTogglePick={(source, on) => toggleMark("pick", source, on)}
-          // The checkbox reads "still open", so ticking it REMOVES the settled mark.
-          onToggleSettled={(source, settled) => toggleMark("settled", source, settled)}
-          onGoToAspiration={() => setStep("aspiration")}
-        >
-          {sectionsFor("handoff").length > 0 && worksheetFor(sectionsFor("handoff"))}
-        </HandoffBoard>
-      )}
-
-      {step === "timeline" && (
-        <BacktrackTimeline
-          board={board}
-          sections={sectionsFor("aspiration")}
-          cards={cards}
-          editable={editable}
-          busy={busy}
-          onAdd={addMilestone}
-          onEdit={editCard}
-          onDelete={removeCard}
-          onMove={moveMilestone}
-          onGoToAspiration={() => setStep("aspiration")}
-          onGoToMoves={() => setStep("moves")}
-        />
-      )}
+      {/* Step 5. The read-back is shaped from the SERVER's view, not the optimistic cards:
+          this is the pane a group approves, so it should show what is actually stored rather
+          than what is still in flight. Everywhere else on this board the overlay is the
+          right answer; here a line that has not landed yet must not look landed. */}
+      {step === "review" &&
+        (reviewShape ? (
+          <ReviewBoard
+            shaped={reviewShape}
+            week3Cards={week3Cards}
+            summaryHref={summaryHref}
+            submittedAt={submitted.at}
+            submittedBy={submitted.by}
+            editable={editable}
+            busy={busy}
+            onSubmit={submitWeek}
+            onUndo={undoSubmit}
+          />
+        ) : (
+          <p className="text-[13px] italic text-muted">Opening the board…</p>
+        ))}
     </div>
   );
 

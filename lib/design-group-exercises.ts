@@ -23,6 +23,11 @@ export interface DesignGroupExercise {
   closed: boolean; // admin close — members can't open it (independent of lock + schedule)
   opensAt: string | null;
   sections: WorksheetSection[]; // per-exercise question snapshot; [] = fall back to code template
+  // The GROUP's own "we are finished" (migration 0029), not an admin act and not a lock:
+  // the board stays editable after it, so a group can still fix a typo in its handoff.
+  // `submittedBy` is the display name captured at the moment of the press.
+  submittedAt: string | null;
+  submittedBy: string | null;
   createdTime: string;
 }
 
@@ -37,10 +42,67 @@ interface ExerciseRow {
   closed: boolean;
   opens_at: string | null;
   sections: unknown; // jsonb
+  // Optional, not just nullable: before migration 0029 these columns do not exist at all
+  // and the select omits them. See `selectWeeks`.
+  submitted_at?: string | null;
+  submitted_by?: string | null;
   created_at: string;
 }
 
-const COLS = "id, group_id, sort, title, type, session_code, locked, closed, opens_at, sections, created_at";
+const BASE_COLS =
+  "id, group_id, sort, title, type, session_code, locked, closed, opens_at, sections, created_at";
+// Added by migration 0029.
+const SUBMIT_COLS = "submitted_at, submitted_by";
+
+// THE BUILD RUNS NO MIGRATIONS (see AGENTS.md), so code can be live before its migration
+// is. Without this, a single missing column makes EVERY read of a week fail and takes down
+// the whole program section of the app for every group, which is a far worse outcome than a
+// missing submit stamp on one step.
+//
+// Optimistic: the full list is tried first, so once 0029 is applied there is no probe and
+// no extra round trip.
+//
+// AND IT RE-PROBES, which the first version of this got wrong. A latched "missing" flag
+// means a server that was running when the migration was applied keeps degrading until
+// someone restarts it, and the bug that exposed is nasty: the submit WRITE succeeds, the
+// re-read omits the column, and the group is told nothing happened. So the state is a
+// deadline rather than a boolean. Cost in the genuinely-missing case is one failed query a
+// minute, against a whole process stuck in the wrong mode.
+const REPROBE_AFTER_MS = 60_000;
+let missingUntil = 0;
+const submitColsPresent = () => Date.now() >= missingUntil;
+const cols = () => (submitColsPresent() ? `${BASE_COLS}, ${SUBMIT_COLS}` : BASE_COLS);
+
+// TWO codes, because PostgREST reports a missing column differently depending on where it
+// appears. A SELECT list reaches Postgres and comes back as 42703 (undefined_column); an
+// UPDATE body is validated against PostgREST's own schema cache first and never reaches
+// Postgres, giving PGRST204. Checking only one of them was the bug: reads degraded cleanly
+// and the submit write still returned a bare "Failed to submit."
+const MISSING_COLUMN = new Set(["42703", "PGRST204"]);
+const isMissingColumn = (e: unknown) =>
+  typeof e === "object" && e !== null && MISSING_COLUMN.has(String((e as { code?: string }).code));
+
+// Run a week select that wants the 0029 columns, retrying once without them if they are
+// absent. Every read goes through this so there is one place that knows about the gap.
+async function selectWeeks<T>(
+  run: (cols: string) => PromiseLike<{ data: unknown; error: unknown }>
+): Promise<T | null> {
+  let res = await run(cols());
+  if (res.error && isMissingColumn(res.error)) {
+    const first = submitColsPresent();
+    missingUntil = Date.now() + REPROBE_AFTER_MS;
+    // Only on the transition, or a database without 0029 would log once a minute forever.
+    if (first) {
+      console.warn(
+        "[design-group-exercises] migration 0029 is not applied on this database; " +
+          "reading weeks without the submit stamp. Submitting a week will fail until it is."
+      );
+    }
+    res = await run(cols());
+  }
+  if (res.error) throw res.error;
+  return (res.data ?? null) as T | null;
+}
 
 function fromRow(r: ExerciseRow): DesignGroupExercise {
   return {
@@ -54,6 +116,8 @@ function fromRow(r: ExerciseRow): DesignGroupExercise {
     closed: r.closed ?? false,
     opensAt: r.opens_at ?? null,
     sections: resolveSections(r.sections),
+    submittedAt: r.submitted_at ?? null,
+    submittedBy: r.submitted_by ?? null,
     createdTime: r.created_at,
   };
 }
@@ -61,30 +125,51 @@ function fromRow(r: ExerciseRow): DesignGroupExercise {
 // ---------- reads ----------
 export async function listExercises(groupId: string): Promise<DesignGroupExercise[]> {
   if (!supabaseConfigured()) return [];
-  const rows = await withRetry(async () => {
-    const { data, error } = await supabaseAdmin()
-      .from("design_group_exercises")
-      .select(COLS)
-      .eq("group_id", groupId)
-      .order("sort", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as ExerciseRow[];
-  });
-  return rows.map(fromRow);
+  const rows = await withRetry(() =>
+    selectWeeks<ExerciseRow[]>((c) =>
+      supabaseAdmin()
+        .from("design_group_exercises")
+        .select(c)
+        .eq("group_id", groupId)
+        .order("sort", { ascending: true })
+        .order("created_at", { ascending: true })
+    )
+  );
+  return (rows ?? []).map(fromRow);
+}
+
+// Resolve a week from its BOARD's code. The board-submit route knows only the code in its
+// URL, the way every other board route does, and submit is recorded on the week rather
+// than on the session — so this is the hop between the two.
+//
+// maybeSingle, not single: session_code has no unique constraint. In practice one code
+// belongs to one week (provisionExerciseBoard mints a fresh one per week), and a duplicate
+// would mean a provisioning bug. Erring here rather than picking the first row arbitrarily
+// means such a bug surfaces as a 500 with this stack instead of a submit landing on
+// whichever week the planner happened to return.
+export async function getExerciseBySessionCode(
+  code: string
+): Promise<DesignGroupExercise | null> {
+  if (!supabaseConfigured()) return null;
+  const row = await withRetry(() =>
+    selectWeeks<ExerciseRow>((c) =>
+      supabaseAdmin()
+        .from("design_group_exercises")
+        .select(c)
+        .eq("session_code", code)
+        .maybeSingle()
+    )
+  );
+  return row ? fromRow(row) : null;
 }
 
 export async function getExercise(id: string): Promise<DesignGroupExercise | null> {
   if (!supabaseConfigured()) return null;
-  const row = await withRetry(async () => {
-    const { data, error } = await supabaseAdmin()
-      .from("design_group_exercises")
-      .select(COLS)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return (data ?? null) as ExerciseRow | null;
-  });
+  const row = await withRetry(() =>
+    selectWeeks<ExerciseRow>((c) =>
+      supabaseAdmin().from("design_group_exercises").select(c).eq("id", id).maybeSingle()
+    )
+  );
   return row ? fromRow(row) : null;
 }
 
@@ -110,7 +195,9 @@ export async function createExercise(input: {
         closed: input.closed ?? false,
         sections: resolveSections(input.sections),
       })
-      .select(COLS)
+      // BASE_COLS, not cols(): a freshly created week is unsubmitted by definition, so
+      // there is nothing to read back, and the client's types need a literal here.
+      .select(BASE_COLS)
       .single();
     if (error) throw error;
     return data as ExerciseRow;
@@ -142,6 +229,52 @@ export async function updateExercise(id: string, patch: UpdateExercisePatch): Pr
   await withRetry(async () => {
     const { error } = await supabaseAdmin().from("design_group_exercises").update(fields).eq("id", id);
     if (error) throw error;
+  });
+}
+
+// ---------- the group's own submit (migration 0029) ----------
+//
+// Not in UpdateExercisePatch on purpose. Everything in that patch is an ADMIN edit made
+// from the program editor, and these two columns are written by participants from the
+// board's last step. Keeping them out means no admin form can set them by accident, and
+// the one place that can is the board-submit route.
+//
+// Submitting does NOT lock the board. See migration 0029's header for why.
+export const MIGRATION_0029_MISSING = "MIGRATION_0029_MISSING";
+
+export async function submitExercise(id: string, by: string): Promise<void> {
+  await withRetry(async () => {
+    const { error } = await supabaseAdmin()
+      .from("design_group_exercises")
+      .update({
+        submitted_at: new Date().toISOString(),
+        submitted_by: by.trim().slice(0, 120) || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+    // Unlike a read, a write cannot degrade: there is nowhere to put the stamp. Named so
+    // the route can tell the group the truth instead of "something went wrong".
+    if (error && isMissingColumn(error)) throw new Error(MIGRATION_0029_MISSING);
+    if (error) throw error;
+    // The write proves the columns exist, so stop reading without them NOW rather than
+    // waiting out the re-probe window. Without this the route's own re-read right after
+    // this call can still come back empty and tell the group its submit did not land.
+    missingUntil = 0;
+  });
+}
+
+// Undo. Clears both columns rather than keeping a trail: the control reads
+// "Submitted <when> · Undo", so a stale name beside a null timestamp would be a lie about
+// a submit that no longer stands.
+export async function unsubmitExercise(id: string): Promise<void> {
+  await withRetry(async () => {
+    const { error } = await supabaseAdmin()
+      .from("design_group_exercises")
+      .update({ submitted_at: null, submitted_by: null, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error && isMissingColumn(error)) throw new Error(MIGRATION_0029_MISSING);
+    if (error) throw error;
+    missingUntil = 0;
   });
 }
 

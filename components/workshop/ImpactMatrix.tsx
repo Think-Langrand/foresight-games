@@ -20,10 +20,20 @@ export function ImpactMatrix({
   cards,
   hoveredId = null,
   onHover,
+  chipClassFor,
+  noun = "key change",
 }: {
   cards: RippleCard[];
   hoveredId?: string | null;
   onHover?: (id: string | null) => void;
+  // Optional, and additive: Week 4 puts risks AND opportunities on one matrix, so a chip
+  // has to say which it is. Return the classes for an UNSELECTED chip of that card, or
+  // null to keep the default. Week 2 passes nothing and is unchanged.
+  chipClassFor?: (card: RippleCard) => string | null;
+  // What the chips ARE, for the hint under the grid. Week 2 plots key changes and Week 4
+  // plots Session 3's risks and opportunities, and a grid that calls both "key changes" is
+  // telling one of them something untrue. Defaulted, so Week 2 passes nothing.
+  noun?: string;
 }) {
   const cells = matrixCells(cards);
   const ranks = rankByCardId(cards);
@@ -85,7 +95,8 @@ export function ImpactMatrix({
                             "inline-flex h-6 min-w-[24px] items-center justify-center rounded-full border px-1 text-[12px] font-bold tabular-nums transition-all " +
                             (on
                               ? "scale-110 border-ink bg-ink text-paper shadow"
-                              : "border-ink bg-card text-ink hover:bg-blue hover:text-white") +
+                              : (chipClassFor?.(c) ??
+                                "border-ink bg-card text-ink hover:bg-blue hover:text-white")) +
                             (dim ? " opacity-25" : "")
                           }
                         >
@@ -132,8 +143,8 @@ export function ImpactMatrix({
         ) : (
           <div className="text-[12px] italic text-muted">
             {placed.length === 0
-              ? "Nothing placed yet — a key change appears here once it has both scores."
-              : "Hover a number to see which key change it is."}
+              ? `Nothing placed yet — a ${noun} appears here once it has both scores.`
+              : `Hover a number to see which ${noun} it is.`}
           </div>
         )}
       </div>

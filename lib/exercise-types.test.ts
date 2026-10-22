@@ -265,21 +265,36 @@ describe("commitments exercise type", () => {
   it("splits its written fields across the two steps that have them", () => {
     const sections = EXERCISE_TYPES.commitments.sections!;
     expect(sections.map((s) => s.key)).toEqual([
-      "aspiration-statement",
-      "aspiration-serves",
-      "aspiration-holds",
-      "handoff-committee-line",
+      "w4-summary",
+      "w4-assumptions",
+      "w4-role",
+      "w4-bold-moves",
     ]);
-    // `question`, not `brainstorm`: three people in a breakout have three readings of what
-    // they are aspiring to, and each answer is its own card. Migration 0027 is the record
-    // of what forcing one answer per question cost.
+    // `question`, not `brainstorm`: three people in a breakout have three readings and each
+    // answer is its own card. Migration 0027 is the record of what forcing one cost.
     for (const s of sections) expect(s.kind).toBe("question");
     for (const s of sections) expect(s.label.length).toBeGreaterThan(0);
     // TWO steps, in board order. The view splits `sections` on this, so a section landing
     // on the wrong step renders on the wrong tab, and one with no step falls to step 1.
-    expect(worksheetSteps(sections)).toEqual(["Aspiration", "The handoff"]);
-    expect(sections.filter((s) => s.step === "Aspiration")).toHaveLength(3);
-    expect(sections.filter((s) => s.step === "The handoff")).toHaveLength(1);
+    expect(worksheetSteps(sections)).toEqual(["Key changes", "Bold moves"]);
+    expect(sections.filter((s) => s.step === "Key changes")).toHaveLength(2);
+    expect(sections.filter((s) => s.step === "Bold moves")).toHaveLength(2);
+  });
+
+  it("never reuses a key retired by the restructure", () => {
+    // A key is the permanent link to every answer card ever written under it. The week
+    // moved away from a three-part aspiration and a handoff step; those four keys stay
+    // retired so their cards surface under a "removed block" heading rather than being
+    // silently re-pointed at a different question.
+    const keys = EXERCISE_TYPES.commitments.sections!.map((s) => s.key);
+    for (const retired of [
+      "aspiration-statement",
+      "aspiration-serves",
+      "aspiration-holds",
+      "handoff-committee-line",
+    ]) {
+      expect(keys).not.toContain(retired);
+    }
   });
 
   it("is session 4 of the default program, replacing the placeholder", () => {
@@ -288,10 +303,10 @@ describe("commitments exercise type", () => {
     // The canonical week carries the EFFECTIVE keyset, so a group that never customizes
     // still gets step 1.
     expect(defaultProgramWeeks()[3].sections.map((s) => s.key)).toEqual([
-      "aspiration-statement",
-      "aspiration-serves",
-      "aspiration-holds",
-      "handoff-committee-line",
+      "w4-summary",
+      "w4-assumptions",
+      "w4-role",
+      "w4-bold-moves",
     ]);
   });
 });

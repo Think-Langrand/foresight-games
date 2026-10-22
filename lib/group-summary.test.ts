@@ -8,6 +8,7 @@ import type {
   SynthesisTheme,
 } from "@/components/design-groups/AnswerPanels";
 import type { CardOrder, RippleCard } from "./ripples-types";
+import { COMMITMENTS_STEP_CHANGES, COMMITMENTS_STEP_MOVES } from "./exercise-types";
 
 function card(id: string, order: CardOrder, opts: Partial<RippleCard> = {}): RippleCard {
   return {
@@ -344,7 +345,9 @@ describe("buildGroupSummary", () => {
     expect(bare.gaps.explorationSlots).toBe(0);
     // A group that has not run Session 4 still renders: the deck shows an outlined slot
     // rather than going quietly shorter.
-    expect(bare.aspiration).toEqual([]);
+    expect(bare.changes).toEqual([]);
+    expect(bare.role).toEqual([]);
+    expect(bare.placements).toEqual([]);
     expect(bare.boldMoves).toEqual([]);
   });
 });
@@ -366,32 +369,85 @@ describe("buildGroupSummary · Session 4", () => {
     settledMarks: [],
     orphans: [],
     questions: [],
+    submittedAt: null,
+    submittedBy: null,
     ...over,
   });
   const row = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
 
-  it("reads the aspiration as the blocks the group was actually asked", () => {
-    // Not three fixed fields: the prompts are authored sections, so a reworded or
-    // re-counted step 1 must still come through.
+  it("splits the written work on its authored step, so each slide gets its own half", () => {
+    // Not fixed fields: the prompts are authored sections, so a reworded or re-counted
+    // step must still come through. The SPLIT is what matters here — step 1 and step 4 are
+    // different slides, and all four prompts in one list would put step 4 above step 2.
     const s = buildGroupSummary(
       [
         week4({
           cards: [{ id: "c" } as never],
           questions: [
-            { key: "aspiration-statement", label: "What are we aspiring to?", kind: "question", answers: [row("a1", "By 2035, budgets are set with residents.")] },
-            { key: "aspiration-holds", label: "What has to be true?", kind: "question", answers: [row("a2", "Statute allows pooling."), row("a3", "Councils keep signing.")] },
-            { key: "aspiration-serves", label: "Who does this serve?", kind: "question", answers: [] },
+            { key: "w4-summary", label: "Summarize the key changes.", kind: "question", step: COMMITMENTS_STEP_CHANGES, answers: [row("a1", "Budgets are set with residents.")] },
+            { key: "w4-assumptions", label: "What no longer holds?", kind: "question", step: COMMITMENTS_STEP_CHANGES, answers: [row("a2", "That evidence decides."), row("a3", "That funding is annual.")] },
+            { key: "w4-role", label: "What role is public health playing?", kind: "question", step: COMMITMENTS_STEP_MOVES, answers: [row("a4", "Convenor of the evidence.")] },
+            { key: "w4-bold-moves", label: "Three bold moves", kind: "question", step: COMMITMENTS_STEP_MOVES, answers: [row("a5", "Pool prevention budgets."), row("a6", "Publish every score.")] },
           ],
         }),
       ],
       { name: "G" }
     );
     expect(s.has.commitments).toBe(true);
-    // Empty blocks are dropped; the asked ones keep their own headings and order.
-    expect(s.aspiration).toEqual([
-      { label: "What are we aspiring to?", answers: ["By 2035, budgets are set with residents."] },
-      { label: "What has to be true?", answers: ["Statute allows pooling.", "Councils keep signing."] },
+    expect(s.changes).toEqual([
+      { key: "w4-summary", label: "Summarize the key changes.", answers: ["Budgets are set with residents."] },
+      { key: "w4-assumptions", label: "What no longer holds?", answers: ["That evidence decides.", "That funding is annual."] },
     ]);
+    // `key` rides along so the deck can tell the role from the moves by identity rather
+    // than by position. See "keeps the role and the moves apart" below.
+    expect(s.role).toEqual([
+      { key: "w4-role", label: "What role is public health playing?", answers: ["Convenor of the evidence."] },
+      { key: "w4-bold-moves", label: "Three bold moves", answers: ["Pool prevention budgets.", "Publish every score."] },
+    ]);
+  });
+
+  it("drops empty blocks, and keeps a stepless block with the changes", () => {
+    // A question an admin adds in the program editor carries no step. It must not vanish,
+    // and it must not land on the role slide.
+    const s = buildGroupSummary(
+      [
+        week4({
+          cards: [{ id: "c" } as never],
+          questions: [
+            { key: "w4-summary", label: "Summarize", kind: "question", step: COMMITMENTS_STEP_CHANGES, answers: [] },
+            { key: "extra", label: "Anything else?", kind: "question", answers: [row("x", "One more thing.")] },
+          ],
+        }),
+      ],
+      { name: "G" }
+    );
+    expect(s.changes).toEqual([{ key: "extra", label: "Anything else?", answers: ["One more thing."] }]);
+    expect(s.role).toEqual([]);
+  });
+
+  it("keeps the role and the moves apart when only the moves are answered", () => {
+    // The deck used to split step 4 POSITIONALLY: first block is the role, rest are the
+    // moves. Empty blocks are dropped here, so a group that answered the moves and skipped
+    // the role made the moves element zero, and three bold moves were published under
+    // "The role you would argue for". The key is the stable thing to split on.
+    const s = buildGroupSummary(
+      [
+        week4({
+          cards: [{ id: "c" } as never],
+          questions: [
+            { key: "w4-role", label: "The role", kind: "question", step: COMMITMENTS_STEP_MOVES, answers: [] },
+            { key: "w4-bold-moves", label: "Bold moves", kind: "question", step: COMMITMENTS_STEP_MOVES, answers: [row("m1", "Pool prevention budgets.")] },
+          ],
+        }),
+      ],
+      { name: "G" }
+    );
+    expect(s.role).toEqual([
+      { key: "w4-bold-moves", label: "Bold moves", answers: ["Pool prevention budgets."] },
+    ]);
+    // The thing that matters: nothing here is keyed as the role, so the deck draws no
+    // role slide rather than drawing the moves as one.
+    expect(s.role.some((b) => b.key === "w4-role")).toBe(false);
   });
 
   it("keeps every period on a lane, so a gap stays visible", () => {
@@ -439,11 +495,21 @@ describe("buildGroupSummary · Session 4", () => {
 
 describe("buildGroupSummary · the curated handoff", () => {
   const row = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
+  // A step-2 matrix placement. Unscored unless a test says otherwise: the star on the deck
+  // is derived from the placement existing, not from how it was scored.
+  const mark = (id: string, text: string, sourceId: string, p: number | null = null, i: number | null = null) => ({
+    ...row(id, text),
+    sourceId,
+    plausibility: p,
+    impact: i,
+    rank: p !== null && i !== null ? p * i : null,
+  });
   const stake = (id: string, text: string) => ({ ...row(id, text), mechanism: null, shortlisted: false });
   const w4 = (over: Partial<CommitmentsExercise>): CommitmentsExercise => ({
     kind: "commitments", exerciseId: "EX4", title: "Session 4", cards: [{ id: "c" } as never],
     responses: [], boldMoves: [], lanes: [], stranded: [],
     picks: [], settledMarks: [], orphans: [], questions: [],
+    submittedAt: null, submittedBy: null,
     ...over,
   });
   const w3 = (): ExerciseAnswers => ({
@@ -465,10 +531,51 @@ describe("buildGroupSummary · the curated handoff", () => {
     ],
   });
 
+  it("derives each placement's kind from Week 3's own walls, and ranks them", () => {
+    // A pick stores its source's id and words, never its kind, so this builder is the only
+    // place that can say which wall a placement came from. Getting it wrong would paint an
+    // opportunity coral on the deck.
+    const s = buildGroupSummary(
+      [
+        w1(),
+        w3(),
+        w4({
+          picks: [
+            mark("m1", "plain risk", "r2", 2, 5),
+            mark("m2", "starred opp", "o1", 5, 4),
+            mark("m3", "starred risk", "r1"), // placed, never scored
+          ],
+        }),
+      ],
+      { name: "G" }
+    );
+    // Strongest first, regardless of the order the picks arrived in, and the unscored last.
+    expect(s.placements).toEqual([
+      { id: "o1", text: "starred opp", kind: "opportunity", plausibility: 5, impact: 4, rank: 20 },
+      { id: "r2", text: "plain risk", kind: "risk", plausibility: 2, impact: 5, rank: 10 },
+      { id: "r1", text: "starred risk", kind: "risk", plausibility: null, impact: null, rank: null },
+    ]);
+  });
+
+  it("drops a placement whose Session 3 source is gone rather than guessing its kind", () => {
+    // An admin deleted the risk after the group placed it. A coral chip that is really an
+    // opportunity is worse on a handoff than a missing one.
+    const s = buildGroupSummary(
+      [w1(), w3(), w4({ picks: [mark("m1", "a deleted risk", "gone", 4, 4)] })],
+      { name: "G" }
+    );
+    expect(s.placements).toEqual([]);
+  });
+
+  it("has no placements when Session 3 was never run", () => {
+    const s = buildGroupSummary([w1(), w4({ picks: [mark("m1", "x", "r1", 3, 3)] })], { name: "G" });
+    expect(s.placements).toEqual([]);
+  });
+
   it("derives the star on a Session 3 card from a Session 4 pick", () => {
     // The star is NOT stored on the risk. Week 4 writes only to its own board, so the
     // handoff deck has to project it, and this is the test that keeps it projecting.
-    const s = buildGroupSummary([w1(), w3(), w4({ picks: [{ ...row("mark0", "mark 0"), sourceId: "r1" }, { ...row("mark1", "mark 1"), sourceId: "o1" }] })], { name: "G" });
+    const s = buildGroupSummary([w1(), w3(), w4({ picks: [mark("mark0", "mark 0", "r1"), mark("mark1", "mark 1", "o1")] })], { name: "G" });
     const t = s.themes[0];
     expect(t.risks.map((r) => [r.text, r.shortlisted])).toEqual([
       ["starred risk", true],
@@ -494,7 +601,7 @@ describe("buildGroupSummary · the curated handoff", () => {
 
     // And one Session 4 pick stars exactly that one, not the Week 3 leftover.
     const picked = buildGroupSummary(
-      [w1(), w3Starred(), w4({ picks: [{ ...row("m", "x"), sourceId: "r2" }] })],
+      [w1(), w3Starred(), w4({ picks: [mark("m", "x", "r2")] })],
       { name: "G" }
     );
     expect(picked.themes[0].risks.map((r) => [r.id, r.shortlisted])).toEqual([
@@ -512,7 +619,7 @@ describe("buildGroupSummary · the curated handoff", () => {
   });
 
   it("drops the uncertainties the group marked settled, and counts them", () => {
-    const s = buildGroupSummary([w1(), w3(), w4({ settledMarks: [{ ...row("smark0", "settled 0"), sourceId: "u1" }] })], { name: "G" });
+    const s = buildGroupSummary([w1(), w3(), w4({ settledMarks: [mark("smark0", "settled 0", "u1")] })], { name: "G" });
     expect(s.unsettled.map((u) => u.text)).toEqual(["Who decides?"]);
     expect(s.settledCount).toBe(1);
   });

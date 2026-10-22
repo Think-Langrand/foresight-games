@@ -3,9 +3,14 @@
 import type { RippleCard } from "@/lib/ripples-types";
 import type { WorksheetSection } from "@/lib/exercise-types";
 
-// Step 1, read back on the steps that answer it. Steps 2, 3 and 4 all ask the group to
-// judge something against the aspiration, so the aspiration has to be on screen; a step
-// that makes you tab back to remember what you are aiming at gets answered from memory.
+// Step 1, read back on the steps that build on it. Steps 2, 3 and 4 all ask the group to
+// judge something against its own reading of this world, so that reading has to be on
+// screen; a step that makes you tab back to remember what the world is gets answered from
+// memory.
+//
+// The name is historical: step 1 asked for an aspiration before the week was restructured,
+// and it now asks what changed and which of today's assumptions that breaks. The component
+// never knew either way — it renders whatever sections it is handed.
 //
 // Read-only, and built from the SECTIONS rather than from a hard-coded list of prompts.
 // The headings are whatever the facilitator wrote in the program editor, so this cannot
@@ -44,7 +49,7 @@ export function AspirationRecap({
               onClick={onGoToAspiration}
               className="text-blue underline hover:no-underline"
             >
-              Say what you are aspiring to first
+              Start with what changes in this world
             </button>
           )}
         </p>
@@ -56,7 +61,7 @@ export function AspirationRecap({
     <div className="rounded-[4px] border-l-[3px] border-blue bg-blue/5 px-4 py-3">
       <div className="flex items-baseline justify-between gap-3">
         <p className="m-0 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-blue">
-          What you are aspiring to
+          What changes in this world
         </p>
         {onGoToAspiration && (
           <button

@@ -245,6 +245,14 @@ describe("synthesisCsvRows", () => {
 // arrays, so a dropped field fails nothing at compile time.
 
 const wrow = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
+// A Week 4 mark: a step-2 matrix placement, or a settled uncertainty, which is never scored.
+const wmark = (id: string, text: string, sourceId: string, p: number | null = null, i: number | null = null) => ({
+  ...wrow(id, text),
+  sourceId,
+  plausibility: p,
+  impact: i,
+  rank: p !== null && i !== null ? p * i : null,
+});
 
 const qblock = (
   key: string,
@@ -414,6 +422,8 @@ const cex = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
   settledMarks: [],
   orphans: [],
   questions: [],
+  submittedAt: null,
+  submittedBy: null,
   ...over,
 });
 
@@ -485,20 +495,45 @@ describe("commitmentsCsvRows", () => {
     expect(rows[0].slice(1, 4)).toEqual(["What are we aspiring to?", "question", "By 2035, every county has..."]);
   });
 
-  it("emits a row for what step 5 curated, in the mark's stored words", () => {
-    // Without these the facilitator's sheet had no trace of which three risks the group
-    // chose for the committee, or which Session 1 uncertainties it declared answered.
+  it("emits a row per matrix placement, carrying its two scores", () => {
+    // Without these the facilitator's sheet had no trace of which stakes the group ranked
+    // highest, or how far apart it put them. The scores ride the kind column so no other
+    // row in the file has to carry two empty cells.
     const rows = commitmentsCsvRows(
       cex({
-        picks: [{ ...wrow("p1", "PH funding comes from one source"), sourceId: "r1" }],
-        settledMarks: [{ ...wrow("s1", "How would equity be considered?"), sourceId: "u1" }],
+        picks: [
+          wmark("p1", "PH funding comes from one source", "r1", 4, 5),
+          wmark("p2", "Upstream prevention", "o1"),
+        ],
+        settledMarks: [wmark("s1", "How would equity be considered?", "u1")],
       })
     );
     expect(rows.map((r) => [r[1], r[2], r[3]])).toEqual([
-      ["Chosen for the committee", "pick", "PH funding comes from one source"],
+      ["On the matrix", "pick P4 I5", "PH funding comes from one source"],
+      // Placed but never scored is a real state of the step, and a different one.
+      ["On the matrix", "pick (unscored)", "Upstream prevention"],
       ["Settled since Session 1", "settled", "How would equity be considered?"],
     ]);
     for (const r of rows) expect(r).toHaveLength(GROUP_ANSWERS_CSV_HEADER.length);
+  });
+
+  it("leads with the group's submit stamp, and omits it when unsubmitted", () => {
+    // Migration 0029 says this reaches a facilitator and the CSV. It reached neither until
+    // a review caught it, and the board tells the group "the facilitators can see you are
+    // finished" — so this row is what makes that sentence true.
+    const rows = commitmentsCsvRows(
+      cex({ submittedAt: "2026-10-30T15:42:00.000Z", submittedBy: "Ana" })
+    );
+    expect(rows[0]).toEqual([
+      "Session 4",
+      "Submitted",
+      "submit",
+      "Submitted by Ana",
+      "Ana",
+      "2026-10-30T15:42:00.000Z",
+    ]);
+    for (const r of rows) expect(r).toHaveLength(GROUP_ANSWERS_CSV_HEADER.length);
+    expect(commitmentsCsvRows(cex())).toEqual([]);
   });
 
   it("emits nothing for an untouched board", () => {

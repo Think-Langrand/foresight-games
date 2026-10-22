@@ -177,6 +177,19 @@ export function implicationsCsvRows(ex: ImplicationsExercise): string[][] {
 // gap is still readable from the sheet alone.
 export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
   const rows: string[][] = [];
+  // First, because it is a fact about the WEEK rather than about any card on it, and a
+  // facilitator scanning the sheet should meet it before the work. Migration 0029 promises
+  // this column exists; it did not until the review caught it.
+  if (ex.submittedAt) {
+    rows.push([
+      ex.title,
+      "Submitted",
+      "submit",
+      ex.submittedBy ? `Submitted by ${ex.submittedBy}` : "Submitted",
+      ex.submittedBy ?? "",
+      ex.submittedAt,
+    ]);
+  }
   for (const q of ex.questions) {
     for (const a of q.answers) {
       rows.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt]);
@@ -208,12 +221,20 @@ export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
       }
     }
   }
-  // Step 5. A pick is NOT emitted as another copy of the risk it points at: the response
-  // wall already carries its own stars, and these point at Session 3's cards, which the
-  // Session 3 rows above already list. The row says which earlier card was chosen, in the
-  // words the mark stored, so the sheet reads without a lookup into another week.
+  // Step 2's matrix placements. Not emitted as another copy of the risk they point at: these
+  // name Session 3's cards, which the Session 3 rows above already list. The row carries the
+  // words the placement stored, so the sheet reads without a lookup into another week.
+  //
+  // The SCORES ride the kind column rather than taking two new columns, because every other
+  // row in this file would then carry two empty cells. "pick P4 I5" is the whole of what a
+  // placement adds over the Session 3 row; "pick (unscored)" is a real and different state.
+  // The rows arrive strongest first, which shapeFromView guarantees.
   for (const m of ex.picks) {
-    rows.push([ex.title, "Chosen for the committee", "pick", m.text, m.author, m.createdAt]);
+    const score =
+      m.plausibility !== null && m.impact !== null
+        ? `pick P${m.plausibility} I${m.impact}`
+        : "pick (unscored)";
+    rows.push([ex.title, "On the matrix", score, m.text, m.author, m.createdAt]);
   }
   for (const m of ex.settledMarks) {
     rows.push([
