@@ -62,9 +62,9 @@ The whole of this section becomes **step 1: key changes and assumptions.** It is
 
 | # | Slide | | What to do |
 |---|---|---|---|
-| 09 | Divider 02 · The aspiration | **EDIT** | Title → "What this world changes". Sub → "Your group's own reading of the scenario, and the assumptions it quietly ends." |
+| 09 | Divider 02 · The aspiration | **EDIT** | Title → "What this world changes". Sub → "Your group's own reading of the scenario, and which of today's assumptions stop holding in it." |
 | 10 | What an aspiration is | **REWRITE** | Becomes "Two questions, and the second is the one that earns its keep". `IT IS` / `IT IS NOT` should separate an **assumption** from a **risk**: an assumption is something nobody argues about today because everyone takes it for granted; a risk is a known downside, and Session 3 already has those. |
-| 11 | Session 3 is open beside you | **REWRITE** | *(Not in the PDF supplied.)* The rail changed substantially: it is now headed **"Exercise context"**, is a third of the screen wide, leads with the **scenario image and overview**, and carries **Session 2's six key changes open by default** with hopes/fears, risks, opportunities and themes shut beneath. If this slide shows the rail, the screenshot is stale. |
+| 11 | Session 3 is open beside you | **REWRITE** | *(Not in the PDF supplied.)* The rail changed substantially: it is now headed **"The world, and your earlier work"**, is a third of the screen wide, leads with the **scenario image and overview**, and carries **Session 2's six key changes open by default** with hopes/fears, risks, opportunities and themes shut beneath. If this slide shows the rail, the screenshot is stale. |
 | 12 | Worked example: from hopes and fears to an aspiration | **REWRITE** | The fear-to-flip-to-aspiration chain is the wrong input. Step 1 now works from the **scenario**, not from Session 3. Show an assumption instead, for example: *"We assume the evidence decides. In this world residents can overrule a scored option, and the question stops being what the data says and becomes who gets to choose."* |
 | 13 | Divider 03 · Breakout 1 | **EDIT** | Sub → "Say how this world changed the field, and what it stops making true." |
 | 14 | Aspiration: run it | **REWRITE** | 15 min → **12 min**, two prompts not three. New timings in section 3. |
@@ -75,7 +75,7 @@ The whole of this section becomes **step 1: key changes and assumptions.** It is
 
 | # | Slide | | What to do |
 |---|---|---|---|
-| 17 | Divider 04 · Responses and bold moves | **EDIT** | This section is now **responses only**. Title → "The option space". Sub → "What your group could actually do, before anyone decides what it will do." |
+| 17 | Divider 04 · Responses and bold moves | **EDIT** | This section is now **responses only**. Title → "The responses". Sub → "What your group could do, before anyone decides what it will do." (The app no longer says "option space" anywhere; its step 3 directions are headed "Filling the wall".) |
 | 18 | Turn what you found into what you would do | **KEEP** | The strongest slide in the section and still exactly right. Only the `SAY` line needs a look, since responses are now written after the matrix rather than after an aspiration. |
 | 19 | A response is a move | **EDIT** | `IT IS` / `IT IS NOT` / `THE TEST` all survive. **`VOLUME FIRST` is wrong**: "You are choosing three on the next step" is no longer true. Replace with: *"The next step asks for three bold moves and this wall is what you build them from, so give yourselves material. Aim for eight or ten, and include some that feel like a stretch."* |
 | 20 | Worked example: six responses | **EDIT** | Keep all six responses. Change the caption: "Three of them will not survive the next step" → *"Six, from one reading of the world. The next step builds three bold moves out of them."* The `EXAMPLE` header points at the slide-12 aspiration; repoint it. |
@@ -164,7 +164,7 @@ The first share-out moved to **after breakout 2**, on purpose: step 1 is a summa
 
 ### Outputs (slide 06)
 
-1. **A plain reading of this world,** and the assumptions about public health today that it quietly ends.
+1. **A plain reading of this world,** and which of today's assumptions about public health stop holding in it.
 2. **Your risks and opportunities ranked,** at least five of each, scored on impact against plausibility.
 3. **A wall of strategic responses,** one move per card.
 4. **The aspirational role for public health here,** and the boldest moves to reach it.
@@ -178,6 +178,11 @@ Keep the "Write for people who weren't in the room" card. Replace the `GOOD TO K
 
 Read off the live board. Mirror it exactly where a slide quotes it.
 
+**Re-synced 2026-10-22**, after the copy pass that took the AI-isms out of the board. Every
+string below is what the app shows as of that date. If you built from an earlier copy of this
+document, the prompts, both hint columns, the rail heading, all three Directions blocks and the
+step 5 text have all changed.
+
 ### Step tabs
 
 `1 · Key changes` · `2 · Risks & opportunities` · `3 · Strategic responses` · `4 · Role & bold moves` · `5 · Review & submit`
@@ -186,14 +191,14 @@ Read off the live board. Mirror it exactly where a slide quotes it.
 
 | Prompt | Hint under it |
 |---|---|
-| How has the field of public health changed the most in this world? | A big-picture question. Not a list of differences, and not one programme: the shape of the field, said so that someone who missed every session would understand it. |
-| What are the biggest assumptions about public health in today's world that aren't true in this scenario? | Not what breaks. What nobody argues about today, because everyone takes it for granted, and this world quietly stops being true. |
+| How has the field of public health changed the most in this world? | Describe how the whole field works in this world. Write it so someone who missed every session could follow you. |
+| Which of today's assumptions about public health stop being true in this scenario? | Look for what nobody argues about today, because everyone takes it for granted. In this world it no longer holds. |
 
 Below them, a progress bar: `{n} of 2 answered`.
 
 ### The right rail, on steps 1 and 3
 
-Headed **"Exercise context"**, a third of the screen wide. Top to bottom: the **scenario image**, the scenario title, the **scenario overview**, then the line *"Your own words from the earlier sessions. Open what you need; nothing here changes."* Then five folds, each with its count:
+Headed **"The world, and your earlier work"**, a third of the screen wide. Top to bottom: the **scenario image**, the scenario title, the **scenario overview**, then the line *"Your own words from the earlier sessions. Open what you need. To change any of it, go back to the session where it was written."* Then five folds, each with its count:
 
 - **Key changes 6**, **open by default**, showing Session 2's six with the labels the group typed
 - Hopes & fears · Risks · Opportunities · Themes, all shut
@@ -205,51 +210,50 @@ Two panels down the left, coral **Risks** and lime **Opportunities**, grouped un
 - Scales: **Plausibility** (`Far-fetched` → `Near certain`) and **Impact** (`Marginal` → `Transformative`), 1 to 5.
 - Panel header: `{n} of {total} scored`, then `at least 5`, or once past it `past 5 · keep going if they matter`.
 - A theme with nothing scored from it is flagged in coral: `nothing scored from this theme`.
-- A card with one scale set says `Both scores put it on the matrix.`
+- A card with one scale set says `Set both scales to put this on the matrix.`
 - A scored card offers `Clear`.
 - Right: the matrix, chips coral for risks and lime for opportunities, numbered by rank, with a legend and a progress bar reading `{n} of {total} scored · both scales set`.
 
-Directions, **"Ranking what is at stake"**:
+Directions, **"Scoring the stakes"**:
 
-- Score at least 5 risks and 5 opportunities. Score more if they matter; there is no ceiling.
-- A card reaches the matrix when both of its scales are set. Leave the ones you have nothing to say about alone.
-- Plausibility is not the same as nearness. Ask whether this is already happening, or whether it needs several other things to happen first.
-- Impact is how much changes if it lands, not how much you dislike it.
-- Score as a group, with one person recording. Two people scoring the same card race each other.
+- Score at least 5 risks and 5 opportunities. Keep going past that for any others that matter.
+- A card reaches the matrix once both scales are set. Skip any card your group has no view on.
+- Plausibility means likelihood. Something far off can still be near certain. Ask whether this is already happening, or whether several other things have to happen first.
+- Impact is how much would change if it landed. A risk you hate can still be low impact.
+- Score as a group with one person recording. Two people scoring the same card will overwrite each other.
 
 ### Step 3, the response wall
 
-Blue wall titled **Strategic responses**. Add slot: *"What could we do that moves us towards this?"*. Composer: *"One move, said as something someone does…"*. Empty state: *"What would it take to get there?"*. Button: `＋ Add a response`. **No stars and no counter.**
+Blue wall titled **Strategic responses**. Add slot: *"What could we do about any of this?"*. Composer: *"One move. Who does what…"*. Empty state: *"What would it take to get there?"*. Button: `＋ Add a response`. **No stars and no counter.**
 
-Directions, **"Opening the option space"**:
+Directions, **"Filling the wall"**:
 
-- One move per card. Say what someone would do, not what should be true.
-- Volume first. The next step asks for three bold moves and this wall is what you build them from, so give yourselves material.
-- Aim for more than 3. A wall of three leaves you nothing to combine.
-- A response can be uncomfortable. Nothing here commits you to it.
+- One move per card. Name who acts and what they do.
+- Go for quantity. Step 4 asks for three bold moves, and you build them out of this wall.
+- Aim for well more than 3. You want enough here to combine two into something stronger.
+- Write the uncomfortable ones too. Nothing on this wall is a commitment.
 
 ### Step 4, the role and the moves
 
 | Prompt | Hint under it |
 |---|---|
-| What is the aspirational role for public health in this world? | What the field is reaching for here, not what you expect it to settle for. Say it as something already true in this world. The moves below are how you get to it. |
-| What are the boldest moves that can be made in public health in this scenario to help you meet your aspirations? | Three of them, one per answer. Something someone does, with your group in the room when it happens. |
+| What is the aspirational role for public health in this world? | Write what the field is reaching for, not what you expect it to settle for. Put it in the present tense, as though this world has already arrived. The moves below are how you get there. |
+| What are the boldest moves public health could make in this world to reach that role? | Write three, one per answer. Name who acts and what they do, concretely enough that you could picture it happening. |
 
 Below them, the response wall again, **read-only**, headed **Strategic responses** with a count and an "Edit on step 3" link. Its microcopy is the line the deck has to carry, because co-leads who ran v1 will expect a checklist:
 
-> These are yours from step 3. You are not picking from them. Look for two that are stronger together, or one that makes another possible.
+> Your responses from step 3, here as raw material. Build your three moves out of them: look for two that are stronger together, or one that makes another possible.
 
 ### Step 5, review and submit
 
-1. **Your handoff** · *"Four sessions on one page, the way the steering committee will meet it."* · `Preview →` · *"opens a new tab"*
-2. **Finished?** · *"Submitting tells the facilitators this week is done. It does not lock the board and it is not final, so you can still change your mind."* · button **Submit this week**. Afterwards: *"Submitted {date} by {name}"*, *"The facilitators can see you are finished. The board is still open, so you can keep editing."*, and **Undo**.
+1. **Your handoff** · *"Four sessions on one page, as the steering committee will see it."* · `Preview →` · *"opens a new tab"*
+2. **Finished?** · *"Submitting tells the facilitators this week is done. The board stays open afterwards, so you can still change your mind."* · button **Submit this week**. Afterwards: *"Submitted {date} by {name}"*, *"The facilitators can see you are finished. The board stays open, so you can keep editing."*, and **Undo**.
 3. **The week read back**, in step order, nothing editable.
 
 Directions, **"Reading it back"**:
 
-- Read it as the steering committee will: top to bottom, with none of this session in your head.
-- A gap you can see here is a gap they will see. Go back to the step and fill it.
-- Submitting tells the facilitators you are finished. It does not lock anything, so you can still fix a line afterwards.
+- Read it top to bottom, the way the steering committee will. They come to it knowing nothing about your sessions.
+- If you can see a gap here, so will they. Go back to that step and fill it.
 
 ---
 
@@ -281,7 +285,7 @@ Directions, **"Reading it back"**:
 | If you notice… | Try saying… |
 |---|---|
 | Trying to edit on the review pane | "That pane only reads. Go back to the step that owns the line." |
-| Nobody will press Submit | "It is not final and it does not lock the board. It tells us you are done." |
+| Nobody will press Submit | "The board stays open afterwards. It just tells us you are done." |
 | Wanting to keep polishing | "Submit, then keep polishing. Both are true at once." |
 | Someone already submitted | "Then you are done. Anyone can undo it if you need to." |
 
@@ -335,6 +339,12 @@ Grep the rendered text. Each hit is a bug:
 - `eleven slides`, `11 slides`
 - `uncertainties`, until the open question is settled
 - em-dashes, `leverage`, `ensure`, `impactful`, exclamation marks, bullet characters
+- the AI tells the hard rule names. `x, not y` used as a rhetorical contrast rather than a real
+  instruction; a trailing negated fragment (`nothing here changes`, `no guessing`); `quietly` as
+  an intensifier; the `said as` / `said so that` appositive; `actually` and `the shape of the`;
+  a sentence claiming something is "the one place" or "the only part" of the program. The app's
+  own copy was cleared of all of these on 2026-10-22, so a slide carrying one now disagrees with
+  the screen as well as with the rule
 - `the portal will`, `you must`. Nothing in Session 4 is enforced by the software except that a half-scored card does not plot
 
 Then:
