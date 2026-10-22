@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ScenarioPanel } from "@/components/workshop/ScenarioPanel";
 import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
@@ -166,6 +166,10 @@ export function CommitmentsTeamView({
   // rather than racing. A ref, not state: nothing renders from it and a re-render between
   // the two clicks must not lose it.
   const mintingPick = useRef<Map<string, Promise<string>>>(new Map());
+  // Source ids whose in-flight mint has been cancelled by Clear. A create cannot be
+  // recalled, so clearStake takes ownership of deleting whatever it mints and every
+  // scoreStake still awaiting that promise bails on this set rather than scoring it.
+  const cancelledMints = useRef<Set<string>>(new Set());
   // Step 5's submit stamp. Seeded from the server and then owned here, because the press
   // and its Undo both resolve to a value the response carries. See ReviewBoard's header for
   // why this is not realtime.
@@ -195,6 +199,18 @@ export function CommitmentsTeamView({
 
   // One index for all four steps; every Session 4 selector reads it.
   const board = useMemo(() => indexCommitmentsBoard(cards), [cards]);
+
+  // A resolved `mintingPick` entry is kept on purpose (see ensurePick) to bridge the window
+  // between addLocal and React committing. Once the pick is actually in `board.picks` that
+  // bridge is done and ensurePick's first branch answers every later call, so the promise
+  // is pruned here. Keeping it past this point is what let a DELETED pick hand the next
+  // score click a dead card id: `board.picks` empties again, the retained promise is
+  // consulted, and the score is sent for a row the server no longer has.
+  useEffect(() => {
+    for (const sourceId of [...mintingPick.current.keys()]) {
+      if (board.picks.has(sourceId)) mintingPick.current.delete(sourceId);
+    }
+  }, [board]);
 
   if (loading)
     return (
@@ -468,6 +484,11 @@ export function CommitmentsTeamView({
     setPendingScores((m) => new Map(m).set(card.id, { ...m.get(card.id), ...patch }));
     run(async () => {
       const pickId = await ensurePick({ id: card.id, text: card.text });
+      // Clear was pressed while this mint was in flight. The pick exists now, but the group
+      // has already said it does not want it: clearStake owns deleting it, and scoring it
+      // here is what used to leave a scored placement on a row the group had cleared,
+      // visible in the review pane, the CSV and the handoff deck.
+      if (cancelledMints.current.has(card.id)) return;
       // `ensurePick` has already called addLocal, so the pick is in the optimistic cards
       // and `scoresFor` will read it rather than the bridge from the very next render.
       // Both of these are state updates in one tick, so there is no frame where the scale
@@ -497,7 +518,39 @@ export function CommitmentsTeamView({
     // shadowed by the pick, but deleting the pick un-shadows it and the score comes
     // straight back on screen; the minted promise would hand the next click a dead id.
     dropPending(card.id);
+    const inFlight = mintingPick.current.get(card.id);
     mintingPick.current.delete(card.id);
+
+    // MID-MINT. `toggleMark` deletes by looking the pick up in `board.picks`, and during a
+    // mint there is nothing there yet, so it returned without doing anything and the create
+    // landed and got scored regardless. Clear is reachable in exactly this window: the
+    // scales are not gated on `busy`, and the bridge entry makes the row read as touched.
+    // So wait for the create this viewer already started and delete what it minted.
+    if (inFlight && !board.picks.has(card.id)) {
+      cancelledMints.current.add(card.id);
+      run(async () => {
+        let pickId: string;
+        try {
+          pickId = await inFlight;
+        } catch {
+          // The mint itself failed, so there is no pick to delete and scoreStake's own
+          // run() has already shown the group why.
+          cancelledMints.current.delete(card.id);
+          return;
+        }
+        try {
+          removeLocal(pickId);
+          await deleteRippleCard(code, pickId, { participantId: pid });
+        } catch (e) {
+          unremoveLocal(pickId);
+          throw e;
+        } finally {
+          cancelledMints.current.delete(card.id);
+        }
+      });
+      return;
+    }
+
     toggleMark("pick", { id: card.id, text: card.text }, false);
   };
 
