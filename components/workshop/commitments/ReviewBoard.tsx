@@ -33,10 +33,11 @@ const reviewDirections = makePrefStore(
   DIRECTIONS_FOLD
 );
 
+// Two lines. There was a third about submitting locking nothing, which repeated what the
+// submit bar a few hundred pixels up this same screen already says.
 const REVIEW_DIRECTIONS = [
-  "Read it as the steering committee will: top to bottom, with none of this session in your head.",
-  "A gap you can see here is a gap they will see. Go back to the step and fill it.",
-  "Submitting tells the facilitators you are finished. It does not lock anything, so you can still fix a line afterwards.",
+  "Read it top to bottom, the way the steering committee will. They come to it knowing nothing about your sessions.",
+  "If you can see a gap here, so will they. Go back to that step and fill it.",
 ];
 
 function when(iso: string): string {
@@ -73,8 +74,8 @@ function SubmitBar({
             {submittedBy ? ` by ${submittedBy}` : ""}
           </span>
           <span className="mt-1 block text-[13px] leading-[1.45] text-muted">
-            The facilitators can see you are finished. The board is still open, so you can
-            keep editing.
+            The facilitators can see you are finished. The board stays open, so you can keep
+            editing.
           </span>
         </span>
         {editable && (
@@ -98,8 +99,8 @@ function SubmitBar({
           Finished?
         </span>
         <span className="mt-1 block max-w-[62ch] text-[13px] leading-[1.45] text-muted">
-          Submitting tells the facilitators this week is done. It does not lock the board and
-          it is not final, so you can still change your mind.
+          Submitting tells the facilitators this week is done. The board stays open
+          afterwards, so you can still change your mind.
         </span>
       </span>
       <button
@@ -165,7 +166,7 @@ export function ReviewBoard({
               Your handoff
             </span>
             <span className="mt-1 block text-[13px] leading-[1.45] text-muted">
-              Four sessions on one page, the way the steering committee will meet it.
+              Four sessions on one page, as the steering committee will see it.
             </span>
           </span>
           <span className="shrink-0 text-[13px] font-bold uppercase tracking-[0.06em] text-blue">

@@ -4,7 +4,7 @@
 
 **Read this first, in one line:** Session 4 was restructured after a conversation with NNPHI. **Backcasting and the three-move down-select are cut. The handoff stopped being a step.** Two new steps replace them, and one of those, an impact × plausibility matrix, is the biggest new thing you will have to teach.
 
-**The hard rule, unchanged:** no em-dashes, anywhere.
+**The hard rule, unchanged:** no em-dashes, or AI-isms, anywhere.
 
 **A note on what I reviewed.** The PDF supplied has 38 pages covering slides 01 to 39; **slide 11, "Session 3 is open beside you", is not in it.** Everything below is a review of the 38 slides I could read. Slide 11 is disposed of on the assumption the index page describes it accurately.
 

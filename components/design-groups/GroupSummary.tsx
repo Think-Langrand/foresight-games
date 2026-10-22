@@ -533,7 +533,7 @@ export default function GroupSummaryView({
   // which THEMES carry the most at stake. This is Week 4's: of everything on those walls,
   // which individual stakes did the group rank highest, and how far apart are they.
   //
-  // A RANKED LIST, not the grid the board draws. The grid is for placing — it answers
+  // A RANKED LIST RATHER THAN A GRID. The grid is for placing — it answers
   // "where does this sit relative to the others" while you are still deciding. A reader of
   // the handoff wants the order, and a 5x5 grid of 10 chips on a slide is mostly empty.
   // The scores are printed beside each line so the ranking is checkable rather than asserted.
