@@ -24,6 +24,8 @@ import { COMMITMENTS_KEY_ROLE } from "@/lib/exercise-types";
 import ImplicationsMap from "@/components/design-groups/ImplicationsMap";
 import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffDeck";
 import SummaryMatrix from "@/components/design-groups/SummaryMatrix";
+import ExecSummaryBody from "@/components/design-groups/ExecSummaryBody";
+import { execSummaryDefaultText, type ExecSummaryOverride } from "@/lib/exec-summary-shape";
 import ClusterMatrix from "@/components/design-groups/ClusterMatrix";
 import StakesBalance from "@/components/design-groups/StakesBalance";
 
@@ -203,6 +205,46 @@ function KeyChangeRow({ kc, n }: { kc: SummaryKeyChange; n: number }) {
   );
 }
 
+// One wall's ranked picks for slide 08. Module scope, not inline in the slide: a
+// component created during render is a new type every pass, which remounts its subtree.
+function StakeColumn({ rows, tone }: { rows: SummaryPlacement[]; tone: "risk" | "opportunity" }) {
+  return (
+    <div>
+      <p
+        className="m-0 mb-2 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]"
+        style={{ color: tone === "risk" ? "var(--coral)" : "#3f5209" }}
+      >
+        {tone === "risk" ? "Risks" : "Opportunities"}{" "}
+        <span className="tabular-nums text-muted">{rows.length}</span>
+      </p>
+      {rows.length === 0 ? (
+        <p className="m-0 py-2 text-[13.5px] text-muted">
+          None of this group&rsquo;s picks came from this wall.
+        </p>
+      ) : (
+        <ol className="m-0 list-none p-0">
+          {rows.map((p, i) => (
+            <li
+              key={p.id}
+              className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-[var(--hairline)] py-[11px] last:border-b-0"
+            >
+              <span className="pt-[2px] font-mono text-[11px] tabular-nums text-muted">
+                {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="min-w-0">
+                <span className="block max-w-[52ch] text-[14.5px] leading-[1.45]">{p.text}</span>
+                <span className="mt-[3px] block font-mono text-[9.5px] uppercase tracking-[0.1em] tabular-nums text-muted">
+                  {p.rank === null ? "not scored" : `P ${p.plausibility} · I ${p.impact}`}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 function StakeList({
   tone,
   rows,
@@ -243,11 +285,27 @@ function StakeList({
 
 export default function GroupSummaryView({
   s,
+  execOverride = null,
+  execEdit,
+  publicView = false,
   implications,
   projectSlug,
   groupId,
 }: {
   s: GroupSummary;
+  // The group's edited lead for slide 02, or null to show the projected answers.
+  //
+  // SEPARATE FROM execEdit ON PURPOSE. These are two different questions — "what does this
+  // slide say" and "may the reader change it" — and an earlier version folded them into one
+  // prop, which meant the public page dropped the group's edit along with the Edit button
+  // and served the committee the pre-edit draft. Keeping them apart makes that mistake
+  // impossible: a surface that passes no editing capability still shows the right words.
+  execOverride?: ExecSummaryOverride | null;
+  // Presence makes slide 02 editable. The public reader omits it, which is what guarantees
+  // no edit affordance can render there even for a signed-in facilitator who opens the link.
+  execEdit?: { week4Code: string | null };
+  // Set by the public reader. Drops deck chrome that only makes sense to the group.
+  publicView?: boolean;
   // The shaped Session 2 week, passed through untouched so the map is the real panel rather
   // than a reshaping of it. Null before Session 2 has run.
   implications: ImplicationsExercise | null;
@@ -305,10 +363,16 @@ export default function GroupSummaryView({
   // of the scenario, written before three sessions inside it; this is what the group thinks
   // after. A committee comparing four handoffs wants the considered answer up front.
   //
-  // NO SUMMARISING HERE. Every line is a sentence the room typed. A generated précis is the
-  // obvious next step and it is deliberately not this: it would be the one slide in the deck
-  // that nobody in the group wrote, leading a document whose whole claim is that it is
-  // theirs.
+  // NO MACHINE SUMMARISING. By default every line is a sentence the room typed. A generated
+  // précis is the obvious next step and it is deliberately not that: it would be the one
+  // slide in the deck that nobody in the group wrote, leading a document whose whole claim
+  // is that it is theirs.
+  //
+  // A GROUP MAY WRITE ITS OWN LEAD, and that is the same principle rather than an exception
+  // to it — the objection above is to text nobody in the group wrote. An edit is stored as
+  // an OVERLAY (lib/exec-summary-shape.ts) and replaces the projected blocks below; the
+  // board is never touched, so "Restore the board's words" always works, and the chip says
+  // "edited" so a reader can tell a group's précis from its verbatim answers.
   const execChanges = s.changes.filter((b) => b.answers.length > 0);
   const execRole = s.role.filter((b) => b.key === COMMITMENTS_KEY_ROLE && b.answers.length > 0);
   if (s.has.commitments && (execChanges.length > 0 || execRole.length > 0)) {
@@ -319,6 +383,32 @@ export default function GroupSummaryView({
       ...execChanges.map((b) => ({ ...b, answers: b.answers.slice(0, 2), more: b.answers.length - 2 })),
       ...execRole.map((b) => ({ ...b, more: 0 })),
     ];
+    const projected = (
+      <div className="flex flex-col gap-7">
+        {brief.map((block) => (
+          <div key={block.key}>
+            <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+              {block.label}
+            </p>
+            <ul className="m-0 list-none p-0">
+              {block.answers.map((a) => (
+                <li
+                  key={a}
+                  className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[15px] leading-[1.5] last:border-b-0"
+                >
+                  {a}
+                </li>
+              ))}
+            </ul>
+            {block.more > 0 && (
+              <p className="m-0 mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                {block.more} more {block.more === 1 ? "answer" : "answers"} on the full slide
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    );
     slides.push({
       id: "summary",
       label: "Executive summary",
@@ -326,39 +416,30 @@ export default function GroupSummaryView({
         <Slide
           n="02"
           title="In brief"
-          chip={<Chip tone="live">Session 4</Chip>}
+          chip={<Chip tone="live">{execOverride ? "Session 4 · edited" : "Session 4"}</Chip>}
           intro={
-            <>
-              Your group&rsquo;s own answers to the three questions a committee asks first:
-              what is different here, what stops being true, and what public health is for.
-              Every line below is in your words. The full answers are at the end of the deck.
-            </>
+            execOverride ? (
+              <>
+                Your group wrote this lead itself. The full Session 4 answers it was drawn
+                from are at the end of the deck.
+              </>
+            ) : (
+              <>
+                Your group&rsquo;s own answers to the three questions a committee asks first:
+                what is different here, what stops being true, and what public health is for.
+                Every line below is your group&rsquo;s own words. The full answers are at the
+                end of the deck.
+              </>
+            )
           }
         >
-          <div className="flex flex-col gap-7">
-            {brief.map((block) => (
-              <div key={block.key}>
-                <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-                  {block.label}
-                </p>
-                <ul className="m-0 list-none p-0">
-                  {block.answers.map((a) => (
-                    <li
-                      key={a}
-                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[15px] leading-[1.5] last:border-b-0"
-                    >
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-                {block.more > 0 && (
-                  <p className="m-0 mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
-                    {block.more} more {block.more === 1 ? "answer" : "answers"} on the full slide
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+          <ExecSummaryBody
+            sessionCode={execEdit?.week4Code ?? null}
+            canEdit={Boolean(execEdit)}
+            override={execOverride}
+            projected={projected}
+            seed={execSummaryDefaultText(execChanges, execRole)}
+          />
         </Slide>
       ),
     });
@@ -586,42 +667,6 @@ export default function GroupSummaryView({
     const risks = s.placements.filter((p) => p.kind === "risk");
     const opps = s.placements.filter((p) => p.kind === "opportunity");
 
-    const Column = ({ rows, tone }: { rows: SummaryPlacement[]; tone: "risk" | "opportunity" }) => (
-      <div>
-        <p
-          className="m-0 mb-2 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]"
-          style={{ color: tone === "risk" ? "var(--coral)" : "#3f5209" }}
-        >
-          {tone === "risk" ? "Risks" : "Opportunities"}{" "}
-          <span className="tabular-nums text-muted">{rows.length}</span>
-        </p>
-        {rows.length === 0 ? (
-          <p className="m-0 py-2 text-[13.5px] text-muted">
-            None of this group&rsquo;s picks came from this wall.
-          </p>
-        ) : (
-          <ol className="m-0 list-none p-0">
-            {rows.map((p, i) => (
-              <li
-                key={p.id}
-                className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-[var(--hairline)] py-[11px] last:border-b-0"
-              >
-                <span className="pt-[2px] font-mono text-[11px] tabular-nums text-muted">
-                  {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
-                </span>
-                <span className="min-w-0">
-                  <span className="block max-w-[52ch] text-[14.5px] leading-[1.45]">{p.text}</span>
-                  <span className="mt-[3px] block font-mono text-[9.5px] uppercase tracking-[0.1em] tabular-nums text-muted">
-                    {p.rank === null ? "not scored" : `P ${p.plausibility} · I ${p.impact}`}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
-    );
-
     slides.push({
       id: "matrix",
       label: "What matters most",
@@ -642,8 +687,8 @@ export default function GroupSummaryView({
         >
           <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
             <div className="grid gap-7 sm:grid-cols-2">
-              <Column rows={risks} tone="risk" />
-              <Column rows={opps} tone="opportunity" />
+              <StakeColumn rows={risks} tone="risk" />
+              <StakeColumn rows={opps} tone="opportunity" />
             </div>
             <SummaryMatrix
               noun="risk or opportunity"
@@ -1002,6 +1047,7 @@ export default function GroupSummaryView({
       groupName={s.groupName}
       projectSlug={projectSlug}
       groupId={groupId}
+      publicView={publicView}
     />
   );
 }

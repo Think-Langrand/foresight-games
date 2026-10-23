@@ -1,20 +1,18 @@
 import { notFound } from "next/navigation";
 import { getProjectBySlug } from "@/lib/projects";
 import { getSessionUser } from "@/lib/supabase-auth";
-import { getDesignGroup } from "@/lib/design-groups";
-import { listExercises } from "@/lib/design-group-exercises";
-import { shapeExerciseAnswers } from "@/lib/group-answers";
-import { buildGroupSummary } from "@/lib/group-summary";
+import { loadHandoff } from "@/lib/handoff";
 import GroupSummaryView from "@/components/design-groups/GroupSummary";
 
 export const dynamic = "force-dynamic";
 
-// A group's HANDOFF: the whole program folded onto one read-only page. Sibling of the
-// [exerciseId] board route — `summary` is a static segment, so it wins over the dynamic one
-// (exercise ids are uuids, so nothing collides).
+// A group's HANDOFF, the editable copy. Sibling of the [exerciseId] board route — `summary`
+// is a static segment, so it wins over the dynamic one (exercise ids are uuids, so nothing
+// collides).
 //
-// Reads through shapeExerciseAnswers, the same projection the admin viewer uses, so the page
-// cannot disagree with the answers tab about what is on a board.
+// THE GROUP'S COPY, not the committee's. The same deck is served read-only and outside the
+// project passphrase gate at /h/<slug>/<groupId>; both render from loadHandoff so the two
+// cannot drift. This one passes `exec`, which is what puts the Edit control on slide 02.
 export default async function DesignGroupSummaryPage({
   params,
 }: {
@@ -23,8 +21,6 @@ export default async function DesignGroupSummaryPage({
   const { title, groupId } = await params;
   const project = await getProjectBySlug(title);
   if (!project) notFound();
-  const group = await getDesignGroup(groupId);
-  if (!group || group.projectId !== project.id) notFound();
 
   // The hub hides the link to this page unless the project has turned the handoff on, so
   // gate the route too — otherwise an old bookmark walks straight past the switch. Admins
@@ -32,24 +28,20 @@ export default async function DesignGroupSummaryPage({
   const isAdmin = Boolean(await getSessionUser());
   if (!project.homeConfig.handoffVisible && !isAdmin) notFound();
 
-  const exercises = await listExercises(groupId);
-  const weeks = await Promise.all(
-    exercises.map((ex) => shapeExerciseAnswers(ex, { scenarioTitle: group.scenarioTitle }))
-  );
-  const summary = buildGroupSummary(weeks, {
-    name: group.name,
-    scenarioTitle: group.scenarioTitle,
-  });
-  // Handed through unshaped: section 02 mounts the real Session 2 map (ImplicationsPanel),
-  // which builds the tree, the key-change chips and the order filters from these cards.
-  const implications = weeks.find((w) => w.kind === "implications") ?? null;
+  const data = await loadHandoff(project.id, groupId);
+  if (!data) notFound();
 
   return (
     <GroupSummaryView
-      s={summary}
-      implications={implications}
+      s={data.summary}
+      implications={data.implications}
       projectSlug={title}
       groupId={groupId}
+      execOverride={data.execOverride}
+      // Presence is what makes slide 02 editable. Whoever can reach this page may edit:
+      // there is no group-membership record to check against — see the route's own header —
+      // so the honest gate is the board player row the API enforces, not anything here.
+      execEdit={{ week4Code: data.week4Code }}
     />
   );
 }

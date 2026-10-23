@@ -44,6 +44,11 @@ export interface HomeConfig {
   // the handoff is still a draft, and a project turns it on when it is ready to be
   // read. Admins see the link regardless, the same way they preview closed weeks.
   handoffVisible: boolean;
+  // Whether /h/<slug>/<groupId> serves each group's handoff to anyone with the link.
+  // Separate from handoffVisible on purpose: showing a group its own draft and handing
+  // the deck to a steering committee are different decisions, and the second one is the
+  // one that leaves the project's passphrase behind.
+  handoffPublic: boolean;
 }
 
 // The canonical set of items, in their default display order. Adding a new home
@@ -71,6 +76,7 @@ export function defaultHomeConfig(): HomeConfig {
     hiddenScenarioSections: [],
     defaultScenarioSetId: null,
     handoffVisible: false,
+    handoffPublic: false,
   };
 }
 
@@ -115,9 +121,11 @@ export function normalizeHomeConfig(raw: unknown): HomeConfig {
   const defaultScenarioSetId =
     typeof rawDefaultSet === "string" && rawDefaultSet.trim() ? rawDefaultSet.trim() : null;
 
-  // Strict === true: a config written before this flag existed has no key, and a
-  // stray truthy value (a string from a hand-edited jsonb) must not reveal a draft.
+  // Strict === true on both: a config written before either flag existed has no key, and a
+  // stray truthy value (a string from a hand-edited jsonb) must not reveal a draft — or,
+  // for handoffPublic, serve four groups' work to anyone holding the link.
   const handoffVisible = (raw as { handoffVisible?: unknown } | null)?.handoffVisible === true;
+  const handoffPublic = (raw as { handoffPublic?: unknown } | null)?.handoffPublic === true;
 
-  return { items, hiddenScenarioSections, defaultScenarioSetId, handoffVisible };
+  return { items, hiddenScenarioSections, defaultScenarioSetId, handoffVisible, handoffPublic };
 }
