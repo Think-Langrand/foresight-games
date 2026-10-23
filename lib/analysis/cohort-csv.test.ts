@@ -3,6 +3,7 @@ import { cohortCsvRows, COHORT_CSV_HEADER } from "./cohort-csv";
 import type { CohortClusterResponse } from "./cohort-cluster-shape";
 
 const run = (over: Partial<CohortClusterResponse> = {}): CohortClusterResponse => ({
+  source: "implications",
   method: "embedding",
   criteria: null,
   promptOverride: null,

@@ -408,3 +408,99 @@ describe("shapeFromView — synthesis weeks", () => {
     expect(shapeFromView(ex("synthesis"), null).kind).toBe("placeholder");
   });
 });
+
+describe("shapeFromView — commitments weeks (Week 4)", () => {
+  const response = (id: string, seq: number, opts: { sort?: number; shortlisted?: boolean } = {}) =>
+    card(id, "FIRST", { cardKind: "response", seq, ...opts });
+  const milestone = (id: string, parentId: string, period: string, seq: number) =>
+    card(id, "SECOND", { cardKind: "milestone", parentId, section: period, seq });
+
+  it("shapes the wall, the picks and one lane per bold move", () => {
+    const shaped = shapeFromView(
+      ex("commitments"),
+      view([
+        response("r1", 1, { sort: 1000, shortlisted: true }),
+        response("r2", 2, { sort: 2000 }),
+        milestone("m1", "r1", "w4-p1", 3),
+        milestone("m2", "r1", "w4-p5", 4),
+      ])
+    );
+    if (shaped.kind !== "commitments") throw new Error(`expected commitments, got ${shaped.kind}`);
+
+    expect(shaped.responses.map((r) => [r.text, r.shortlisted])).toEqual([
+      ["r1-text", true],
+      ["r2-text", false],
+    ]);
+    expect(shaped.boldMoves.map((m) => m.text)).toEqual(["r1-text"]);
+    // One lane, because only one response was picked.
+    expect(shaped.lanes).toHaveLength(1);
+    expect(shaped.lanes[0].move.text).toBe("r1-text");
+    expect(shaped.orphans).toEqual([]);
+    expect(shaped.stranded).toEqual([]);
+    // Author names resolve the same way every other week's do.
+    expect(shaped.responses[0].author).toBe("Ana");
+  });
+
+  it("keeps every period on a lane, including the empty ones", () => {
+    // Where a group clustered its milestones and where it left a gap is part of the
+    // finding, so an empty cell is a cell, not an omission.
+    const shaped = shapeFromView(
+      ex("commitments"),
+      view([response("r1", 1, { shortlisted: true }), milestone("m1", "r1", "w4-p3", 2)])
+    );
+    if (shaped.kind !== "commitments") throw new Error("expected commitments");
+
+    const lane = shaped.lanes[0];
+    expect(lane.periods.map((p) => p.key)).toEqual(["w4-p1", "w4-p2", "w4-p3", "w4-p4", "w4-p5"]);
+    expect(lane.periods.map((p) => p.milestones.length)).toEqual([0, 0, 1, 0, 0]);
+    expect(lane.periods[2].label).toBe("2031–32");
+  });
+
+  it("reports milestones whose move is no longer picked, rather than dropping them", () => {
+    const shaped = shapeFromView(
+      ex("commitments"),
+      view([response("r1", 1), milestone("m1", "r1", "w4-p2", 2)])
+    );
+    if (shaped.kind !== "commitments") throw new Error("expected commitments");
+
+    expect(shaped.lanes).toEqual([]); // nothing picked, so no timeline
+    expect(shaped.stranded.map((m) => m.text)).toEqual(["m1-text"]);
+    expect(shaped.orphans).toEqual([]);
+  });
+
+  it("surfaces a milestone the board could not place", () => {
+    const shaped = shapeFromView(
+      ex("commitments"),
+      view([response("r1", 1, { shortlisted: true }), milestone("bad", "r1", "w4-p9", 2)])
+    );
+    if (shaped.kind !== "commitments") throw new Error("expected commitments");
+    expect(shaped.orphans.map((o) => o.text)).toEqual(["bad-text"]);
+  });
+
+  it("falls back to the type's section template when the week was never customized", () => {
+    // The bug this guards: reading ex.sections (which is []) instead of the effective set
+    // would make step 1 — the whole aspiration — invisible in the admin viewer.
+    const shaped = shapeFromView(
+      ex("commitments", []),
+      view([card("a1", "STICKY", { section: "w4-summary", seq: 1 })])
+    );
+    if (shaped.kind !== "commitments") throw new Error("expected commitments");
+
+    const template = EXERCISE_TYPES.commitments.sections ?? [];
+    expect(shaped.questions.map((q) => q.key)).toEqual(template.map((s) => s.key));
+    const first = shaped.questions.find((q) => q.key === "w4-summary");
+    expect(first?.answers.map((a) => a.text)).toEqual(["a1-text"]);
+    expect(first?.label).toBe(template[0].label);
+  });
+
+  it("shapes an empty board as a commitments week, not a placeholder", () => {
+    const shaped = shapeFromView(ex("commitments"), view([]));
+    expect(shaped.kind).toBe("commitments");
+  });
+
+  it("is a placeholder when the board could not be loaded", () => {
+    // The `&& view` guard: a board-backed week whose view failed to load has no answers to
+    // show, and saying "placeholder" is honest where an empty commitments week would not be.
+    expect(shapeFromView(ex("commitments"), null).kind).toBe("placeholder");
+  });
+});

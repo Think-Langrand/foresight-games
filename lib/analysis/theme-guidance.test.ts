@@ -7,6 +7,7 @@ import {
   PLAIN_WORDS_PROSE,
   THEME_INSTRUCTIONS,
   composeClusterPrompt,
+  IMPLICATION_MATERIAL,
 } from "./theme-guidance";
 
 // The prompts are strings assembled from parts, so nothing in the type system notices when a
@@ -79,5 +80,57 @@ describe("PLAIN_WORDS_PROSE", () => {
     // the actual fault — inventing a third item for rhythm.
     expect(PLAIN_WORDS_PROSE).toContain("Padding a list to three");
     expect(PLAIN_WORDS_PROSE).toContain("if it holds four, give four");
+  });
+});
+
+// --- source-aware framing -------------------------------------------------------------
+//
+// The cohort prompt was written for one kind of material and says so twice ("mapped out
+// the implications", "all of their implications are pooled below"). Pooling risks or fears
+// through the same clustering would hand the model a list of risks under a sentence telling
+// it they are implications. These lock in that the material can be named, and -- more
+// important -- that saying nothing reproduces the original prompt exactly.
+
+describe("composeClusterPrompt with material", () => {
+  it("is byte-identical to the unparameterized prompt when no material is given", () => {
+    for (const framing of ["group", "cohort"] as const) {
+      expect(composeClusterPrompt(framing, IMPLICATION_MATERIAL)).toBe(
+        composeClusterPrompt(framing)
+      );
+    }
+  });
+
+  it("names the material in the cohort framing instead of saying implications", () => {
+    const p = composeClusterPrompt("cohort", {
+      plural: "risks",
+      singular: "risk",
+      produced: "wrote the risks they saw in the themes they had built",
+      context: "theme",
+    });
+    expect(p).toContain("risks");
+    expect(p).toContain("wrote the risks they saw");
+    expect(p).not.toContain("all of their implications are");
+  });
+
+  it("names the material in the per-item rules too, not only the opening line", () => {
+    const p = composeClusterPrompt("cohort", {
+      plural: "fears",
+      singular: "fear",
+      produced: "wrote what they feared",
+      context: "theme",
+    });
+    expect(p).toContain("A fear MAY belong to more than one theme");
+    expect(p).not.toContain("An implication MAY belong");
+  });
+
+  it("still carries every mechanical rule the response schema depends on", () => {
+    const p = composeClusterPrompt("cohort", {
+      plural: "hopes",
+      singular: "hope",
+      produced: "wrote what they hoped for",
+      context: "fear it answers",
+    });
+    expect(p).toContain("Use the ids exactly as given");
+    expect(p).toContain("STATEMENT ABOUT CHANGE");
   });
 });

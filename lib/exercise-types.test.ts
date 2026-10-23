@@ -26,6 +26,7 @@ describe("exercise-types registry", () => {
     expect(isBoardBacked("implications")).toBe(true);
     expect(isBoardBacked("synthesis")).toBe(true);
     expect(isBoardBacked("scenario-assessment")).toBe(true);
+    expect(isBoardBacked("commitments")).toBe(true);
     expect(isBoardBacked("placeholder")).toBe(false);
     expect(isBoardBacked("nope")).toBe(false);
   });
@@ -202,14 +203,17 @@ describe("exercise-types registry", () => {
     });
   });
 
-  it("default program is assessment, implications, synthesis, then a placeholder", () => {
+  it("default program is assessment, implications, synthesis, commitments", () => {
     expect(DEFAULT_PROGRAM.map((w) => w.type)).toEqual([
       "scenario-assessment",
       "implications",
       "synthesis",
-      "placeholder",
+      "commitments",
     ]);
     expect(DEFAULT_PROGRAM.map((w) => w.sort)).toEqual([0, 1, 2, 3]);
+    // Every week of the default program is now board-backed, so a new project provisions
+    // four boards per group rather than three plus a gap.
+    for (const w of DEFAULT_PROGRAM) expect(isBoardBacked(w.type)).toBe(true);
   });
 });
 
@@ -242,5 +246,67 @@ describe("synthesis exercise type", () => {
   it("is session 3 of the default program", () => {
     expect(DEFAULT_PROGRAM[2].type).toBe("synthesis");
     expect(defaultProgramWeeks()[2].sections).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Commitments (Week 4)
+// ---------------------------------------------------------------------------
+describe("commitments exercise type", () => {
+  it("is registered, board-backed, and carries editable sections", () => {
+    expect(getExerciseType("commitments")?.render).toBe("commitments");
+    expect(isBoardBacked("commitments")).toBe(true);
+    // The week's FIRST STEP is sections, so this is load-bearing rather than incidental:
+    // without it the admin block editor never appears and the aspiration prompts could
+    // not be reworded without a deploy.
+    expect(supportsSections("commitments")).toBe(true);
+  });
+
+  it("splits its written fields across the two steps that have them", () => {
+    const sections = EXERCISE_TYPES.commitments.sections!;
+    expect(sections.map((s) => s.key)).toEqual([
+      "w4-summary",
+      "w4-assumptions",
+      "w4-role",
+      "w4-bold-moves",
+    ]);
+    // `question`, not `brainstorm`: three people in a breakout have three readings and each
+    // answer is its own card. Migration 0027 is the record of what forcing one cost.
+    for (const s of sections) expect(s.kind).toBe("question");
+    for (const s of sections) expect(s.label.length).toBeGreaterThan(0);
+    // TWO steps, in board order. The view splits `sections` on this, so a section landing
+    // on the wrong step renders on the wrong tab, and one with no step falls to step 1.
+    expect(worksheetSteps(sections)).toEqual(["Key changes", "Bold moves"]);
+    expect(sections.filter((s) => s.step === "Key changes")).toHaveLength(2);
+    expect(sections.filter((s) => s.step === "Bold moves")).toHaveLength(2);
+  });
+
+  it("never reuses a key retired by the restructure", () => {
+    // A key is the permanent link to every answer card ever written under it. The week
+    // moved away from a three-part aspiration and a handoff step; those four keys stay
+    // retired so their cards surface under a "removed block" heading rather than being
+    // silently re-pointed at a different question.
+    const keys = EXERCISE_TYPES.commitments.sections!.map((s) => s.key);
+    for (const retired of [
+      "aspiration-statement",
+      "aspiration-serves",
+      "aspiration-holds",
+      "handoff-committee-line",
+    ]) {
+      expect(keys).not.toContain(retired);
+    }
+  });
+
+  it("is session 4 of the default program, replacing the placeholder", () => {
+    expect(DEFAULT_PROGRAM[3].type).toBe("commitments");
+    expect(DEFAULT_PROGRAM[3].title).toContain("Session 4");
+    // The canonical week carries the EFFECTIVE keyset, so a group that never customizes
+    // still gets step 1.
+    expect(defaultProgramWeeks()[3].sections.map((s) => s.key)).toEqual([
+      "w4-summary",
+      "w4-assumptions",
+      "w4-role",
+      "w4-bold-moves",
+    ]);
   });
 });

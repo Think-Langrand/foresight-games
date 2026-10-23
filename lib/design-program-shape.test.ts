@@ -37,6 +37,8 @@ function ex(
     closed: false,
     opensAt: null,
     sections: [],
+    submittedAt: null,
+    submittedBy: null,
     createdTime: `2026-01-01T00:00:0${seq}Z`,
   };
 }

@@ -12,15 +12,9 @@ import {
   stepZoom,
   type Zoom,
 } from "@/components/workshop/MapControls";
-import {
-  buildChildrenMap,
-  depthByCard,
-  isFacilitatorCard,
-  isTreeRoot,
-  type RippleCard,
-} from "@/lib/ripples-types";
-import { sortRootsByRank } from "@/lib/ripples-scoring";
-import { branchOf, keyChangeLabel } from "@/lib/synthesis-shape";
+import { isFacilitatorCard, isTreeRoot, type RippleCard } from "@/lib/ripples-types";
+import { buildMapModel, defaultBranch } from "@/lib/implication-map-shape";
+import { branchOf } from "@/lib/synthesis-shape";
 import type { ThemeAnswerKind } from "@/lib/synthesis-shape";
 import type { SynthesisSummary } from "@/lib/synthesis-summary-shape";
 
@@ -38,6 +32,12 @@ export interface QuestionBlock {
   key: string;
   label: string;
   kind: "brainstorm" | "question";
+  // The authored WorksheetSection.step this block sits on, when it has one. Carried so a
+  // panel can read a week back IN STEP ORDER: Session 4's prompts live on two different
+  // steps with the matrix and the response wall between them, and rendering all four
+  // prompts in a single run would put step 4 before step 2.
+  // Undefined for a spec that sets no steps, which is most of them.
+  step?: string;
   removed?: boolean; // answers under a section key no longer in the spec
   answers: AnswerRow[];
 }
@@ -115,6 +115,63 @@ export interface SynthesisExercise {
   // The facilitator's executive summary of steps 1–2, if one has been generated.
   summary: SynthesisSummary | null;
 }
+// --- Week 4 ------------------------------------------------------------------
+// One period column of one bold move's timeline. Empty cells are kept, so the shape of a
+// lane (where the group clustered its work, and where it left gaps) survives the export.
+// One step-5 mark: a star on a Session 3 risk or opportunity, or a Session 1 uncertainty
+// the group declared answered.
+export interface HandoffMark extends AnswerRow {
+  sourceId: string; // the earlier week's card this is about
+  // Session 4 step 2's matrix placement. A `pick` is a tree root on the Week 4 board, so it
+  // carries the same plausibility/impact columns a Week 2 key change does, scored on the
+  // same two 1-to-5 scales. Null until the group scores that axis: placing and scoring are
+  // two acts, and a half-scored placement plots nothing.
+  plausibility: number | null;
+  impact: number | null;
+  // rankValue = plausibility x impact, or null while either axis is unset. The ORDER, not
+  // the score: the handoff deck and the review step both lead with the highest.
+  rank: number | null;
+}
+export interface MilestoneCell {
+  key: string; // the permanent period key — see PERIODS in lib/commitments-shape
+  label: string; // its years, which are presentation and may be rewritten
+  milestones: AnswerRow[];
+}
+export interface BoldMoveLane {
+  move: AnswerRow; // the shortlisted response this lane backcasts
+  periods: MilestoneCell[]; // every period, in order, cells included when empty
+}
+export interface CommitmentsExercise {
+  kind: "commitments";
+  exerciseId: string;
+  title: string;
+  cards: RippleCard[]; // the whole shared board (responses, milestones)
+  // Step 1 lives entirely in `questions`: the aspiration prompts are authored worksheet
+  // sections, so their answers arrive as ordinary question blocks. There is no
+  // `aspiration` field on purpose — the prompts' wording is the facilitator's, not code's.
+  responses: StakeRow[]; // step 2's wall; `shortlisted` marks a bold move
+  boldMoves: AnswerRow[]; // step 3's picks, in wall order
+  lanes: BoldMoveLane[]; // step 4's timeline, one lane per bold move
+  // Milestones under a response the group has since un-ticked. Not lost and not orphaned:
+  // they return the moment the move is picked again. Reported so a reader is never left
+  // wondering where a timeline went.
+  stranded: AnswerRow[];
+  // Step 5's marks. Each carries the earlier card it points at AND that card's words, which
+  // the mark stored when it was written, so a reader does not need the other board loaded to
+  // know what was chosen. Nothing on Session 1's or Session 3's board was changed to make
+  // this true; the star on the handoff deck is derived from these.
+  picks: HandoffMark[];
+  settledMarks: HandoffMark[];
+  // Cards the board could not place — a milestone with an unrecognised period. Surfaced so
+  // nothing is ever silently lost; an empty list is the normal case.
+  orphans: AnswerRow[];
+  questions: QuestionBlock[]; // steps 1 and 4's prompts, plus anything an admin added
+  // When the GROUP said it had finished (migration 0029), and who pressed it. Null means
+  // not submitted. It gates nothing — the board stays editable — so this is a signal to a
+  // facilitator, which is why it has to actually reach one. See CommitmentsPanel.
+  submittedAt: string | null;
+  submittedBy: string | null;
+}
 export interface PlaceholderExercise {
   kind: "placeholder";
   exerciseId: string;
@@ -125,6 +182,7 @@ export type ExerciseAnswers =
   | WorksheetExercise
   | ImplicationsExercise
   | SynthesisExercise
+  | CommitmentsExercise
   | PlaceholderExercise;
 
 export const MAP_VIEWS = ["wheel", "tree", "list"] as const;
@@ -230,45 +288,16 @@ export function ImplicationsPanel({
   // earlier-week tabs (SessionTabs) — participants should not see who added what here.
   isAdmin?: boolean;
 } & PanelOpts) {
-  // The tree alone (no brainstorm stickies), its depths, its key changes in rank order,
-  // and what hangs under each — the counts the chips show.
-  const model = useMemo(() => {
-    const tree = ex.cards.filter((c) => c.order !== "STICKY");
-    const depths = depthByCard(tree);
-    const children = buildChildrenMap(tree);
-    const everyRoot = sortRootsByRank((children.get(null) ?? []).filter((c) => depths.has(c.id)));
-    const countUnder = (id: string): number => {
-      let n = 0;
-      const walk = (x: string) => {
-        for (const k of children.get(x) ?? []) {
-          if (!depths.has(k.id)) continue;
-          n += 1;
-          walk(k.id);
-        }
-      };
-      walk(id);
-      return n;
-    };
-    // Only key changes the group actually mapped under — a chip reading "0" is noise, and a
-    // branch with nothing in it is a hub and no wheel. The whole map still draws them all.
-    const roots = everyRoot.filter((r) => countUnder(r.id) > 0);
-    const keyChanges = roots.map((r) => ({ key: r.id, label: keyChangeLabel(r.text), title: r.text, count: countUnder(r.id) }));
-    const orderCounts = new Map<number, number>();
-    for (const c of tree) {
-      const d = depths.get(c.id);
-      if (d !== undefined && d > 0) orderCounts.set(d, (orderCounts.get(d) ?? 0) + 1);
-    }
-    const orders = [...orderCounts.keys()].sort((a, b) => a - b).map((o) => ({ order: o, count: orderCounts.get(o)! }));
-    const total = orders.reduce((n, o) => n + o.count, 0);
-    return { tree, depths, roots, keyChanges, orders, total };
-  }, [ex.cards]);
+  // lib/implication-map-shape owns this so the handoff's split layout opens on the same
+  // branch with the same pickable roots. See that module's header.
+  const model = useMemo(() => buildMapModel(ex.cards), [ex.cards]);
   const hasTree = model.tree.length > 0;
 
   // Which branch (null = every key change), which order, and how close. Nothing picked yet
   // (`undefined`) opens on the FIRST key change, the top-ranked one, like the live board;
   // null is "Any key change" chosen on purpose.
   const [branchPick, setBranch] = useState<string | null | undefined>(undefined);
-  const branch = branchPick === undefined ? (model.roots[0]?.id ?? null) : branchPick;
+  const branch = branchPick === undefined ? defaultBranch(model) : branchPick;
   const [orderFilter, setOrderFilter] = useState<number | null>(null);
   const [zoom, setZoom] = useState<Zoom>("fit");
   const fitScaleRef = useRef(1);

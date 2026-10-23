@@ -15,7 +15,12 @@
 //   - brainstorm → a free wall of stickies
 //   - question   → a prompt with accumulating short answer cards (concurrency-safe)
 
-export type ExerciseRender = "implications" | "worksheet" | "synthesis" | "placeholder";
+export type ExerciseRender =
+  | "implications"
+  | "worksheet"
+  | "synthesis"
+  | "commitments"
+  | "placeholder";
 export type SectionKind = "brainstorm" | "question";
 
 export interface WorksheetSection {
@@ -139,6 +144,70 @@ const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
 // "removed block" heading rather than vanishing.
 const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 
+// --- Commitments (Week 4), steps 1 and 4 --------------------------------------
+// Steps 2, 3 and 5 are code (the impact matrix, the response wall, the review). Steps 1
+// and 4 ride the ordinary section substrate, the same hybrid Week 2 uses for its Sandbox,
+// and for the same reason: a facilitator can reword these prompts, add one or drop one, in
+// the program editor with no deploy. That is why neither step has card kinds of its own.
+//
+// `step` buckets them onto a tab. Sections sharing a step render as one flat stack;
+// CommitmentsTeamView splits on this, and anything an admin adds with no step falls to
+// step 1, which is where an extra question belongs.
+//
+// KEYS ARE PERMANENT ids written onto every answer card's `section` — never rename one.
+// The LABEL is the editable part. `aspiration-statement`, `aspiration-serves`,
+// `aspiration-holds` and `handoff-committee-line` are RETIRED, not reused: the week was
+// restructured away from a three-part aspiration and a handoff step, and any card still
+// carrying one of those keys surfaces in the admin viewer under a "removed block" heading
+// rather than vanishing.
+//
+// `question` rather than `brainstorm` because each prompt accumulates short answers, one
+// card each: three people in a breakout have three readings and all three belong on the
+// sheet. Migration 0027 is the record of what forcing one answer per question cost.
+// Exported so the board filters `sections` on these rather than on string literals it
+// would have to keep in sync by hand.
+export const COMMITMENTS_STEP_CHANGES = "Key changes";
+export const COMMITMENTS_STEP_MOVES = "Bold moves";
+// The role's section key, named because the handoff deck gives it a slide of its own and
+// has to find it by IDENTITY rather than by position. Keys are permanent (see the header),
+// so this is the stable thing to match on; the label belongs to whoever edits the program.
+export const COMMITMENTS_KEY_ROLE = "w4-role";
+const STEP_CHANGES = COMMITMENTS_STEP_CHANGES;
+const STEP_MOVES = COMMITMENTS_STEP_MOVES;
+
+const COMMITMENTS_SECTIONS: WorksheetSection[] = [
+  {
+    key: "w4-summary",
+    kind: "question",
+    step: STEP_CHANGES,
+    label: "How has the field of public health changed the most in this world?",
+    help: "Describe how the whole field works in this world. Write it so someone who missed every session could follow you.",
+  },
+  {
+    key: "w4-assumptions",
+    kind: "question",
+    step: STEP_CHANGES,
+    label:
+      "Which of today's assumptions about public health stop being true in this scenario?",
+    help: "Look for what nobody argues about today, because everyone takes it for granted. In this world it no longer holds.",
+  },
+  {
+    key: "w4-role",
+    kind: "question",
+    step: STEP_MOVES,
+    label: "What is the aspirational role for public health in this world?",
+    help: "Write what the field is reaching for, not what you expect it to settle for. Put it in the present tense, as though this world has already arrived. The moves below are how you get there.",
+  },
+  {
+    key: "w4-bold-moves",
+    kind: "question",
+    step: STEP_MOVES,
+    label:
+      "What are the boldest moves public health could make in this world to reach that role?",
+    help: "Write three, one per answer. Name who acts and what they do, concretely enough that you could picture it happening.",
+  },
+];
+
 export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   "scenario-assessment": {
     id: "scenario-assessment",
@@ -172,6 +241,17 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
     render: "synthesis",
     boardBacked: true,
     sections: SYNTHESIS_SECTIONS,
+  },
+  // Week 4: read the world back, rank Session 3's risks and opportunities on the impact x
+  // plausibility matrix, open a wall of strategic responses, then write a role and three
+  // bold moves built from that wall, and review the whole week. Steps 1 and 4 are sections,
+  // steps 2, 3 and 5 are code, all on one board.
+  commitments: {
+    id: "commitments",
+    label: "Commitments (Key changes, Matrix, Responses, Role & bold moves)",
+    render: "commitments",
+    boardBacked: true,
+    sections: COMMITMENTS_SECTIONS,
   },
   placeholder: {
     id: "placeholder",
@@ -295,18 +375,22 @@ export function isBoardBacked(id: string): boolean {
 }
 
 // Does this type render editable worksheet-style question/brainstorm blocks (the section
-// substrate)? Worksheets do; the implications and synthesis boards also render blocks
-// alongside their own steps, so all three expose the admin block editor and carry
-// per-exercise `sections`.
+// substrate)? Worksheets do; the implications, synthesis and commitments boards also render
+// blocks alongside their own steps, so all four expose the admin block editor and carry
+// per-exercise `sections`. Commitments goes furthest: its whole first step IS sections.
 export function supportsSections(id: string): boolean {
   const r = EXERCISE_TYPES[id]?.render;
-  return r === "worksheet" || r === "implications" || r === "synthesis";
+  return (
+    r === "worksheet" || r === "implications" || r === "synthesis" || r === "commitments"
+  );
 }
 
 // The default program seeded when a group's scenario is assigned. Session 1 = scenario
-// assessment, Session 2 = implication mapping, Session 3 = synthesis, Session 4 = TBD.
+// assessment, Session 2 = implication mapping, Session 3 = synthesis, Session 4 =
+// commitments.
 // Only new projects get this; existing groups keep whatever their rows already say, and an
-// admin changes a week's type in the program editor.
+// admin changes a week's type in the program editor. So changing a type here does NOT
+// migrate a running cohort: that is a deliberate save in the admin, per group.
 export interface ProgramWeek {
   sort: number;
   type: string;
@@ -316,7 +400,7 @@ export const DEFAULT_PROGRAM: ProgramWeek[] = [
   { sort: 0, type: "scenario-assessment", title: "Session 1 · Scenario Assessment" },
   { sort: 1, type: "implications", title: "Session 2 · Implication Mapping" },
   { sort: 2, type: "synthesis", title: "Session 3 · Synthesis" },
-  { sort: 3, type: "placeholder", title: "Session 4 · TBD" },
+  { sort: 3, type: "commitments", title: "Session 4 · Commitments" },
 ];
 
 // A CanonicalWeek is the group-AGNOSTIC content of one program week — the single thing

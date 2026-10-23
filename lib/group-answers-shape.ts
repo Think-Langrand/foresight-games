@@ -23,6 +23,13 @@ import {
   VALUES_FIELDS,
   type ThemeAnswerKind,
 } from "@/lib/synthesis-shape";
+import { rankValue } from "@/lib/ripples-scoring";
+import {
+  PERIODS,
+  indexCommitmentsBoard,
+  milestonesFor,
+  strandedMilestones,
+} from "@/lib/commitments-shape";
 
 // Pure shaping of one design-group week's board into its read-only answers — worksheet
 // Q&A, an implications map (+ brainstorm / question blocks), or a placeholder. No I/O:
@@ -35,6 +42,11 @@ export interface ShapeableExercise {
   title: string;
   type: string;
   sections: WorksheetSection[];
+  // The GROUP's submit stamp (migration 0029), for the weeks that have one. Carried into
+  // the shape rather than read separately so the admin answers viewer, the CSV and the
+  // group's own review pane all learn about it from the same place.
+  submittedAt?: string | null;
+  submittedBy?: string | null;
 }
 
 export function shapeFromView(
@@ -66,6 +78,7 @@ export function shapeFromView(
       key: s.key,
       label: s.label,
       kind: s.kind,
+      step: s.step,
       answers: toAnswers(bySection.get(s.key) ?? []),
     }));
     if (opts.includeRemoved) {
@@ -227,6 +240,65 @@ export function shapeFromView(
       // notes are invisible here.
       questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
       summary: view.config.summary,
+    };
+  }
+
+  if (render === "commitments" && view) {
+    const board = indexCommitmentsBoard(view.cards);
+    const toStake = (c: RippleCard): StakeRow => ({
+      ...toRow(c),
+      mechanism: c.description,
+      shortlisted: c.shortlisted,
+    });
+
+    return {
+      kind: "commitments",
+      exerciseId: ex.id,
+      title: ex.title,
+      cards: view.cards,
+      responses: board.responses.map(toStake),
+      boldMoves: board.boldMoves.map(toRow),
+      // Every period on every lane, empty cells included: where a group clustered its work
+      // and where it left a gap is part of the finding, and dropping empties would hide it.
+      lanes: board.boldMoves.map((move) => ({
+        move: toRow(move),
+        periods: PERIODS.map((p) => ({
+          key: p.key,
+          label: p.label,
+          milestones: milestonesFor(board, move.id, p.key).map(toRow),
+        })),
+      })),
+      stranded: strandedMilestones(board).map(toRow),
+      // Step 2's matrix placements, highest rankValue first, so every reader of this shape
+      // — the review step, the admin viewer, the CSV, the handoff deck — leads with what the
+      // group said matters most without each re-deriving the order. Unscored placements sort
+      // last (rank null) rather than being dropped: "placed but not yet scored" is a real
+      // state of the step and hiding it would make a half-finished matrix look empty.
+      picks: [...board.picks]
+        .map(([sourceId, c]) => ({
+          ...toRow(c),
+          sourceId,
+          plausibility: c.plausibility,
+          impact: c.impact,
+          rank: rankValue(c),
+        }))
+        .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1)),
+      settledMarks: [...board.settled].map(([sourceId, c]) => ({
+        ...toRow(c),
+        sourceId,
+        // Not a matrix placement. A settled mark points at a Session 1 uncertainty and was
+        // never scorable; the fields exist because it shares HandoffMark.
+        plausibility: null,
+        impact: null,
+        rank: null,
+      })),
+      orphans: board.orphans.map(toRow),
+      // resolveEffectiveSections, not the raw column: a commitments week that was never
+      // customized stores [] and must fall back to the type's template, or step 1 — the
+      // whole aspiration — is invisible here.
+      questions: buildQuestions(resolveEffectiveSections(ex.type, ex.sections)),
+      submittedAt: ex.submittedAt ?? null,
+      submittedBy: ex.submittedBy ?? null,
     };
   }
 

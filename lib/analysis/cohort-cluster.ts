@@ -7,7 +7,8 @@ import {
   embedImplications,
 } from "./implication-cluster";
 import { type ClusterMethod } from "./implication-cluster-shape";
-import { poolCohortImplications } from "./cohort-pool";
+import { poolCohortItems } from "./cohort-pool";
+import { POOL_MATERIAL, poolSourceLabel, type PoolSource } from "./cohort-pool-shape";
 import { topCrossGroupPairs } from "./cohort-pairs";
 import { writeCohortNarrative } from "./cohort-narrative";
 import {
@@ -32,6 +33,8 @@ import {
 export interface RunArgs {
   projectId: string;
   projectName: string;
+  // WHICH material to pool. Defaults to implications, so an existing caller is unchanged.
+  source?: PoolSource;
   method: ClusterMethod;
   context: ContextMode;
   criteria: string | null;
@@ -56,7 +59,10 @@ export type RunResult =
 
 export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
   const started = Date.now();
-  const pool = await poolCohortImplications(args.projectId, {
+  const source: PoolSource = args.source ?? "implications";
+  const material = POOL_MATERIAL[source];
+  const pool = await poolCohortItems(args.projectId, {
+    source,
     weekSort: args.weekSort,
     overrides: args.overrides,
     groupIds: args.groupIds,
@@ -66,7 +72,7 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
     return {
       ok: false,
       status: 400,
-      error: "No group in this project has an implications week to pool.",
+      error: `No group in this project has a week that could hold ${poolSourceLabel(source)}.`,
     };
 
   // Say WHICH groups came up empty, not just that the pool is too small — the facilitator
@@ -75,7 +81,7 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
     const missing = pool.groups.filter((g) => g.state === "missing").map((g) => g.name);
     const empty = pool.groups.filter((g) => g.state === "empty").map((g) => g.name);
     const detail = [
-      empty.length ? `no implications yet: ${empty.join(", ")}` : null,
+      empty.length ? `no ${material.plural} yet: ${empty.join(", ")}` : null,
       missing.length ? `no board at this week: ${missing.join(", ")}` : null,
     ]
       .filter(Boolean)
@@ -83,7 +89,7 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
     return {
       ok: false,
       status: 400,
-      error: `The cohort has fewer than two implications at ${pool.week.title}${
+      error: `The cohort has fewer than two ${material.plural} at ${pool.week.title}${
         detail ? ` (${detail})` : ""
       }.`,
     };
@@ -93,7 +99,8 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
   const skipped = pool.groups.filter((g) => g.state !== "ok");
   if (skipped.length > 0) {
     notes.push(
-      `${skipped.length} group${skipped.length === 1 ? "" : "s"} contributed nothing: ` +
+      `${skipped.length} group${skipped.length === 1 ? "" : "s"} contributed no ` +
+        `${material.plural}: ` +
         skipped.map((g) => `${g.name} (${g.state === "missing" ? "no board" : "empty"})`).join(", ")
     );
   }
@@ -149,6 +156,7 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
       ? await clusterByLlm(pool.items, args.criteria, {
           framing: "cohort",
           promptOverride: args.promptOverride ?? undefined,
+          material,
           tagOf,
           preamble,
         })
@@ -186,6 +194,7 @@ export async function runCohortClustering(args: RunArgs): Promise<RunResult> {
   return {
     ok: true,
     response: {
+      source,
       method: args.method,
       criteria: args.criteria,
       promptOverride: args.promptOverride,

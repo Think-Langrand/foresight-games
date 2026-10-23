@@ -116,6 +116,27 @@ export default async function DesignGroupHubPage({
           );
         })}
       </div>
+
+      {/* The handoff: every week folded onto one read-only page. Offered once any board-backed
+          week has run, since before that it would render as a page of empty sections. */}
+      {exercises.some((ex) => ex.sessionCode) && (
+        <Link
+          href={`/project/${title}/design-groups/${groupId}/summary`}
+          className="mt-6 flex items-center justify-between gap-4 rounded-[3px] border border-ink px-5 py-4 transition hover:bg-card"
+        >
+          <span className="min-w-0">
+            <span className="block text-[17px] font-extrabold uppercase tracking-tight">
+              Your handoff
+            </span>
+            <span className="mt-1 block text-[13px] text-muted">
+              The whole program on one page. Draft.
+            </span>
+          </span>
+          <span className="shrink-0 text-[13px] font-bold uppercase tracking-[0.06em] text-blue">
+            Read →
+          </span>
+        </Link>
+      )}
     </main>
   );
 }

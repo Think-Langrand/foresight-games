@@ -9,6 +9,7 @@ import {
   type MapView,
 } from "@/components/design-groups/AnswerPanels";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
+import { CommitmentsPanel } from "@/components/design-groups/CommitmentsPanel";
 import { emptyTally, sumTallies, type CardTally } from "@/lib/design-activity-shape";
 import type { ProgramDTO } from "@/lib/design-program-shape";
 
@@ -24,13 +25,14 @@ export interface WeekDetail {
 }
 
 // The buckets, in the order they're built on a board. Only the non-empty ones print, so
-// a Week 2 cell reads "key changes / implications" and a Week 3 cell "themes /
-// implications / synthesis cards".
+// a Week 2 cell reads "key changes / implications", a Week 3 cell "themes /
+// implications / synthesis cards" and a Week 4 cell "responses & milestones".
 const KINDS = [
   { key: "keyChanges", label: "key changes" },
   { key: "themes", label: "themes" },
   { key: "implications", label: "implications" },
   { key: "synthesis", label: "answers, risks, hopes & fears" },
+  { key: "commitments", label: "responses & milestones" },
   { key: "brainstorm", label: "brainstorm" },
   { key: "answers", label: "answers" },
 ] as const;
@@ -370,6 +372,9 @@ function WeekPanels({
         <ImplicationsPanel ex={active.answers} view={mapView} setView={setMapView} showMeta isAdmin />
       )}
       {active.answers.kind === "synthesis" && <SynthesisPanel ex={active.answers} showMeta />}
+      {active.answers.kind === "commitments" && (
+        <CommitmentsPanel ex={active.answers} showMeta />
+      )}
       {active.answers.kind === "placeholder" && (
         <p className="text-[14px] italic text-muted">
           {active.answers.unavailable

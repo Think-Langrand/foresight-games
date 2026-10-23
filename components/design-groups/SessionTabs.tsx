@@ -8,6 +8,7 @@ import {
   type MapView,
 } from "@/components/design-groups/AnswerPanels";
 import { SynthesisPanel } from "@/components/design-groups/SynthesisPanel";
+import { CommitmentsPanel } from "@/components/design-groups/CommitmentsPanel";
 import { SessionHeaderProvider } from "@/components/design-groups/SessionHeader";
 
 // Session tabs on a design group's session page: the current session (the live board,
@@ -106,6 +107,7 @@ export function SessionTabs({
             <ImplicationsPanel ex={active} view={mapView} setView={setMapView} showMeta={false} />
           )}
           {active.kind === "synthesis" && <SynthesisPanel ex={active} showMeta={false} />}
+          {active.kind === "commitments" && <CommitmentsPanel ex={active} showMeta={false} />}
           {active.kind === "placeholder" && (
             <p className="text-[14px] italic text-muted">
               {active.unavailable

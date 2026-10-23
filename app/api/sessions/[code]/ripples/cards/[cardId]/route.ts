@@ -12,6 +12,7 @@ import {
   moveCardSource,
   scoreCard,
   setCardParked,
+  setCardSection,
   setCardShortlisted,
   updateCardDescription,
   updateCardSort,
@@ -28,6 +29,7 @@ import {
   type ReparentRefusal,
 } from "@/lib/ripples-types";
 import { placementError } from "@/lib/synthesis-shape";
+import { isCommitmentPeriod } from "@/lib/commitments-shape";
 
 // One human sentence per refusal planReparent can return — the reasons exist so the
 // message can name the real cause, like the POST route's three distinct parent refusals.
@@ -64,7 +66,8 @@ export async function PATCH(
       | "score"
       | "reparent"
       | "park"
-      | "shortlist";
+      | "shortlist"
+      | "period";
     participantId?: string;
     sort?: number;
     text?: string;
@@ -74,6 +77,9 @@ export async function PATCH(
     parentCardId?: string | null;
     parked?: boolean;
     shortlisted?: boolean;
+    // Week 4: which two-year period a milestone sits in. Validated against PERIODS rather
+    // than typed as PeriodKey, because this is parsed JSON from the wire.
+    period?: string;
   } = {};
   try {
     body = await req.json();
@@ -235,6 +241,13 @@ export async function PATCH(
     // Only the analytical cards can be shortlisted — a hope is not a finding and a theme
     // is the container. Refused by kind, the same way park refuses a theme.
     //
+    // Week 4's `response` joined them, and is the one case where the shortlist is the
+    // POINT of a step rather than a note on the side: a bold move IS a response carrying
+    // this flag, which is why Session 4 needs no rank column and no derived card. The cap
+    // of three is enforced in the UI only — counting here would be a read-then-write race
+    // on a board several people work at once, so the copy says "up to three" rather than
+    // claiming a guarantee the server does not make.
+    //
     // Assumptions joined the list because step 4 also asks which of them were challenged
     // in a way that surprised the group; that is a finding about the group's own thinking,
     // and the doc names it as a workshop output.
@@ -248,15 +261,46 @@ export async function PATCH(
       if (
         card.cardKind !== "risk" &&
         card.cardKind !== "opportunity" &&
-        card.cardKind !== "assumption"
+        card.cardKind !== "assumption" &&
+        card.cardKind !== "response"
       ) {
         return NextResponse.json(
-          { error: "Only a risk, an opportunity or an assumption can go on the shortlist." },
+          {
+            error:
+              "Only a risk, an opportunity, an assumption or a strategic response can go on the shortlist.",
+          },
           { status: 400 }
         );
       }
       await setCardShortlisted(session.code, cardId, body.shortlisted);
       return NextResponse.json({ ok: true, shortlisted: body.shortlisted });
+    }
+
+    // Move a Week 4 milestone between the timeline's two-year periods. Its own action
+    // rather than an overload of `reorder`: `sort` orders cards WITHIN a cell and the
+    // period is which cell, and migration 0022's note on not overloading `sort` for the
+    // shortlist applies here for the same reason.
+    //
+    // Refuses rather than nulls an unknown period, matching the POST route: a milestone
+    // with no period belongs to no column and would be drawn by no view.
+    if (body.action === "period") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only change your own card." }, { status: 403 });
+      }
+      if (card.cardKind !== "milestone") {
+        return NextResponse.json(
+          { error: "Only a milestone sits in a timeline period." },
+          { status: 400 }
+        );
+      }
+      if (!isCommitmentPeriod(body.period)) {
+        return NextResponse.json(
+          { error: "A milestone belongs in one of the timeline's periods." },
+          { status: 400 }
+        );
+      }
+      await setCardSection(session.code, cardId, body.period);
+      return NextResponse.json({ ok: true, period: body.period });
     }
 
     // Park a card in Week 3's tray — set aside, not deleted, and draggable back out. Uses
