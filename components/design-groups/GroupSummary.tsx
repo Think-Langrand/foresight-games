@@ -12,12 +12,18 @@
 // is listed by name with its implications and simply carries no stakes panel — the handoff is
 // the group's work, not an audit of which fields they left empty.
 
-import { themesByStakes, type GroupSummary, type SummaryKeyChange } from "@/lib/group-summary";
+import {
+  themesByStakes,
+  type GroupSummary,
+  type SummaryKeyChange,
+  type SummaryPlacement,
+} from "@/lib/group-summary";
 import type { ImplicationsExercise, StakeRow } from "@/components/design-groups/AnswerPanels";
 import { AXIS_ENDS, AXIS_LABELS, SCORE_AXES } from "@/lib/ripples-scoring";
 import { COMMITMENTS_KEY_ROLE } from "@/lib/exercise-types";
 import ImplicationsMap from "@/components/design-groups/ImplicationsMap";
 import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffDeck";
+import SummaryMatrix from "@/components/design-groups/SummaryMatrix";
 import ClusterMatrix from "@/components/design-groups/ClusterMatrix";
 import StakesBalance from "@/components/design-groups/StakesBalance";
 
@@ -265,15 +271,16 @@ export default function GroupSummaryView({
         <p className="mt-5 max-w-[48ch] text-[clamp(16px,2vw,21px)] font-light leading-[1.45] text-ink">
           What your group found in this future, in your own words.
         </p>
-        <dl className="mt-10 grid max-w-[900px] grid-cols-[repeat(auto-fit,minmax(118px,1fr))] gap-x-6 gap-y-5 border-t border-[var(--hairline)] pt-6">
+        <dl className="mt-10 grid max-w-[900px] grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-x-5 gap-y-5 border-t border-[var(--hairline)] pt-6">
           {(
             [
               ["Key changes", s.keyChanges.length ? String(s.keyChanges.length) : "—"],
               ["Implications", s.totalImplicationCards ? String(s.totalImplicationCards) : "—"],
               ["Themes", s.themes.length ? String(s.themes.length) : "—"],
+              ["Risks", s.riskCount ? String(s.riskCount) : "—"],
+              ["Opportunities", s.opportunityCount ? String(s.opportunityCount) : "—"],
               ["Hopes", String(hopeCount)],
               ["Fears", String(s.flips.length)],
-              ["Fears flipped", s.flips.length ? `${flipped.length} of ${s.flips.length}` : "—"],
             ] as const
           ).map(([k, v]) => (
             <div key={k}>
@@ -288,43 +295,67 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 02 · how this world works -------------------------------------------------------
-  // Session 1's own read of the scenario, written in September and shown nowhere until now.
-  // It goes BEFORE the key changes because it is the ground the rest of the deck stands on:
-  // a committee reading four of these needs to know how this world works before it can read
-  // what the group thinks follows from it.
-  if (s.worldReading.length > 0) {
+  // ---- 02 · executive summary ----------------------------------------------------------
+  // What a steering committee reads if it reads one slide. It pulls the HEADLINES of three
+  // things the group wrote in Session 4 — how this world differs, which of today's
+  // assumptions it ends, and the role public health should play — and leaves the full
+  // answers where they are, at slides 10 and 11.
+  //
+  // IT REPLACED Session 1's "how this world works". That slide was the group's first read
+  // of the scenario, written before three sessions inside it; this is what the group thinks
+  // after. A committee comparing four handoffs wants the considered answer up front.
+  //
+  // NO SUMMARISING HERE. Every line is a sentence the room typed. A generated précis is the
+  // obvious next step and it is deliberately not this: it would be the one slide in the deck
+  // that nobody in the group wrote, leading a document whose whole claim is that it is
+  // theirs.
+  const execChanges = s.changes.filter((b) => b.answers.length > 0);
+  const execRole = s.role.filter((b) => b.key === COMMITMENTS_KEY_ROLE && b.answers.length > 0);
+  if (s.has.commitments && (execChanges.length > 0 || execRole.length > 0)) {
+    // Two each from the written blocks, all of the aspiration: the role is normally one or
+    // two sentences and cutting it is cutting the argument, while the change blocks run long
+    // and the slide is a lead, not the record.
+    const brief = [
+      ...execChanges.map((b) => ({ ...b, answers: b.answers.slice(0, 2), more: b.answers.length - 2 })),
+      ...execRole.map((b) => ({ ...b, more: 0 })),
+    ];
     slides.push({
-      id: "world",
-      label: "How this world works",
+      id: "summary",
+      label: "Executive summary",
       node: (
         <Slide
           n="02"
-          title="How this world works"
+          title="In brief"
+          chip={<Chip tone="live">Session 4</Chip>}
           intro={
             <>
-              Your group&rsquo;s first read of this scenario, from Session 1. Everything after
-              this slide follows from it.
+              Your group&rsquo;s own answers to the three questions a committee asks first:
+              what is different here, what stops being true, and what public health is for.
+              Every line below is in your words. The full answers are at the end of the deck.
             </>
           }
         >
           <div className="flex flex-col gap-7">
-            {s.worldReading.map((block) => (
-              <div key={block.label}>
+            {brief.map((block) => (
+              <div key={block.key}>
                 <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-                  {block.label}{" "}
-                  <span className="tabular-nums text-muted">{block.answers.length}</span>
+                  {block.label}
                 </p>
                 <ul className="m-0 list-none p-0">
                   {block.answers.map((a) => (
                     <li
                       key={a}
-                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[14.5px] leading-[1.5] last:border-b-0"
+                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[15px] leading-[1.5] last:border-b-0"
                     >
                       {a}
                     </li>
                   ))}
                 </ul>
+                {block.more > 0 && (
+                  <p className="m-0 mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                    {block.more} more {block.more === 1 ? "answer" : "answers"} on the full slide
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -345,7 +376,8 @@ export default function GroupSummaryView({
         intro={
           s.keyChanges.length > 0 ? (
             <>
-              The changes your group chose to carry forward, each scored once by the room.{" "}
+              The changes your group chose to carry forward, each scored once by the room and
+              listed strongest first. The grid is where they landed.{" "}
               {AXIS_LABELS.plausibility} runs from {AXIS_ENDS.plausibility.low.toLowerCase()} to{" "}
               {AXIS_ENDS.plausibility.high.toLowerCase()}. {AXIS_LABELS.impact} runs from{" "}
               {AXIS_ENDS.impact.low.toLowerCase()} to {AXIS_ENDS.impact.high.toLowerCase()}.
@@ -356,11 +388,24 @@ export default function GroupSummaryView({
         {s.keyChanges.length === 0 ? (
           <p className="text-[14px] text-muted">Session 2 has not run for this group yet.</p>
         ) : (
-          <ol className="m-0 list-none border-t-[1.5px] border-ink p-0">
-            {s.keyChanges.map((kc, i) => (
-              <KeyChangeRow key={kc.id} kc={kc} n={i + 1} />
-            ))}
-          </ol>
+          /* The grid sits beside the list on a wide screen and under it on a narrow one.
+             It is the same component the group scored on, so the handoff shows the picture
+             the room was looking at rather than a second drawing of the same numbers. */
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
+            <ol className="m-0 list-none border-t-[1.5px] border-ink p-0">
+              {s.keyChanges.map((kc, i) => (
+                <KeyChangeRow key={kc.id} kc={kc} n={i + 1} />
+              ))}
+            </ol>
+            <SummaryMatrix
+              rows={s.keyChanges.map((kc) => ({
+                id: kc.id,
+                text: kc.label ?? kc.body,
+                plausibility: kc.plausibility,
+                impact: kc.impact,
+              }))}
+            />
+          </div>
         )}
       </Slide>
     ),
@@ -527,72 +572,101 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 07b · the matrix, if Session 4 placed anything -----------------------------------
+  // ---- 08 · what the group ranked highest ----------------------------------------------
   // Its own slide rather than a second block under 07, because the two answer different
-  // questions and one slide asking both reads as a single muddled chart. 07 is Week 3's:
-  // which THEMES carry the most at stake. This is Week 4's: of everything on those walls,
-  // which individual stakes did the group rank highest, and how far apart are they.
+  // questions. 07 is Week 3's: which THEMES carry the most at stake. This is Week 4's: of
+  // everything on those walls, which individual stakes did the group rank highest.
   //
-  // A RANKED LIST RATHER THAN A GRID. The grid is for placing — it answers
-  // "where does this sit relative to the others" while you are still deciding. A reader of
-  // the handoff wants the order, and a 5x5 grid of 10 chips on a slide is mostly empty.
-  // The scores are printed beside each line so the ranking is checkable rather than asserted.
+  // RISKS AND OPPORTUNITIES IN ONE COLUMN EACH, AND ONE SHARED GRID. The two lists give the
+  // order; the single grid is what makes them comparable, because the finding a committee is
+  // after is whether the openings sit higher than the exposures or the other way round, and
+  // two grids side by side cannot be read against each other that way.
   if (s.placements.length > 0) {
     const scored = s.placements.filter((p) => p.rank !== null);
-    const risks = s.placements.filter((p) => p.kind === "risk").length;
+    const risks = s.placements.filter((p) => p.kind === "risk");
+    const opps = s.placements.filter((p) => p.kind === "opportunity");
+
+    const Column = ({ rows, tone }: { rows: SummaryPlacement[]; tone: "risk" | "opportunity" }) => (
+      <div>
+        <p
+          className="m-0 mb-2 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]"
+          style={{ color: tone === "risk" ? "var(--coral)" : "#3f5209" }}
+        >
+          {tone === "risk" ? "Risks" : "Opportunities"}{" "}
+          <span className="tabular-nums text-muted">{rows.length}</span>
+        </p>
+        {rows.length === 0 ? (
+          <p className="m-0 py-2 text-[13.5px] text-muted">
+            None of this group&rsquo;s picks came from this wall.
+          </p>
+        ) : (
+          <ol className="m-0 list-none p-0">
+            {rows.map((p, i) => (
+              <li
+                key={p.id}
+                className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-[var(--hairline)] py-[11px] last:border-b-0"
+              >
+                <span className="pt-[2px] font-mono text-[11px] tabular-nums text-muted">
+                  {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="min-w-0">
+                  <span className="block max-w-[52ch] text-[14.5px] leading-[1.45]">{p.text}</span>
+                  <span className="mt-[3px] block font-mono text-[9.5px] uppercase tracking-[0.1em] tabular-nums text-muted">
+                    {p.rank === null ? "not scored" : `P ${p.plausibility} · I ${p.impact}`}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    );
+
     slides.push({
       id: "matrix",
       label: "What matters most",
       node: (
         <Slide
           n="08"
-          title="Which stakes you ranked highest"
+          title="Your top risks and opportunities"
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
             <>
               {s.placements.length} of your risks and opportunities placed on impact against
-              plausibility, strongest first. {risks}{" "}
-              {risks === 1 ? "is a risk" : "are risks"}, {s.placements.length - risks}{" "}
-              {s.placements.length - risks === 1 ? "an opportunity" : "opportunities"}. This is
-              the one place in four sessions where your group ranked its own stakes against
-              each other.
+              plausibility, each list strongest first. {risks.length}{" "}
+              {risks.length === 1 ? "is a risk" : "are risks"}, {opps.length}{" "}
+              {opps.length === 1 ? "an opportunity" : "opportunities"}. This is the one place
+              in four sessions where your group ranked its own stakes against each other.
             </>
           }
         >
-          <ol className="m-0 list-none border-t-[1.5px] border-ink p-0">
-            {s.placements.map((p, i) => (
-              <li
-                key={p.id}
-                className="grid grid-cols-[auto_1fr_auto] items-start gap-x-4 gap-y-1 border-b border-[var(--hairline)] py-[13px] last:border-b-0"
-              >
-                <span className="pt-[3px] font-mono text-[11px] tabular-nums text-muted">
-                  {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
-                </span>
-                <span className="min-w-0">
-                  <span className="flex items-baseline gap-2">
-                    <span
-                      aria-hidden
-                      className={
-                        "mt-[6px] inline-block h-2.5 w-2.5 shrink-0 rounded-full " +
-                        (p.kind === "risk" ? "bg-coral" : "bg-lime")
-                      }
-                    />
-                    <span className="max-w-[72ch] text-[15px] leading-[1.5]">{p.text}</span>
-                  </span>
-                </span>
-                <span className="whitespace-nowrap pt-[3px] font-mono text-[10px] uppercase tracking-[0.1em] tabular-nums text-muted">
-                  {p.rank === null ? "not scored" : `P ${p.plausibility} · I ${p.impact}`}
-                </span>
-              </li>
-            ))}
-          </ol>
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
+            <div className="grid gap-7 sm:grid-cols-2">
+              <Column rows={risks} tone="risk" />
+              <Column rows={opps} tone="opportunity" />
+            </div>
+            <SummaryMatrix
+              noun="risk or opportunity"
+              rows={s.placements.map((p) => ({
+                id: p.id,
+                text: p.text,
+                plausibility: p.plausibility,
+                impact: p.impact,
+                kind: p.kind,
+              }))}
+            />
+          </div>
           <p className="m-0 mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
             <span className="flex items-center gap-1.5">
               <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-coral" />
               Risk
             </span>
             <span className="flex items-center gap-1.5">
-              <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-lime" />
+              <span
+                aria-hidden
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: "#3f5209" }}
+              />
               Opportunity
             </span>
             <span className="normal-case tracking-normal">
