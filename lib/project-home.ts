@@ -40,6 +40,10 @@ export interface HomeConfig {
   // The scenario set the home "Scenarios" card opens directly. null = auto (use the
   // first set the platform returns).
   defaultScenarioSetId: string | null;
+  // Whether a design group's "Your handoff" link shows to members. Off by default:
+  // the handoff is still a draft, and a project turns it on when it is ready to be
+  // read. Admins see the link regardless, the same way they preview closed weeks.
+  handoffVisible: boolean;
 }
 
 // The canonical set of items, in their default display order. Adding a new home
@@ -66,6 +70,7 @@ export function defaultHomeConfig(): HomeConfig {
     items: PROJECT_HOME_ITEMS.map((i) => ({ key: i.key, visible: true })),
     hiddenScenarioSections: [],
     defaultScenarioSetId: null,
+    handoffVisible: false,
   };
 }
 
@@ -110,5 +115,9 @@ export function normalizeHomeConfig(raw: unknown): HomeConfig {
   const defaultScenarioSetId =
     typeof rawDefaultSet === "string" && rawDefaultSet.trim() ? rawDefaultSet.trim() : null;
 
-  return { items, hiddenScenarioSections, defaultScenarioSetId };
+  // Strict === true: a config written before this flag existed has no key, and a
+  // stray truthy value (a string from a hand-edited jsonb) must not reveal a draft.
+  const handoffVisible = (raw as { handoffVisible?: unknown } | null)?.handoffVisible === true;
+
+  return { items, hiddenScenarioSections, defaultScenarioSetId, handoffVisible };
 }

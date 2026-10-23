@@ -118,8 +118,12 @@ export default async function DesignGroupHubPage({
       </div>
 
       {/* The handoff: every week folded onto one read-only page. Offered once any board-backed
-          week has run, since before that it would render as a page of empty sections. */}
-      {exercises.some((ex) => ex.sessionCode) && (
+          week has run, since before that it would render as a page of empty sections — and
+          only when the project has turned it on (homeConfig.handoffVisible, off by default
+          while the handoff is still a draft). Admins always see it, the same way they can
+          preview closed and scheduled weeks above. */}
+      {(project.homeConfig.handoffVisible || isAdmin) &&
+        exercises.some((ex) => ex.sessionCode) && (
         <Link
           href={`/project/${title}/design-groups/${groupId}/summary`}
           className="mt-6 flex items-center justify-between gap-4 rounded-[3px] border border-ink px-5 py-4 transition hover:bg-card"
