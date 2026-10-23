@@ -189,7 +189,14 @@ export default async function DesignGroupExercisePage({
           sections={resolveEffectiveSections(exercise.type, exercise.sections)}
           week3Cards={week3Cards}
           week2Cards={week2Cards}
-          summaryHref={`/project/${title}/design-groups/${groupId}/summary`}
+          // Same switch as the hub link and the summary route itself: passing this
+          // unconditionally would point Week 4's review step at a 404 for every project
+          // that has the handoff turned off. ReviewBoard renders nothing without it.
+          summaryHref={
+            project.homeConfig.handoffVisible || isAdmin
+              ? `/project/${title}/design-groups/${groupId}/summary`
+              : undefined
+          }
           submittedAt={exercise.submittedAt}
           submittedBy={exercise.submittedBy}
           title={exercise.title}
