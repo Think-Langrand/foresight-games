@@ -40,6 +40,7 @@ type FormState = {
   items: HomeItem[];
   hiddenScenarioSections: ScenarioSectionKey[];
   defaultScenarioSetId: string | null;
+  handoffVisible: boolean;
 };
 
 function toForm(p?: AdminProject): FormState {
@@ -54,6 +55,7 @@ function toForm(p?: AdminProject): FormState {
     items: cfg.items,
     hiddenScenarioSections: cfg.hiddenScenarioSections,
     defaultScenarioSetId: cfg.defaultScenarioSetId,
+    handoffVisible: cfg.handoffVisible,
   };
 }
 
@@ -167,6 +169,7 @@ function ProjectForm({
             items: f.items,
             hiddenScenarioSections: f.hiddenScenarioSections,
             defaultScenarioSetId: f.defaultScenarioSetId,
+            handoffVisible: f.handoffVisible,
           },
         }),
       });
@@ -324,6 +327,28 @@ function ProjectForm({
             );
           })}
         </ul>
+      </div>
+
+      {/* A design group's "Your handoff" page — off while it is still a draft. */}
+      <div className="mt-4">
+        <span className={labelCls}>Design group handoff</span>
+        <p className="mt-1 text-[11px] leading-[1.4] text-muted">
+          Shows each group its whole program on one read-only page. Off by default while the
+          handoff is a draft. Admins can always open it, so you can read it before turning it on.
+        </p>
+        <label className="mt-2 flex items-center gap-2 rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-1.5 text-[13px] font-semibold text-ink">
+          <input
+            type="checkbox"
+            checked={f.handoffVisible}
+            onChange={(e) => set("handoffVisible", e.target.checked)}
+          />
+          Show &ldquo;Your handoff&rdquo; to members
+          {!f.handoffVisible && (
+            <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
+              hidden
+            </span>
+          )}
+        </label>
       </div>
 
       {/* The scenario set the home "Scenarios" card opens directly. */}

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProjectBySlug } from "@/lib/projects";
+import { getSessionUser } from "@/lib/supabase-auth";
 import { getDesignGroup } from "@/lib/design-groups";
 import { listExercises } from "@/lib/design-group-exercises";
 import { shapeExerciseAnswers } from "@/lib/group-answers";
@@ -24,6 +25,12 @@ export default async function DesignGroupSummaryPage({
   if (!project) notFound();
   const group = await getDesignGroup(groupId);
   if (!group || group.projectId !== project.id) notFound();
+
+  // The hub hides the link to this page unless the project has turned the handoff on, so
+  // gate the route too — otherwise an old bookmark walks straight past the switch. Admins
+  // read it either way, which is how they check a draft before revealing it.
+  const isAdmin = Boolean(await getSessionUser());
+  if (!project.homeConfig.handoffVisible && !isAdmin) notFound();
 
   const exercises = await listExercises(groupId);
   const weeks = await Promise.all(
