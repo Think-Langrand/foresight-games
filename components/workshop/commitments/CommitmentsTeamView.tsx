@@ -245,7 +245,10 @@ export function CommitmentsTeamView({
     const stored = coerceExecSummary(
       (view?.session.config as Record<string, unknown> | undefined)?.execSummary
     );
-    return ready && !stored;
+    // A stored draft nobody has edited does NOT stop another run: the group has just
+    // changed the material it was built from, so the old one is about the old answers.
+    // A lead the group wrote is never regenerated over.
+    return ready && stored?.source !== "edited";
   }, [view, playerId, cards, board, sections]);
 
   const [autoDrafting, setAutoDrafting] = useState(false);
@@ -260,6 +263,9 @@ export function CommitmentsTeamView({
     fetch(`/api/sessions/${code}/ripples/exec-summary/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      // No force. The route decides: it hands back a lead the group wrote, and hands back
+      // an unedited draft less than a minute old so concurrent boards cost one call — but
+      // replaces an older one, which is this run's whole purpose after a step was redone.
       body: JSON.stringify({ participantId: pid }),
     })
       .catch(() => {})
@@ -711,10 +717,18 @@ export function CommitmentsTeamView({
     (view?.session.config as Record<string, unknown> | undefined)?.execSummary
   );
 
-  // THE STEP IS LOCKED until the four earlier ones are done, and it stays unlocked once a
-  // draft exists: the gate is on arriving the first time, not on coming back. A group that
-  // deletes an answer afterwards does not lose the lead it has already written.
-  const reviewLocked = !execReady.ready && !execOverride;
+  // THE STEP IS LOCKED until the four earlier ones are done.
+  //
+  // IT RE-LOCKS IF A STEP IS UNDONE, unless the group has written its own lead. The gate
+  // exists to stop a summary being built out of nothing, so a group that deletes an answer
+  // should see the checklist again — the first version kept the step open for ANY stored
+  // draft, which meant undoing a step changed nothing and looked broken.
+  //
+  // An EDITED lead is different: that is the group's own writing, and hiding it behind a
+  // checklist because they went back to fix a typo in step 4 would be taking their work
+  // away. An untouched machine draft is not their work and costs nothing to rebuild.
+  const execEdited = execOverride?.source === "edited";
+  const reviewLocked = !execReady.ready && !execEdited;
   const stepsDone = 4 - execReady.missing.length;
 
   // AUTO-DRAFT ON UNLOCK. The group finishes step 4 and the summary is waiting rather than

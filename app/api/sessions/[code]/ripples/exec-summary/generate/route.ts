@@ -59,18 +59,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
       );
     }
 
-    // IDEMPOTENT BY DEFAULT, because step 5 fires this automatically the moment the fourth
-    // step is finished — and every member's board that notices at the same time would fire
-    // it too. Returning what is already stored makes the race cost nothing: the first write
-    // wins and the others get that draft back instead of paying for another one, or worse,
-    // overwriting a lead the group has since edited.
+    // TWO THINGS THIS GUARDS, which pull in opposite directions.
     //
-    // `force` is the "Draft again" button, which is the one case where replacing is meant.
-    if (!body.force) {
-      const existing = coerceExecSummary(
-        ((session.config ?? {}) as Record<string, unknown>).execSummary
-      );
-      if (existing) return NextResponse.json({ ok: true, override: existing, reused: true });
+    // A LEAD THE GROUP WROTE is never regenerated over, whatever is asked. Those are their
+    // words; losing them to an automatic run would be the worst bug this feature could have.
+    //
+    // A RACE costs one call, not several. Step 5 fires this automatically the moment the
+    // fourth step is finished, and every member with the board open notices at the same
+    // instant. So an unedited draft written in the last minute is treated as "someone else
+    // just did this" and handed straight back.
+    //
+    // Past that minute an unedited draft is replaced, because the only way to be here is
+    // that the group undid a step and redid it — the material changed, and the old draft
+    // describes the old answers. A clock rather than a hash of the inputs: the window only
+    // has to separate "two browsers in the same second" from "a group went away and came
+    // back", and those differ by minutes, not milliseconds.
+    const existing = coerceExecSummary(
+      ((session.config ?? {}) as Record<string, unknown>).execSummary
+    );
+    if (existing) {
+      const mine = existing.source === "edited";
+      const age = Date.now() - Date.parse(existing.editedAt || "");
+      const fresh = Number.isFinite(age) && age >= 0 && age < 60_000;
+      if (mine || (fresh && !body.force)) {
+        return NextResponse.json({ ok: true, override: existing, reused: true });
+      }
     }
 
     const cards = await listBoardCards(session.code);
