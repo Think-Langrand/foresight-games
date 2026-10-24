@@ -34,7 +34,13 @@ export default function HandoffGuideLocked({
 
   const done = steps.filter((s) => s.done).length;
   return (
-    <section className="rounded-[3px] border border-ink">
+    <section
+      className="rounded-[3px] border border-ink"
+      // The same --blue (#275de2) wash the generating panel uses, and for the same reason:
+      // below about 10% this tint reads grey against the paper, and a waiting card that
+      // reads grey reads broken. The ink border, not the fill, is what tells the two apart.
+      style={{ background: "rgba(39,93,226,0.13)" }}
+    >
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-ink px-5 py-3">
         <h2 className="m-0 text-[15px] font-extrabold uppercase tracking-tight">
           Not ready yet
