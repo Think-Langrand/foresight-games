@@ -122,13 +122,22 @@ export interface ExecSummarySteps {
 export function execSummaryReadiness(s: ExecSummarySteps): {
   ready: boolean;
   missing: string[];
+  // Every step with its state, not just the gaps. The locked panel shows the whole list so
+  // a group can see how close it is — four names with three ticks says that, and a list of
+  // the one thing left does not.
+  steps: { label: string; done: boolean }[];
 } {
-  const missing: string[] = [];
-  // Listed in tab order, so the "finish these first" list reads down the page the way the
-  // steps do rather than in whatever order the checks happen to run.
-  if (s.changesTotal > 0 && s.changes < s.changesTotal) missing.push("Key changes");
-  if (s.placements < 1) missing.push("Risks & opportunities");
-  if (s.responses < 1) missing.push("Strategic responses");
-  if (s.movesTotal > 0 && s.moves < s.movesTotal) missing.push("Role & bold moves");
-  return { ready: missing.length === 0, missing };
+  // In tab order, so the panel reads down the page the way the steps do rather than in
+  // whatever order the checks happen to run.
+  const steps = [
+    // A step with no prompts counts as done. Facilitators can edit the program, and a step
+    // whose prompts were removed can never be answered — leaving it unticked forever would
+    // be a dead end with no way out from inside the board.
+    { label: "Key changes", done: s.changesTotal === 0 || s.changes >= s.changesTotal },
+    { label: "Risks & opportunities", done: s.placements >= 1 },
+    { label: "Strategic responses", done: s.responses >= 1 },
+    { label: "Role & bold moves", done: s.movesTotal === 0 || s.moves >= s.movesTotal },
+  ];
+  const missing = steps.filter((x) => !x.done).map((x) => x.label);
+  return { ready: missing.length === 0, missing, steps };
 }

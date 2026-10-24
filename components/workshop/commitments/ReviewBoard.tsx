@@ -199,7 +199,7 @@ function TopThree({
         </p>
         {boldMoves.length === 0 ? (
           <p className="m-0 py-2 text-[13px] italic text-muted">
-            None picked yet. Step 4 is where a response becomes a move.
+Nothing written yet. Step 4&rsquo;s second question is where these come from.
           </p>
         ) : (
           <ol className="m-0 list-none p-0">
@@ -226,6 +226,7 @@ export function ReviewBoard({
   week3Cards,
   summaryHref,
   composer,
+  boldMoves = [],
   submittedAt,
   submittedBy,
   editable,
@@ -239,6 +240,13 @@ export function ReviewBoard({
   // Built by CommitmentsTeamView, which is the only thing holding the board state the
   // readiness check needs. Passed as a node so this panel stays a layout.
   composer?: React.ReactNode;
+  // Step 4's SECOND QUESTION — "the boldest moves public health could make" — as answers.
+  //
+  // NOT `shaped.boldMoves`, which is a different thing wearing the same name: the strategic
+  // responses the group shortlisted on step 3's wall. Reading that here printed "none
+  // picked yet" at groups who had written three bold moves one step earlier. The caller
+  // filters the section, because only it holds the week's sections.
+  boldMoves?: string[];
   submittedAt: string | null;
   submittedBy: string | null;
   editable: boolean;
@@ -284,7 +292,7 @@ export function ReviewBoard({
       <TopThree
         risks={topStakes("risk")}
         opportunities={topStakes("opportunity")}
-        boldMoves={shaped.boldMoves.slice(0, 3).map((m) => m.text)}
+        boldMoves={boldMoves.slice(0, 3)}
       />
 
       {/* ONE BOX, not two. Finishing and looking at the result are the same moment, and as

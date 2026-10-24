@@ -13,6 +13,7 @@ import { ResponseRecap } from "@/components/workshop/commitments/ResponseRecap";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
 import { StepProgress } from "@/components/workshop/commitments/StepProgress";
 import ExecSummaryComposer from "@/components/design-groups/ExecSummaryComposer";
+import HandoffGuideLocked from "@/components/design-groups/HandoffGuideLocked";
 import { coerceExecSummary, execSummaryReadiness } from "@/lib/exec-summary-shape";
 import { ReviewBoard } from "@/components/workshop/commitments/ReviewBoard";
 import {
@@ -37,6 +38,7 @@ import {
   indexCommitmentsBoard,
 } from "@/lib/commitments-shape";
 import {
+  COMMITMENTS_KEY_ROLE,
   COMMITMENTS_STEP_MOVES,
   type WorksheetSection,
 } from "@/lib/exercise-types";
@@ -721,6 +723,18 @@ export function CommitmentsTeamView({
   // started. The route is idempotent on top of that, because every member's board that
   // notices at the same moment will fire too.
 
+  // Step 4's second question. Split exactly as the handoff deck splits it — everything on
+  // the moves step that is not the role prompt — so a facilitator who adds a third prompt
+  // there gets it here too rather than having it silently dropped.
+  const boldMoveAnswers = sectionsFor("moves")
+    .filter((sec) => sec.key !== COMMITMENTS_KEY_ROLE)
+    .flatMap((sec) =>
+      cards
+        .filter((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
+        .sort((a, b) => a.sort - b.sort)
+        .map((c) => c.text.trim())
+    );
+
   const execComposer = (
     <ExecSummaryComposer
       sessionCode={code}
@@ -775,20 +789,16 @@ export function CommitmentsTeamView({
               key={sp}
               role="tab"
               aria-selected={step === sp}
-              aria-disabled={locked || undefined}
-              title={
-                locked
-                  ? `Finish these first: ${execReady.missing.join(", ")}`
-                  : undefined
-              }
-              onClick={() => {
-                if (locked) return;
-                setStep(sp);
-              }}
+              // CLICKABLE EVEN WHEN LOCKED. A padlock that does nothing on click tells a
+              // group only that the page is broken; clicking it opens the list of what is
+              // left, which is the question they clicked to ask.
+              title={locked ? `Finish these first: ${execReady.missing.join(", ")}` : undefined}
+              onClick={() => setStep(sp)}
               className={
                 "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
                 (locked
-                  ? "cursor-not-allowed rounded-t-[2px] bg-[var(--rule)] border-transparent text-muted/70"
+                  ? "rounded-t-[2px] bg-[var(--rule)] text-muted " +
+                    (step === sp ? "border-ink" : "border-transparent hover:text-ink")
                   : step === sp
                     ? "border-ink text-ink"
                     : "border-transparent text-muted hover:text-ink")
@@ -890,21 +900,24 @@ export function CommitmentsTeamView({
           this is the pane a group approves, so it should show what is actually stored rather
           than what is still in flight. Everywhere else on this board the overlay is the
           right answer; here a line that has not landed yet must not look landed. */}
-      {step === "review" && reviewLocked && (
-        <p className="text-[13.5px] leading-[1.5] text-muted">
-          This step is built from the other four. Finish{" "}
-          {execReady.missing.join(", ")} and it opens on its own.
-        </p>
+      {/* Locked, or drafting. `reviewLocked` goes false the instant readiness flips — that
+          flip is what starts the draft — so drafting needs its own branch or the blue panel
+          would never be seen: the step would jump straight from the checklist to an empty
+          composer while the model was still working. */}
+      {step === "review" && (reviewLocked || autoDrafting) && (
+        <HandoffGuideLocked steps={execReady.steps} generating={autoDrafting} />
       )}
 
       {step === "review" &&
         !reviewLocked &&
+        !autoDrafting &&
         (reviewShape ? (
           <ReviewBoard
             shaped={reviewShape}
             week3Cards={week3Cards}
             summaryHref={summaryHref}
             composer={execComposer}
+            boldMoves={boldMoveAnswers}
             submittedAt={submitted.at}
             submittedBy={submitted.by}
             editable={editable}
