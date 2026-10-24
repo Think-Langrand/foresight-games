@@ -12,6 +12,8 @@ import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { ResponseRecap } from "@/components/workshop/commitments/ResponseRecap";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
 import { StepProgress } from "@/components/workshop/commitments/StepProgress";
+import ExecSummaryComposer from "@/components/design-groups/ExecSummaryComposer";
+import { coerceExecSummary, execSummaryReadiness } from "@/lib/exec-summary-shape";
 import { ReviewBoard } from "@/components/workshop/commitments/ReviewBoard";
 import {
   useRipplesView,
@@ -86,7 +88,7 @@ const STEP_LABELS: Record<CommitStep, string> = {
   matrix: "2 \u00b7 Risks & opportunities",
   responses: "3 \u00b7 Strategic responses",
   moves: "4 \u00b7 Role & bold moves",
-  review: "5 \u00b7 Review & submit",
+  review: "5 \u00b7 Build handoff guide",
 };
 
 export function CommitmentsTeamView({
@@ -630,6 +632,35 @@ export function CommitmentsTeamView({
       cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
     ).length;
 
+  // Step 5's composer. Built here because this is the only place holding the four signals
+  // the readiness gate reads, and the stored override, which lives on the session config
+  // rather than on a card.
+  //
+  // RAW config, not resolveConfig(): execSummary is deliberately outside that whitelist so
+  // a group's draft never ships in the payload every member's board fetches. On this board
+  // it is already in hand, because this component holds the session row.
+  const execReady = execSummaryReadiness({
+    changes: answeredCount(sectionsFor("changes")),
+    changesTotal: sectionsFor("changes").length,
+    placements: [...board.picks.values()].filter(
+      (p) => p.plausibility !== null && p.impact !== null
+    ).length,
+    responses: board.responses.length,
+    moves: answeredCount(sectionsFor("moves")),
+    movesTotal: sectionsFor("moves").length,
+  });
+  const execComposer = (
+    <ExecSummaryComposer
+      sessionCode={code}
+      participantId={pid}
+      override={coerceExecSummary(
+        (view?.session.config as Record<string, unknown> | undefined)?.execSummary
+      )}
+      missing={execReady.missing}
+      canEdit={editable}
+    />
+  );
+
   const worksheetFor = (spec: typeof sections) => (
     <WorksheetSections
       sections={spec}
@@ -751,6 +782,7 @@ export function CommitmentsTeamView({
             shaped={reviewShape}
             week3Cards={week3Cards}
             summaryHref={summaryHref}
+            composer={execComposer}
             submittedAt={submitted.at}
             submittedBy={submitted.by}
             editable={editable}

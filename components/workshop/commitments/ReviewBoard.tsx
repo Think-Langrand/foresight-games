@@ -57,7 +57,9 @@ function SubmitBar({
   busy,
   onSubmit,
   onUndo,
+  summaryHref,
 }: {
+  summaryHref?: string;
   submittedAt: string | null;
   submittedBy: string | null;
   editable: boolean;
@@ -103,14 +105,26 @@ function SubmitBar({
           afterwards, so you can still change your mind.
         </span>
       </span>
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={!editable || busy}
-        className="shrink-0 rounded-[3px] bg-ink px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.06em] text-paper transition hover:bg-blue disabled:opacity-50"
-      >
-        Submit this week
-      </button>
+      <span className="flex shrink-0 flex-col items-end gap-1.5">
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!editable || busy}
+          className="rounded-[3px] bg-ink px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.06em] text-paper transition hover:bg-blue disabled:opacity-50"
+        >
+          Submit this week
+        </button>
+        {summaryHref && (
+          <a
+            href={summaryHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] text-muted underline decoration-dotted underline-offset-2 hover:text-blue"
+          >
+            See the full handoff &#8599;
+          </a>
+        )}
+      </span>
     </div>
   );
 }
@@ -119,6 +133,7 @@ export function ReviewBoard({
   shaped,
   week3Cards,
   summaryHref,
+  composer,
   submittedAt,
   submittedBy,
   editable,
@@ -129,6 +144,9 @@ export function ReviewBoard({
   shaped: CommitmentsExercise;
   week3Cards: RippleCard[];
   summaryHref?: string;
+  // Built by CommitmentsTeamView, which is the only thing holding the board state the
+  // readiness check needs. Passed as a node so this panel stays a layout.
+  composer?: React.ReactNode;
   submittedAt: string | null;
   submittedBy: string | null;
   editable: boolean;
@@ -150,34 +168,22 @@ export function ReviewBoard({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* The deck this week exists to fill, one click away. A NEW TAB on purpose: the deck
-          is a full-screen slide view, and navigating there in place would drop the board's
-          step, its scroll and any open composer. A group should be able to look, decide,
-          and come back to the same screen. */}
-      {summaryHref && (
-        <a
-          href={summaryHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-between gap-4 rounded-[3px] border border-ink px-5 py-4 transition hover:bg-card"
-        >
-          <span className="min-w-0">
-            <span className="block text-[15px] font-extrabold uppercase tracking-tight">
-              Your handoff
-            </span>
-            <span className="mt-1 block text-[13px] leading-[1.45] text-muted">
-              Four sessions on one page, as the steering committee will see it.
-            </span>
-          </span>
-          <span className="shrink-0 text-[13px] font-bold uppercase tracking-[0.06em] text-blue">
-            Preview &rarr;
-            <span className="mt-0.5 block text-[10px] font-normal normal-case tracking-normal text-muted">
-              opens a new tab
-            </span>
-          </span>
-        </a>
-      )}
+      {/* THE COMPOSER LEADS. This step used to open with two action cards and then a long
+          read-back, which asked a group to submit before it had read anything and gave it
+          nothing to do but proofread. The work of this step is writing the lead; everything
+          else on the page is either the material it draws on or the way out. */}
+      {composer}
 
+      {/* The read-back, below the writing rather than above it: it is what you consult
+          while drafting, not the point of the page. No onDelete, so it renders with no
+          controls — editing happens on the step that owns the work. */}
+      <CommitmentsPanel ex={shaped} stakeKind={stakeKind} />
+
+      {/* ONE BOX, not two. Finishing and looking at the result are the same moment, and as
+          separate cards at the top of the page they competed with each other and with the
+          writing. The full deck stays a new tab on purpose — it is a full-screen slide view,
+          and navigating there in place would drop this step, its scroll and any open
+          composer — but it is demoted to a quiet line under the button. */}
       <SubmitBar
         submittedAt={submittedAt}
         submittedBy={submittedBy}
@@ -185,12 +191,8 @@ export function ReviewBoard({
         busy={busy}
         onSubmit={onSubmit}
         onUndo={onUndo}
+        summaryHref={summaryHref}
       />
-
-      {/* No onDelete passed, so the panel renders with no controls at all. Editing happens
-          on the step that owns the work, which is also what keeps this pane honest about
-          being a read-back. */}
-      <CommitmentsPanel ex={shaped} stakeKind={stakeKind} />
 
       <Directions title="Reading it back" lines={REVIEW_DIRECTIONS} fold={reviewDirections} />
     </div>

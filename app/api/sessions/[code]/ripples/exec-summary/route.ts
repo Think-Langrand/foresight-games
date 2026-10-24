@@ -86,8 +86,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
 
     // editedBy comes from the player row, never from the body: a client that can name
     // itself can name itself anything, and this string is shown on the slide.
+    // source "edited" because a human pressed save on these words. The generate route is
+    // the only thing that writes "generated", so a draft stops claiming to be the model's
+    // the moment anyone accepts or changes it.
     const override = coerceExecSummary({
       text: body.text ?? "",
+      source: "edited",
       editedAt: new Date().toISOString(),
       editedBy: r.player.displayName,
     });

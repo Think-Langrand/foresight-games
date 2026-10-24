@@ -21,9 +21,9 @@ export interface HandoffData {
   // Handed through unshaped: the map slide mounts the real Session 2 panel, which builds
   // the tree and its filters from these cards rather than from the projection.
   implications: ImplicationsExercise | null;
-  // The Week 4 board, which is where an edit of the lead is stored and authenticated.
-  // Null when the group has no Session 4 yet — then there is nothing to edit.
-  week4Code: string | null;
+  // The group's own lead for slide 02, written on Session 4's "Build handoff guide" step
+  // and stored on that board's session config. Null when nobody has written one, and the
+  // slide falls back to the projected answers.
   execOverride: ExecSummaryOverride | null;
 }
 
@@ -62,7 +62,6 @@ export async function loadHandoff(
     }),
     implications:
       (weeks.find((w) => w.kind === "implications") as ImplicationsExercise | undefined) ?? null,
-    week4Code,
     execOverride,
   };
 }

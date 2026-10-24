@@ -25,7 +25,7 @@ import ImplicationsMap from "@/components/design-groups/ImplicationsMap";
 import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffDeck";
 import SummaryMatrix from "@/components/design-groups/SummaryMatrix";
 import ExecSummaryBody from "@/components/design-groups/ExecSummaryBody";
-import { execSummaryDefaultText, type ExecSummaryOverride } from "@/lib/exec-summary-shape";
+import type { ExecSummaryOverride } from "@/lib/exec-summary-shape";
 import ClusterMatrix from "@/components/design-groups/ClusterMatrix";
 import StakesBalance from "@/components/design-groups/StakesBalance";
 
@@ -286,7 +286,6 @@ function StakeList({
 export default function GroupSummaryView({
   s,
   execOverride = null,
-  execEdit,
   publicView = false,
   implications,
   projectSlug,
@@ -301,9 +300,6 @@ export default function GroupSummaryView({
   // and served the committee the pre-edit draft. Keeping them apart makes that mistake
   // impossible: a surface that passes no editing capability still shows the right words.
   execOverride?: ExecSummaryOverride | null;
-  // Presence makes slide 02 editable. The public reader omits it, which is what guarantees
-  // no edit affordance can render there even for a signed-in facilitator who opens the link.
-  execEdit?: { week4Code: string | null };
   // Set by the public reader. Drops deck chrome that only makes sense to the group.
   publicView?: boolean;
   // The shaped Session 2 week, passed through untouched so the map is the real panel rather
@@ -416,12 +412,28 @@ export default function GroupSummaryView({
         <Slide
           n="02"
           title="In brief"
-          chip={<Chip tone="live">{execOverride ? "Session 4 · edited" : "Session 4"}</Chip>}
+          chip={
+            <Chip tone="live">
+              {!execOverride
+                ? "Session 4"
+                : execOverride.source === "edited"
+                  ? "Session 4 · written by the group"
+                  : "Session 4 · drafted"}
+            </Chip>
+          }
           intro={
-            execOverride ? (
+            execOverride?.source === "edited" ? (
               <>
                 Your group wrote this lead itself. The full Session 4 answers it was drawn
                 from are at the end of the deck.
+              </>
+            ) : execOverride ? (
+              // DRAFTED, NOT WRITTEN. Built from the group's own Session 4 answers but not
+              // yet touched by anyone in it, and a committee reading four of these is
+              // entitled to know which. It stops saying this the moment a word changes.
+              <>
+                Drafted from your group&rsquo;s Session 4 answers, and not yet edited by the
+                group. The answers themselves are at the end of the deck.
               </>
             ) : (
               <>
@@ -433,13 +445,7 @@ export default function GroupSummaryView({
             )
           }
         >
-          <ExecSummaryBody
-            sessionCode={execEdit?.week4Code ?? null}
-            canEdit={Boolean(execEdit)}
-            override={execOverride}
-            projected={projected}
-            seed={execSummaryDefaultText(execChanges, execRole)}
-          />
+          <ExecSummaryBody override={execOverride} projected={projected} />
         </Slide>
       ),
     });

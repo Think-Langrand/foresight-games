@@ -26,6 +26,11 @@
 
 export interface ExecSummaryOverride {
   text: string;
+  // WHO WROTE THESE WORDS. A draft the model built from the group's answers is not the same
+  // claim as a lead the group wrote, and the deck says so: the chip and the slide's intro
+  // both change on this. Defaults to "generated" whenever it cannot be read, because the
+  // cautious answer is the one that does not claim a human authored something.
+  source: "generated" | "edited";
   editedAt: string; // ISO; "" when the stored blob predates or omits it
   // Display name captured at save time, resolved server-side from the player row. Usually
   // "You" — Sessions 3 and 4 never prompt for a name — so any copy built on this has to
@@ -63,6 +68,7 @@ export function coerceExecSummary(raw: unknown): ExecSummaryOverride | null {
 
   return {
     text,
+    source: r.source === "edited" ? "edited" : "generated",
     editedAt: typeof r.editedAt === "string" ? r.editedAt : "",
     editedBy:
       typeof r.editedBy === "string"
@@ -92,4 +98,37 @@ export function execSummaryDefaultText(changes: Block[], role: Block[]): string 
   for (const b of changes) lines.push(...b.answers.slice(0, 2));
   for (const b of role) lines.push(...b.answers);
   return lines.filter((l) => l.trim()).join("\n\n");
+}
+
+// Whether step 5 can offer to draft the lead, and what is still missing if not.
+//
+// A GATE ON THE MODEL, NOT ON THE GROUP. StepProgress is explicit that nothing on this week
+// is enforced, and that stays true: every step remains editable whatever this returns. What
+// it guards is a model call, which costs money and produces a thin, confident summary when
+// run against three answers and a blank matrix.
+//
+// A step with no prompts counts as satisfied. Facilitators can edit the program, and a step
+// whose prompts were removed can never be answered — holding the button hostage to it would
+// be a dead end with no way out from inside the board.
+export interface ExecSummarySteps {
+  changes: number;
+  changesTotal: number;
+  placements: number;
+  responses: number;
+  moves: number;
+  movesTotal: number;
+}
+
+export function execSummaryReadiness(s: ExecSummarySteps): {
+  ready: boolean;
+  missing: string[];
+} {
+  const missing: string[] = [];
+  // Listed in tab order, so the "finish these first" list reads down the page the way the
+  // steps do rather than in whatever order the checks happen to run.
+  if (s.changesTotal > 0 && s.changes < s.changesTotal) missing.push("Key changes");
+  if (s.placements < 1) missing.push("Risks & opportunities");
+  if (s.responses < 1) missing.push("Strategic responses");
+  if (s.movesTotal > 0 && s.moves < s.movesTotal) missing.push("Role & bold moves");
+  return { ready: missing.length === 0, missing };
 }

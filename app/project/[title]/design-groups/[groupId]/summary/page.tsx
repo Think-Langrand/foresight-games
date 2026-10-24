@@ -10,9 +10,10 @@ export const dynamic = "force-dynamic";
 // is a static segment, so it wins over the dynamic one (exercise ids are uuids, so nothing
 // collides).
 //
-// THE GROUP'S COPY, not the committee's. The same deck is served read-only and outside the
-// project passphrase gate at /h/<slug>/<groupId>; both render from loadHandoff so the two
-// cannot drift. This one passes `exec`, which is what puts the Edit control on slide 02.
+// THE GROUP'S COPY, not the committee's. The same deck is served outside the project
+// passphrase gate at /h/<slug>/<groupId>; both render from loadHandoff so the two cannot
+// drift. Both are read-only: the lead is written on Session 4's "Build handoff guide"
+// step, not here.
 export default async function DesignGroupSummaryPage({
   params,
 }: {
@@ -38,10 +39,6 @@ export default async function DesignGroupSummaryPage({
       projectSlug={title}
       groupId={groupId}
       execOverride={data.execOverride}
-      // Presence is what makes slide 02 editable. Whoever can reach this page may edit:
-      // there is no group-membership record to check against — see the route's own header —
-      // so the honest gate is the board player row the API enforces, not anything here.
-      execEdit={{ week4Code: data.week4Code }}
     />
   );
 }
