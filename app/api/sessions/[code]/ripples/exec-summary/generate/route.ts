@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
     return NextResponse.json({ error: "Database not configured." }, { status: 503 });
   }
   const { code } = await params;
-  let body: { participantId?: string } = {};
+  let body: { participantId?: string; force?: boolean } = {};
   try {
     body = await req.json();
   } catch {
@@ -57,6 +57,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
         { error: "The handoff summary belongs to Session 4." },
         { status: 400 }
       );
+    }
+
+    // IDEMPOTENT BY DEFAULT, because step 5 fires this automatically the moment the fourth
+    // step is finished — and every member's board that notices at the same time would fire
+    // it too. Returning what is already stored makes the race cost nothing: the first write
+    // wins and the others get that draft back instead of paying for another one, or worse,
+    // overwriting a lead the group has since edited.
+    //
+    // `force` is the "Draft again" button, which is the one case where replacing is meant.
+    if (!body.force) {
+      const existing = coerceExecSummary(
+        ((session.config ?? {}) as Record<string, unknown>).execSummary
+      );
+      if (existing) return NextResponse.json({ ok: true, override: existing, reused: true });
     }
 
     const cards = await listBoardCards(session.code);

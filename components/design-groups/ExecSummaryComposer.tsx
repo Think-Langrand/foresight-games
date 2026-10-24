@@ -49,11 +49,13 @@ export default function ExecSummaryComposer({
     return data as { override: ExecSummaryOverride | null };
   }
 
-  async function generate() {
+  // force: the route is idempotent by default so auto-generation cannot race or clobber,
+  // and this button is the one place replacing an existing draft is the intent.
+  async function generate(force = false) {
     setState("generating");
     setBusy(true);
     try {
-      const { override: o } = await call("/generate", "POST");
+      const { override: o } = await call("/generate", "POST", { force });
       setDraft(o);
       setText(o?.text ?? "");
       setDirty(false);
@@ -150,7 +152,7 @@ export default function ExecSummaryComposer({
               until it sounds like your group. Drafting takes about a minute.
             </p>
             <button
-              onClick={generate}
+              onClick={() => generate()}
               disabled={busy || !canEdit}
               className="rounded-[3px] bg-ink px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.06em] text-paper transition hover:bg-blue disabled:opacity-50"
             >
@@ -190,7 +192,7 @@ export default function ExecSummaryComposer({
                     {busy ? "Saving…" : dirty ? "Save" : "Saved"}
                   </button>
                   <button
-                    onClick={generate}
+                    onClick={() => generate(true)}
                     disabled={busy}
                     className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted"
                   >

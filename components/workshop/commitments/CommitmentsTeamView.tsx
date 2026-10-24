@@ -214,6 +214,61 @@ export function CommitmentsTeamView({
     }
   }, [board]);
 
+  // ABOVE EVERY EARLY RETURN in this component — loading, error, !view, !myPlayer — because
+  // hooks run in the same order on every render. The readiness values are computed further
+  // down the body, so the gate this reads is recomputed here from the board rather than
+  // passed down to it.
+  const autoReady = useMemo(() => {
+    if (!view) return false;
+    if (view.session.phase !== "BUILD") return false;
+    if (!playerId) return false;
+    // `sections` is already the week's effective sections — the page resolves them before
+    // handing them down, which is what `sectionsFor` below filters too.
+    const changeSecs = sections.filter((sec) => sec.step !== COMMITMENTS_STEP_MOVES);
+    const moveSecs = sections.filter((sec) => sec.step === COMMITMENTS_STEP_MOVES);
+    const answered = (list: typeof sections) =>
+      list.filter((sec) =>
+        cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
+      ).length;
+    const ready = execSummaryReadiness({
+      changes: answered(changeSecs),
+      changesTotal: changeSecs.length,
+      placements: [...board.picks.values()].filter(
+        (p) => p.plausibility !== null && p.impact !== null
+      ).length,
+      responses: board.responses.length,
+      moves: answered(moveSecs),
+      movesTotal: moveSecs.length,
+    }).ready;
+    const stored = coerceExecSummary(
+      (view?.session.config as Record<string, unknown> | undefined)?.execSummary
+    );
+    return ready && !stored;
+  }, [view, playerId, cards, board, sections]);
+
+  const [autoDrafting, setAutoDrafting] = useState(false);
+  const autoFired = useRef(false);
+  useEffect(() => {
+    // BUILD only, and only once a player row exists. Both are available this early from
+    // the view; `editable` below is the same two facts and is not in scope yet.
+    if (!autoReady) return;
+    if (autoFired.current) return;
+    autoFired.current = true;
+    setAutoDrafting(true);
+    fetch(`/api/sessions/${code}/ripples/exec-summary/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ participantId: pid }),
+    })
+      .catch(() => {})
+      .finally(() => {
+        setAutoDrafting(false);
+        // Pull the new config through the board's own refresh rather than holding the draft
+        // in local state: the composer reads it from the session like everything else here.
+        refresh();
+      });
+  }, [autoReady, code, pid, refresh]);
+
   if (loading)
     return (
       <Centered>
@@ -244,6 +299,7 @@ export function CommitmentsTeamView({
   // the UI never offers a control the route will refuse. Seeded cards have no author at
   // all, so an author-only rule would make them uneditable by everyone.
   const canEditCard = config.sharedTeam ? () => true : (c: RippleCard) => c.authorPlayerId === myPlayer?.id;
+
 
   if (!myPlayer) {
     return (
@@ -649,13 +705,27 @@ export function CommitmentsTeamView({
     moves: answeredCount(sectionsFor("moves")),
     movesTotal: sectionsFor("moves").length,
   });
+  const execOverride = coerceExecSummary(
+    (view?.session.config as Record<string, unknown> | undefined)?.execSummary
+  );
+
+  // THE STEP IS LOCKED until the four earlier ones are done, and it stays unlocked once a
+  // draft exists: the gate is on arriving the first time, not on coming back. A group that
+  // deletes an answer afterwards does not lose the lead it has already written.
+  const reviewLocked = !execReady.ready && !execOverride;
+  const stepsDone = 4 - execReady.missing.length;
+
+  // AUTO-DRAFT ON UNLOCK. The group finishes step 4 and the summary is waiting rather than
+  // being something else to go and ask for. Fires once per mount, guarded three ways: only
+  // when ready, only when nothing is stored, and only if this browser has not already
+  // started. The route is idempotent on top of that, because every member's board that
+  // notices at the same moment will fire too.
+
   const execComposer = (
     <ExecSummaryComposer
       sessionCode={code}
       participantId={pid}
-      override={coerceExecSummary(
-        (view?.session.config as Record<string, unknown> | undefined)?.execSummary
-      )}
+      override={execOverride}
       missing={execReady.missing}
       canEdit={editable}
     />
@@ -695,20 +765,64 @@ export function CommitmentsTeamView({
         aria-label="Commitments steps"
         className="flex flex-wrap gap-1 border-b border-[var(--rule)]"
       >
-        {COMMIT_STEPS.map((s) => (
-          <button
-            key={s}
-            role="tab"
-            aria-selected={step === s}
-            onClick={() => setStep(s)}
-            className={
-              "-mb-px border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
-              (step === s ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")
-            }
-          >
-            {STEP_LABELS[s]}
-          </button>
-        ))}
+        {COMMIT_STEPS.map((sp) => {
+          // Step 5 is the only one that can be shut. It is built FROM the other four, so
+          // opening it early shows a locked box and a model call made out of nothing.
+          const locked = sp === "review" && reviewLocked;
+          const drafting = sp === "review" && autoDrafting;
+          return (
+            <button
+              key={sp}
+              role="tab"
+              aria-selected={step === sp}
+              aria-disabled={locked || undefined}
+              title={
+                locked
+                  ? `Finish these first: ${execReady.missing.join(", ")}`
+                  : undefined
+              }
+              onClick={() => {
+                if (locked) return;
+                setStep(sp);
+              }}
+              className={
+                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
+                (locked
+                  ? "cursor-not-allowed rounded-t-[2px] bg-[var(--rule)] border-transparent text-muted/70"
+                  : step === sp
+                    ? "border-ink text-ink"
+                    : "border-transparent text-muted hover:text-ink")
+              }
+            >
+              {locked && (
+                // A padlock, inline rather than an icon font: two paths, and it has to sit
+                // on the baseline of 12px uppercase text.
+                <svg
+                  aria-hidden
+                  viewBox="0 0 10 12"
+                  className="h-[11px] w-[9px] shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                >
+                  <rect x="0.7" y="5" width="8.6" height="6.3" rx="1" />
+                  <path d="M2.6 5V3.3a2.4 2.4 0 0 1 4.8 0V5" />
+                </svg>
+              )}
+              {STEP_LABELS[sp]}
+              {locked && (
+                <span className="font-mono text-[10px] font-bold tabular-nums">
+                  {stepsDone}/4
+                </span>
+              )}
+              {drafting && (
+                <span className="animate-pulse font-mono text-[10px] font-bold normal-case tracking-normal">
+                  drafting&hellip;
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {step === "changes" && (
@@ -776,7 +890,15 @@ export function CommitmentsTeamView({
           this is the pane a group approves, so it should show what is actually stored rather
           than what is still in flight. Everywhere else on this board the overlay is the
           right answer; here a line that has not landed yet must not look landed. */}
+      {step === "review" && reviewLocked && (
+        <p className="text-[13.5px] leading-[1.5] text-muted">
+          This step is built from the other four. Finish{" "}
+          {execReady.missing.join(", ")} and it opens on its own.
+        </p>
+      )}
+
       {step === "review" &&
+        !reviewLocked &&
         (reviewShape ? (
           <ReviewBoard
             shaped={reviewShape}

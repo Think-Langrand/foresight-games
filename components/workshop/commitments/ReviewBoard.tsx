@@ -3,18 +3,19 @@
 import { useMemo } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import type { CommitmentsExercise } from "@/components/design-groups/AnswerPanels";
-import { CommitmentsPanel } from "@/components/design-groups/CommitmentsPanel";
 import { indexSynthesisBoard } from "@/lib/synthesis-shape";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 
-// STEP 5 — read the whole week back, then say you are done.
+// STEP 5 — BUILD HANDOFF GUIDE: write the lead the committee reads first, then say you
+// are done.
 //
-// The read-back is `CommitmentsPanel`, the SAME component the admin answers viewer and the
-// earlier-week tabs use, fed by `shapeFromView` over the live board. That is deliberate and
-// it is Week 3's own pattern (SynthesisTeamView's locked branch): if the group's review
-// pane and the facilitator's view were two components they would drift, and the group would
-// be approving something subtly different from what gets read.
+// IT USED TO BE A READ-BACK. The whole week was rendered through `CommitmentsPanel`, the
+// same component the admin viewer uses, under two action cards. It asked a group to submit
+// before it had read anything and left it nothing to do but proofread thirteen matrix rows.
+// The work at the end of four sessions is the writing, so the composer leads and only three
+// things follow it: what the group ranked highest on each wall, and what it said it would
+// do. Everything else in the handoff is generated from the same data.
 //
 // SUBMIT LOCKS NOTHING. The board is as editable the moment after as the moment before, so
 // a group that spots a typo in its own handoff can fix it without asking anyone to unlock
@@ -129,6 +130,97 @@ function SubmitBar({
   );
 }
 
+// What the group ranked highest, and what it chose to do. Three columns' worth of material
+// rather than the whole week: this sits under the composer as the thing you check your lead
+// against, so it has to be scannable at a glance or it is just the read-back again.
+function StakeColumn({
+  title,
+  tone,
+  rows,
+}: {
+  title: string;
+  tone: "risk" | "opportunity";
+  rows: { text: string; plausibility: number | null; impact: number | null }[];
+}) {
+  return (
+    <div>
+      <p
+        className="m-0 mb-2 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]"
+        style={{ color: tone === "risk" ? "var(--coral)" : "#3f5209" }}
+      >
+        {title} <span className="tabular-nums text-muted">{rows.length}</span>
+      </p>
+      {rows.length === 0 ? (
+        <p className="m-0 py-2 text-[13px] italic text-muted">
+          Nothing scored on this wall yet.
+        </p>
+      ) : (
+        <ol className="m-0 list-none p-0">
+          {rows.map((r, i) => (
+            <li
+              key={r.text + i}
+              className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-[var(--hairline)] py-[11px] last:border-b-0"
+            >
+              <span className="pt-[2px] font-mono text-[11px] tabular-nums text-muted">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="min-w-0">
+                <span className="block max-w-[52ch] text-[14px] leading-[1.45]">{r.text}</span>
+                <span className="mt-[3px] block font-mono text-[9.5px] uppercase tracking-[0.1em] tabular-nums text-muted">
+                  P {r.plausibility} · I {r.impact}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function TopThree({
+  risks,
+  opportunities,
+  boldMoves,
+}: {
+  risks: { text: string; plausibility: number | null; impact: number | null }[];
+  opportunities: { text: string; plausibility: number | null; impact: number | null }[];
+  boldMoves: string[];
+}) {
+  return (
+    <section className="flex flex-col gap-7">
+      <div className="grid gap-7 sm:grid-cols-2">
+        <StakeColumn title="Your top risks" tone="risk" rows={risks} />
+        <StakeColumn title="Your top opportunities" tone="opportunity" rows={opportunities} />
+      </div>
+      <div>
+        <p className="m-0 mb-2 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+          Your bold moves <span className="tabular-nums text-muted">{boldMoves.length}</span>
+        </p>
+        {boldMoves.length === 0 ? (
+          <p className="m-0 py-2 text-[13px] italic text-muted">
+            None picked yet. Step 4 is where a response becomes a move.
+          </p>
+        ) : (
+          <ol className="m-0 list-none p-0">
+            {boldMoves.map((m, i) => (
+              <li
+                key={m + i}
+                className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-[var(--hairline)] py-[11px] last:border-b-0"
+              >
+                <span className="pt-[2px] font-mono text-[11px] tabular-nums text-muted">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="max-w-[72ch] text-[14px] leading-[1.45]">{m}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function ReviewBoard({
   shaped,
   week3Cards,
@@ -166,6 +258,16 @@ export function ReviewBoard({
     return (sourceId: string) => m.get(sourceId);
   }, [week3Cards]);
 
+  // Strongest first, split by which Week 3 wall each came from. `stakeKind` is the only
+  // thing that can answer that — a pick stores its source's id and words, not its kind — so
+  // a board rendered without Week 3 in hand simply gets empty columns rather than a guess.
+  const topStakes = (kind: "risk" | "opportunity") =>
+    shaped.picks
+      .filter((p) => p.rank !== null && stakeKind(p.sourceId) === kind)
+      .sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0))
+      .slice(0, 3)
+      .map((p) => ({ text: p.text, plausibility: p.plausibility, impact: p.impact }));
+
   return (
     <div className="flex flex-col gap-6">
       {/* THE COMPOSER LEADS. This step used to open with two action cards and then a long
@@ -174,10 +276,16 @@ export function ReviewBoard({
           else on the page is either the material it draws on or the way out. */}
       {composer}
 
-      {/* The read-back, below the writing rather than above it: it is what you consult
-          while drafting, not the point of the page. No onDelete, so it renders with no
-          controls — editing happens on the step that owns the work. */}
-      <CommitmentsPanel ex={shaped} stakeKind={stakeKind} />
+      {/* THE THREE THINGS, not the whole read-back. This used to be CommitmentsPanel: every
+          placement, every response, every answer, which ran to thirteen matrix rows and
+          buried the writing above it. The rest of the handoff is generated from the same
+          data anyway, so a group checking its lead needs only what it ranked highest and
+          what it said it would do. */}
+      <TopThree
+        risks={topStakes("risk")}
+        opportunities={topStakes("opportunity")}
+        boldMoves={shaped.boldMoves.slice(0, 3).map((m) => m.text)}
+      />
 
       {/* ONE BOX, not two. Finishing and looking at the result are the same moment, and as
           separate cards at the top of the page they competed with each other and with the
