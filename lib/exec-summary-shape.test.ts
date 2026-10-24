@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   EXEC_SUMMARY_LIMITS,
+  type ExecSummaryOverride,
   coerceExecSummary,
   execSummaryDefaultText,
   execSummaryReadiness,
+  shouldAdoptExecSummary,
 } from "./exec-summary-shape";
 
 const block = (key: string, label: string, answers: string[]) => ({ key, label, answers });
@@ -146,5 +148,57 @@ describe("execSummaryReadiness", () => {
     // A facilitator can edit the program and remove a step's prompts. Nobody could ever
     // answer them, so holding the button hostage to them would be a dead end.
     expect(execSummaryReadiness({ ...full, changes: 0, changesTotal: 0 }).ready).toBe(true);
+  });
+});
+
+describe("shouldAdoptExecSummary", () => {
+  const drafted = (text: string, editedAt = "2026-10-24T00:00:00Z"): ExecSummaryOverride => ({
+    text,
+    editedAt,
+    editedBy: "",
+    source: "generated",
+  });
+
+  it("adopts a draft that arrives after the composer has already mounted", () => {
+    // THE BUG THIS EXISTS FOR. Step 5 mounts the composer against a session config that
+    // does not have the draft in it yet, because the board's refresh is still in flight.
+    // Without this the composer sits on "Draft our summary" next to a draft that is
+    // already saved, and only a click reveals it.
+    expect(shouldAdoptExecSummary(null, drafted("Our lead."), false)).toBe(true);
+  });
+
+  it("adopts a newer draft over the one it is already showing", () => {
+    expect(
+      shouldAdoptExecSummary(
+        drafted("First pass.", "2026-10-24T00:00:00Z"),
+        drafted("Second pass.", "2026-10-24T00:05:00Z"),
+        false
+      )
+    ).toBe(true);
+  });
+
+  it("adopts a deletion, so one member's Delete clears every other board", () => {
+    expect(shouldAdoptExecSummary(drafted("Our lead."), null, false)).toBe(true);
+  });
+
+  it("never adopts over unsaved edits, whatever arrives", () => {
+    // The group's own words are the one thing this must not lose. A member mid-sentence
+    // when somebody else drafts again keeps what they are typing.
+    expect(shouldAdoptExecSummary(null, drafted("Machine words."), true)).toBe(false);
+    expect(shouldAdoptExecSummary(drafted("Old."), drafted("New."), true)).toBe(false);
+    expect(shouldAdoptExecSummary(drafted("Old."), null, true)).toBe(false);
+  });
+
+  it("stands pat when nothing has changed, so the effect cannot loop", () => {
+    expect(shouldAdoptExecSummary(drafted("Same."), drafted("Same."), false)).toBe(false);
+    expect(shouldAdoptExecSummary(null, null, false)).toBe(false);
+  });
+
+  it("notices a draft the group has since made its own, at identical text", () => {
+    // Saving unchanged text flips source to edited and nothing else. The chip above the
+    // box reads from that, so the composer has to pick the change up.
+    expect(
+      shouldAdoptExecSummary(drafted("Same words."), { ...drafted("Same words."), source: "edited" }, false)
+    ).toBe(true);
   });
 });

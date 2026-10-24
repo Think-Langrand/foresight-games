@@ -141,3 +141,29 @@ export function execSummaryReadiness(s: ExecSummarySteps): {
   const missing = steps.filter((x) => !x.done).map((x) => x.label);
   return { ready: missing.length === 0, missing, steps };
 }
+
+// WHETHER THE COMPOSER SHOULD TAKE THE STORED LEAD IT HAS JUST BEEN HANDED.
+//
+// The composer keeps the text in local state, because that is what a textarea needs. So it
+// has to reconcile when the stored lead changes underneath it, and there are two ways that
+// happens: step 5 mounts while the board's refresh is still in flight and the draft lands a
+// moment later, and another member drafts, saves or deletes and realtime pushes the new
+// config to every open board.
+//
+// UNSAVED EDITS WIN, ALWAYS. Losing words a group has typed would be the worst bug this
+// feature could have, so a dirty box is never overwritten — not by a draft, not by another
+// member's save, not by a delete. They keep what they are writing and their own Save still
+// settles it.
+//
+// Compared on text AND source: saving text back unchanged flips source to "edited" and
+// nothing else, and the chip above the box is read from exactly that.
+export function shouldAdoptExecSummary(
+  adopted: ExecSummaryOverride | null,
+  incoming: ExecSummaryOverride | null,
+  dirty: boolean
+): boolean {
+  if (dirty) return false;
+  if (!adopted && !incoming) return false;
+  if (!adopted || !incoming) return true;
+  return adopted.text !== incoming.text || adopted.source !== incoming.source;
+}

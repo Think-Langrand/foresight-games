@@ -269,11 +269,18 @@ export function CommitmentsTeamView({
       body: JSON.stringify({ participantId: pid }),
     })
       .catch(() => {})
-      .finally(() => {
+      .finally(async () => {
+        // REFRESH FIRST, THEN DROP THE PANEL. Pull the new config through the board's own
+        // refresh rather than holding the draft in local state: the composer reads it from
+        // the session like everything else here.
+        //
+        // The order is the point. Clearing `autoDrafting` first mounts step 5 against a
+        // session that does not have the draft in it yet, so the composer opens on "Draft
+        // our summary" next to a lead that is already saved. fetchOnce never rejects — it
+        // reports failures through the board's own error state — so this cannot strand the
+        // panel.
+        await refresh();
         setAutoDrafting(false);
-        // Pull the new config through the board's own refresh rather than holding the draft
-        // in local state: the composer reads it from the session like everything else here.
-        refresh();
       });
   }, [autoReady, code, pid, refresh]);
 

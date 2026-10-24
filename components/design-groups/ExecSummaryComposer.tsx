@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { EXEC_SUMMARY_LIMITS, type ExecSummaryOverride } from "@/lib/exec-summary-shape";
+import {
+  EXEC_SUMMARY_LIMITS,
+  type ExecSummaryOverride,
+  shouldAdoptExecSummary,
+} from "@/lib/exec-summary-shape";
 
 // Step 5's composer: the place a group writes the lead its handoff opens with.
 //
@@ -36,6 +40,25 @@ export default function ExecSummaryComposer({
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // THE STORED LEAD CAN LAND AFTER THIS BOX IS ON SCREEN, so the text cannot be seeded from
+  // the prop once at mount and left there. Two ways it happens: step 5 opens while the
+  // board's own refresh is still in flight and the draft arrives a moment later, and
+  // another member drafts, saves or deletes and realtime pushes the new config to every
+  // open board. Without this the composer sits on "Draft our summary" beside a draft that
+  // is already saved, and only a click on that button reveals it.
+  //
+  // ADJUSTED DURING RENDER rather than in an effect, which is what React asks for when
+  // state has to follow a prop: the guard makes it settle in one extra render and nothing
+  // paints in between. An effect would commit the stale frame first and flash the button.
+  //
+  // `state` is deliberately not touched. The four states belong to what THIS member asked
+  // for, and whether the draft shows is already a question of `draft` being set — so a
+  // lead arriving must not cut short a "generating" panel this browser is waiting on.
+  if (shouldAdoptExecSummary(draft, override, dirty)) {
+    setDraft(override);
+    setText(override?.text ?? "");
+  }
 
   async function call(path: string, method: "POST" | "DELETE", body?: object) {
     setError(null);

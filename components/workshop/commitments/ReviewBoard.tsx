@@ -106,7 +106,30 @@ function SubmitBar({
           afterwards, so you can still change your mind.
         </span>
       </span>
-      <span className="flex shrink-0 flex-col items-end gap-1.5">
+      <span className="flex shrink-0 flex-wrap items-center justify-end gap-2.5">
+        {/* PREVIEW SITS LEFT OF SUBMIT because it answers the question Submit asks. A group
+            about to say "we are done" wants to read what the committee reads, and it is
+            built from what is already on the board — there is nothing to finish first.
+            Blue against Submit's ink: two actions, and the one that changes nothing is the
+            one that looks different.
+
+            A NEW TAB, not a navigation. The board is mid-review; sending it away and back
+            would reset the step they were reading. As a quiet dotted link below Submit this
+            went unclicked, which is what prompted the button.
+
+            Still gated on `summaryHref`: the parent passes it only when the handoff is
+            visible to this group or the viewer is an admin, so rendering it unconditionally
+            would hand every member a 404. */}
+        {summaryHref && (
+          <a
+            href={summaryHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-[3px] bg-blue px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.06em] text-white transition hover:bg-ink"
+          >
+            Preview this week
+          </a>
+        )}
         <button
           type="button"
           onClick={onSubmit}
@@ -115,16 +138,6 @@ function SubmitBar({
         >
           Submit this week
         </button>
-        {summaryHref && (
-          <a
-            href={summaryHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[11px] text-muted underline decoration-dotted underline-offset-2 hover:text-blue"
-          >
-            See the full handoff &#8599;
-          </a>
-        )}
       </span>
     </div>
   );
