@@ -26,9 +26,10 @@ export interface ThemeIdea {
   savedAt: string; // ISO
 }
 
-// The name cap is the card's own (CARD_TEXT_MAX), because a suggested label is written to be
-// a theme card's text and arrives at that length. The count cap is a reading limit, not a
-// storage one: twelve names is already more than a participant will read, and the panel must
+// The name cap was the card's own when CARD_TEXT_MAX was 500. That constant was raised to
+// 4000 for Session 4's prose answers and this did not follow: a saved theme name is a
+// label, and 500 was never the binding limit on one. The count cap is a reading limit, not
+// a storage one: twelve names is already more than a participant will read, and the panel must
 // not become a wall of text as runs accumulate.
 export const THEME_IDEA_LIMITS = { name: 500, count: 12 } as const;
 
