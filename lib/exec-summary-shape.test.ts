@@ -5,6 +5,7 @@ import {
   coerceExecSummary,
   execSummaryDefaultText,
   execSummaryReadiness,
+  execSummaryReuse,
   shouldAdoptExecSummary,
 } from "./exec-summary-shape";
 
@@ -200,5 +201,54 @@ describe("shouldAdoptExecSummary", () => {
     expect(
       shouldAdoptExecSummary(drafted("Same words."), { ...drafted("Same words."), source: "edited" }, false)
     ).toBe(true);
+  });
+});
+
+describe("execSummaryReuse", () => {
+  const gen = (hash?: string): ExecSummaryOverride => ({
+    text: "Drafted lead.",
+    source: "generated",
+    editedAt: "2026-10-24T00:00:00Z",
+    editedBy: "",
+    ...(hash === undefined ? {} : { sourceHash: hash }),
+  });
+  const edited = (hash?: string): ExecSummaryOverride => ({ ...gen(hash), source: "edited" });
+
+  it("reuses a lead the group wrote, whatever is asked", () => {
+    // The strongest rule on this route, and force must not get around it. Losing a group's
+    // own words to a model call would be the worst bug this feature could have.
+    expect(execSummaryReuse(edited("abc"), "abc", false)).toBe("reuse");
+    expect(execSummaryReuse(edited("abc"), "different", false)).toBe("reuse");
+    expect(execSummaryReuse(edited("abc"), "different", true)).toBe("reuse");
+    expect(execSummaryReuse(edited(), "anything", true)).toBe("reuse");
+  });
+
+  it("generates when nothing is stored", () => {
+    expect(execSummaryReuse(null, "abc", false)).toBe("generate");
+  });
+
+  it("reuses an unedited draft built from this very material", () => {
+    // THE BUG THIS EXISTS FOR. Reopening a finished board used to regenerate, because the
+    // old test was the draft's age: anything over a minute was assumed to mean a step had
+    // been undone and redone. Simply coming back to read it looked identical.
+    expect(execSummaryReuse(gen("abc"), "abc", false)).toBe("reuse");
+  });
+
+  it("generates when the material has changed under an unedited draft", () => {
+    // A step undone and redone. The old draft describes the old answers.
+    expect(execSummaryReuse(gen("abc"), "xyz", false)).toBe("generate");
+  });
+
+  it("generates on force, over an unedited draft built from the same material", () => {
+    // "Draft again" is the one place replacing a machine draft is the intent.
+    expect(execSummaryReuse(gen("abc"), "abc", true)).toBe("generate");
+  });
+
+  it("reuses an unedited draft that carries no fingerprint rather than spending a call", () => {
+    // Drafts stored before fingerprinting have no provenance to compare. Treating unknown
+    // as stale would regenerate every one of them on the next board open, which is the
+    // behaviour being fixed. "Draft again" is the way out, and it stamps a hash on the way.
+    expect(execSummaryReuse(gen(), "abc", false)).toBe("reuse");
+    expect(execSummaryReuse(gen(), "abc", true)).toBe("generate");
   });
 });

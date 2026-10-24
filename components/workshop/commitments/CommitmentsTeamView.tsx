@@ -245,9 +245,12 @@ export function CommitmentsTeamView({
     const stored = coerceExecSummary(
       (view?.session.config as Record<string, unknown> | undefined)?.execSummary
     );
-    // A stored draft nobody has edited does NOT stop another run: the group has just
-    // changed the material it was built from, so the old one is about the old answers.
-    // A lead the group wrote is never regenerated over.
+    // WORTH ASKING, which is not the same as "a call is needed" — the server decides that
+    // by comparing a fingerprint of the material against the one the stored draft was
+    // built from. See execSummaryReuse. So a stored draft nobody has edited does not stop
+    // the ask: if the group has since changed an answer it gets rebuilt, and if it has
+    // not, the route hands the same draft back for the price of one round trip. A lead the
+    // group wrote is never regenerated over, so there is nothing to ask about.
     return ready && stored?.source !== "edited";
   }, [view, playerId, cards, board, sections]);
 
@@ -734,6 +737,17 @@ export function CommitmentsTeamView({
   // An EDITED lead is different: that is the group's own writing, and hiding it behind a
   // checklist because they went back to fix a typo in step 4 would be taking their work
   // away. An untouched machine draft is not their work and costs nothing to rebuild.
+  // THE BLUE PANEL IS FOR THE FIRST DRAFT ONLY, and "is anything stored yet" is the whole
+  // test — no extra state needed, because a run with nothing stored is a first draft and a
+  // run with a draft already on the board is the route being asked whether it is still
+  // current. That second kind usually answers in a round trip, and flashing "Generating
+  // your summary… this takes about a minute" at somebody reopening a finished board would
+  // be a lie, and the thing most likely to make them reload.
+  //
+  // It also lands the handover in the right order: the refresh is awaited before
+  // `autoDrafting` drops, so the draft is in hand — and this goes false — one render before
+  // the panel would otherwise have come down on an empty composer.
+  const autoPanel = autoDrafting && !execOverride;
   const execEdited = execOverride?.source === "edited";
   const reviewLocked = !execReady.ready && !execEdited;
   const stepsDone = 4 - execReady.missing.length;
@@ -804,7 +818,9 @@ export function CommitmentsTeamView({
           // Step 5 is the only one that can be shut. It is built FROM the other four, so
           // opening it early shows a locked box and a model call made out of nothing.
           const locked = sp === "review" && reviewLocked;
-          const drafting = sp === "review" && autoDrafting;
+          // `autoPanel`, not `autoDrafting`: the tab says "drafting…" only for a real
+          // first draft, never for the revalidation that happens on reopening a board.
+          const drafting = sp === "review" && autoPanel;
           return (
             <button
               key={sp}
@@ -925,13 +941,13 @@ export function CommitmentsTeamView({
           flip is what starts the draft — so drafting needs its own branch or the blue panel
           would never be seen: the step would jump straight from the checklist to an empty
           composer while the model was still working. */}
-      {step === "review" && (reviewLocked || autoDrafting) && (
-        <HandoffGuideLocked steps={execReady.steps} generating={autoDrafting} />
+      {step === "review" && (reviewLocked || autoPanel) && (
+        <HandoffGuideLocked steps={execReady.steps} generating={autoPanel} />
       )}
 
       {step === "review" &&
         !reviewLocked &&
-        !autoDrafting &&
+        !autoPanel &&
         (reviewShape ? (
           <ReviewBoard
             shaped={reviewShape}
