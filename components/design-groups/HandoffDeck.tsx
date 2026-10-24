@@ -28,11 +28,17 @@ export default function HandoffDeck({
   groupName,
   projectSlug,
   groupId,
+  publicView = false,
 }: {
   slides: DeckSlide[];
   groupName: string;
   projectSlug: string;
   groupId: string;
+  // The public reader at /h/<slug>/<groupId> sets this. It drops the back link, which
+  // points into the gated project area a committee has no passphrase for, and relabels the
+  // corner: "draft" is a note to the group about its own work, not something to tell a
+  // reader the deck was deliberately sent to.
+  publicView?: boolean;
 }) {
   const [i, setI] = useState(0);
   const last = slides.length - 1;
@@ -76,11 +82,15 @@ export default function HandoffDeck({
     // footer the way 100vh does.
     <div className="flex h-[100svh] flex-col overflow-hidden bg-paper">
       <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-ink px-5 py-3 sm:px-8">
-        <Link href={`/project/${projectSlug}/design-groups/${groupId}`} className="eyebrow blue shrink-0">
-          ← {groupName}
-        </Link>
+        {publicView ? (
+          <span className="eyebrow shrink-0">{groupName}</span>
+        ) : (
+          <Link href={`/project/${projectSlug}/design-groups/${groupId}`} className="eyebrow blue shrink-0">
+            ← {groupName}
+          </Link>
+        )}
         <p className="m-0 ml-auto font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-          Handoff · draft
+          {publicView ? "Handoff" : "Handoff · draft"}
         </p>
       </header>
 

@@ -12,6 +12,9 @@ import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { ResponseRecap } from "@/components/workshop/commitments/ResponseRecap";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
 import { StepProgress } from "@/components/workshop/commitments/StepProgress";
+import ExecSummaryComposer from "@/components/design-groups/ExecSummaryComposer";
+import HandoffGuideLocked from "@/components/design-groups/HandoffGuideLocked";
+import { coerceExecSummary, execSummaryReadiness } from "@/lib/exec-summary-shape";
 import { ReviewBoard } from "@/components/workshop/commitments/ReviewBoard";
 import {
   useRipplesView,
@@ -35,6 +38,7 @@ import {
   indexCommitmentsBoard,
 } from "@/lib/commitments-shape";
 import {
+  COMMITMENTS_KEY_ROLE,
   COMMITMENTS_STEP_MOVES,
   type WorksheetSection,
 } from "@/lib/exercise-types";
@@ -86,7 +90,7 @@ const STEP_LABELS: Record<CommitStep, string> = {
   matrix: "2 \u00b7 Risks & opportunities",
   responses: "3 \u00b7 Strategic responses",
   moves: "4 \u00b7 Role & bold moves",
-  review: "5 \u00b7 Review & submit",
+  review: "5 \u00b7 Build handoff guide",
 };
 
 export function CommitmentsTeamView({
@@ -212,6 +216,67 @@ export function CommitmentsTeamView({
     }
   }, [board]);
 
+  // ABOVE EVERY EARLY RETURN in this component — loading, error, !view, !myPlayer — because
+  // hooks run in the same order on every render. The readiness values are computed further
+  // down the body, so the gate this reads is recomputed here from the board rather than
+  // passed down to it.
+  const autoReady = useMemo(() => {
+    if (!view) return false;
+    if (view.session.phase !== "BUILD") return false;
+    if (!playerId) return false;
+    // `sections` is already the week's effective sections — the page resolves them before
+    // handing them down, which is what `sectionsFor` below filters too.
+    const changeSecs = sections.filter((sec) => sec.step !== COMMITMENTS_STEP_MOVES);
+    const moveSecs = sections.filter((sec) => sec.step === COMMITMENTS_STEP_MOVES);
+    const answered = (list: typeof sections) =>
+      list.filter((sec) =>
+        cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
+      ).length;
+    const ready = execSummaryReadiness({
+      changes: answered(changeSecs),
+      changesTotal: changeSecs.length,
+      placements: [...board.picks.values()].filter(
+        (p) => p.plausibility !== null && p.impact !== null
+      ).length,
+      responses: board.responses.length,
+      moves: answered(moveSecs),
+      movesTotal: moveSecs.length,
+    }).ready;
+    const stored = coerceExecSummary(
+      (view?.session.config as Record<string, unknown> | undefined)?.execSummary
+    );
+    // A stored draft nobody has edited does NOT stop another run: the group has just
+    // changed the material it was built from, so the old one is about the old answers.
+    // A lead the group wrote is never regenerated over.
+    return ready && stored?.source !== "edited";
+  }, [view, playerId, cards, board, sections]);
+
+  const [autoDrafting, setAutoDrafting] = useState(false);
+  const autoFired = useRef(false);
+  useEffect(() => {
+    // BUILD only, and only once a player row exists. Both are available this early from
+    // the view; `editable` below is the same two facts and is not in scope yet.
+    if (!autoReady) return;
+    if (autoFired.current) return;
+    autoFired.current = true;
+    setAutoDrafting(true);
+    fetch(`/api/sessions/${code}/ripples/exec-summary/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // No force. The route decides: it hands back a lead the group wrote, and hands back
+      // an unedited draft less than a minute old so concurrent boards cost one call — but
+      // replaces an older one, which is this run's whole purpose after a step was redone.
+      body: JSON.stringify({ participantId: pid }),
+    })
+      .catch(() => {})
+      .finally(() => {
+        setAutoDrafting(false);
+        // Pull the new config through the board's own refresh rather than holding the draft
+        // in local state: the composer reads it from the session like everything else here.
+        refresh();
+      });
+  }, [autoReady, code, pid, refresh]);
+
   if (loading)
     return (
       <Centered>
@@ -242,6 +307,7 @@ export function CommitmentsTeamView({
   // the UI never offers a control the route will refuse. Seeded cards have no author at
   // all, so an author-only rule would make them uneditable by everyone.
   const canEditCard = config.sharedTeam ? () => true : (c: RippleCard) => c.authorPlayerId === myPlayer?.id;
+
 
   if (!myPlayer) {
     return (
@@ -630,6 +696,69 @@ export function CommitmentsTeamView({
       cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
     ).length;
 
+  // Step 5's composer. Built here because this is the only place holding the four signals
+  // the readiness gate reads, and the stored override, which lives on the session config
+  // rather than on a card.
+  //
+  // RAW config, not resolveConfig(): execSummary is deliberately outside that whitelist so
+  // a group's draft never ships in the payload every member's board fetches. On this board
+  // it is already in hand, because this component holds the session row.
+  const execReady = execSummaryReadiness({
+    changes: answeredCount(sectionsFor("changes")),
+    changesTotal: sectionsFor("changes").length,
+    placements: [...board.picks.values()].filter(
+      (p) => p.plausibility !== null && p.impact !== null
+    ).length,
+    responses: board.responses.length,
+    moves: answeredCount(sectionsFor("moves")),
+    movesTotal: sectionsFor("moves").length,
+  });
+  const execOverride = coerceExecSummary(
+    (view?.session.config as Record<string, unknown> | undefined)?.execSummary
+  );
+
+  // THE STEP IS LOCKED until the four earlier ones are done.
+  //
+  // IT RE-LOCKS IF A STEP IS UNDONE, unless the group has written its own lead. The gate
+  // exists to stop a summary being built out of nothing, so a group that deletes an answer
+  // should see the checklist again — the first version kept the step open for ANY stored
+  // draft, which meant undoing a step changed nothing and looked broken.
+  //
+  // An EDITED lead is different: that is the group's own writing, and hiding it behind a
+  // checklist because they went back to fix a typo in step 4 would be taking their work
+  // away. An untouched machine draft is not their work and costs nothing to rebuild.
+  const execEdited = execOverride?.source === "edited";
+  const reviewLocked = !execReady.ready && !execEdited;
+  const stepsDone = 4 - execReady.missing.length;
+
+  // AUTO-DRAFT ON UNLOCK. The group finishes step 4 and the summary is waiting rather than
+  // being something else to go and ask for. Fires once per mount, guarded three ways: only
+  // when ready, only when nothing is stored, and only if this browser has not already
+  // started. The route is idempotent on top of that, because every member's board that
+  // notices at the same moment will fire too.
+
+  // Step 4's second question. Split exactly as the handoff deck splits it — everything on
+  // the moves step that is not the role prompt — so a facilitator who adds a third prompt
+  // there gets it here too rather than having it silently dropped.
+  const boldMoveAnswers = sectionsFor("moves")
+    .filter((sec) => sec.key !== COMMITMENTS_KEY_ROLE)
+    .flatMap((sec) =>
+      cards
+        .filter((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
+        .sort((a, b) => a.sort - b.sort)
+        .map((c) => c.text.trim())
+    );
+
+  const execComposer = (
+    <ExecSummaryComposer
+      sessionCode={code}
+      participantId={pid}
+      override={execOverride}
+      missing={execReady.missing}
+      canEdit={editable}
+    />
+  );
+
   const worksheetFor = (spec: typeof sections) => (
     <WorksheetSections
       sections={spec}
@@ -664,20 +793,60 @@ export function CommitmentsTeamView({
         aria-label="Commitments steps"
         className="flex flex-wrap gap-1 border-b border-[var(--rule)]"
       >
-        {COMMIT_STEPS.map((s) => (
-          <button
-            key={s}
-            role="tab"
-            aria-selected={step === s}
-            onClick={() => setStep(s)}
-            className={
-              "-mb-px border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
-              (step === s ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")
-            }
-          >
-            {STEP_LABELS[s]}
-          </button>
-        ))}
+        {COMMIT_STEPS.map((sp) => {
+          // Step 5 is the only one that can be shut. It is built FROM the other four, so
+          // opening it early shows a locked box and a model call made out of nothing.
+          const locked = sp === "review" && reviewLocked;
+          const drafting = sp === "review" && autoDrafting;
+          return (
+            <button
+              key={sp}
+              role="tab"
+              aria-selected={step === sp}
+              // CLICKABLE EVEN WHEN LOCKED. A padlock that does nothing on click tells a
+              // group only that the page is broken; clicking it opens the list of what is
+              // left, which is the question they clicked to ask.
+              title={locked ? `Finish these first: ${execReady.missing.join(", ")}` : undefined}
+              onClick={() => setStep(sp)}
+              className={
+                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
+                (locked
+                  ? "rounded-t-[2px] bg-[var(--rule)] text-muted " +
+                    (step === sp ? "border-ink" : "border-transparent hover:text-ink")
+                  : step === sp
+                    ? "border-ink text-ink"
+                    : "border-transparent text-muted hover:text-ink")
+              }
+            >
+              {locked && (
+                // A padlock, inline rather than an icon font: two paths, and it has to sit
+                // on the baseline of 12px uppercase text.
+                <svg
+                  aria-hidden
+                  viewBox="0 0 10 12"
+                  className="h-[11px] w-[9px] shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                >
+                  <rect x="0.7" y="5" width="8.6" height="6.3" rx="1" />
+                  <path d="M2.6 5V3.3a2.4 2.4 0 0 1 4.8 0V5" />
+                </svg>
+              )}
+              {STEP_LABELS[sp]}
+              {locked && (
+                <span className="font-mono text-[10px] font-bold tabular-nums">
+                  {stepsDone}/4
+                </span>
+              )}
+              {drafting && (
+                <span className="animate-pulse font-mono text-[10px] font-bold normal-case tracking-normal">
+                  drafting&hellip;
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {step === "changes" && (
@@ -745,12 +914,24 @@ export function CommitmentsTeamView({
           this is the pane a group approves, so it should show what is actually stored rather
           than what is still in flight. Everywhere else on this board the overlay is the
           right answer; here a line that has not landed yet must not look landed. */}
+      {/* Locked, or drafting. `reviewLocked` goes false the instant readiness flips — that
+          flip is what starts the draft — so drafting needs its own branch or the blue panel
+          would never be seen: the step would jump straight from the checklist to an empty
+          composer while the model was still working. */}
+      {step === "review" && (reviewLocked || autoDrafting) && (
+        <HandoffGuideLocked steps={execReady.steps} generating={autoDrafting} />
+      )}
+
       {step === "review" &&
+        !reviewLocked &&
+        !autoDrafting &&
         (reviewShape ? (
           <ReviewBoard
             shaped={reviewShape}
             week3Cards={week3Cards}
             summaryHref={summaryHref}
+            composer={execComposer}
+            boldMoves={boldMoveAnswers}
             submittedAt={submitted.at}
             submittedBy={submitted.by}
             editable={editable}
