@@ -228,8 +228,12 @@ function QuestionSection({
                           if (e.key === "Escape") cancelEdit();
                           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") commitEdit();
                         }}
-                        rows={2}
-                        className="w-full resize-none rounded-[2px] border border-black/25 bg-white/70 p-1.5 text-[13.5px] leading-[1.4] outline-none focus:border-ink"
+                        rows={3}
+                        // resize-y, not resize-none: CARD_TEXT_MAX is 4000 now, and a
+                        // two-line box you cannot drag open is a porthole to write a
+                        // paragraph through. Three rows is the resting size; the handle is
+                        // there for the Session 4 answers that actually run long.
+                        className="w-full resize-y rounded-[2px] border border-black/25 bg-white/70 p-1.5 text-[13.5px] leading-[1.4] outline-none focus:border-ink"
                       />
                       <div className="mt-1 flex items-center justify-end gap-2">
                         <span className={"mr-auto text-[10px] " + (editOver ? "font-bold text-coral" : "text-muted")}>
@@ -315,9 +319,9 @@ function QuestionSection({
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
               }}
-              rows={2}
+              rows={3}
               placeholder="Add your answer…"
-              className="w-full resize-none rounded-[2px] border border-[var(--hairline)] bg-paper p-2 text-[13px] outline-none focus:border-ink"
+              className="w-full resize-y rounded-[2px] border border-[var(--hairline)] bg-paper p-2 text-[13px] outline-none focus:border-ink"
             />
             <span className={"mt-1 block text-[10px] " + (over ? "font-bold text-coral" : "text-muted")}>
               {text.trim().length}/{CARD_TEXT_MAX}

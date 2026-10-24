@@ -137,9 +137,19 @@ export function orderLabelForDepth(depth: number): string {
   return depth <= 0 ? "Key change" : `${ordinal(depth)} order`;
 }
 
-export const CARD_TEXT_MAX = 500;
-// A theme's optional note about what it means. Longer than a card's text because it is
-// prose, but still bounded — the database has no limit, this is the limit.
+// Raised from 500, which was sized for an implication — a sentence on a sticky — and was
+// never sized for Session 4, where the aspiration and the bold moves are written as real
+// prose and 500 characters is about eighty words. Lifted globally rather than per section:
+// Sessions 1-3 are short by nature and never reach it, so a per-week limit would have been
+// machinery for a difference nobody would notice.
+//
+// Still bounded, because these cards ship in the /ripples payload that every member's board
+// refetches on every change. The database has no limit; this is the limit, and its job is
+// to stop one pasted document from slowing the board for the whole group.
+export const CARD_TEXT_MAX = 4000;
+// A theme's optional note about what it means. Longer than a card's text WAS, and left
+// where it is: nobody has asked for more room here, and the pair no longer being in
+// proportion is a fact about the card cap moving, not a reason to move this one too.
 export const CARD_DESCRIPTION_MAX = 1000;
 
 // ---------------------------------------------------------------------------

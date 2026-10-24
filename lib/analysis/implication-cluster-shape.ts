@@ -1,5 +1,4 @@
 import { cosineSimilarity } from "./cluster";
-import { CARD_TEXT_MAX } from "@/lib/ripples-types";
 
 // Client-safe shaping for implication clustering. No server imports — safe in client
 // components, route handlers, and tests. The server side (embeddings + LLM calls) lives in
@@ -17,10 +16,14 @@ export type ClusterMethod = "llm" | "embedding";
 
 // A suggested theme is named as a statement about change, which is a whole sentence —
 // "Responsibility moves to communities faster than resources do" — and "Use this" writes
-// it straight into a theme card's text. So the cap is the card's own, not a chip's: a name
-// the model wrote in full should arrive in full. The summary is one sentence of prose and
-// gets room to be one.
-export const SUGGESTED_LABEL_MAX = CARD_TEXT_MAX;
+// it straight into a theme card's text, so a name the model wrote in full should arrive in
+// full. The summary is one sentence of prose and gets room to be one.
+//
+// PINNED AT 500, where it used to track CARD_TEXT_MAX. That constant was raised to 4000 for
+// Session 4's prose answers, and following it would let a model propose a theme NAME four
+// thousand characters long — a label, not an essay. The old value was right for this; it
+// just stopped being the same number.
+export const SUGGESTED_LABEL_MAX = 500;
 export const SUGGESTED_SUMMARY_MAX = 600;
 
 export interface ImplicationItem {
