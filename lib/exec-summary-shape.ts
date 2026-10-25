@@ -36,6 +36,14 @@ export interface ExecSummaryOverride {
   // "You" — Sessions 3 and 4 never prompt for a name — so any copy built on this has to
   // read sensibly when it is empty or a placeholder.
   editedBy: string;
+  // WHAT THIS DRAFT WAS BUILT FROM — a fingerprint of the Session 4 material the model read,
+  // written only on the generate path. It is how the route tells "the group changed an
+  // answer, so rebuild" from "the group came back to read it, so leave it alone", which a
+  // timestamp cannot do. See execSummaryReuse.
+  //
+  // OPTIONAL, because drafts stored before fingerprinting have none, and because a lead the
+  // group wrote has nothing to compare: it is never regenerated over whatever is asked.
+  sourceHash?: string;
 }
 
 // The text cap is generous because this is prose a committee reads, not a card: roughly two
@@ -74,6 +82,10 @@ export function coerceExecSummary(raw: unknown): ExecSummaryOverride | null {
       typeof r.editedBy === "string"
         ? r.editedBy.replace(/\s+/g, " ").trim().slice(0, EXEC_SUMMARY_LIMITS.editedBy)
         : "",
+    // Carried through rather than defaulted: absent is a meaningful state here, and it has
+    // to survive the round trip through this function or every stored draft would come back
+    // looking like it predates fingerprinting.
+    ...(typeof r.sourceHash === "string" && r.sourceHash ? { sourceHash: r.sourceHash } : {}),
   };
 }
 
@@ -140,4 +152,69 @@ export function execSummaryReadiness(s: ExecSummarySteps): {
   ];
   const missing = steps.filter((x) => !x.done).map((x) => x.label);
   return { ready: missing.length === 0, missing, steps };
+}
+
+// WHETHER THE COMPOSER SHOULD TAKE THE STORED LEAD IT HAS JUST BEEN HANDED.
+//
+// The composer keeps the text in local state, because that is what a textarea needs. So it
+// has to reconcile when the stored lead changes underneath it, and there are two ways that
+// happens: step 5 mounts while the board's refresh is still in flight and the draft lands a
+// moment later, and another member drafts, saves or deletes and realtime pushes the new
+// config to every open board.
+//
+// UNSAVED EDITS WIN, ALWAYS. Losing words a group has typed would be the worst bug this
+// feature could have, so a dirty box is never overwritten — not by a draft, not by another
+// member's save, not by a delete. They keep what they are writing and their own Save still
+// settles it.
+//
+// Compared on text AND source: saving text back unchanged flips source to "edited" and
+// nothing else, and the chip above the box is read from exactly that.
+export function shouldAdoptExecSummary(
+  adopted: ExecSummaryOverride | null,
+  incoming: ExecSummaryOverride | null,
+  dirty: boolean
+): boolean {
+  if (dirty) return false;
+  if (!adopted && !incoming) return false;
+  if (!adopted || !incoming) return true;
+  return adopted.text !== incoming.text || adopted.source !== incoming.source;
+}
+
+// WHETHER THE GENERATE ROUTE SHOULD SPEND A MODEL CALL, or hand back what is stored.
+//
+// THE OLD TEST WAS THE DRAFT'S AGE, and it was wrong. An unedited draft over a minute old
+// was assumed to mean the group had undone a step and redone it, so the material had
+// changed and the draft was stale. But simply reopening a finished board looked exactly the
+// same, so every revisit silently rewrote the lead the group was reading and billed another
+// call. The minute only ever separated "two browsers in the same second" from everything
+// else; it could not separate a changed answer from a returning reader.
+//
+// SO ASK THE MATERIAL. A draft carries a fingerprint of the Session 4 work it was built
+// from, and a draft built from exactly what is on the board now is current by definition —
+// however long ago it was written, and however many members open the board.
+//
+// The rules, in the order they win:
+//
+//   A LEAD THE GROUP WROTE is never regenerated over, whatever is asked, force included.
+//   Those are their words.
+//
+//   FORCE replaces an unedited draft. That is "Draft again", the one place where replacing
+//   a machine draft is the intent.
+//
+//   A MATCHING FINGERPRINT is reused. Nothing has changed, so there is nothing to say.
+//
+//   NO FINGERPRINT is reused too. Drafts written before this existed have no provenance to
+//   compare, and treating unknown as stale would regenerate every one of them on the next
+//   board open — the exact behaviour being fixed. "Draft again" is the way out, and it
+//   stamps a fingerprint on its way through.
+export function execSummaryReuse(
+  existing: ExecSummaryOverride | null,
+  fingerprint: string,
+  force: boolean
+): "reuse" | "generate" {
+  if (existing?.source === "edited") return "reuse";
+  if (!existing) return "generate";
+  if (force) return "generate";
+  if (!existing.sourceHash) return "reuse";
+  return existing.sourceHash === fingerprint ? "reuse" : "generate";
 }

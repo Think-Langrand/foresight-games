@@ -4,8 +4,13 @@ import { getPlayerByParticipant, listBoardCards } from "@/lib/ripples";
 import { getExerciseBySessionCode } from "@/lib/design-group-exercises";
 import { getExerciseType, resolveEffectiveSections, COMMITMENTS_STEP_MOVES } from "@/lib/exercise-types";
 import { indexCommitmentsBoard } from "@/lib/commitments-shape";
-import { coerceExecSummary, execSummaryReadiness } from "@/lib/exec-summary-shape";
-import { draftExecSummary } from "@/lib/analysis/exec-summary";
+import {
+  coerceExecSummary,
+  execSummaryReadiness,
+  execSummaryReuse,
+} from "@/lib/exec-summary-shape";
+import { execSummaryFingerprint } from "@/lib/exec-summary-fingerprint";
+import { draftExecSummary, type ExecSummaryInput } from "@/lib/analysis/exec-summary";
 import { isTreeRoot } from "@/lib/ripples-types";
 
 export const dynamic = "force-dynamic";
@@ -59,31 +64,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
       );
     }
 
-    // TWO THINGS THIS GUARDS, which pull in opposite directions.
-    //
-    // A LEAD THE GROUP WROTE is never regenerated over, whatever is asked. Those are their
-    // words; losing them to an automatic run would be the worst bug this feature could have.
-    //
-    // A RACE costs one call, not several. Step 5 fires this automatically the moment the
-    // fourth step is finished, and every member with the board open notices at the same
-    // instant. So an unedited draft written in the last minute is treated as "someone else
-    // just did this" and handed straight back.
-    //
-    // Past that minute an unedited draft is replaced, because the only way to be here is
-    // that the group undid a step and redid it — the material changed, and the old draft
-    // describes the old answers. A clock rather than a hash of the inputs: the window only
-    // has to separate "two browsers in the same second" from "a group went away and came
-    // back", and those differ by minutes, not milliseconds.
     const existing = coerceExecSummary(
       ((session.config ?? {}) as Record<string, unknown>).execSummary
     );
-    if (existing) {
-      const mine = existing.source === "edited";
-      const age = Date.now() - Date.parse(existing.editedAt || "");
-      const fresh = Number.isFinite(age) && age >= 0 && age < 60_000;
-      if (mine || (fresh && !body.force)) {
-        return NextResponse.json({ ok: true, override: existing, reused: true });
-      }
+
+    // A LEAD THE GROUP WROTE is never regenerated over, whatever is asked. Those are their
+    // words; losing them to an automatic run would be the worst bug this feature could have.
+    // It answers here, before the board is even read, so no later branch can reach them.
+    if (existing?.source === "edited") {
+      return NextResponse.json({ ok: true, override: existing, reused: true });
     }
 
     const cards = await listBoardCards(session.code);
@@ -125,7 +114,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
         }))
         .filter((b) => b.answers.length > 0);
 
-    const text = await draftExecSummary({
+    // ASSEMBLED BEFORE IT IS DECIDED WHETHER TO DRAFT, because the decision is made on this
+    // material and nothing else. It is all local work over cards already in hand.
+    const material: ExecSummaryInput = {
       scenarioTitle: session.prompt ?? "",
       changes: answersFor(changeSecs),
       role: answersFor(moveSecs),
@@ -139,7 +130,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
         .map((p) => ({ text: p.text.trim(), score: p.plausibility! * p.impact! }))
         .sort((a, b) => b.score - a.score),
       responses: board.responses.map((r) => r.text.trim()).filter(Boolean),
-    });
+    };
+
+    // IS THERE ANYTHING TO SAY? A draft built from exactly this material is current however
+    // long ago it was written, so reopening a finished board costs nothing and leaves the
+    // lead the group is reading alone. A draft built from different material is about the
+    // old answers and gets replaced. See execSummaryReuse — this replaced a one-minute
+    // clock that could not tell a changed answer from a returning reader.
+    //
+    // It also still settles the race it was first written for: every member's board fires
+    // this the instant the fourth step lands, and once one has written, the rest match the
+    // fingerprint and are handed that draft instead of paying for their own.
+    const fingerprint = execSummaryFingerprint(material);
+    if (execSummaryReuse(existing, fingerprint, body.force === true) === "reuse") {
+      return NextResponse.json({ ok: true, override: existing, reused: true });
+    }
+
+    const text = await draftExecSummary(material);
 
     if (!text) {
       return NextResponse.json(
@@ -157,6 +164,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
       source: "generated",
       editedAt: new Date().toISOString(),
       editedBy: "",
+      // Stamped so the next run can tell whether the board has moved since.
+      sourceHash: fingerprint,
     });
     await updateSession(fresh.id, fresh.code, { config: { ...stored, execSummary: override } });
     return NextResponse.json({ ok: true, override });

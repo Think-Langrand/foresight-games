@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   EXEC_SUMMARY_LIMITS,
+  type ExecSummaryOverride,
   coerceExecSummary,
   execSummaryDefaultText,
   execSummaryReadiness,
+  execSummaryReuse,
+  shouldAdoptExecSummary,
 } from "./exec-summary-shape";
 
 const block = (key: string, label: string, answers: string[]) => ({ key, label, answers });
@@ -146,5 +149,106 @@ describe("execSummaryReadiness", () => {
     // A facilitator can edit the program and remove a step's prompts. Nobody could ever
     // answer them, so holding the button hostage to them would be a dead end.
     expect(execSummaryReadiness({ ...full, changes: 0, changesTotal: 0 }).ready).toBe(true);
+  });
+});
+
+describe("shouldAdoptExecSummary", () => {
+  const drafted = (text: string, editedAt = "2026-10-24T00:00:00Z"): ExecSummaryOverride => ({
+    text,
+    editedAt,
+    editedBy: "",
+    source: "generated",
+  });
+
+  it("adopts a draft that arrives after the composer has already mounted", () => {
+    // THE BUG THIS EXISTS FOR. Step 5 mounts the composer against a session config that
+    // does not have the draft in it yet, because the board's refresh is still in flight.
+    // Without this the composer sits on "Draft our summary" next to a draft that is
+    // already saved, and only a click reveals it.
+    expect(shouldAdoptExecSummary(null, drafted("Our lead."), false)).toBe(true);
+  });
+
+  it("adopts a newer draft over the one it is already showing", () => {
+    expect(
+      shouldAdoptExecSummary(
+        drafted("First pass.", "2026-10-24T00:00:00Z"),
+        drafted("Second pass.", "2026-10-24T00:05:00Z"),
+        false
+      )
+    ).toBe(true);
+  });
+
+  it("adopts a deletion, so one member's Delete clears every other board", () => {
+    expect(shouldAdoptExecSummary(drafted("Our lead."), null, false)).toBe(true);
+  });
+
+  it("never adopts over unsaved edits, whatever arrives", () => {
+    // The group's own words are the one thing this must not lose. A member mid-sentence
+    // when somebody else drafts again keeps what they are typing.
+    expect(shouldAdoptExecSummary(null, drafted("Machine words."), true)).toBe(false);
+    expect(shouldAdoptExecSummary(drafted("Old."), drafted("New."), true)).toBe(false);
+    expect(shouldAdoptExecSummary(drafted("Old."), null, true)).toBe(false);
+  });
+
+  it("stands pat when nothing has changed, so the effect cannot loop", () => {
+    expect(shouldAdoptExecSummary(drafted("Same."), drafted("Same."), false)).toBe(false);
+    expect(shouldAdoptExecSummary(null, null, false)).toBe(false);
+  });
+
+  it("notices a draft the group has since made its own, at identical text", () => {
+    // Saving unchanged text flips source to edited and nothing else. The chip above the
+    // box reads from that, so the composer has to pick the change up.
+    expect(
+      shouldAdoptExecSummary(drafted("Same words."), { ...drafted("Same words."), source: "edited" }, false)
+    ).toBe(true);
+  });
+});
+
+describe("execSummaryReuse", () => {
+  const gen = (hash?: string): ExecSummaryOverride => ({
+    text: "Drafted lead.",
+    source: "generated",
+    editedAt: "2026-10-24T00:00:00Z",
+    editedBy: "",
+    ...(hash === undefined ? {} : { sourceHash: hash }),
+  });
+  const edited = (hash?: string): ExecSummaryOverride => ({ ...gen(hash), source: "edited" });
+
+  it("reuses a lead the group wrote, whatever is asked", () => {
+    // The strongest rule on this route, and force must not get around it. Losing a group's
+    // own words to a model call would be the worst bug this feature could have.
+    expect(execSummaryReuse(edited("abc"), "abc", false)).toBe("reuse");
+    expect(execSummaryReuse(edited("abc"), "different", false)).toBe("reuse");
+    expect(execSummaryReuse(edited("abc"), "different", true)).toBe("reuse");
+    expect(execSummaryReuse(edited(), "anything", true)).toBe("reuse");
+  });
+
+  it("generates when nothing is stored", () => {
+    expect(execSummaryReuse(null, "abc", false)).toBe("generate");
+  });
+
+  it("reuses an unedited draft built from this very material", () => {
+    // THE BUG THIS EXISTS FOR. Reopening a finished board used to regenerate, because the
+    // old test was the draft's age: anything over a minute was assumed to mean a step had
+    // been undone and redone. Simply coming back to read it looked identical.
+    expect(execSummaryReuse(gen("abc"), "abc", false)).toBe("reuse");
+  });
+
+  it("generates when the material has changed under an unedited draft", () => {
+    // A step undone and redone. The old draft describes the old answers.
+    expect(execSummaryReuse(gen("abc"), "xyz", false)).toBe("generate");
+  });
+
+  it("generates on force, over an unedited draft built from the same material", () => {
+    // "Draft again" is the one place replacing a machine draft is the intent.
+    expect(execSummaryReuse(gen("abc"), "abc", true)).toBe("generate");
+  });
+
+  it("reuses an unedited draft that carries no fingerprint rather than spending a call", () => {
+    // Drafts stored before fingerprinting have no provenance to compare. Treating unknown
+    // as stale would regenerate every one of them on the next board open, which is the
+    // behaviour being fixed. "Draft again" is the way out, and it stamps a hash on the way.
+    expect(execSummaryReuse(gen(), "abc", false)).toBe("reuse");
+    expect(execSummaryReuse(gen(), "abc", true)).toBe("generate");
   });
 });
