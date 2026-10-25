@@ -209,16 +209,30 @@ function RoleAndMoves({
       <h2 className="m-0 mb-3 border-b-[1.5px] border-ink pb-2 text-[15px] font-extrabold uppercase tracking-tight">
         The role of public health and how to get there
       </h2>
-      {/* Stacked below sm. Two narrow columns of prose on a phone is worse than reading
-          one after the other, and the pairing survives the stack because the heading is
+      {/* SLATE, AND THE ONLY DARK THING ON THE STEP. This pair is the handoff's actual
+          claim; everything else here is either context for it or the way out, so it is
+          where the one strong surface belongs. --slate rather than --ink: --ink is the text
+          colour and neutral by construction, and a neutral near-black behind cream reads
+          cold. See the token.
+
+          A NARROW GUTTER, not the gap-7 the rest of the step uses. Two dark cards set far
+          apart read as two findings, which is the reading the shared heading exists to
+          prevent; at this distance the paper between them is a seam in one block.
+
+          Stacked below sm — two narrow columns of prose on a phone is worse than reading
+          one after the other, and the pairing survives the stack because the heading sits
           above both. */}
-      <div className="grid gap-7 sm:grid-cols-2">
-        <div>
-          <p className="m-0 mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-[3px] bg-slate px-5 py-4 text-paper">
+          {/* Tints are the paper colour held back, not --muted: that is a mid-tone picked
+              to sit ON cream, and on slate it all but disappears. Measured against
+              #2b2b24 — body 12.9:1, the 10px labels at 70% 7.1:1, the 11px numbers and
+              the empty state at 60% 5.7:1. The 15% rules are decoration, not text. */}
+          <p className="m-0 mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-paper/70">
             The role
           </p>
           {aspiration.length === 0 ? (
-            <p className="m-0 py-2 text-[13px] italic text-muted">
+            <p className="m-0 py-2 text-[13px] italic text-paper/60">
               Nothing written yet. Step 4&rsquo;s first question is where this comes from.
             </p>
           ) : (
@@ -231,12 +245,12 @@ function RoleAndMoves({
             </div>
           )}
         </div>
-        <div>
-          <p className="m-0 mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
+        <div className="rounded-[3px] bg-slate px-5 py-4 text-paper">
+          <p className="m-0 mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-paper/70">
             How to get there <span className="tabular-nums">{boldMoves.length}</span>
           </p>
           {boldMoves.length === 0 ? (
-            <p className="m-0 py-2 text-[13px] italic text-muted">
+            <p className="m-0 py-2 text-[13px] italic text-paper/60">
               Nothing written yet. Step 4&rsquo;s second question is where these come from.
             </p>
           ) : (
@@ -244,9 +258,9 @@ function RoleAndMoves({
               {boldMoves.map((m, i) => (
                 <li
                   key={m + i}
-                  className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-[var(--hairline)] py-[11px] last:border-b-0"
+                  className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-paper/15 py-[11px] last:border-b-0"
                 >
-                  <span className="pt-[2px] font-mono text-[11px] tabular-nums text-muted">
+                  <span className="pt-[2px] font-mono text-[11px] tabular-nums text-paper/60">
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <span className="max-w-[52ch] text-[14px] leading-[1.45]">{m}</span>

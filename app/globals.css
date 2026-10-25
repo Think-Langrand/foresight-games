@@ -19,6 +19,13 @@
      that the rest of the palette is built on, and the board has to read as the same
      material as the paper, one step down, not as a cooler panel behind it. */
   --board: #e9e5d7;
+  /* A DARK SURFACE, for the rare panel that has to carry the page rather than sit on it.
+     Not --ink: that is the text colour, neutral by construction (R=G=B), and a neutral
+     near-black behind warm cream reads as a cold hole punched in the paper. This is built
+     the way --muted is — equal red and green with the blue dropped — so it belongs to the
+     same material family as the paper, the card and the board, just at the far end of it.
+     Pairs with --paper for body text; see the handoff step for the label and rule tints. */
+  --slate: #2b2b24;
   --ink: #242424;
   /* Nudged down with --board. The ground and its quietest text are a pair: at the old
      value the 10px bold labels that sit on the working board came out at 4.28:1, under
@@ -50,6 +57,7 @@
   --color-paper: var(--paper);
   --color-card: var(--card);
   --color-board: var(--board);
+  --color-slate: var(--slate);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-lime: var(--lime);
