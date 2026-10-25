@@ -24,11 +24,16 @@ export default function ExecSummaryComposer({
   participantId,
   override,
   canEdit,
+  onStored,
 }: {
   sessionCode: string;
   participantId: string;
   override: ExecSummaryOverride | null;
   canEdit: boolean;
+  // Pull the board's own read of the session through after a write. Awaited, so "Saving…"
+  // covers the round trip AND the re-read rather than ending while the prop is still the
+  // old value.
+  onStored?: () => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState<ExecSummaryOverride | null>(override);
   const [text, setText] = useState(override?.text ?? "");
@@ -63,12 +68,22 @@ export default function ExecSummaryComposer({
     return data as { override: ExecSummaryOverride | null };
   }
 
+  // NEITHER OF THESE WRITES LOCAL STATE TO MATCH WHAT IT JUST SENT, and that is the whole
+  // point. `override` is the single source of truth for what is stored, and it is a round
+  // trip behind our own writes. Setting `draft` ahead of it put this box in a state the
+  // prop then contradicted: the adoption rule above compares the two, saw a difference it
+  // reads as "the stored note changed under us", and adopted the STALE prop straight back.
+  //
+  // That is what made Delete look like it had failed — the note reappeared the instant it
+  // was removed — and it did the same to Save, flashing the pre-edit text back before the
+  // refresh landed. So both just stop being dirty and ask the board to re-read; the
+  // adoption then takes the new stored value, which is the value they wrote.
   async function save() {
     setBusy(true);
     try {
-      const { override: o } = await call("POST", { text });
-      setDraft(o);
+      await call("POST", { text });
       setDirty(false);
+      await onStored?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save.");
     }
@@ -80,9 +95,8 @@ export default function ExecSummaryComposer({
     setBusy(true);
     try {
       await call("DELETE");
-      setDraft(null);
-      setText("");
       setDirty(false);
+      await onStored?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not delete.");
     }

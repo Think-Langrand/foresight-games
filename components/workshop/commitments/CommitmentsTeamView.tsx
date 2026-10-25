@@ -643,8 +643,18 @@ export function CommitmentsTeamView({
   // An EDITED lead is different: that is the group's own writing, and hiding it behind a
   // checklist because they went back to fix a typo in step 4 would be taking their work
   // away. An untouched machine draft is not their work and costs nothing to rebuild.
-  const execEdited = execOverride?.source === "edited";
-  const reviewLocked = !execReady.ready && !execEdited;
+  // THE FOUR STEPS, AND NOTHING ELSE. This used to read `!execReady.ready && !execEdited`,
+  // so a stored note held the step open on a board that was not finished — and deleting
+  // that note slammed it shut with no way back, because the only thing that had been
+  // unlocking it was the thing just deleted. A group could write a note, delete it, and
+  // never reach the box again short of finishing all four steps.
+  //
+  // The `execEdited` escape dates from when this override was the handoff's LEAD and the
+  // rule was that a group's own writing must never be hidden behind a checklist. It is a
+  // note alongside the deck now, not the deck's opening, and it is not lost when the step
+  // closes: it stays stored, it still renders on the handoff, and it is there to edit again
+  // the moment the four steps are done.
+  const reviewLocked = !execReady.ready;
   const stepsDone = 4 - execReady.missing.length;
 
   // Step 4's second question. Split exactly as the handoff deck splits it — everything on
@@ -675,6 +685,7 @@ export function CommitmentsTeamView({
       participantId={pid}
       override={execOverride}
       canEdit={editable}
+      onStored={refresh}
     />
   );
 
