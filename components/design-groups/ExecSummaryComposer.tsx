@@ -125,6 +125,14 @@ export default function ExecSummaryComposer({
           value={text}
           maxLength={EXEC_SUMMARY_LIMITS.text}
           readOnly={!canEdit}
+          onChange={(e) => {
+            setText(e.target.value);
+            // Dirty is what stops the adoption rule above taking the stored value back
+            // out from under someone mid-sentence, and what enables Save. A controlled
+            // textarea with no onChange is inert — React simply discards the keystroke —
+            // so losing this line loses the whole box, silently and without a type error.
+            setDirty(true);
+          }}
           rows={8}
           className="w-full resize-y rounded-[2px] border border-[var(--hairline)] bg-paper px-4 py-3 text-[15px] leading-[1.6] outline-none focus:border-ink"
         />
