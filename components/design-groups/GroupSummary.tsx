@@ -78,14 +78,13 @@ function WithFigure({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <div className="min-w-0 flex-1">{children}</div>
-      <figure className="m-0 w-full shrink-0 lg:w-[clamp(220px,28%,340px)]">
+      {/* NO VISIBLE CAPTION. The prompt is the instruction the picture was generated from,
+          not a description of the world, and printing it tells a committee how the image was
+          made rather than what it shows. FigureImage still uses it as alt text, where it is
+          the most accurate description available to a screen reader. */}
+      <div className="w-full shrink-0 lg:w-[clamp(220px,28%,340px)]">
         <FigureImage image={image} alt={alt} ratio="aspect-[4/3]" />
-        {image.prompt && (
-          <figcaption className="mt-2 max-w-[42ch] text-[11.5px] leading-[1.4] text-muted">
-            {image.prompt}
-          </figcaption>
-        )}
-      </figure>
+      </div>
     </div>
   );
 }
