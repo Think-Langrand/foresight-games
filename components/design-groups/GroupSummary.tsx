@@ -349,46 +349,43 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 02 · how this world works -------------------------------------------------------
-  // Session 1's own read of the scenario, written in September and shown nowhere until now.
-  // It goes BEFORE the key changes because it is the ground the rest of the deck stands on:
-  // a committee reading four of these needs to know how this world works before it can read
-  // what the group thinks follows from it.
-  if (s.worldReading.length > 0) {
+  // ---- 02 · Session 4: what changes, and the role ---------------------------------------
+  // THE CLAIM, AT THE FRONT. These were slides 10 and 11, a reader's last stop. They are
+  // what four sessions were for, so the deck now opens on them and the working that
+  // produced them follows.
+  //
+  // TWO HALVES ON ONE SLIDE rather than two slides: the change the group sees and the role
+  // it argues for are a single position — the role is what follows from the change, and a
+  // reader who met them a slide apart treated them as two findings.
+  //
+  // THE HEADINGS ARE AUTHORED SECTIONS, which is why the halves are concatenated rather
+  // than relabelled here: every heading comes from the prompt the facilitator wrote, so
+  // rewording a step cannot leave a slide stale. Split by section KEY, never by position —
+  // a group that answered the moves and skipped the role used to publish three bold moves
+  // under "The role you would argue for".
+  const roleBlocks = s.role.filter((b) => b.key === COMMITMENTS_KEY_ROLE);
+  const moveBlocks = s.role.filter((b) => b.key !== COMMITMENTS_KEY_ROLE);
+
+
+  if (s.has.commitments && (s.changes.length > 0 || roleBlocks.length > 0)) {
     slides.push({
-      id: "world",
-      label: "How this world works",
+      id: "claim",
+      label: "What changes, and the role",
       node: (
         <Slide
           n="02"
-          title="How this world works"
+          title="What is different, and what public health is for"
+          chip={<Chip tone="live">Session 4</Chip>}
           intro={
             <>
-              Your group&rsquo;s first read of this scenario, from Session 1. Everything after
-              this slide follows from it.
+              Your group&rsquo;s reading of this world after three sessions inside it: what
+              changes, which of today&rsquo;s assumptions quietly end, and the role it would
+              argue public health plays here. Everything after this slide is the working
+              that produced it.
             </>
           }
         >
-          <div className="flex flex-col gap-7">
-            {s.worldReading.map((block) => (
-              <div key={block.label}>
-                <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-                  {block.label}{" "}
-                  <span className="tabular-nums text-muted">{block.answers.length}</span>
-                </p>
-                <ul className="m-0 list-none p-0">
-                  {block.answers.map((a) => (
-                    <li
-                      key={a}
-                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[14.5px] leading-[1.5] last:border-b-0"
-                    >
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          <Blocks blocks={[...s.changes, ...roleBlocks]} />
         </Slide>
       ),
     });
@@ -465,14 +462,49 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 05 · the map --------------------------------------------------------------------
+  if (s.has.commitments && moveBlocks.length > 0) {
+    const count = moveBlocks.reduce((n, b) => n + b.answers.length, 0);
+    slides.push({
+      id: "bold-moves",
+      label: "Bold moves",
+      node: (
+        <Slide
+          n="05"
+          title="The moves you would make"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              {count} {count === 1 ? "move" : "moves"}, chosen out of everything on your
+              response wall. This is the only part of the program that says what your group
+              would actually do.
+            </>
+          }
+        >
+          <Blocks blocks={moveBlocks} numbered />
+        </Slide>
+      ),
+    });
+  }
+
+
+  // ---- The backcast table (parked, see SHOW_BACKCASTING) -------------------------------
+  // One table, not one slide per move: the finding is the SHAPE of the three lanes read
+  // together — where the group front-loaded, and where a lane runs out. Empty cells print
+  // as a dot for exactly that reason.
+  //
+  // Parked with the step that fills it. Session 4 no longer backcasts, so `boldMoves` comes
+  // back empty for every group worked under the new shape and this slide would never draw
+  // anyway; the flag is here so that turning backcasting back on for the next workshop is
+  // one line in each of the two places, not a rebuild. Its id and label collide with the
+  // step-4 moves slide above on purpose: only one of the two can ever be in the deck.
+  // ---- 06 · the map --------------------------------------------------------------------
   if (implications && s.totalImplicationCards > 0) {
     slides.push({
       id: "map",
       label: "The map",
       node: (
         <Slide
-          n="05"
+          n="06"
           title="Where the changes led"
           chip={<Chip tone="live">On the board</Chip>}
           fill
@@ -489,7 +521,7 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 06 · how the implications regrouped ---------------------------------------------
+  // ---- 07 · how the implications regrouped ---------------------------------------------
   if (s.clusterFlow.links.length > 0) {
     const spreads = s.clusterFlow.themes.map(
       (_, ti) => s.clusterFlow.links.filter((l) => l.themeIndex === ti && l.count > 0).length
@@ -500,7 +532,7 @@ export default function GroupSummaryView({
       label: "How they regrouped",
       node: (
         <Slide
-          n="06"
+          n="07"
           title="How the implications regrouped"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -518,14 +550,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 07 · themes ---------------------------------------------------------------------
+  // ---- 08 · themes ---------------------------------------------------------------------
   if (s.themes.length > 0) {
     slides.push({
       id: "themes",
       label: "Themes",
       node: (
         <Slide
-          n="07"
+          n="08"
           title="Your themes"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -602,7 +634,52 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 08 · what the group ranked highest ----------------------------------------------
+  // ---- 09 · how this world works -------------------------------------------------------
+  // Session 1's own read of the scenario, written in September and shown nowhere until now.
+  // It goes BEFORE the key changes because it is the ground the rest of the deck stands on:
+  // a committee reading four of these needs to know how this world works before it can read
+  // what the group thinks follows from it.
+  if (s.worldReading.length > 0) {
+    slides.push({
+      id: "world",
+      label: "How this world works",
+      node: (
+        <Slide
+          n="09"
+          title="How this world works"
+          intro={
+            <>
+              Your group&rsquo;s first read of this scenario, from Session 1 — the ground
+              every slide before this one was built on.
+            </>
+          }
+        >
+          <div className="flex flex-col gap-7">
+            {s.worldReading.map((block) => (
+              <div key={block.label}>
+                <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+                  {block.label}{" "}
+                  <span className="tabular-nums text-muted">{block.answers.length}</span>
+                </p>
+                <ul className="m-0 list-none p-0">
+                  {block.answers.map((a) => (
+                    <li
+                      key={a}
+                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[14.5px] leading-[1.5] last:border-b-0"
+                    >
+                      {a}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- 10 · what the group ranked highest ----------------------------------------------
   // Its own slide rather than a second block under 07, because the two answer different
   // questions. 07 is Week 3's: which THEMES carry the most at stake. This is Week 4's: of
   // everything on those walls, which individual stakes did the group rank highest.
@@ -621,7 +698,7 @@ export default function GroupSummaryView({
       label: "What matters most",
       node: (
         <Slide
-          n="08"
+          n="10"
           title="Your top risks and opportunities"
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
@@ -674,14 +751,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 09 · hopes, fears, flips --------------------------------------------------------
+  // ---- 11 · hopes, fears, flips --------------------------------------------------------
   if (s.flips.length + s.standaloneHopes.length > 0) {
     slides.push({
       id: "hopes-fears",
       label: "Hopes & fears",
       node: (
         <Slide
-          n="09"
+          n="11"
           title="Hopes, fears, and the flips"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -759,38 +836,6 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 10 · Session 4: what changes here, and what it breaks ---------------------------
-  // The prompts are AUTHORED SECTIONS, so every heading on this slide and the next comes
-  // from the data. The deck renders what the group was actually asked rather than fixed
-  // fields, which is what lets a facilitator reword a step without a slide going stale.
-  //
-  // This slide is Session 4 reading the scenario back in the group's own words. It is NOT
-  // slide 03: that one is Week 2's six key changes, which were written against today. This
-  // is what the group says is different once the world has already arrived, and which of
-  // today's assumptions stop holding — the second prompt is the one the committee needs,
-  // because an assumption nobody has noticed is still load-bearing is how a plan fails.
-  if (s.has.commitments && s.changes.length > 0) {
-    slides.push({
-      id: "changes",
-      label: "What changes",
-      node: (
-        <Slide
-          n="10"
-          title="What is different, and what stops holding"
-          chip={<Chip tone="live">Session 4</Chip>}
-          intro={
-            <>
-              Your group&rsquo;s reading of this world after three sessions inside it, and the
-              assumptions about how public health works today that it quietly ends.
-            </>
-          }
-        >
-          <Blocks blocks={s.changes} />
-        </Slide>
-      ),
-    });
-  }
-
   // ---- 11 · Session 4: the role, and the bold moves ------------------------------------
   // TWO SLIDES from one step, split BY SECTION KEY. It used to split positionally — first
   // block is the role, rest are the moves — which broke the moment a group answered the
@@ -803,67 +848,6 @@ export default function GroupSummaryView({
   //
   // The role is its own slide because it is the one claim in four sessions that is an
   // argument rather than an observation, and a reader should meet it alone.
-  const roleBlocks = s.role.filter((b) => b.key === COMMITMENTS_KEY_ROLE);
-  const moveBlocks = s.role.filter((b) => b.key !== COMMITMENTS_KEY_ROLE);
-
-  if (s.has.commitments && roleBlocks.length > 0) {
-    slides.push({
-      id: "role",
-      label: "The role",
-      node: (
-        <Slide
-          n="11"
-          title="The role you would argue for"
-          chip={<Chip tone="live">Session 4</Chip>}
-          intro={
-            <>
-              The one section with no source earlier in the program. Your {hopeCount} hopes and{" "}
-              {s.flips.length} fears said what you wanted and what you feared; this says what
-              public health is actually for in this world.
-            </>
-          }
-        >
-          <Blocks blocks={roleBlocks} />
-        </Slide>
-      ),
-    });
-  }
-
-  if (s.has.commitments && moveBlocks.length > 0) {
-    const count = moveBlocks.reduce((n, b) => n + b.answers.length, 0);
-    slides.push({
-      id: "bold-moves",
-      label: "Bold moves",
-      node: (
-        <Slide
-          n="12"
-          title="The moves you would make"
-          chip={<Chip tone="live">Session 4</Chip>}
-          intro={
-            <>
-              {count} {count === 1 ? "move" : "moves"}, chosen out of everything on your
-              response wall. This is the only part of the program that says what your group
-              would actually do.
-            </>
-          }
-        >
-          <Blocks blocks={moveBlocks} numbered />
-        </Slide>
-      ),
-    });
-  }
-
-
-  // ---- The backcast table (parked, see SHOW_BACKCASTING) -------------------------------
-  // One table, not one slide per move: the finding is the SHAPE of the three lanes read
-  // together — where the group front-loaded, and where a lane runs out. Empty cells print
-  // as a dot for exactly that reason.
-  //
-  // Parked with the step that fills it. Session 4 no longer backcasts, so `boldMoves` comes
-  // back empty for every group worked under the new shape and this slide would never draw
-  // anyway; the flag is here so that turning backcasting back on for the next workshop is
-  // one line in each of the two places, not a rebuild. Its id and label collide with the
-  // step-4 moves slide above on purpose: only one of the two can ever be in the deck.
   if (SHOW_BACKCASTING && s.boldMoves.length > 0) {
     const periods = s.boldMoves[0].periods;
     slides.push({
@@ -952,14 +936,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 13 · What we never settled (parked, see SHOW_UNSETTLED) ---------------
+  // ---- 12 · What we never settled (parked, see SHOW_UNSETTLED) ---------------
   if (SHOW_UNSETTLED && s.unsettled.length > 0) {
     slides.push({
       id: "unsettled",
       label: "What we never settled",
       node: (
         <Slide
-          n="13"
+          n="12"
           title="What we never settled"
           chip={<Chip tone="next">Still open</Chip>}
           intro={
@@ -1008,7 +992,7 @@ export default function GroupSummaryView({
           // 14, fixed, like every other slide here. These numbers are nominal, not a
           // running count: slides are conditional, so two of them already share "10" and
           // "13" prints whether or not the twelve before it were pushed.
-          n="14"
+          n="13"
           title="A note to the committee"
           chip={<Chip tone="next">From the group</Chip>}
           intro={
