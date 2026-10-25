@@ -145,10 +145,10 @@ export function execSummaryReadiness(s: ExecSummarySteps): {
     // A step with no prompts counts as done. Facilitators can edit the program, and a step
     // whose prompts were removed can never be answered — leaving it unticked forever would
     // be a dead end with no way out from inside the board.
-    { label: "Key changes", done: s.changesTotal === 0 || s.changes >= s.changesTotal },
+    { label: "Structure & assumptions", done: s.changesTotal === 0 || s.changes >= s.changesTotal },
     { label: "Risks & opportunities", done: s.placements >= 1 },
     { label: "Strategic responses", done: s.responses >= 1 },
-    { label: "Role & bold moves", done: s.movesTotal === 0 || s.moves >= s.movesTotal },
+    { label: "Identity & direction", done: s.movesTotal === 0 || s.moves >= s.movesTotal },
   ];
   const missing = steps.filter((x) => !x.done).map((x) => x.label);
   return { ready: missing.length === 0, missing, steps };

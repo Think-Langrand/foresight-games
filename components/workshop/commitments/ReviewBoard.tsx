@@ -1,21 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
-import type { RippleCard } from "@/lib/ripples-types";
-import type { CommitmentsExercise } from "@/components/design-groups/AnswerPanels";
-import { indexSynthesisBoard } from "@/lib/synthesis-shape";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 
-// STEP 5 — BUILD HANDOFF GUIDE: write the lead the committee reads first, then say you
-// are done.
+// STEP 5 — HANDOFF: what the group is handing over, and the way to say it is done.
 //
-// IT USED TO BE A READ-BACK. The whole week was rendered through `CommitmentsPanel`, the
-// same component the admin viewer uses, under two action cards. It asked a group to submit
+// IT HAS BEEN THREE THINGS. First a read-back of the whole week through `CommitmentsPanel`,
+// the admin viewer's own component, under two action cards — which asked a group to submit
 // before it had read anything and left it nothing to do but proofread thirteen matrix rows.
-// The work at the end of four sessions is the writing, so the composer leads and only three
-// things follow it: what the group ranked highest on each wall, and what it said it would
-// do. Everything else in the handoff is generated from the same data.
+// Then a model-drafted lead with a shorter read-back beneath it. Both opened on something
+// other than what the group had decided.
+//
+// IT NOW OPENS ON THE CLAIM. Session 4's two closing answers — the role, and the moves that
+// get there — then one optional box for anything the four steps did not ask. The ranked
+// read-back is gone entirely: the deck is the place to read the week back, and the Preview
+// button a few inches down opens it.
 //
 // SUBMIT LOCKS NOTHING. The board is as editable the moment after as the moment before, so
 // a group that spots a typo in its own handoff can fix it without asking anyone to unlock
@@ -107,11 +106,14 @@ function SubmitBar({
         </span>
       </span>
       <span className="flex shrink-0 flex-wrap items-center justify-end gap-2.5">
-        {/* PREVIEW SITS LEFT OF SUBMIT because it answers the question Submit asks. A group
-            about to say "we are done" wants to read what the committee reads, and it is
-            built from what is already on the board — there is nothing to finish first.
-            Blue against Submit's ink: two actions, and the one that changes nothing is the
-            one that looks different.
+        {/* NOT "this week". It opens the handoff deck, which buildGroupSummary assembles
+            from all four sessions — Session 1's reactions and open questions, Session 2's
+            key changes and their chains, Session 3's themes, stakes and flips, and this
+            week's. Calling it "this week" undersold it to the one audience that most needs
+            to see the whole thing before saying it is done.
+
+            LEFT OF SUBMIT because it answers the question Submit asks, and blue against
+            Submit's ink: two actions, and the one that changes nothing looks different.
 
             A NEW TAB, not a navigation. The board is mid-review; sending it away and back
             would reset the step they were reading. As a quiet dotted link below Submit this
@@ -127,7 +129,7 @@ function SubmitBar({
             rel="noopener noreferrer"
             className="rounded-[3px] bg-blue px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.06em] text-white transition hover:bg-ink"
           >
-            Preview this week
+            Preview the handoff
           </a>
         )}
         <button
@@ -139,54 +141,6 @@ function SubmitBar({
           Submit this week
         </button>
       </span>
-    </div>
-  );
-}
-
-// What the group ranked highest, and what it chose to do. Three columns' worth of material
-// rather than the whole week: this sits under the composer as the thing you check your lead
-// against, so it has to be scannable at a glance or it is just the read-back again.
-function StakeColumn({
-  title,
-  tone,
-  rows,
-}: {
-  title: string;
-  tone: "risk" | "opportunity";
-  rows: { text: string; plausibility: number | null; impact: number | null }[];
-}) {
-  return (
-    <div>
-      <p
-        className="m-0 mb-2 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]"
-        style={{ color: tone === "risk" ? "var(--coral)" : "#3f5209" }}
-      >
-        {title} <span className="tabular-nums text-muted">{rows.length}</span>
-      </p>
-      {rows.length === 0 ? (
-        <p className="m-0 py-2 text-[13px] italic text-muted">
-          Nothing scored on this wall yet.
-        </p>
-      ) : (
-        <ol className="m-0 list-none p-0">
-          {rows.map((r, i) => (
-            <li
-              key={r.text + i}
-              className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-[var(--hairline)] py-[11px] last:border-b-0"
-            >
-              <span className="pt-[2px] font-mono text-[11px] tabular-nums text-muted">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <span className="min-w-0">
-                <span className="block max-w-[52ch] text-[14px] leading-[1.45]">{r.text}</span>
-                <span className="mt-[3px] block font-mono text-[9.5px] uppercase tracking-[0.1em] tabular-nums text-muted">
-                  P {r.plausibility} · I {r.impact}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
     </div>
   );
 }
@@ -223,7 +177,7 @@ function RoleAndMoves({
           one after the other, and the pairing survives the stack because the heading sits
           above both. */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-[3px] bg-slate px-5 py-4 text-paper">
+        <div className="min-h-[240px] rounded-[3px] bg-slate px-5 py-4 text-paper">
           {/* Tints are the paper colour held back, not --muted: that is a mid-tone picked
               to sit ON cream, and on slate it all but disappears. Measured against
               #2b2b24 — body 12.9:1, the 10px labels at 70% 7.1:1, the 11px numbers and
@@ -245,7 +199,7 @@ function RoleAndMoves({
             </div>
           )}
         </div>
-        <div className="rounded-[3px] bg-slate px-5 py-4 text-paper">
+        <div className="min-h-[240px] rounded-[3px] bg-slate px-5 py-4 text-paper">
           <p className="m-0 mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-paper/70">
             How to get there <span className="tabular-nums">{boldMoves.length}</span>
           </p>
@@ -274,27 +228,7 @@ function RoleAndMoves({
   );
 }
 
-// WHAT THE GROUP RANKED HIGHEST, below the writing rather than above it. The bold moves
-// used to be a third block here; they have their own box at the top of the step now, and
-// printing them twice on one screen made the step read as longer than it is.
-function TopRanked({
-  risks,
-  opportunities,
-}: {
-  risks: { text: string; plausibility: number | null; impact: number | null }[];
-  opportunities: { text: string; plausibility: number | null; impact: number | null }[];
-}) {
-  return (
-    <section className="grid gap-7 sm:grid-cols-2">
-      <StakeColumn title="Your top risks" tone="risk" rows={risks} />
-      <StakeColumn title="Your top opportunities" tone="opportunity" rows={opportunities} />
-    </section>
-  );
-}
-
 export function ReviewBoard({
-  shaped,
-  week3Cards,
   summaryHref,
   composer,
   aspiration = [],
@@ -306,8 +240,6 @@ export function ReviewBoard({
   onSubmit,
   onUndo,
 }: {
-  shaped: CommitmentsExercise;
-  week3Cards: RippleCard[];
   summaryHref?: string;
   // Built by CommitmentsTeamView, which is the only thing holding the board state the
   // readiness check needs. Passed as a node so this panel stays a layout.
@@ -330,28 +262,6 @@ export function ReviewBoard({
   onSubmit: () => void;
   onUndo: () => void;
 }) {
-  // Which Session 3 wall each matrix placement came from. Only a caller holding Week 3's
-  // board can answer this — the pick stores its source's id and words, not its kind — so
-  // the panel takes it as an optional lookup and the admin viewer, which shapes one week at
-  // a time, simply renders the list without the colour.
-  const stakeKind = useMemo(() => {
-    const w3 = indexSynthesisBoard(week3Cards);
-    const m = new Map<string, "risk" | "opportunity">();
-    for (const arr of w3.risks.values()) for (const c of arr) m.set(c.id, "risk");
-    for (const arr of w3.opportunities.values()) for (const c of arr) m.set(c.id, "opportunity");
-    return (sourceId: string) => m.get(sourceId);
-  }, [week3Cards]);
-
-  // Strongest first, split by which Week 3 wall each came from. `stakeKind` is the only
-  // thing that can answer that — a pick stores its source's id and words, not its kind — so
-  // a board rendered without Week 3 in hand simply gets empty columns rather than a guess.
-  const topStakes = (kind: "risk" | "opportunity") =>
-    shaped.picks
-      .filter((p) => p.rank !== null && stakeKind(p.sourceId) === kind)
-      .sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0))
-      .slice(0, 3)
-      .map((p) => ({ text: p.text, plausibility: p.plausibility, impact: p.impact }));
-
   return (
     <div className="flex flex-col gap-6">
       {/* THE GROUP'S OWN ANSWER FIRST. This step has been through two shapes: two action
@@ -363,10 +273,6 @@ export function ReviewBoard({
 
       {/* Then the one thing left to write, and it is optional. */}
       {composer}
-
-      {/* What they ranked highest, as a check against the claim above rather than as the
-          week's full read-back — which is in the deck anyway. */}
-      <TopRanked risks={topStakes("risk")} opportunities={topStakes("opportunity")} />
 
       {/* ONE BOX, not two. Finishing and looking at the result are the same moment, and as
           separate cards at the top of the page they competed with each other and with the

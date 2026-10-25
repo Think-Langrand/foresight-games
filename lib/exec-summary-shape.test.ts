@@ -118,31 +118,31 @@ describe("execSummaryReadiness", () => {
     // The panel shows the whole list, not just the gaps: a group wants to see how close it
     // is, and four names with three ticks says that where a list of one gap does not.
     expect(execSummaryReadiness({ ...full, responses: 0 }).steps).toEqual([
-      { label: "Key changes", done: true },
+      { label: "Structure & assumptions", done: true },
       { label: "Risks & opportunities", done: true },
       { label: "Strategic responses", done: false },
-      { label: "Role & bold moves", done: true },
+      { label: "Identity & direction", done: true },
     ]);
   });
 
   it("marks a step with no prompts done rather than leaving it unticked forever", () => {
     const r = execSummaryReadiness({ ...full, changes: 0, changesTotal: 0 });
-    expect(r.steps[0]).toEqual({ label: "Key changes", done: true });
+    expect(r.steps[0]).toEqual({ label: "Structure & assumptions", done: true });
   });
 
   it("names every step still empty, in step order, so the list reads as the tabs do", () => {
     expect(
       execSummaryReadiness({ ...full, changes: 1, placements: 0, responses: 0, moves: 0 }).missing
     ).toEqual([
-      "Key changes",
+      "Structure & assumptions",
       "Risks & opportunities",
       "Strategic responses",
-      "Role & bold moves",
+      "Identity & direction",
     ]);
   });
 
   it("counts a partly answered written step as missing, not as done", () => {
-    expect(execSummaryReadiness({ ...full, moves: 1 }).missing).toEqual(["Role & bold moves"]);
+    expect(execSummaryReadiness({ ...full, moves: 1 }).missing).toEqual(["Identity & direction"]);
   });
 
   it("treats a step with no prompts at all as satisfied rather than permanently blocking", () => {

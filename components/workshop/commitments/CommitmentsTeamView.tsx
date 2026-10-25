@@ -27,7 +27,6 @@ import {
   submitRippleBoard,
   unsubmitRippleBoard,
 } from "@/components/workshop/hooks";
-import { shapeFromView } from "@/lib/group-answers-shape";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import type { RippleCard, RipplePhase } from "@/lib/ripples-types";
@@ -47,15 +46,19 @@ import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 // Session 4, the COMMITMENTS board. Five steps on one shared board, and the whole week
 // builds the handoff rather than curating it in a step of its own:
 //
-//   1. Key changes       summarize this world, and what it stops making true
-//   2. Risks & opps      Session 3's stakes placed on the impact x plausibility matrix
-//   3. Responses         a wall of moves
-//   4. Role & moves      the role public health plays here, and three bold moves
-//   5. Review            read the whole week back, then submit
+//   1. Structure & assumptions   how this world works, and what it stops making true
+//   2. Risks & opps              Session 3's stakes on the impact x plausibility matrix
+//   3. Responses                 a wall of moves
+//   4. Identity & direction      the role public health plays here, and the moves there
+//   5. Handoff                   what is being handed over, then submit
 //
 // Steps 1 and 4 ride the section substrate, so their prompts are the facilitator's and are
 // edited in the program editor rather than here. Steps 2, 3 and 5 are code. See
 // lib/commitments-shape's header for why the week is split that way.
+//
+// THE STEP NAMES ABOVE ARE DISPLAY ONLY. Underneath, a section's `step` is still the string
+// it was stored as — "Key changes" and "Bold moves" — because that value is persisted and
+// every split in the app is an equality test against it. See COMMITMENTS_STEP_CHANGES.
 //
 // PARKED, NOT DELETED. The backcasting timeline and the three-move down-select are wanted
 // for the next workshop, so `BacktrackTimeline` and `MovesBoard` stay in the tree, their
@@ -86,10 +89,10 @@ const COMMIT_STEPS: readonly CommitStep[] = [
   "review",
 ];
 const STEP_LABELS: Record<CommitStep, string> = {
-  changes: "1 \u00b7 Key changes",
+  changes: "1 \u00b7 Structure & assumptions",
   matrix: "2 \u00b7 Risks & opportunities",
   responses: "3 \u00b7 Strategic responses",
-  moves: "4 \u00b7 Role & bold moves",
+  moves: "4 \u00b7 Identity & direction",
   review: "5 \u00b7 Handoff",
 };
 
@@ -573,32 +576,6 @@ export function CommitmentsTeamView({
 
   // ---- step 5 ----------------------------------------------------------------
 
-  // What the group is approving, shaped exactly the way the admin viewer and the CSV shape
-  // it, so the three cannot disagree. From `view` (the SERVER's cards) and not from the
-  // optimistic `cards`: everywhere else on this board the overlay is the right answer, but
-  // a review pane must not show a line as written when its write is still in flight.
-  //
-  // Deliberately NOT useMemo — several early returns sit above this line and a hook here
-  // would break the hook order. The guard on `step` is what keeps it off the other four
-  // steps' render path; on this one it walks the board once.
-  const reviewShape = (() => {
-    if (step !== "review") return null;
-    const shaped = shapeFromView(
-      {
-        id: "live",
-        title: title || "Commitments",
-        type: "commitments",
-        sections,
-        // The LOCAL stamp, not the page's: this viewer may have pressed Submit a second
-        // ago and the page prop is from the last server render. Without it the read-back
-        // would contradict the submit bar directly above it.
-        submittedAt: submitted.at,
-        submittedBy: submitted.by,
-      },
-      view
-    );
-    return shaped.kind === "commitments" ? shaped : null;
-  })();
 
   // The server's stamp is the authority on both of these: on a shared board two people can
   // press Submit seconds apart, and the response says whose press counted.
@@ -846,32 +823,26 @@ export function CommitmentsTeamView({
         </div>
       )}
 
-      {/* Step 5. The read-back is shaped from the SERVER's view, not the optimistic cards:
-          this is the pane a group approves, so it should show what is actually stored rather
-          than what is still in flight. Everywhere else on this board the overlay is the
-          right answer; here a line that has not landed yet must not look landed. */}
+      {/* Step 5. It reads the same optimistic cards as every other step now: the pane that
+          had to be shaped from the server's view was the read-back, and that is gone. What
+          is left is the group's own two answers, where a line appearing the instant it is
+          typed is the right behaviour rather than the wrong one. */}
       {step === "review" && reviewLocked && <HandoffGuideLocked steps={execReady.steps} />}
 
-      {step === "review" &&
-        !reviewLocked &&
-        (reviewShape ? (
-          <ReviewBoard
-            shaped={reviewShape}
-            week3Cards={week3Cards}
-            summaryHref={summaryHref}
-            composer={execComposer}
-            aspiration={aspirationAnswers}
-            boldMoves={boldMoveAnswers}
-            submittedAt={submitted.at}
-            submittedBy={submitted.by}
-            editable={editable}
-            busy={busy}
-            onSubmit={submitWeek}
-            onUndo={undoSubmit}
-          />
-        ) : (
-          <p className="text-[13px] italic text-muted">Opening the board…</p>
-        ))}
+      {step === "review" && !reviewLocked && (
+        <ReviewBoard
+          summaryHref={summaryHref}
+          composer={execComposer}
+          aspiration={aspirationAnswers}
+          boldMoves={boldMoveAnswers}
+          submittedAt={submitted.at}
+          submittedBy={submitted.by}
+          editable={editable}
+          busy={busy}
+          onSubmit={submitWeek}
+          onUndo={undoSubmit}
+        />
+      )}
     </div>
   );
 

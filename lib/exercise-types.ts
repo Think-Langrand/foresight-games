@@ -166,6 +166,16 @@ const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 // sheet. Migration 0027 is the record of what forcing one answer per question cost.
 // Exported so the board filters `sections` on these rather than on string literals it
 // would have to keep in sync by hand.
+// THESE TWO STRINGS ARE STORED DATA, not labels. A section's `step` is persisted in
+// design_group_exercises.sections (jsonb) the moment an admin edits a week or stamps a
+// template, and every split in the app — the deck, the handoff, the readiness gate — is an
+// equality test against these exact values. Renaming one silently re-buckets every stored
+// section on every board that has ever been edited.
+//
+// SO THE DISPLAY NAMES LIVE ELSEWHERE and are free to disagree with them: the steps read
+// "Structure & assumptions" and "Identity & direction" on the board (STEP_LABELS in
+// CommitmentsTeamView) and in the locked checklist (execSummaryReadiness). These are the
+// names the data was written under, and they stay.
 export const COMMITMENTS_STEP_CHANGES = "Key changes";
 export const COMMITMENTS_STEP_MOVES = "Bold moves";
 // The role's section key, named because the handoff deck gives it a slide of its own and
@@ -248,7 +258,7 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   // steps 2, 3 and 5 are code, all on one board.
   commitments: {
     id: "commitments",
-    label: "Commitments (Key changes, Matrix, Responses, Role & bold moves)",
+    label: "Commitments (Structure & assumptions, Matrix, Responses, Identity & direction)",
     render: "commitments",
     boardBacked: true,
     sections: COMMITMENTS_SECTIONS,
