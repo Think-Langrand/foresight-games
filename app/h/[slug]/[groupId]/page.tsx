@@ -41,6 +41,7 @@ export default async function PublicHandoffPage({
       projectSlug={slug}
       groupId={groupId}
       execOverride={data.execOverride}
+      images={data.images}
       publicView
     />
   );

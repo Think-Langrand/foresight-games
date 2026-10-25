@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 //
 // THE GROUP'S COPY, not the committee's. The same deck is served outside the project
 // passphrase gate at /h/<slug>/<groupId>; both render from loadHandoff so the two cannot
-// drift. Both are read-only: the lead is written on Session 4's "Build handoff guide"
+// drift. Both are read-only: the lead is written on Session 4's "Handoff"
 // step, not here.
 export default async function DesignGroupSummaryPage({
   params,
@@ -39,6 +39,7 @@ export default async function DesignGroupSummaryPage({
       projectSlug={title}
       groupId={groupId}
       execOverride={data.execOverride}
+      images={data.images}
     />
   );
 }

@@ -1,6 +1,8 @@
 import "server-only";
 
 import { getSessionByCode } from "@/lib/workshop";
+import { getRippleScenario } from "@/lib/ripples";
+import type { ScenarioImage } from "@/lib/foresight/types";
 import { getDesignGroup } from "@/lib/design-groups";
 import { listExercises } from "@/lib/design-group-exercises";
 import { getExerciseType } from "@/lib/exercise-types";
@@ -25,6 +27,16 @@ export interface HandoffData {
   // and stored on that board's session config. Null when nobody has written one, and the
   // slide falls back to the projected answers.
   execOverride: ExecSummaryOverride | null;
+  // The scenario's own artwork, at most three, in `position` order.
+  //
+  // RESOLVED LIVE, NEVER SNAPSHOTTED. These URLs are signed with a short TTL (§7), so a
+  // copy kept anywhere is a 403 waiting to happen. Both pages that render this deck are
+  // force-dynamic, which is what makes asking on every request the right answer rather
+  // than an expense.
+  //
+  // NON-FATAL. Foresight being down, a group with no scenario ref, or a scenario with no
+  // art all end here as an empty list, and the slides simply render without pictures.
+  images: ScenarioImage[];
 }
 
 export async function loadHandoff(
@@ -55,6 +67,22 @@ export async function loadHandoff(
     execOverride = coerceExecSummary(raw.execSummary);
   }
 
+  // ANY of the group's boards will do: every week of a group runs against the same
+  // scenario, so the first one with a code answers. Week 4 is tried first only because it
+  // is the week most likely to exist by the time anyone reads a handoff.
+  const artCode = week4Code ?? exercises.find((ex) => ex.sessionCode)?.sessionCode ?? null;
+  let images: ScenarioImage[] = [];
+  if (artCode) {
+    const session = await getSessionByCode(artCode);
+    const scenario = session ? await getRippleScenario(session) : null;
+    images = (scenario?.images ?? [])
+      .filter((im) => im.url)
+      // Real data numbers `position` from 2, so sort rather than trusting array order —
+      // the same rule ScenarioReader and Week3Reference use to pick their hero.
+      .sort((a, b) => a.position - b.position)
+      .slice(0, 3);
+  }
+
   return {
     summary: buildGroupSummary(weeks, {
       name: group.name,
@@ -63,5 +91,6 @@ export async function loadHandoff(
     implications:
       (weeks.find((w) => w.kind === "implications") as ImplicationsExercise | undefined) ?? null,
     execOverride,
+    images,
   };
 }

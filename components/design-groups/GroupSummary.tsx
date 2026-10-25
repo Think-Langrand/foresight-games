@@ -25,6 +25,8 @@ import ImplicationsMap from "@/components/design-groups/ImplicationsMap";
 import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffDeck";
 import SummaryMatrix from "@/components/design-groups/SummaryMatrix";
 import ExecSummaryBody from "@/components/design-groups/ExecSummaryBody";
+import { FigureImage } from "@/components/foresight/FigureImage";
+import type { ScenarioImage } from "@/lib/foresight/types";
 import type { ExecSummaryOverride } from "@/lib/exec-summary-shape";
 import ClusterMatrix from "@/components/design-groups/ClusterMatrix";
 import StakesBalance from "@/components/design-groups/StakesBalance";
@@ -54,6 +56,40 @@ function Chip({ tone, children }: { tone: "live" | "next"; children: React.React
 
 // A slide: a header that stays put, and a body that scrolls if it has to. `fill` hands the
 // body's height to the child instead, for the map, which manages its own two columns.
+// Scenario artwork on a slide.
+//
+// SIDE BY SIDE ON WIDE SCREENS, stacked below lg. The picture is context for the words,
+// not the subject of the slide, so it takes a third and the text keeps the measure it was
+// set for; at narrow widths a third of the width is not a picture, so it goes above.
+//
+// IT MAY NOT ARRIVE. FigureImage renders nothing when the URL is missing or 403s — the
+// signed URLs are short-lived — so this has to read correctly with the figure absent,
+// which is why the text column is a normal flow child rather than half of a fixed grid.
+function WithFigure({
+  image,
+  alt,
+  children,
+}: {
+  image: ScenarioImage | undefined;
+  alt: string;
+  children: React.ReactNode;
+}) {
+  if (!image?.url) return <>{children}</>;
+  return (
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+      <div className="min-w-0 flex-1">{children}</div>
+      <figure className="m-0 w-full shrink-0 lg:w-[clamp(220px,28%,340px)]">
+        <FigureImage image={image} alt={alt} ratio="aspect-[4/3]" />
+        {image.prompt && (
+          <figcaption className="mt-2 max-w-[42ch] text-[11.5px] leading-[1.4] text-muted">
+            {image.prompt}
+          </figcaption>
+        )}
+      </figure>
+    </div>
+  );
+}
+
 function Slide({
   n,
   title,
@@ -288,10 +324,14 @@ export default function GroupSummaryView({
   execOverride = null,
   publicView = false,
   implications,
+  images = [],
   projectSlug,
   groupId,
 }: {
   s: GroupSummary;
+  // The scenario's artwork, at most three, in position order. Empty whenever the platform
+  // is unreachable or the scenario has none, and every use below tolerates that.
+  images?: ScenarioImage[];
   // The group's edited lead for slide 02, or null to show the projected answers.
   //
   // SEPARATE FROM execEdit ON PURPOSE. These are two different questions — "what does this
@@ -385,7 +425,9 @@ export default function GroupSummaryView({
             </>
           }
         >
-          <Blocks blocks={[...s.changes, ...roleBlocks]} />
+          <WithFigure image={images[0]} alt={s.scenarioTitle ?? s.groupName}>
+            <Blocks blocks={[...s.changes, ...roleBlocks]} />
+          </WithFigure>
         </Slide>
       ),
     });
@@ -480,7 +522,9 @@ export default function GroupSummaryView({
             </>
           }
         >
-          <Blocks blocks={moveBlocks} numbered />
+          <WithFigure image={images[1]} alt={s.scenarioTitle ?? s.groupName}>
+            <Blocks blocks={moveBlocks} numbered />
+          </WithFigure>
         </Slide>
       ),
     });
@@ -654,6 +698,7 @@ export default function GroupSummaryView({
             </>
           }
         >
+          <WithFigure image={images[2]} alt={s.scenarioTitle ?? s.groupName}>
           <div className="flex flex-col gap-7">
             {s.worldReading.map((block) => (
               <div key={block.label}>
@@ -674,6 +719,7 @@ export default function GroupSummaryView({
               </div>
             ))}
           </div>
+          </WithFigure>
         </Slide>
       ),
     });
