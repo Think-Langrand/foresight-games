@@ -349,7 +349,7 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 02 · executive summary ----------------------------------------------------------
+  // ---- 02 · in brief --------------------------------------------------------------------
   // What a steering committee reads if it reads one slide. It pulls the HEADLINES of three
   // things the group wrote in Session 4 — how this world differs, which of today's
   // assumptions it ends, and the role public health should play — and leaves the full
@@ -407,45 +407,27 @@ export default function GroupSummaryView({
     );
     slides.push({
       id: "summary",
-      label: "Executive summary",
+      label: "In brief",
       node: (
         <Slide
           n="02"
           title="In brief"
-          chip={
-            <Chip tone="live">
-              {!execOverride
-                ? "Session 4"
-                : execOverride.source === "edited"
-                  ? "Session 4 · written by the group"
-                  : "Session 4 · drafted"}
-            </Chip>
-          }
+          chip={<Chip tone="live">Session 4</Chip>}
+          // ALWAYS THE PROJECTION. For a while a group's own writing stood in for this
+          // slide, because the box on Session 4's handoff step was an executive summary and
+          // a lead replaces a summary. That box is now a note ALONGSIDE the deck's account
+          // rather than instead of it, so this went back to being the group's own answers
+          // and the note has its own slide at the end.
           intro={
-            execOverride?.source === "edited" ? (
-              <>
-                Your group wrote this lead itself. The full Session 4 answers it was drawn
-                from are at the end of the deck.
-              </>
-            ) : execOverride ? (
-              // DRAFTED, NOT WRITTEN. Built from the group's own Session 4 answers but not
-              // yet touched by anyone in it, and a committee reading four of these is
-              // entitled to know which. It stops saying this the moment a word changes.
-              <>
-                Drafted from your group&rsquo;s Session 4 answers, and not yet edited by the
-                group. The answers themselves are at the end of the deck.
-              </>
-            ) : (
-              <>
-                Your group&rsquo;s own answers to the three questions a committee asks first:
-                what is different here, what stops being true, and what public health is for.
-                Every line below is your group&rsquo;s own words. The full answers are at the
-                end of the deck.
-              </>
-            )
+            <>
+              Your group&rsquo;s own answers to the three questions a committee asks first:
+              what is different here, what stops being true, and what public health is for.
+              Every line below is your group&rsquo;s own words. The full answers are at the
+              end of the deck.
+            </>
           }
         >
-          <ExecSummaryBody override={execOverride} projected={projected} />
+          {projected}
         </Slide>
       ),
     });
@@ -1042,6 +1024,40 @@ export default function GroupSummaryView({
               </li>
             ))}
           </ul>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- last · the group's note to the committee ----------------------------------------
+  //
+  // ONLY IF THEY WROTE ONE. An empty slide saying a group had nothing to add would be worse
+  // than no slide: a committee reading four decks side by side would read the silence as a
+  // finding rather than as an optional box left alone.
+  //
+  // IT CLOSES THE DECK because it is the one thing here addressed TO the reader rather than
+  // about the scenario — everything above is the group's account of the world, and this is
+  // what they want said alongside it.
+  if (execOverride) {
+    slides.push({
+      id: "committee-note",
+      label: "A note to the committee",
+      node: (
+        <Slide
+          // 14, fixed, like every other slide here. These numbers are nominal, not a
+          // running count: slides are conditional, so two of them already share "10" and
+          // "13" prints whether or not the twelve before it were pushed.
+          n="14"
+          title="A note to the committee"
+          chip={<Chip tone="next">From the group</Chip>}
+          intro={
+            <>
+              Written by your group on Session 4, outside the four steps: what it wanted the
+              committee to read alongside the rest.
+            </>
+          }
+        >
+          <ExecSummaryBody override={execOverride} />
         </Slide>
       ),
     });

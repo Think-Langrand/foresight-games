@@ -90,7 +90,7 @@ const STEP_LABELS: Record<CommitStep, string> = {
   matrix: "2 \u00b7 Risks & opportunities",
   responses: "3 \u00b7 Strategic responses",
   moves: "4 \u00b7 Role & bold moves",
-  review: "5 \u00b7 Build handoff guide",
+  review: "5 \u00b7 Handoff",
 };
 
 export function CommitmentsTeamView({
@@ -215,77 +215,6 @@ export function CommitmentsTeamView({
       if (board.picks.has(sourceId)) mintingPick.current.delete(sourceId);
     }
   }, [board]);
-
-  // ABOVE EVERY EARLY RETURN in this component — loading, error, !view, !myPlayer — because
-  // hooks run in the same order on every render. The readiness values are computed further
-  // down the body, so the gate this reads is recomputed here from the board rather than
-  // passed down to it.
-  const autoReady = useMemo(() => {
-    if (!view) return false;
-    if (view.session.phase !== "BUILD") return false;
-    if (!playerId) return false;
-    // `sections` is already the week's effective sections — the page resolves them before
-    // handing them down, which is what `sectionsFor` below filters too.
-    const changeSecs = sections.filter((sec) => sec.step !== COMMITMENTS_STEP_MOVES);
-    const moveSecs = sections.filter((sec) => sec.step === COMMITMENTS_STEP_MOVES);
-    const answered = (list: typeof sections) =>
-      list.filter((sec) =>
-        cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
-      ).length;
-    const ready = execSummaryReadiness({
-      changes: answered(changeSecs),
-      changesTotal: changeSecs.length,
-      placements: [...board.picks.values()].filter(
-        (p) => p.plausibility !== null && p.impact !== null
-      ).length,
-      responses: board.responses.length,
-      moves: answered(moveSecs),
-      movesTotal: moveSecs.length,
-    }).ready;
-    const stored = coerceExecSummary(
-      (view?.session.config as Record<string, unknown> | undefined)?.execSummary
-    );
-    // WORTH ASKING, which is not the same as "a call is needed" — the server decides that
-    // by comparing a fingerprint of the material against the one the stored draft was
-    // built from. See execSummaryReuse. So a stored draft nobody has edited does not stop
-    // the ask: if the group has since changed an answer it gets rebuilt, and if it has
-    // not, the route hands the same draft back for the price of one round trip. A lead the
-    // group wrote is never regenerated over, so there is nothing to ask about.
-    return ready && stored?.source !== "edited";
-  }, [view, playerId, cards, board, sections]);
-
-  const [autoDrafting, setAutoDrafting] = useState(false);
-  const autoFired = useRef(false);
-  useEffect(() => {
-    // BUILD only, and only once a player row exists. Both are available this early from
-    // the view; `editable` below is the same two facts and is not in scope yet.
-    if (!autoReady) return;
-    if (autoFired.current) return;
-    autoFired.current = true;
-    setAutoDrafting(true);
-    fetch(`/api/sessions/${code}/ripples/exec-summary/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // No force. The route decides: it hands back a lead the group wrote, and hands back
-      // an unedited draft less than a minute old so concurrent boards cost one call — but
-      // replaces an older one, which is this run's whole purpose after a step was redone.
-      body: JSON.stringify({ participantId: pid }),
-    })
-      .catch(() => {})
-      .finally(async () => {
-        // REFRESH FIRST, THEN DROP THE PANEL. Pull the new config through the board's own
-        // refresh rather than holding the draft in local state: the composer reads it from
-        // the session like everything else here.
-        //
-        // The order is the point. Clearing `autoDrafting` first mounts step 5 against a
-        // session that does not have the draft in it yet, so the composer opens on "Draft
-        // our summary" next to a lead that is already saved. fetchOnce never rejects — it
-        // reports failures through the board's own error state — so this cannot strand the
-        // panel.
-        await refresh();
-        setAutoDrafting(false);
-      });
-  }, [autoReady, code, pid, refresh]);
 
   if (loading)
     return (
@@ -737,30 +666,23 @@ export function CommitmentsTeamView({
   // An EDITED lead is different: that is the group's own writing, and hiding it behind a
   // checklist because they went back to fix a typo in step 4 would be taking their work
   // away. An untouched machine draft is not their work and costs nothing to rebuild.
-  // THE BLUE PANEL IS FOR THE FIRST DRAFT ONLY, and "is anything stored yet" is the whole
-  // test — no extra state needed, because a run with nothing stored is a first draft and a
-  // run with a draft already on the board is the route being asked whether it is still
-  // current. That second kind usually answers in a round trip, and flashing "Generating
-  // your summary… this takes about a minute" at somebody reopening a finished board would
-  // be a lie, and the thing most likely to make them reload.
-  //
-  // It also lands the handover in the right order: the refresh is awaited before
-  // `autoDrafting` drops, so the draft is in hand — and this goes false — one render before
-  // the panel would otherwise have come down on an empty composer.
-  const autoPanel = autoDrafting && !execOverride;
   const execEdited = execOverride?.source === "edited";
   const reviewLocked = !execReady.ready && !execEdited;
   const stepsDone = 4 - execReady.missing.length;
 
-  // AUTO-DRAFT ON UNLOCK. The group finishes step 4 and the summary is waiting rather than
-  // being something else to go and ask for. Fires once per mount, guarded three ways: only
-  // when ready, only when nothing is stored, and only if this browser has not already
-  // started. The route is idempotent on top of that, because every member's board that
-  // notices at the same moment will fire too.
-
   // Step 4's second question. Split exactly as the handoff deck splits it — everything on
   // the moves step that is not the role prompt — so a facilitator who adds a third prompt
   // there gets it here too rather than having it silently dropped.
+  // Step 4's FIRST question. By KEY, not position, for the same reason as the moves below.
+  const aspirationAnswers = sectionsFor("moves")
+    .filter((sec) => sec.key === COMMITMENTS_KEY_ROLE)
+    .flatMap((sec) =>
+      cards
+        .filter((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
+        .sort((a, b) => a.sort - b.sort)
+        .map((c) => c.text.trim())
+    );
+
   const boldMoveAnswers = sectionsFor("moves")
     .filter((sec) => sec.key !== COMMITMENTS_KEY_ROLE)
     .flatMap((sec) =>
@@ -775,7 +697,6 @@ export function CommitmentsTeamView({
       sessionCode={code}
       participantId={pid}
       override={execOverride}
-      missing={execReady.missing}
       canEdit={editable}
     />
   );
@@ -818,9 +739,6 @@ export function CommitmentsTeamView({
           // Step 5 is the only one that can be shut. It is built FROM the other four, so
           // opening it early shows a locked box and a model call made out of nothing.
           const locked = sp === "review" && reviewLocked;
-          // `autoPanel`, not `autoDrafting`: the tab says "drafting…" only for a real
-          // first draft, never for the revalidation that happens on reopening a board.
-          const drafting = sp === "review" && autoPanel;
           return (
             <button
               key={sp}
@@ -860,11 +778,6 @@ export function CommitmentsTeamView({
               {locked && (
                 <span className="font-mono text-[10px] font-bold tabular-nums">
                   {stepsDone}/4
-                </span>
-              )}
-              {drafting && (
-                <span className="animate-pulse font-mono text-[10px] font-bold normal-case tracking-normal">
-                  drafting&hellip;
                 </span>
               )}
             </button>
@@ -937,23 +850,17 @@ export function CommitmentsTeamView({
           this is the pane a group approves, so it should show what is actually stored rather
           than what is still in flight. Everywhere else on this board the overlay is the
           right answer; here a line that has not landed yet must not look landed. */}
-      {/* Locked, or drafting. `reviewLocked` goes false the instant readiness flips — that
-          flip is what starts the draft — so drafting needs its own branch or the blue panel
-          would never be seen: the step would jump straight from the checklist to an empty
-          composer while the model was still working. */}
-      {step === "review" && (reviewLocked || autoPanel) && (
-        <HandoffGuideLocked steps={execReady.steps} generating={autoPanel} />
-      )}
+      {step === "review" && reviewLocked && <HandoffGuideLocked steps={execReady.steps} />}
 
       {step === "review" &&
         !reviewLocked &&
-        !autoPanel &&
         (reviewShape ? (
           <ReviewBoard
             shaped={reviewShape}
             week3Cards={week3Cards}
             summaryHref={summaryHref}
             composer={execComposer}
+            aspiration={aspirationAnswers}
             boldMoves={boldMoveAnswers}
             submittedAt={submitted.at}
             submittedBy={submitted.by}

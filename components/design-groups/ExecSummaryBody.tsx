@@ -1,24 +1,17 @@
 import type { ExecSummaryOverride } from "@/lib/exec-summary-shape";
 
-// The body of handoff slide 02: either the group's own lead, or the projected Session 4
-// answers when nobody has written one.
+// The body of the handoff's closing note: whatever the group typed for the steering
+// committee, as paragraphs.
 //
-// READ-ONLY, AND A SERVER COMPONENT. It used to carry an Edit button and a form. Editing
-// now lives on Session 4's "Build handoff guide" step, where the group already has a
-// player row on the board — on the deck it had to ask people to go and open their board
-// first, which is a bad answer to "why can't I type here". Keeping the deck purely a
-// reader also means the group's copy and the committee's public copy differ only in
-// chrome, which is what stopped one of them quietly serving the wrong text.
-export default function ExecSummaryBody({
-  override,
-  projected,
-}: {
-  override: ExecSummaryOverride | null;
-  // What the slide says when nobody has written a lead: the projected blocks, rendered by
-  // the caller so the default view is exactly what it has always been.
-  projected: React.ReactNode;
-}) {
-  if (!override) return <>{projected}</>;
+// IT USED TO BE SLIDE 02, standing in for the projected Session 4 answers whenever a group
+// had written a lead. That was when the box above it was an executive summary. It is now a
+// note BESIDE the deck's own account rather than instead of it, so slide 02 went back to
+// the projection and this renders one slide near the end.
+//
+// READ-ONLY, AND A SERVER COMPONENT. Editing lives on Session 4's handoff step, where the
+// group already has a player row on the board — on the deck it had to ask people to go and
+// open their board first, which is a bad answer to "why can't I type here".
+export default function ExecSummaryBody({ override }: { override: ExecSummaryOverride }) {
   return (
     <div className="flex flex-col gap-4">
       {override.text.split(/\n{2,}/).map((para, i) => (

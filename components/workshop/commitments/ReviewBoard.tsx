@@ -191,45 +191,89 @@ function StakeColumn({
   );
 }
 
-function TopThree({
-  risks,
-  opportunities,
+// THE ROLE, AND HOW TO GET THERE — step 4's two questions side by side under one heading,
+// because they are one claim. The aspiration on its own is a wish and the moves on their own
+// are a list of errands; the group wrote them as a pair and the committee reads them as one.
+//
+// ONE SHARED HEADING over two boxes rather than a heading each: two headings would invite
+// the two to be read as separate findings, which is the reading this is trying to prevent.
+function RoleAndMoves({
+  aspiration,
   boldMoves,
 }: {
-  risks: { text: string; plausibility: number | null; impact: number | null }[];
-  opportunities: { text: string; plausibility: number | null; impact: number | null }[];
+  aspiration: string[];
   boldMoves: string[];
 }) {
   return (
-    <section className="flex flex-col gap-7">
+    <section>
+      <h2 className="m-0 mb-3 border-b-[1.5px] border-ink pb-2 text-[15px] font-extrabold uppercase tracking-tight">
+        The role of public health and how to get there
+      </h2>
+      {/* Stacked below sm. Two narrow columns of prose on a phone is worse than reading
+          one after the other, and the pairing survives the stack because the heading is
+          above both. */}
       <div className="grid gap-7 sm:grid-cols-2">
-        <StakeColumn title="Your top risks" tone="risk" rows={risks} />
-        <StakeColumn title="Your top opportunities" tone="opportunity" rows={opportunities} />
-      </div>
-      <div>
-        <p className="m-0 mb-2 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-          Your bold moves <span className="tabular-nums text-muted">{boldMoves.length}</span>
-        </p>
-        {boldMoves.length === 0 ? (
-          <p className="m-0 py-2 text-[13px] italic text-muted">
-Nothing written yet. Step 4&rsquo;s second question is where these come from.
+        <div>
+          <p className="m-0 mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
+            The role
           </p>
-        ) : (
-          <ol className="m-0 list-none p-0">
-            {boldMoves.map((m, i) => (
-              <li
-                key={m + i}
-                className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-[var(--hairline)] py-[11px] last:border-b-0"
-              >
-                <span className="pt-[2px] font-mono text-[11px] tabular-nums text-muted">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <span className="max-w-[72ch] text-[14px] leading-[1.45]">{m}</span>
-              </li>
-            ))}
-          </ol>
-        )}
+          {aspiration.length === 0 ? (
+            <p className="m-0 py-2 text-[13px] italic text-muted">
+              Nothing written yet. Step 4&rsquo;s first question is where this comes from.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {aspiration.map((a, i) => (
+                <p key={a + i} className="m-0 max-w-[52ch] text-[14.5px] leading-[1.5]">
+                  {a}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+        <div>
+          <p className="m-0 mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
+            How to get there <span className="tabular-nums">{boldMoves.length}</span>
+          </p>
+          {boldMoves.length === 0 ? (
+            <p className="m-0 py-2 text-[13px] italic text-muted">
+              Nothing written yet. Step 4&rsquo;s second question is where these come from.
+            </p>
+          ) : (
+            <ol className="m-0 list-none p-0">
+              {boldMoves.map((m, i) => (
+                <li
+                  key={m + i}
+                  className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-[var(--hairline)] py-[11px] last:border-b-0"
+                >
+                  <span className="pt-[2px] font-mono text-[11px] tabular-nums text-muted">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="max-w-[52ch] text-[14px] leading-[1.45]">{m}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
+    </section>
+  );
+}
+
+// WHAT THE GROUP RANKED HIGHEST, below the writing rather than above it. The bold moves
+// used to be a third block here; they have their own box at the top of the step now, and
+// printing them twice on one screen made the step read as longer than it is.
+function TopRanked({
+  risks,
+  opportunities,
+}: {
+  risks: { text: string; plausibility: number | null; impact: number | null }[];
+  opportunities: { text: string; plausibility: number | null; impact: number | null }[];
+}) {
+  return (
+    <section className="grid gap-7 sm:grid-cols-2">
+      <StakeColumn title="Your top risks" tone="risk" rows={risks} />
+      <StakeColumn title="Your top opportunities" tone="opportunity" rows={opportunities} />
     </section>
   );
 }
@@ -239,6 +283,7 @@ export function ReviewBoard({
   week3Cards,
   summaryHref,
   composer,
+  aspiration = [],
   boldMoves = [],
   submittedAt,
   submittedBy,
@@ -253,6 +298,10 @@ export function ReviewBoard({
   // Built by CommitmentsTeamView, which is the only thing holding the board state the
   // readiness check needs. Passed as a node so this panel stays a layout.
   composer?: React.ReactNode;
+  // Step 4's FIRST question — "the aspirational role for public health in this world".
+  // Matched by section key upstream, not by position, because a facilitator can reorder or
+  // relabel the week's prompts.
+  aspiration?: string[];
   // Step 4's SECOND QUESTION — "the boldest moves public health could make" — as answers.
   //
   // NOT `shaped.boldMoves`, which is a different thing wearing the same name: the strategic
@@ -291,28 +340,23 @@ export function ReviewBoard({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* THE COMPOSER LEADS. This step used to open with two action cards and then a long
-          read-back, which asked a group to submit before it had read anything and gave it
-          nothing to do but proofread. The work of this step is writing the lead; everything
-          else on the page is either the material it draws on or the way out. */}
+      {/* THE GROUP'S OWN ANSWER FIRST. This step has been through two shapes: two action
+          cards over a thirteen-row read-back, and then a model-drafted lead with the
+          read-back under it. Both opened on something other than what the group actually
+          decided. It now opens on step 4's two answers, which ARE the handoff's claim —
+          everything else here is either context for them or the way out. */}
+      <RoleAndMoves aspiration={aspiration} boldMoves={boldMoves} />
+
+      {/* Then the one thing left to write, and it is optional. */}
       {composer}
 
-      {/* THE THREE THINGS, not the whole read-back. This used to be CommitmentsPanel: every
-          placement, every response, every answer, which ran to thirteen matrix rows and
-          buried the writing above it. The rest of the handoff is generated from the same
-          data anyway, so a group checking its lead needs only what it ranked highest and
-          what it said it would do. */}
-      <TopThree
-        risks={topStakes("risk")}
-        opportunities={topStakes("opportunity")}
-        boldMoves={boldMoves.slice(0, 3)}
-      />
+      {/* What they ranked highest, as a check against the claim above rather than as the
+          week's full read-back — which is in the deck anyway. */}
+      <TopRanked risks={topStakes("risk")} opportunities={topStakes("opportunity")} />
 
       {/* ONE BOX, not two. Finishing and looking at the result are the same moment, and as
           separate cards at the top of the page they competed with each other and with the
-          writing. The full deck stays a new tab on purpose — it is a full-screen slide view,
-          and navigating there in place would drop this step, its scroll and any open
-          composer — but it is demoted to a quiet line under the button. */}
+          writing. */}
       <SubmitBar
         submittedAt={submittedAt}
         submittedBy={submittedBy}
