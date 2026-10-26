@@ -72,7 +72,7 @@ function Chip({ tone, children }: { tone: "live" | "next"; children: React.React
 //
 // SIDE BY SIDE ON WIDE SCREENS, stacked below lg. The picture is context for the words,
 // not the subject of the slide, so it takes a third and the text keeps the measure it was
-// set for; at narrow widths a third of the width is not a picture, so it goes above.
+// set for; at narrow widths a third of the width is not a picture, so the two stack.
 //
 // IT MAY NOT ARRIVE. FigureImage renders nothing when the URL is missing or 403s — the
 // signed URLs are short-lived — so this has to read correctly with the figure absent,
@@ -81,9 +81,13 @@ function Chip({ tone, children }: { tone: "live" | "next"; children: React.React
 // THE THREE PICTURES ARE NOT INTERCHANGEABLE FURNITURE. Every slide used to get the same
 // 28%-wide 4:3 box on the same side, which made three different images read as one
 // repeated page ornament. `size`, `side` and `shape` are the knobs: a tall portrait beside
-// the opening claim, a square on the left of the moves, a wide band under the scenario.
-// Named variants rather than free class strings so Tailwind's scan always sees them and a
-// call site cannot invent a width that breaks the stack.
+// the opening claim, a square on the left of the moves. Named variants rather than free
+// class strings so Tailwind's scan always sees them and a call site cannot invent a width
+// that breaks the stack.
+//
+// FIGURE_SHAPE IS SHARED WITH THE SCENARIO SLIDE, which lays itself out rather than calling
+// WithFigure but takes its ratios from here — `landscape` for its lead and `band` for the
+// crop beneath it — so the deck has one list of the shapes a picture may be.
 const FIGURE_SIZE = {
   narrow: "lg:w-[clamp(190px,22%,280px)]",
   standard: "lg:w-[clamp(220px,28%,340px)]",
@@ -108,9 +112,13 @@ function WithFigure({
   image: ScenarioImage | undefined;
   alt: string;
   size?: keyof typeof FIGURE_SIZE;
-  // Which side the picture takes on a wide screen. It always stacks ABOVE the text below
-  // lg, both ways round: on a phone the picture is the thing that orients you, and a
-  // reversed column would bury it under a screen of prose.
+  // Which side the picture takes on a WIDE screen only. Below lg both values stack the
+  // same way — text first, picture under it — which is why the base class is
+  // `flex-col-reverse` against a DOM order of figure-then-text: the reverse cancels the
+  // swap that `lg:flex-row-reverse` needs, leaving the mobile order exactly as it was
+  // before `side` existed. Deliberate, not an oversight. On a phone the figure is
+  // full-width, so a 3:4 portrait above the claim would be a screen of picture before the
+  // one sentence four sessions were for; the words go first and the picture follows.
   side?: "left" | "right";
   shape?: keyof typeof FIGURE_SHAPE;
   children: React.ReactNode;
@@ -288,7 +296,7 @@ function KeyChangeRow({ kc, n }: { kc: SummaryKeyChange; n: number }) {
   );
 }
 
-// One wall's top three for slide 04. Set large and light, because this is a brief slide
+// One wall's top three for slide 03. Set large and light, because this is a brief slide
 // read at a glance and not a table: no scores, no theme, nothing to compare across — the
 // statement and its position are the whole content. Module scope for the same reason as
 // StakeColumn below.
@@ -505,6 +513,14 @@ export default function GroupSummaryView({
   // rewording a step cannot leave a slide stale. Split by section KEY, never by position —
   // a group that answered the moves and skipped the role used to publish three bold moves
   // under "The role you would argue for".
+  // It used to split POSITIONALLY — first block is the role, rest are the moves — which
+  // broke the moment a group answered the moves and skipped the role: empty blocks are
+  // dropped upstream, so the moves became element zero and three bold moves were published
+  // under "The role you would argue for".
+  //
+  // Keys are permanent ids and labels are the facilitator's, so the key is the only stable
+  // thing to match on. Still generic in the direction that matters: a facilitator who adds
+  // a fourth step-4 prompt gets it on the moves slide rather than breaking either.
   const roleBlocks = s.role.filter((b) => b.key === COMMITMENTS_KEY_ROLE);
   const moveBlocks = s.role.filter((b) => b.key !== COMMITMENTS_KEY_ROLE);
 
@@ -556,7 +572,7 @@ export default function GroupSummaryView({
   // group's mouth. Scored, not merely placed: a pick is minted on the first axis click and
   // carries rank null until both are set, so a group halfway through step 2 has placements
   // with no order among them, and this slide would print board order under a title that says
-  // "ranked highest". Slide 10 carries the full walls in both states.
+  // "ranked highest". The appendix carries the full walls in both states.
   if (s.placements.some((p) => p.rank !== null)) {
     // Already sorted strongest-first in lib/group-summary (rank desc, unscored last), so this
     // is a take, not a sort. Unscored rows can only reach the top three on a wall with fewer
@@ -710,14 +726,24 @@ export default function GroupSummaryView({
   // THE PICTURE IS THE SUBJECT, which is why this lays itself out instead of calling
   // WithFigure: a 28% box in the margin is the treatment for artwork decorating a page of
   // findings, and this is the one slide where the artwork IS the content.
+  //
+  // BUT IT STILL MUST NOT BE A SLIDE WITH A HOLE IN IT, which is the rule a143795 set when
+  // it put artwork on the deck at all: "WithFigure returns its children bare rather than an
+  // empty half-grid — a slide missing its image must not be a slide with a hole in it." The
+  // gate below passes on overview alone, and a scenario with no art is a documented normal
+  // case, so the two-column grid is conditional on there being a lead image to put in the
+  // second track. Without one the prose runs the full width instead of sitting at 48%
+  // beside nothing.
   if (scenario && (scenario.overview || images.length > 0)) {
     const paras = scenario.overview
       .split(/\n\s*\n/)
       .map((t) => t.trim())
       .filter(Boolean);
     // The claim and the moves have already shown images 0 and 1, so reaching for 2 first is
-    // what stops a reader meeting the same picture twice. With fewer than three it falls
-    // back, and the repeat is then the honest answer rather than a gap.
+    // what keeps the LEAD fresh on a scenario that has all three. `second` cannot be: with
+    // three images all three are spoken for, so the band under the lead always repeats one
+    // of the earlier slides. That is the honest answer rather than a gap — cropped to a
+    // 16:9 band it reads as a detail of the world, not as the same figure again.
     const lead = images[2] ?? images[0];
     const second = images.find((im) => im !== lead);
     slides.push({
@@ -732,14 +758,22 @@ export default function GroupSummaryView({
           // that calls its own subject two different things eight slides apart reads as a
           // mistake to a committee that has no way to know they are the same world. One
           // name throughout beats the more authoritative name used inconsistently.
-          title={s.scenarioTitle ?? scenario.title}
+          // `scenario.title` may now be empty — the loader admits a scenario on its
+          // Overview alone — so this falls through to a plain label rather than a blank
+          // heading.
+          title={s.scenarioTitle || scenario.title || "The scenario"}
           chip={<Chip tone="next">The scenario</Chip>}
           intro={<>The world your group has been working inside since Session 1.</>}
         >
-          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-12">
-            {/* SET LARGER THAN ANYTHING ELSE IN THE DECK. Everywhere else the prose is a
-                caption on the group's work; here it is the thing being read, so it takes
-                the measure and leading of a standfirst — the same 17px/1.65 the scenario
+          <div
+            className={
+              "grid items-start gap-8 lg:gap-12 " +
+              (lead ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]" : "")
+            }
+          >
+            {/* SET LIKE A STANDFIRST, NOT LIKE A CAPTION. Everywhere else in the deck the
+                prose annotates the group's work; here it is the thing being read, so it
+                takes the measure and leading of one — the same 17px/1.65 the scenario
                 reader itself sets the Overview at. */}
             <div className="flex flex-col gap-5 text-[clamp(15px,1.5vw,17px)] leading-[1.65]">
               {paras.length > 0 ? (
@@ -755,15 +789,70 @@ export default function GroupSummaryView({
               )}
             </div>
             {/* TWO SIZES, NOT TWO EQUAL BOXES. A matched pair reads as a contact sheet; a
-                lead image with a wide band beneath it reads as a spread. Either can be
-                absent — FigureImage renders nothing — and the column just gets shorter. */}
-            <div className="flex flex-col gap-4">
-              <FigureImage image={lead} alt={scenario.title} ratio="aspect-[4/3]" />
-              {second && (
-                <FigureImage image={second} alt={scenario.title} ratio="aspect-[16/9]" />
-              )}
-            </div>
+                lead image with a wide band beneath it reads as a spread.
+                Gated on `lead` with the grid above: no art, no column at all. */}
+            {lead && (
+              <div className="flex flex-col gap-4">
+                <FigureImage
+                  image={lead}
+                  alt={scenario.title}
+                  ratio={FIGURE_SHAPE.landscape}
+                />
+                {second && (
+                  <FigureImage image={second} alt={scenario.title} ratio={FIGURE_SHAPE.band} />
+                )}
+              </div>
+            )}
           </div>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- how this world works (parked, see SHOW_WORLD_READING) ------------------------
+  // Session 1's own read of the scenario. Parked — see SHOW_WORLD_READING — and left in
+  // place rather than deleted so turning it back on is one line.
+  //
+  // WHEN IT RETURNS it belongs beside the scenario slide, not where it used to sit at the
+  // front: the two are the same subject read twice, once off the record and once by the
+  // group, and a reader meets them better as a pair than ten slides apart.
+  if (SHOW_WORLD_READING && s.worldReading.length > 0) {
+    slides.push({
+      id: "world",
+      label: "How this world works",
+      node: (
+        <Slide
+          n={num()}
+          title="How this world works"
+          intro={
+            <>
+              Your group&rsquo;s first read of this scenario, from Session 1 — the ground
+              every slide before this one was built on.
+            </>
+          }
+        >
+          <WithFigure image={images[2]} alt={s.scenarioTitle ?? s.groupName}>
+          <div className="flex flex-col gap-7">
+            {s.worldReading.map((block) => (
+              <div key={block.label}>
+                <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+                  {block.label}{" "}
+                  <span className="tabular-nums text-muted">{block.answers.length}</span>
+                </p>
+                <ul className="m-0 list-none p-0">
+                  {block.answers.map((a) => (
+                    <li
+                      key={a}
+                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[14.5px] leading-[1.5] last:border-b-0"
+                    >
+                      {a}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          </WithFigure>
         </Slide>
       ),
     });
@@ -1067,18 +1156,6 @@ export default function GroupSummaryView({
   // anyway; the flag is here so that turning backcasting back on for the next workshop is
   // one line in each of the two places, not a rebuild. Its id and label collide with the
   // step-4 moves slide above on purpose: only one of the two can ever be in the deck.
-  // ---- the backcast lanes (parked, see SHOW_BACKCASTING) ----------------------------
-  // TWO SLIDES from one step, split BY SECTION KEY. It used to split positionally — first
-  // block is the role, rest are the moves — which broke the moment a group answered the
-  // moves and skipped the role: empty blocks are dropped upstream, so the moves became
-  // element zero and three bold moves were published under "The role you would argue for".
-  //
-  // Keys are permanent ids and labels are the facilitator's, so the key is the only stable
-  // thing to match on. Still generic in the direction that matters: a facilitator who adds
-  // a fourth step-4 prompt gets it on the moves slide rather than breaking either.
-  //
-  // The role is its own slide because it is the one claim in four sessions that is an
-  // argument rather than an observation, and a reader should meet it alone.
   if (SHOW_BACKCASTING && s.boldMoves.length > 0) {
     const periods = s.boldMoves[0].periods;
     slides.push({
@@ -1162,55 +1239,6 @@ export default function GroupSummaryView({
               · = nothing placed in that period
             </p>
           </div>
-        </Slide>
-      ),
-    });
-  }
-
-  // ---- how this world works (parked, see SHOW_WORLD_READING) ------------------------
-  // Session 1's own read of the scenario. Parked — see SHOW_WORLD_READING — and left in
-  // place rather than deleted so turning it back on is one line.
-  //
-  // WHEN IT RETURNS it belongs beside the scenario slide, not where it used to sit at the
-  // front: the two are the same subject read twice, once off the record and once by the
-  // group, and a reader meets them better as a pair than ten slides apart.
-  if (SHOW_WORLD_READING && s.worldReading.length > 0) {
-    slides.push({
-      id: "world",
-      label: "How this world works",
-      node: (
-        <Slide
-          n={num()}
-          title="How this world works"
-          intro={
-            <>
-              Your group&rsquo;s first read of this scenario, from Session 1 — the ground
-              every slide before this one was built on.
-            </>
-          }
-        >
-          <WithFigure image={images[2]} alt={s.scenarioTitle ?? s.groupName}>
-          <div className="flex flex-col gap-7">
-            {s.worldReading.map((block) => (
-              <div key={block.label}>
-                <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-                  {block.label}{" "}
-                  <span className="tabular-nums text-muted">{block.answers.length}</span>
-                </p>
-                <ul className="m-0 list-none p-0">
-                  {block.answers.map((a) => (
-                    <li
-                      key={a}
-                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[14.5px] leading-[1.5] last:border-b-0"
-                    >
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          </WithFigure>
         </Slide>
       ),
     });

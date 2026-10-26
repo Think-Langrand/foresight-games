@@ -46,7 +46,9 @@ export interface HandoffData {
   // diverge in live data, so the slide uses the group's copy first and reaches for this one
   // only when there is none. See the slide for why one name beats the better name.
   //
-  // Null on the same three non-fatal conditions as `images`, and the slide is skipped.
+  // Null when there is no scenario to read at all — Foresight down, or a group with no
+  // scenario ref. NOT null for a scenario with no art, which is the third of `images`'
+  // conditions: the slide is prose-led and draws perfectly well without a picture.
   scenario: { title: string; overview: string } | null;
 }
 
@@ -95,9 +97,13 @@ export async function loadHandoff(
       .slice(0, 3);
     // One fetch, two uses: the artwork and the overview come off the same record, so the
     // scenario slide costs nothing beyond what the figures already paid for.
-    if (scenario?.title) {
-      scenarioOverview = { title: scenario.title, overview: scenario.teaser?.trim() ?? "" };
-    }
+    //
+    // EITHER FIELD IS ENOUGH. The title is only a fallback for the cover's, so a scenario
+    // carrying Overview prose under an empty title still has something worth a slide;
+    // gating on the title alone threw that away.
+    const title = scenario?.title?.trim() ?? "";
+    const overview = scenario?.teaser?.trim() ?? "";
+    if (title || overview) scenarioOverview = { title, overview };
   }
 
   return {
