@@ -26,7 +26,6 @@ import {
 } from "@/lib/group-summary";
 import type { ImplicationsExercise, StakeRow } from "@/components/design-groups/AnswerPanels";
 import { AXIS_ENDS, AXIS_LABELS, SCORE_AXES } from "@/lib/ripples-scoring";
-import { COMMITMENTS_KEY_ROLE } from "@/lib/exercise-types";
 import ImplicationsMap from "@/components/design-groups/ImplicationsMap";
 import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffDeck";
 import SummaryMatrix from "@/components/design-groups/SummaryMatrix";
@@ -297,46 +296,6 @@ function KeyChangeRow({ kc, n }: { kc: SummaryKeyChange; n: number }) {
   );
 }
 
-// One wall's top three for slide 03. Set large and light, because this is a brief slide
-// read at a glance and not a table: no scores, no theme, nothing to compare across — the
-// statement and its position are the whole content. Module scope for the same reason as
-// StakeColumn below.
-function TopThree({ rows, tone }: { rows: SummaryPlacement[]; tone: "risk" | "opportunity" }) {
-  const colour = tone === "risk" ? "var(--coral)" : "#3f5209";
-  return (
-    <div>
-      <p
-        className="m-0 mb-5 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]"
-        style={{ color: colour }}
-      >
-        {tone === "risk" ? "Risks" : "Opportunities"}
-      </p>
-      {rows.length === 0 ? (
-        <p className="m-0 text-[14px] text-muted">
-          Your group ranked nothing from this wall.
-        </p>
-      ) : (
-        <ol className="m-0 flex list-none flex-col gap-6 p-0">
-          {rows.map((p, i) => (
-            <li key={p.id} className="grid grid-cols-[auto_1fr] items-start gap-x-4">
-              {/* A number here claims a rank, so an unscored row gets the same dot
-                  StakeColumn gives it rather than a position it never earned. */}
-              <span
-                className="pt-[7px] font-mono text-[13px] font-bold tabular-nums"
-                style={{ color: colour }}
-              >
-                {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
-              </span>
-              <p className="m-0 max-w-[40ch] text-[clamp(16px,1.7vw,21px)] font-light leading-[1.4]">
-                {p.text}
-              </p>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
 
 // Act 2's chosen priorities, risks and opportunities in ONE list.
 //
@@ -641,12 +600,22 @@ export default function GroupSummaryView({
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
             <>
-              Of everything on your risk and opportunity walls, these are the{" "}
-              {s.priorities.length} your group chose to carry forward
-              {s.placements.length > s.priorities.length && (
-                <> out of the {s.placements.length} it weighed</>
-              )}
-              . The full walls, with their scores, are in the appendix.
+              {/* The count of what was weighed only earns a mention when it is BIGGER than
+                  the count carried forward. A group that scored exactly the three it
+                  starred would otherwise read "weighed 3 and carried 3 forward", which
+                  sounds like a tautology rather than a narrowing. */}
+              {s.placements.length > s.priorities.length ? (
+                <>
+                  Your group weighed {s.placements.length} risks and opportunities and
+                  carried {s.priorities.length} forward.
+                </>
+              ) : (
+                <>
+                  The {s.priorities.length} your group carried forward off its risk and
+                  opportunity walls.
+                </>
+              )}{" "}
+              The full walls, with their scores, are in the appendix.
             </>
           }
         >
@@ -663,8 +632,7 @@ export default function GroupSummaryView({
               <PriorityList rows={s.priorities} />
             ) : (
               <p className="m-0 text-[14px] text-muted">
-                Your group recorded a disagreement here but did not name its three
-                priorities.
+                Your group recorded a disagreement here but never chose its priorities.
               </p>
             )}
             {s.disputed.length > 0 && <DisputedList rows={s.disputed} />}
@@ -690,8 +658,8 @@ export default function GroupSummaryView({
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
             <>
-              The future your group would work toward in this world, and what it would mean
-              for communities if public health did its job well here.
+              The future your group would work toward, and what it would mean for
+              communities if public health did its job well here.
             </>
           }
         >
@@ -740,9 +708,9 @@ export default function GroupSummaryView({
           intro={
             <>
               {s.directions.length}{" "}
-              {s.directions.length === 1 ? "direction" : "directions"} your group would
-              recommend, chosen out of everything on its response wall. This is the only
-              part of the program that says what it would actually do.
+              {s.directions.length === 1 ? "move" : "moves"} your group would recommend,
+              chosen out of everything on its response wall. This is the only part of the
+              program that says what it would actually do.
             </>
           }
         >

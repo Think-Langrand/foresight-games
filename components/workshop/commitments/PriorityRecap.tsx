@@ -56,8 +56,8 @@ export function PriorityRecap({
       </div>
 
       <p className="m-0 px-4 pt-3 text-[12.5px] italic leading-[1.45] text-muted">
-        What you chose to carry forward. Write one or two outcomes for these — not one per
-        row, if the same outcome serves more than one.
+        What you chose to carry forward. Write one or two outcomes for these. One outcome
+        can serve more than one priority; they do not need one each.
       </p>
 
       <ul className="m-0 list-none px-4 py-3">
@@ -71,7 +71,7 @@ export function PriorityRecap({
                 issue it never settled should be reminded that it never settled it. */}
             {c.description && (
               <span className="mt-0.5 block text-[12px] italic text-muted">
-                Still disputed — {c.description}
+                You did not agree on this: {c.description}
               </span>
             )}
           </li>

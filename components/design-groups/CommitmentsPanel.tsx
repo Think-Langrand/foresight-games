@@ -164,7 +164,7 @@ function Priorities({
       </p>
       {chosen.length === 0 ? (
         <p className="m-0 py-2 text-[13px] italic text-muted">
-          The group flagged a dispute but never named its three.
+          The group recorded a disagreement but never starred its three.
         </p>
       ) : (
         <ul className="m-0 list-none p-0">
@@ -451,7 +451,7 @@ export function CommitmentsPanel({
         <p className="m-0 text-[12.5px] italic leading-[1.45] text-muted">
           {ex.strandedSharpening.length} answer
           {ex.strandedSharpening.length === 1 ? "" : "s"} written about a response the group
-          has since un-chosen. Nothing is lost — they come back if it is chosen again.
+          has since un-chosen. They come back if it is chosen again.
         </p>
       )}
 

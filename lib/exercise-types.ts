@@ -207,14 +207,14 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     kind: "question",
     step: COMMITMENTS_STEP_RECONNECT,
     label: "What most needs our attention in this future?",
-    help: "Not a recap of the scenario — what, in it, you cannot let pass. You will choose three priorities next; this is the thinking that gets you there.",
+    help: "Not a recap of the scenario. What in it can your group not let pass? You choose three priorities next, so this is the thinking that gets you there.",
   },
   {
     key: "w4-keep-in-mind",
     kind: "question",
     step: COMMITMENTS_STEP_RECONNECT,
     label: "What should we keep in mind today?",
-    help: "Anything from the last three sessions the group wants held in view while it works — an unresolved argument, a caveat, something that keeps coming back.",
+    help: "Anything from the last three sessions you want kept in view while you work. An argument you never settled, or a caveat that keeps coming back.",
   },
   {
     key: COMMITMENTS_KEY_OUTCOMES,
@@ -222,14 +222,14 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     step: COMMITMENTS_STEP_OUTCOMES,
     label:
       "Looking at your priorities and hopes, what do you want public health to make possible for communities in this future?",
-    help: "One or two for each priority. Write what would be different for communities if public health did its job well here — the outcome, not the activity that produces it.",
+    help: "One or two for each priority. Write what would be different for communities if public health did its job well here. The outcome, not the work that produces it.",
   },
   {
     key: COMMITMENTS_KEY_VISION,
     kind: "question",
     step: COMMITMENTS_STEP_VISION,
     label: "What future do you want to work toward?",
-    help: "A short aspiration statement that answers this scenario's particular challenges. Write it in the present tense, as though this world has already arrived, and test it: is this worth achieving for people?",
+    help: "One short statement, in the present tense, as though this world has already arrived. Then test it. Is it worth achieving for people? Does it answer what this scenario actually throws at you?",
   },
 ];
 

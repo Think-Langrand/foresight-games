@@ -182,7 +182,7 @@ function RoleAndMoves({
   return (
     <section>
       <h2 className="m-0 mb-3 border-b-[1.5px] border-ink pb-2 text-[15px] font-extrabold uppercase tracking-tight">
-        Your vision, and the directions that reach it
+        Your vision, and the three moves you would make
       </h2>
       {/* SLATE, AND THE ONLY DARK THING ON THE STEP. This pair is the handoff's actual
           claim; everything else here is either context for it or the way out, so it is

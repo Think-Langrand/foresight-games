@@ -40,10 +40,10 @@ const movesDirections = makePrefStore("commitments.directions.moves", "open", DI
 // chooses and what it writes about them, not a paragraph typed under a heading.
 const MOVES_DIRECTIONS = [
   `Pick up to ${MAX_BOLD_MOVES}. If everything is bold, nothing is.`,
-  "Which three would make the greatest contribution to the vision? Do they work together?",
+  "Which three would contribute most to your vision? Do they work together, or does one undo another?",
   "Choose the ones that would change what your group actually does, not the ones that are easiest to agree on.",
-  "Then answer the three questions on each. A direction nobody can say the purpose of is not sharp yet.",
-  "Test: if you pursued only these three, would you make meaningful progress toward your vision?",
+  "Then answer the three questions on each. If nobody can say what a move is for, it is not ready.",
+  "Test: if you did only these three, would you get anywhere near your vision?",
   "You can reword a move on step 4; the card is the same card.",
   "Nothing is lost by un-picking. The move goes back to the wall and keeps what you wrote about it.",
 ];
@@ -239,7 +239,7 @@ export function MovesBoard({
               {stranded.length} answer{stranded.length === 1 ? "" : "s"} you wrote about a
               move you have since un-picked.{" "}
               <span className="italic text-muted">
-                Nothing is lost — pick it again and they come back.
+                Pick it again and they come back.
               </span>
             </p>
           )}
