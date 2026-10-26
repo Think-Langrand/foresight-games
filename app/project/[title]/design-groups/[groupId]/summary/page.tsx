@@ -40,6 +40,7 @@ export default async function DesignGroupSummaryPage({
       groupId={groupId}
       execOverride={data.execOverride}
       images={data.images}
+      scenario={data.scenario}
     />
   );
 }

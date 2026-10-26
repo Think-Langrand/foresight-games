@@ -42,6 +42,7 @@ export default async function PublicHandoffPage({
       groupId={groupId}
       execOverride={data.execOverride}
       images={data.images}
+      scenario={data.scenario}
       publicView
     />
   );
