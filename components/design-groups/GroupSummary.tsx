@@ -581,11 +581,14 @@ export default function GroupSummaryView({
     const topOpps = s.placements.filter((p) => p.kind === "opportunity").slice(0, 3);
     slides.push({
       id: "stakes-top",
-      label: "Top risks & opportunities",
+      // NOT "Top risks & opportunities" any more: the appendix slide took that name, and
+      // two dots with the same tooltip is a reader clicking both to find out which is which.
+      // The count is the thing that tells them apart, so it goes in the name.
+      label: "Top 3 risks & opportunities",
       node: (
         <Slide
           n={num()}
-          title="Your top risks and opportunities"
+          title="Top 3 risks and opportunities"
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
             <>
@@ -964,13 +967,23 @@ export default function GroupSummaryView({
 
   // ---- 10 · every risk and opportunity ----------------------------------------------
   // THE APPENDIX COPY. Slide 03 carries the finding — the top three on each wall — and this
-  // is where a reader who wants to check it finds everything: the full ranking, the shared
-  // grid, and Week 3's per-theme balance underneath.
+  // is where a reader who wants to check it finds the rest: the per-theme lean, the shared
+  // grid, and the full ranking.
+  //
+  // THE SHAPES FIRST, THEN THE WORDS, AND THE WORDS ONLY ONCE. This slide used to open on
+  // the ranked lists and close on the theme balance — which carried its own full copy of
+  // every risk and opportunity, so the same sentences appeared twice here and a third time
+  // on the themes slide. The two charts now sit at the top, where a committee reads the
+  // shape of the walls before any list, and exactly one list follows.
+  //
+  // THE RANKING IS THE LIST THAT SURVIVED, because it is the only reading nothing else in
+  // the deck gives: the themes slide already prints every stake in its theme's own words.
+  // What is here and nowhere else is the order Session 4 put them in, with the scores.
   //
   // IT GROWS. Before Session 4 runs there are no placements, so this is the theme balance
   // alone and 03 does not draw at all — there is no 'top three' until somebody ranks
-  // something. The ranked block and its sub-heading are gated together, so neither can show
-  // up without the other.
+  // something. The grid, the legend and the ranked columns are gated together, so none can
+  // show up without the others.
   //
   // RISKS AND OPPORTUNITIES IN ONE COLUMN EACH, AND ONE SHARED GRID. The two lists give the
   // order; the single grid is what makes them comparable, because the finding a committee is
@@ -982,45 +995,59 @@ export default function GroupSummaryView({
     const opps = s.placements.filter((p) => p.kind === "opportunity");
     slides.push({
       id: "stakes-all",
-      label: "All risks & opportunities",
+      // Matches the title. The dot's tooltip and the footer caption are the only place a
+      // reader meets a slide's name before opening it, so a label that disagrees with the
+      // heading sends them to the wrong slide.
+      label: "Top risks & opportunities",
       node: (
         <Slide
           n={num()}
-          title="Every risk and opportunity"
+          title="Top risks and opportunities"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
             <>
-              Every risk and opportunity your group wrote, the themes with the most at stake
-              first.
+              What each theme puts at stake and which way it leans, themes with the most at
+              stake first.
               {s.placements.length > 0 && (
                 <>
                   {" "}
                   Session 4 ranked {s.placements.length} of them against each other:{" "}
                   {risks.length} {risks.length === 1 ? "risk" : "risks"} and {opps.length}{" "}
-                  {opps.length === 1 ? "opportunity" : "opportunities"}.
+                  {opps.length === 1 ? "opportunity" : "opportunities"}. Every one of them in
+                  its theme&rsquo;s own words is on the themes slide.
                 </>
               )}
             </>
           }
         >
+          {/* THE TWO SHAPES, SIDE BY SIDE. They answer different questions — the balance
+              says which way a theme leans, the grid says which individual stakes are big and
+              likely — so a reader who has both at a glance rarely needs the list at all. The
+              grid only exists once something is scored, and without it the balance takes the
+              full width rather than sitting at two thirds beside nothing. */}
+          <div
+            className={
+              "grid items-start gap-8 " +
+              (s.placements.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]" : "")
+            }
+          >
+            {s.gaps.stakes > 0 && <StakesBalance themes={s.themes} />}
+            {s.placements.length > 0 && (
+              <SummaryMatrix
+                noun="risk or opportunity"
+                rows={s.placements.map((p) => ({
+                  id: p.id,
+                  text: p.text,
+                  plausibility: p.plausibility,
+                  impact: p.impact,
+                  kind: p.kind,
+                }))}
+              />
+            )}
+          </div>
+
           {s.placements.length > 0 && (
             <>
-              <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
-                <div className="grid gap-7 sm:grid-cols-2">
-                  <StakeColumn rows={risks} tone="risk" />
-                  <StakeColumn rows={opps} tone="opportunity" />
-                </div>
-                <SummaryMatrix
-                  noun="risk or opportunity"
-                  rows={s.placements.map((p) => ({
-                    id: p.id,
-                    text: p.text,
-                    plausibility: p.plausibility,
-                    impact: p.impact,
-                    kind: p.kind,
-                  }))}
-                />
-              </div>
               <p className="m-0 mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
                 <span className="flex items-center gap-1.5">
                   <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-coral" />
@@ -1040,14 +1067,11 @@ export default function GroupSummaryView({
                     ` ${s.placements.length - scored.length} placed but not scored, listed last.`}
                 </span>
               </p>
-            </>
-          )}
-          {s.gaps.stakes > 0 && (
-            <>
-              {s.placements.length > 0 && (
-                <p className="mb-0 mt-8 text-[15px] font-bold">All of them, by theme</p>
-              )}
-              <StakesBalance themes={s.themes} />
+              <p className="mb-0 mt-8 text-[15px] font-bold">The order they ranked them in</p>
+              <div className="mt-4 grid gap-7 sm:grid-cols-2">
+                <StakeColumn rows={risks} tone="risk" />
+                <StakeColumn rows={opps} tone="opportunity" />
+              </div>
             </>
           )}
         </Slide>
