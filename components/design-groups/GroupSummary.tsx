@@ -240,7 +240,48 @@ function KeyChangeRow({ kc, n }: { kc: SummaryKeyChange; n: number }) {
   );
 }
 
-// One wall's ranked picks for slide 08. Module scope, not inline in the slide: a
+// One wall's top three for slide 04. Set large and light, because this is a brief slide
+// read at a glance and not a table: no scores, no theme, nothing to compare across — the
+// statement and its position are the whole content. Module scope for the same reason as
+// StakeColumn below.
+function TopThree({ rows, tone }: { rows: SummaryPlacement[]; tone: "risk" | "opportunity" }) {
+  const colour = tone === "risk" ? "var(--coral)" : "#3f5209";
+  return (
+    <div>
+      <p
+        className="m-0 mb-5 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]"
+        style={{ color: colour }}
+      >
+        {tone === "risk" ? "Risks" : "Opportunities"}
+      </p>
+      {rows.length === 0 ? (
+        <p className="m-0 text-[14px] text-muted">
+          Your group ranked nothing from this wall.
+        </p>
+      ) : (
+        <ol className="m-0 flex list-none flex-col gap-6 p-0">
+          {rows.map((p, i) => (
+            <li key={p.id} className="grid grid-cols-[auto_1fr] items-start gap-x-4">
+              {/* A number here claims a rank, so an unscored row gets the same dot
+                  StakeColumn gives it rather than a position it never earned. */}
+              <span
+                className="pt-[7px] font-mono text-[13px] font-bold tabular-nums"
+                style={{ color: colour }}
+              >
+                {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
+              </span>
+              <p className="m-0 max-w-[40ch] text-[clamp(16px,1.7vw,21px)] font-light leading-[1.4]">
+                {p.text}
+              </p>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+// One wall's ranked picks for slide 10. Module scope, not inline in the slide: a
 // component created during render is a new type every pass, which remounts its subtree.
 function StakeColumn({ rows, tone }: { rows: SummaryPlacement[]; tone: "risk" | "opportunity" }) {
   return (
@@ -478,100 +519,47 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 04 · risks and opportunities ----------------------------------------------------
-  // ONE SLIDE, TWO QUESTIONS, in the order a reader wants them. Week 4's ranking leads,
-  // because it is the claim — of everything on the walls, these are the ones the group put
-  // highest — and Week 3's per-theme balance sits behind it as the working: which THEMES
-  // carry the most at stake. They used to be two slides six apart, which asked a reader to
-  // hold the first in their head to make sense of the second.
+  // ---- 04 · the top three on each wall -------------------------------------------------
+  // THE FRONT OF THE DECK IS A BRIEF, and this is its finding: of everything the group put on
+  // its risk and opportunity walls, these six are what it ranked highest. Deliberately no
+  // scores, no grid and no theme breakdown — those are slide 10, and a reader who wants them
+  // is told where to look. Six statements, set large enough to be read from the back of a
+  // room, is the whole slide.
   //
-  // IT GROWS. Before Session 4 runs there are no placements, so the slide is the theme
-  // balance alone and reads exactly as it did when that was its own slide. The ranked block
-  // and its sub-heading appear together, so neither can show up without the other.
-  //
-  // RISKS AND OPPORTUNITIES IN ONE COLUMN EACH, AND ONE SHARED GRID. The two lists give the
-  // order; the single grid is what makes them comparable, because the finding a committee is
-  // after is whether the openings sit higher than the exposures or the other way round, and
-  // two grids side by side cannot be read against each other that way.
-  if (s.gaps.stakes > 0 || s.placements.length > 0) {
-    const scored = s.placements.filter((p) => p.rank !== null);
-    const risks = s.placements.filter((p) => p.kind === "risk");
-    const opps = s.placements.filter((p) => p.kind === "opportunity");
+  // NO PLACEMENTS, NO SLIDE. "Top three" is a claim about a ranking, and before Session 4
+  // nobody has ranked anything; inventing an order from Week 3's board would put words in the
+  // group's mouth. Slide 10 still carries the full walls in that state.
+  if (s.placements.length > 0) {
+    // Already sorted strongest-first in lib/group-summary (rank desc, unscored last), so this
+    // is a take, not a sort. Unscored rows can only reach the top three on a wall with fewer
+    // than three scored, and TopThree prints those without a rank number.
+    const topRisks = s.placements.filter((p) => p.kind === "risk").slice(0, 3);
+    const topOpps = s.placements.filter((p) => p.kind === "opportunity").slice(0, 3);
     slides.push({
-      id: "stakes",
-      label: "Risks & opportunities",
+      id: "stakes-top",
+      label: "Top risks & opportunities",
       node: (
         <Slide
           n="04"
-          title="Risks and opportunities"
-          chip={<Chip tone="live">On the board</Chip>}
+          title="Your top risks and opportunities"
+          chip={<Chip tone="live">Session 4</Chip>}
           intro={
             <>
-              Every risk and opportunity your group wrote, the themes with the most at stake
-              first.
-              {s.placements.length > 0 && (
-                <>
-                  {" "}
-                  Session 4 ranked {s.placements.length} of them against each other:{" "}
-                  {risks.length} {risks.length === 1 ? "risk" : "risks"} and {opps.length}{" "}
-                  {opps.length === 1 ? "opportunity" : "opportunities"}.
-                </>
-              )}
+              The ones your group ranked highest on each wall, out of the {s.placements.length}{" "}
+              it placed. All of them, with the grid and the per-theme balance, are at 10.
             </>
           }
         >
-          {s.placements.length > 0 && (
-            <>
-              <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
-                <div className="grid gap-7 sm:grid-cols-2">
-                  <StakeColumn rows={risks} tone="risk" />
-                  <StakeColumn rows={opps} tone="opportunity" />
-                </div>
-                <SummaryMatrix
-                  noun="risk or opportunity"
-                  rows={s.placements.map((p) => ({
-                    id: p.id,
-                    text: p.text,
-                    plausibility: p.plausibility,
-                    impact: p.impact,
-                    kind: p.kind,
-                  }))}
-                />
-              </div>
-              <p className="m-0 mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
-                <span className="flex items-center gap-1.5">
-                  <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-coral" />
-                  Risk
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span
-                    aria-hidden
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ background: "#3f5209" }}
-                  />
-                  Opportunity
-                </span>
-                <span className="normal-case tracking-normal">
-                  Ranked by plausibility multiplied by impact, each 1 to 5.
-                  {scored.length < s.placements.length &&
-                    ` ${s.placements.length - scored.length} placed but not scored, listed last.`}
-                </span>
-              </p>
-            </>
-          )}
-          {s.gaps.stakes > 0 && (
-            <>
-              {s.placements.length > 0 && (
-                <p className="mb-0 mt-8 text-[15px] font-bold">All of them, by theme</p>
-              )}
-              <StakesBalance themes={s.themes} />
-            </>
-          )}
+          <div className="grid gap-x-12 gap-y-9 sm:grid-cols-2">
+            <TopThree rows={topRisks} tone="risk" />
+            <TopThree rows={topOpps} tone="opportunity" />
+          </div>
         </Slide>
       ),
     });
   }
 
+  // ---- 05 · Session 4: the bold moves ------------------------------------------------
   if (s.has.commitments && moveBlocks.length > 0) {
     const count = moveBlocks.reduce((n, b) => n + b.answers.length, 0);
     slides.push({
@@ -597,7 +585,6 @@ export default function GroupSummaryView({
       ),
     });
   }
-
 
   // ---- The backcast table (parked, see SHOW_BACKCASTING) -------------------------------
   // One table, not one slide per move: the finding is the SHAPE of the three lanes read
@@ -779,6 +766,99 @@ export default function GroupSummaryView({
             ))}
           </div>
           </WithFigure>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- 10 · every risk and opportunity -------------------------------------------------
+  // THE APPENDIX COPY. Slide 04 carries the finding — the top three on each wall — and this
+  // is where a reader who wants to check it finds everything: the full ranking, the shared
+  // grid, and Week 3's per-theme balance underneath.
+  //
+  // IT GROWS. Before Session 4 runs there are no placements, so this is the theme balance
+  // alone and 04 does not draw at all — there is no 'top three' until somebody ranks
+  // something. The ranked block and its sub-heading are gated together, so neither can show
+  // up without the other.
+  //
+  // RISKS AND OPPORTUNITIES IN ONE COLUMN EACH, AND ONE SHARED GRID. The two lists give the
+  // order; the single grid is what makes them comparable, because the finding a committee is
+  // after is whether the openings sit higher than the exposures or the other way round, and
+  // two grids side by side cannot be read against each other that way.
+  if (s.gaps.stakes > 0 || s.placements.length > 0) {
+    const scored = s.placements.filter((p) => p.rank !== null);
+    const risks = s.placements.filter((p) => p.kind === "risk");
+    const opps = s.placements.filter((p) => p.kind === "opportunity");
+    slides.push({
+      id: "stakes-all",
+      label: "All risks & opportunities",
+      node: (
+        <Slide
+          n="10"
+          title="Every risk and opportunity"
+          chip={<Chip tone="live">On the board</Chip>}
+          intro={
+            <>
+              Every risk and opportunity your group wrote, the themes with the most at stake
+              first.
+              {s.placements.length > 0 && (
+                <>
+                  {" "}
+                  Session 4 ranked {s.placements.length} of them against each other:{" "}
+                  {risks.length} {risks.length === 1 ? "risk" : "risks"} and {opps.length}{" "}
+                  {opps.length === 1 ? "opportunity" : "opportunities"}.
+                </>
+              )}
+            </>
+          }
+        >
+          {s.placements.length > 0 && (
+            <>
+              <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
+                <div className="grid gap-7 sm:grid-cols-2">
+                  <StakeColumn rows={risks} tone="risk" />
+                  <StakeColumn rows={opps} tone="opportunity" />
+                </div>
+                <SummaryMatrix
+                  noun="risk or opportunity"
+                  rows={s.placements.map((p) => ({
+                    id: p.id,
+                    text: p.text,
+                    plausibility: p.plausibility,
+                    impact: p.impact,
+                    kind: p.kind,
+                  }))}
+                />
+              </div>
+              <p className="m-0 mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-coral" />
+                  Risk
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ background: "#3f5209" }}
+                  />
+                  Opportunity
+                </span>
+                <span className="normal-case tracking-normal">
+                  Ranked by plausibility multiplied by impact, each 1 to 5.
+                  {scored.length < s.placements.length &&
+                    ` ${s.placements.length - scored.length} placed but not scored, listed last.`}
+                </span>
+              </p>
+            </>
+          )}
+          {s.gaps.stakes > 0 && (
+            <>
+              {s.placements.length > 0 && (
+                <p className="mb-0 mt-8 text-[15px] font-bold">All of them, by theme</p>
+              )}
+              <StakesBalance themes={s.themes} />
+            </>
+          )}
         </Slide>
       ),
     });
