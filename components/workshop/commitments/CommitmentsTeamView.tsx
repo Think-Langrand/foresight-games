@@ -907,6 +907,22 @@ export function CommitmentsTeamView({
       {step === "reconnect" && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-5">
+            {/* ABOVE THE QUESTIONS, NOT FOLDED UNDER THEM. This is how to run the ten
+                minutes, and the talking is most of it — a group that opens two answer
+                boxes and starts typing has skipped the activity. It is hardcoded rather
+                than a section because it is not a prompt: nothing is written under it, and
+                giving it an answer box is the exact misreading it exists to prevent.
+
+                THE COUNT IS DERIVED. A facilitator can add a third prompt in the program
+                editor, and "the two questions below" would then be quietly wrong. */}
+            {sectionsFor("reconnect").length > 0 && (
+              <p className="m-0 max-w-[68ch] rounded-[3px] border-l-[3px] border-ink bg-card px-4 py-3 text-[14px] leading-[1.5]">
+                Take a few minutes to reconnect with your group&rsquo;s scenario. Think and
+                talk about the role of public health in this world and how it&rsquo;s
+                changed. Then answer the{" "}
+                {sectionsFor("reconnect").length === 2 ? "two " : ""}questions below.
+              </p>
+            )}
             {sectionsFor("reconnect").length > 0 ? (
               worksheetFor(sectionsFor("reconnect"))
             ) : (

@@ -207,14 +207,13 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     kind: "question",
     step: COMMITMENTS_STEP_RECONNECT,
     label: "What most needs our attention in this future?",
-    help: "Not a recap of the scenario. What in it can your group not let pass? You choose three priorities next, so this is the thinking that gets you there.",
   },
   {
     key: "w4-keep-in-mind",
     kind: "question",
     step: COMMITMENTS_STEP_RECONNECT,
-    label: "What should we keep in mind today?",
-    help: "Anything from the last three sessions you want kept in view while you work. An argument you never settled, or a caveat that keeps coming back.",
+    label:
+      "What should we most keep in mind from this scenario that is relevant to the world of today?",
   },
   {
     key: COMMITMENTS_KEY_OUTCOMES,
