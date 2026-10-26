@@ -970,11 +970,16 @@ export default function GroupSummaryView({
   // is where a reader who wants to check it finds the rest: the per-theme lean, the shared
   // grid, and the full ranking.
   //
-  // THE SHAPES FIRST, THEN THE WORDS, AND THE WORDS ONLY ONCE. This slide used to open on
+  // THE SHAPE FIRST, THEN THE WORDS, AND THE WORDS ONLY ONCE. This slide used to open on
   // the ranked lists and close on the theme balance — which carried its own full copy of
   // every risk and opportunity, so the same sentences appeared twice here and a third time
-  // on the themes slide. The two charts now sit at the top, where a committee reads the
-  // shape of the walls before any list, and exactly one list follows.
+  // on the themes slide. The balance now leads, where a committee reads the lean of the
+  // walls before meeting a single sentence, and exactly one list follows.
+  //
+  // EACH CHART SITS WITH WHAT IT IS ABOUT. The balance is about THEMES and takes the full
+  // width alone; the grid is about these exact PLACEMENTS and sits beside the list of them.
+  // Putting both charts together at the top read as two unrelated pictures and left a
+  // reader working out which one the grid belonged to.
   //
   // THE RANKING IS THE LIST THAT SURVIVED, because it is the only reading nothing else in
   // the deck gives: the themes slide already prints every stake in its theme's own words.
@@ -1020,34 +1025,39 @@ export default function GroupSummaryView({
             </>
           }
         >
-          {/* THE TWO SHAPES, SIDE BY SIDE. They answer different questions — the balance
-              says which way a theme leans, the grid says which individual stakes are big and
-              likely — so a reader who has both at a glance rarely needs the list at all. The
-              grid only exists once something is scored, and without it the balance takes the
-              full width rather than sitting at two thirds beside nothing. */}
-          <div
-            className={
-              "grid items-start gap-8 " +
-              (s.placements.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]" : "")
-            }
-          >
-            {s.gaps.stakes > 0 && <StakesBalance themes={s.themes} />}
-            {s.placements.length > 0 && (
-              <SummaryMatrix
-                noun="risk or opportunity"
-                rows={s.placements.map((p) => ({
-                  id: p.id,
-                  text: p.text,
-                  plausibility: p.plausibility,
-                  impact: p.impact,
-                  kind: p.kind,
-                }))}
-              />
-            )}
-          </div>
+          {/* THE THEME BALANCE, FULL WIDTH AND FIRST. It is the one reading here that is
+              about themes rather than about individual stakes, so it answers "which way do
+              the walls lean" before a reader meets a single sentence. Its rows are long
+              theme names with bars beside them; at two thirds of the width, next to the
+              grid, the bars lost the room that makes them comparable. */}
+          {s.gaps.stakes > 0 && <StakesBalance themes={s.themes} />}
 
+          {/* THE GRID BELONGS TO THE LIST, NOT TO THE CHART ABOVE IT. It plots these exact
+              rows — same cards, same scores — so beside the theme balance it read as a
+              second chart about something else, and a reader had to work out which of the
+              two it belonged to. Next to the list it is the same finding drawn twice: the
+              order on the left, the spread on the right. */}
           {s.placements.length > 0 && (
             <>
+              <p className={`mb-0 text-[15px] font-bold ${s.gaps.stakes > 0 ? "mt-10" : ""}`}>
+                The order they ranked them in
+              </p>
+              <div className="mt-4 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
+                <div className="grid gap-7 sm:grid-cols-2">
+                  <StakeColumn rows={risks} tone="risk" />
+                  <StakeColumn rows={opps} tone="opportunity" />
+                </div>
+                <SummaryMatrix
+                  noun="risk or opportunity"
+                  rows={s.placements.map((p) => ({
+                    id: p.id,
+                    text: p.text,
+                    plausibility: p.plausibility,
+                    impact: p.impact,
+                    kind: p.kind,
+                  }))}
+                />
+              </div>
               <p className="m-0 mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
                 <span className="flex items-center gap-1.5">
                   <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-coral" />
@@ -1067,11 +1077,6 @@ export default function GroupSummaryView({
                     ` ${s.placements.length - scored.length} placed but not scored, listed last.`}
                 </span>
               </p>
-              <p className="mb-0 mt-8 text-[15px] font-bold">The order they ranked them in</p>
-              <div className="mt-4 grid gap-7 sm:grid-cols-2">
-                <StakeColumn rows={risks} tone="risk" />
-                <StakeColumn rows={opps} tone="opportunity" />
-              </div>
             </>
           )}
         </Slide>
