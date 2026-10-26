@@ -362,7 +362,7 @@ export default function GroupSummaryView({
           {s.scenarioTitle ?? s.groupName}
         </h1>
         <p className="mt-5 max-w-[48ch] text-[clamp(16px,2vw,21px)] font-light leading-[1.45] text-ink">
-          What your group found in this future, in your own words.
+          What your group found in this future.
         </p>
         <dl className="mt-10 grid max-w-[900px] grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-x-5 gap-y-5 border-t border-[var(--hairline)] pt-6">
           {(
@@ -445,8 +445,7 @@ export default function GroupSummaryView({
           s.keyChanges.length > 0 ? (
             <>
               The changes your group chose to carry forward, each scored once by the room and
-              listed strongest first. The grid is where they landed.{" "}
-              {AXIS_LABELS.plausibility} runs from {AXIS_ENDS.plausibility.low.toLowerCase()} to{" "}
+              listed strongest first. {AXIS_LABELS.plausibility} runs from {AXIS_ENDS.plausibility.low.toLowerCase()} to{" "}
               {AXIS_ENDS.plausibility.high.toLowerCase()}. {AXIS_LABELS.impact} runs from{" "}
               {AXIS_ENDS.impact.low.toLowerCase()} to {AXIS_ENDS.impact.high.toLowerCase()}.
             </>
@@ -566,10 +565,6 @@ export default function GroupSummaryView({
 
   // ---- 07 · how the implications regrouped ---------------------------------------------
   if (s.clusterFlow.links.length > 0) {
-    const spreads = s.clusterFlow.themes.map(
-      (_, ti) => s.clusterFlow.links.filter((l) => l.themeIndex === ti && l.count > 0).length
-    );
-    const widest = Math.max(0, ...spreads);
     slides.push({
       id: "cluster",
       label: "How they regrouped",
@@ -581,9 +576,7 @@ export default function GroupSummaryView({
           intro={
             <>
               In Session 3 your group pulled {s.clusterFlow.traced} of its implications into
-              themes. This is where each one came from: themes down, the key changes they drew
-              on across. A theme fed by one key change is that change restated; a theme fed by{" "}
-              {widest > 1 ? widest : "several"} is something your group built.
+              themes. This is where each one came from.
             </>
           }
         >
@@ -606,11 +599,8 @@ export default function GroupSummaryView({
           intro={
             <>
               Your group gathered {s.themes.reduce((a, t) => a + t.implications, 0)} implications
-              into {s.themes.length} {s.themes.length === 1 ? "theme" : "themes"}
-              {s.unclustered > 0
-                ? `, and left ${s.unclustered} unclustered`
-                : ", and left none unclustered"}
-              . Ordered by how much each one puts at stake.
+              into {s.themes.length} {s.themes.length === 1 ? "theme" : "themes"}, ordered by how
+              your group ranked impact.
             </>
           }
         >
@@ -808,10 +798,8 @@ export default function GroupSummaryView({
           chip={<Chip tone="live">On the board</Chip>}
           intro={
             <>
-              {s.flips.length} {s.flips.length === 1 ? "fear" : "fears"}, and a hope written from
-              the same facts for{" "}
-              {flipped.length === s.flips.length ? "every one" : `${flipped.length} of them`}. Both
-              halves stay on the board, because both are honest readings of this future.
+              The hopes and fears your group has for public health in this future. Highlighted
+              are the ones that were created as fears.
             </>
           }
         >
@@ -822,7 +810,7 @@ export default function GroupSummaryView({
                 className="grid grid-cols-1 border border-[var(--hairline)] bg-card sm:grid-cols-2"
               >
                 <div
-                  className="border-b border-[var(--hairline)] px-[18px] py-4 sm:border-b-0 sm:border-r"
+                  className="border-b border-[var(--hairline)] px-[18px] py-4 sm:border-b-0"
                   style={{ background: "rgba(255,100,78,0.07)" }}
                 >
                   <p className="m-0 mb-2 flex items-center gap-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-coral">
@@ -831,7 +819,14 @@ export default function GroupSummaryView({
                   </p>
                   <p className="m-0 text-[14.5px] leading-[1.5]">{f.fear}</p>
                 </div>
-                <div className="px-[18px] py-4">
+                <div
+                  className={`px-[18px] py-4 ${f.hopes.length ? "border-l-[3px]" : "sm:border-l sm:border-l-[var(--hairline)]"}`}
+                  style={
+                    f.hopes.length
+                      ? { background: "rgba(196,255,103,0.16)", borderLeftColor: "#3f5209" }
+                      : undefined
+                  }
+                >
                   <p
                     className="m-0 mb-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em]"
                     style={{ color: f.hopes.length ? "#3f5209" : "var(--muted)" }}
@@ -867,7 +862,8 @@ export default function GroupSummaryView({
                 {s.standaloneHopes.map((h, i) => (
                   <li
                     key={i}
-                    className="relative max-w-[76ch] border-b border-[var(--hairline)] py-[13px] pl-5 text-[14.5px] last:border-b-0"
+                    className="relative max-w-[76ch] border-b border-[var(--hairline)] py-[13px] pl-5 pr-3 text-[14.5px] last:border-b-0"
+                    style={{ background: "rgba(196,255,103,0.10)" }}
                   >
                     <span className="absolute left-0 top-[21px] h-2 w-2 border border-[#3f5209] bg-lime" />
                     {h}
