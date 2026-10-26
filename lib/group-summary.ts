@@ -179,6 +179,10 @@ export interface SummaryPlacement {
   plausibility: number | null;
   impact: number | null;
   rank: number | null; // plausibility x impact, or null while either axis is unset
+  // Why the room could not agree, when the group said. Null on an undisputed placement and
+  // on a disputed one nobody explained. Carried on the placement rather than on a separate
+  // `disputed` list so the note cannot drift from the words it is about.
+  note: string | null;
 }
 
 // One of act 6's three directions: the move itself, and the three answers that sharpen it.
@@ -508,6 +512,7 @@ export function buildGroupSummary(
               plausibility: p.plausibility,
               impact: p.impact,
               rank: p.rank,
+              note: p.note,
             },
           ];
         })

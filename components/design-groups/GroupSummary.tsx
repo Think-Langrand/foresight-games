@@ -392,6 +392,12 @@ function DisputedList({ rows }: { rows: SummaryPlacement[] }) {
         {rows.map((p) => (
           <li key={p.id} className="max-w-[72ch]">
             <p className="m-0 text-[15px] leading-[1.45]">{p.text}</p>
+            {/* THE NOTE IS THE FINDING, not the flag. "We could not agree about this" tells
+                a committee almost nothing; what the split was about is the thing worth
+                reading, which is why it prints at full size rather than as a caption. */}
+            {p.note && (
+              <p className="m-0 mt-1 text-[14px] italic leading-[1.45] text-muted">{p.note}</p>
+            )}
             <p className="m-0 mt-1 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted">
               {p.kind === "risk" ? "Risk" : "Opportunity"}
             </p>

@@ -606,9 +606,9 @@ describe("buildGroupSummary · the curated handoff", () => {
     );
     // Strongest first, regardless of the order the picks arrived in, and the unscored last.
     expect(s.placements).toEqual([
-      { id: "o1", text: "starred opp", kind: "opportunity", plausibility: 5, impact: 4, rank: 20 },
-      { id: "r2", text: "plain risk", kind: "risk", plausibility: 2, impact: 5, rank: 10 },
-      { id: "r1", text: "starred risk", kind: "risk", plausibility: null, impact: null, rank: null },
+      { id: "o1", text: "starred opp", kind: "opportunity", plausibility: 5, impact: 4, rank: 20, note: null },
+      { id: "r2", text: "plain risk", kind: "risk", plausibility: 2, impact: 5, rank: 10, note: null },
+      { id: "r1", text: "starred risk", kind: "risk", plausibility: null, impact: null, rank: null, note: null },
     ]);
   });
 
