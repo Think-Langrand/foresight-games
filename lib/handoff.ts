@@ -23,9 +23,9 @@ export interface HandoffData {
   // Handed through unshaped: the map slide mounts the real Session 2 panel, which builds
   // the tree and its filters from these cards rather than from the projection.
   implications: ImplicationsExercise | null;
-  // The group's own lead for slide 02, written on Session 4's "Build handoff guide" step
-  // and stored on that board's session config. Null when nobody has written one, and the
-  // slide falls back to the projected answers.
+  // The group's own note to the committee — the deck's closing slide — written on Session
+  // 4's "Build handoff guide" step and stored on that board's session config. Null when
+  // nobody has written one, and the slide is simply absent.
   execOverride: ExecSummaryOverride | null;
   // The scenario's own artwork, at most three, in `position` order.
   //
@@ -37,6 +37,19 @@ export interface HandoffData {
   // NON-FATAL. Foresight being down, a group with no scenario ref, or a scenario with no
   // art all end here as an empty list, and the slides simply render without pictures.
   images: ScenarioImage[];
+  // The scenario itself, as the scenario overview slide needs it: its own title and the
+  // `teaser` — which is the prose the house calls the Overview everywhere else it is read
+  // (ScenarioReader's standfirst, the Session 4 rail's scenario context).
+  //
+  // THE TITLE IS A FALLBACK, not the preferred one. `summary.scenarioTitle` — the string
+  // copied onto the design group at setup — is what the cover prints, and the two really do
+  // diverge in live data, so the slide uses the group's copy first and reaches for this one
+  // only when there is none. See the slide for why one name beats the better name.
+  //
+  // Null when there is no scenario to read at all — Foresight down, or a group with no
+  // scenario ref. NOT null for a scenario with no art, which is the third of `images`'
+  // conditions: the slide is prose-led and draws perfectly well without a picture.
+  scenario: { title: string; overview: string } | null;
 }
 
 export async function loadHandoff(
@@ -72,6 +85,7 @@ export async function loadHandoff(
   // is the week most likely to exist by the time anyone reads a handoff.
   const artCode = week4Code ?? exercises.find((ex) => ex.sessionCode)?.sessionCode ?? null;
   let images: ScenarioImage[] = [];
+  let scenarioOverview: HandoffData["scenario"] = null;
   if (artCode) {
     const session = await getSessionByCode(artCode);
     const scenario = session ? await getRippleScenario(session) : null;
@@ -81,6 +95,15 @@ export async function loadHandoff(
       // the same rule ScenarioReader and Week3Reference use to pick their hero.
       .sort((a, b) => a.position - b.position)
       .slice(0, 3);
+    // One fetch, two uses: the artwork and the overview come off the same record, so the
+    // scenario slide costs nothing beyond what the figures already paid for.
+    //
+    // EITHER FIELD IS ENOUGH. The title is only a fallback for the cover's, so a scenario
+    // carrying Overview prose under an empty title still has something worth a slide;
+    // gating on the title alone threw that away.
+    const title = scenario?.title?.trim() ?? "";
+    const overview = scenario?.teaser?.trim() ?? "";
+    if (title || overview) scenarioOverview = { title, overview };
   }
 
   return {
@@ -92,5 +115,6 @@ export async function loadHandoff(
       (weeks.find((w) => w.kind === "implications") as ImplicationsExercise | undefined) ?? null,
     execOverride,
     images,
+    scenario: scenarioOverview,
   };
 }

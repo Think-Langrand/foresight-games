@@ -50,6 +50,34 @@ function when(iso: string): string {
   );
 }
 
+// The one way from this step to the deck it is editing.
+//
+// NOT "this week". It opens the handoff deck, which buildGroupSummary assembles from all
+// four sessions — Session 1's reactions and open questions, Session 2's key changes and
+// their chains, Session 3's themes, stakes and flips, and this week's. Calling it "this
+// week" undersold it to the one audience that most needs to see the whole thing.
+//
+// A NEW TAB, not a navigation. The board is mid-review; sending it away and back would
+// reset the step they were reading. As a quiet dotted link below Submit this went
+// unclicked, which is what prompted the button.
+//
+// GATED ON `summaryHref`: the parent passes it only when the handoff is visible to this
+// group or the viewer is an admin, so rendering it unconditionally would hand every member
+// a 404.
+function DeckLink({ summaryHref, label }: { summaryHref?: string; label: string }) {
+  if (!summaryHref) return null;
+  return (
+    <a
+      href={summaryHref}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded-[3px] bg-blue px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.06em] text-white transition hover:bg-ink"
+    >
+      {label}
+    </a>
+  );
+}
+
 function SubmitBar({
   submittedAt,
   submittedBy,
@@ -69,7 +97,7 @@ function SubmitBar({
 }) {
   if (submittedAt) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[3px] border-2 border-[var(--lime-deep)] bg-lime/25 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-[3px] border-2 border-[var(--lime-deep)] bg-lime/25 px-5 py-4">
         <span className="min-w-0">
           <span className="block text-[15px] font-extrabold uppercase tracking-tight">
             Submitted {when(submittedAt)}
@@ -80,16 +108,24 @@ function SubmitBar({
             editing.
           </span>
         </span>
-        {editable && (
-          <button
-            type="button"
-            onClick={onUndo}
-            disabled={busy}
-            className="shrink-0 text-[13px] font-bold uppercase tracking-[0.06em] text-muted underline hover:text-coral disabled:opacity-50"
-          >
-            Undo
-          </button>
-        )}
+        {/* THE WAY TO THE DECK SURVIVES SUBMITTING. This branch used to return before the
+            button below, so the one link to the thing four sessions produced vanished at the
+            exact moment a group finished and wanted to look at it — and the handoff tab is
+            where they come back to, so it never reappeared. Submitting changes who can see
+            the deck, not whether the group can. */}
+        <span className="flex shrink-0 flex-wrap items-center justify-end gap-x-5 gap-y-2">
+          <DeckLink summaryHref={summaryHref} label="Open your handoff" />
+          {editable && (
+            <button
+              type="button"
+              onClick={onUndo}
+              disabled={busy}
+              className="text-[13px] font-bold uppercase tracking-[0.06em] text-muted underline hover:text-coral disabled:opacity-50"
+            >
+              Undo
+            </button>
+          )}
+        </span>
       </div>
     );
   }
@@ -106,32 +142,9 @@ function SubmitBar({
         </span>
       </span>
       <span className="flex shrink-0 flex-wrap items-center justify-end gap-2.5">
-        {/* NOT "this week". It opens the handoff deck, which buildGroupSummary assembles
-            from all four sessions — Session 1's reactions and open questions, Session 2's
-            key changes and their chains, Session 3's themes, stakes and flips, and this
-            week's. Calling it "this week" undersold it to the one audience that most needs
-            to see the whole thing before saying it is done.
-
-            LEFT OF SUBMIT because it answers the question Submit asks, and blue against
-            Submit's ink: two actions, and the one that changes nothing looks different.
-
-            A NEW TAB, not a navigation. The board is mid-review; sending it away and back
-            would reset the step they were reading. As a quiet dotted link below Submit this
-            went unclicked, which is what prompted the button.
-
-            Still gated on `summaryHref`: the parent passes it only when the handoff is
-            visible to this group or the viewer is an admin, so rendering it unconditionally
-            would hand every member a 404. */}
-        {summaryHref && (
-          <a
-            href={summaryHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-[3px] bg-blue px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.06em] text-white transition hover:bg-ink"
-          >
-            Preview the handoff
-          </a>
-        )}
+        {/* LEFT OF SUBMIT because it answers the question Submit asks, and blue against
+            Submit's ink: two actions, and the one that changes nothing looks different. */}
+        <DeckLink summaryHref={summaryHref} label="Preview the handoff" />
         <button
           type="button"
           onClick={onSubmit}
