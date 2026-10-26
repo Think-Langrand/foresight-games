@@ -1,61 +1,134 @@
 "use client";
 
 import type { RippleCard } from "@/lib/ripples-types";
-import type { WorksheetSection } from "@/lib/exercise-types";
-import { MAX_BOLD_MOVES, type CommitmentsBoard } from "@/lib/commitments-shape";
+import {
+  DIRECTION_FIELDS,
+  MAX_BOLD_MOVES,
+  sharpenCount,
+  sharpenFor,
+  strandedSharpening,
+  type CommitmentsBoard,
+  type DirectionFieldKey,
+} from "@/lib/commitments-shape";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
-import { AspirationRecap } from "@/components/workshop/commitments/AspirationRecap";
 
-// STEP 3 — the bold moves. Choosing is the work: the wall from step 2 is the option space,
-// and this step is the group saying which three it would actually stand behind.
+// ACT 6 — select and sharpen three directions. Two halves, and the order matters: the wall
+// from act 4 is the option space, the group says which three it would stand behind, and
+// then it answers three questions about each.
 //
-// A BOLD MOVE IS A RESPONSE CARRYING `shortlisted`. There is no second card and no rank
+// A DIRECTION IS A RESPONSE CARRYING `shortlisted`. There is no second card and no rank
 // column — see lib/commitments-shape's header. That means a tick here is a real write, not
-// transient client state: it survives a reload, every member of the group sees it, and
-// step 4 reads it straight off the same cards.
+// transient client state: it survives a reload and every member of the group sees it.
+//
+// THE MOVE IS THE RESPONSE'S OWN TEXT, which is why only three fields are composed here
+// rather than four. "What should change?" was answered on the wall; editing it is editing
+// the response, which happens on act 4 where it was written.
+//
+// SHARPENING SURVIVES UN-CHOOSING. The three answers are children of the response, so
+// un-ticking a direction strands them rather than deleting them and re-ticking brings them
+// back whole. That is reported rather than left to be discovered — see the stranded note.
 //
 // The cap is enforced HERE and not by the database. Counting server-side would be a
 // read-then-write race on a board several people work at once, so the copy says "up to
-// three" and the shape reports a fourth rather than hiding it (boldMoveProgress). An
-// over-pick is a thing to tell the group about, not a thing to make impossible.
+// three" and the shape reports a fourth rather than hiding it. An over-pick is a thing to
+// tell the group about, not a thing to make impossible.
 
 const movesDirections = makePrefStore("commitments.directions.moves", "open", DIRECTIONS_FOLD);
 
+// The activity's discussion prompts, as guidance. The group's answer is the three it
+// chooses and what it writes about them, not a paragraph typed under a heading.
 const MOVES_DIRECTIONS = [
   `Pick up to ${MAX_BOLD_MOVES}. If everything is bold, nothing is.`,
+  "Which three would make the greatest contribution to the vision? Do they work together?",
   "Choose the ones that would change what your group actually does, not the ones that are easiest to agree on.",
-  "You can sharpen the wording of a move on step 2; the card is the same card.",
-  "Nothing is lost by un-picking. The move goes back to the wall and keeps any milestones you gave it.",
+  "Then answer the three questions on each. A direction nobody can say the purpose of is not sharp yet.",
+  "Test: if you pursued only these three, would you make meaningful progress toward your vision?",
+  "You can reword a move on step 4; the card is the same card.",
+  "Nothing is lost by un-picking. The move goes back to the wall and keeps what you wrote about it.",
 ];
+
+// The three questions that sharpen one chosen direction.
+//
+// UNCONTROLLED, SAVING ON BLUR. A controlled textarea on a shared board fights every
+// realtime push while someone is mid-sentence, and these are short paragraphs rather than
+// a word. `defaultValue` keyed by the card's id means a field re-seeds when the direction
+// changes and otherwise leaves the typist alone. Clearing the box deletes the answer —
+// an empty card would count as answered everywhere while showing nothing.
+function SharpenFields({
+  direction,
+  board,
+  editable,
+  busy,
+  onSharpen,
+}: {
+  direction: RippleCard;
+  board: CommitmentsBoard;
+  editable: boolean;
+  busy: boolean;
+  onSharpen: (direction: RippleCard, field: DirectionFieldKey, text: string) => void;
+}) {
+  return (
+    <div className="grid gap-4 border-t border-[var(--hairline)] bg-blue/[0.04] px-3 py-4 pl-10 sm:grid-cols-3">
+      {DIRECTION_FIELDS.map((f) => {
+        const existing = sharpenFor(board, direction.id, f.key);
+        return (
+          <label key={f.key} className="flex min-w-0 flex-col gap-1">
+            <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-blue">
+              {f.label}
+            </span>
+            <span className="text-[11.5px] italic leading-[1.35] text-muted">{f.prompt}</span>
+            <textarea
+              key={existing[0]?.id ?? "new"}
+              defaultValue={existing[0]?.text ?? ""}
+              disabled={!editable || busy}
+              onBlur={(e) => {
+                if (e.target.value.trim() === (existing[0]?.text ?? "")) return;
+                onSharpen(direction, f.key, e.target.value);
+              }}
+              rows={3}
+              className="mt-0.5 w-full rounded-[3px] border border-[var(--rule)] bg-paper px-2 py-1.5 text-[12.5px] leading-[1.45]"
+            />
+            {/* The database does not hold one-answer-per-field (see DIRECTION_FIELDS), so
+                a second answer is SHOWN rather than hidden behind the one being edited. */}
+            {existing.length > 1 && (
+              <span className="text-[11px] italic text-muted">
+                {existing.length - 1} other answer{existing.length > 2 ? "s" : ""} on this
+                field: {existing.slice(1).map((c) => c.text).join(" · ")}
+              </span>
+            )}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 export function MovesBoard({
   board,
-  sections,
-  cards,
   editable,
+  busy,
   onToggle,
-  onGoToAspiration,
+  onSharpen,
   onGoToResponses,
 }: {
   board: CommitmentsBoard;
-  sections: WorksheetSection[];
-  cards: RippleCard[];
   editable: boolean;
-  // No `busy`: this step has no composer, and gating the ticks on a board-wide flag is
-  // exactly the bug the comment below describes.
+  // Passed for the FIELDS only. The ticks below are deliberately not gated on it — see the
+  // note at the checkbox.
+  busy: boolean;
   onToggle: (card: RippleCard, shortlisted: boolean) => void;
-  onGoToAspiration: () => void;
+  onSharpen: (direction: RippleCard, field: DirectionFieldKey, text: string) => void;
   onGoToResponses: () => void;
 }) {
   const picked = board.boldMoves.length;
+  const stranded = strandedSharpening(board);
   const atCap = picked >= MAX_BOLD_MOVES;
   const over = picked > MAX_BOLD_MOVES;
 
   if (board.responses.length === 0) {
     return (
       <div className="flex flex-col gap-5">
-        <AspirationRecap sections={sections} cards={cards} onGoToAspiration={onGoToAspiration} />
         <div className="rounded-[4px] border border-dashed border-[var(--rule)] px-5 py-6 text-center">
           <p className="m-0 text-[14px] font-bold">Nothing to choose between yet.</p>
           <p className="m-0 mt-1 text-[13px] text-muted">
@@ -75,8 +148,6 @@ export function MovesBoard({
 
   return (
     <div className="flex flex-col gap-5">
-      <AspirationRecap sections={sections} cards={cards} onGoToAspiration={onGoToAspiration} />
-
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0">
           {/* The count is the step's whole state, so it sits above the list and stays
@@ -134,20 +205,46 @@ export function MovesBoard({
                       </span>
                       {on && (
                         <span className="mt-1 block font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-blue">
-                          ★ a bold move
+                          ★ a direction &middot; {sharpenCount(board, c.id)} of{" "}
+                          {DIRECTION_FIELDS.length} answered
                         </span>
                       )}
                     </span>
                   </label>
+                  {/* THE FIELDS SIT UNDER THE MOVE THEY SHARPEN, not on a tab of their
+                      own. The questions are about THIS direction and are meaningless
+                      apart from it, and a group reading them in a separate list would
+                      have to hold the move in its head while answering. */}
+                  {on && (
+                    <SharpenFields
+                      direction={c}
+                      board={board}
+                      editable={editable}
+                      busy={busy}
+                      onSharpen={onSharpen}
+                    />
+                  )}
                 </li>
               );
             })}
           </ul>
         </div>
 
-        <div>
+        <div className="flex flex-col gap-4">
+          {/* "Where did what I wrote go?" answered before it is asked. Un-choosing a
+              direction leaves its three answers intact under the response, so this says
+              so rather than letting the group find out by re-choosing. */}
+          {stranded.length > 0 && (
+            <p className="m-0 rounded-[3px] border-l-[3px] border-blue bg-blue/10 px-3 py-2 text-[12.5px] leading-[1.45]">
+              {stranded.length} answer{stranded.length === 1 ? "" : "s"} you wrote about a
+              move you have since un-picked.{" "}
+              <span className="italic text-muted">
+                Nothing is lost — pick it again and they come back.
+              </span>
+            </p>
+          )}
           <Directions
-            title="Choosing three"
+            title="Choosing three, then sharpening them"
             lines={MOVES_DIRECTIONS}
             fold={movesDirections}
             first

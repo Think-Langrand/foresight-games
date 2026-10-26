@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   EXERCISE_TYPES,
   DEFAULT_PROGRAM,
@@ -332,6 +333,29 @@ describe("commitments exercise type", () => {
     ]) {
       expect(keys).not.toContain(retired);
     }
+  });
+
+  it("agrees with the hand-copy in scripts/reset-dev-program.mjs", () => {
+    // scripts/ cannot import lib/ — this file is `import \"server-only\"` — so the dev reset
+    // script carries a verbatim copy of these sections. Letting the two drift means
+    // `reset-dev-program apply` silently re-stamps yesterday's prompts over today's, which
+    // is invisible until a group opens the board and finds the wrong question.
+    //
+    // KEYS AND STEPS ONLY. The labels and help text are the display side and a stamped
+    // exercise owns its own snapshot, so those may differ without consequence; what must
+    // not differ is which answer bucket a prompt writes to and which tab it lands on.
+    const script = readFileSync(
+      new URL("../scripts/reset-dev-program.mjs", import.meta.url),
+      "utf8"
+    );
+    const block = script.slice(
+      script.indexOf("const COMMITMENTS_SECTIONS = ["),
+      script.indexOf("function week1Sections()")
+    );
+    const pairs = [...block.matchAll(/key: "([^"]+)",\s*\n\s*kind: "[^"]+",\s*\n\s*step: "([^"]+)"/g)];
+    expect(pairs.map((m) => [m[1], m[2]])).toEqual(
+      EXERCISE_TYPES.commitments.sections!.map((s) => [s.key, s.step])
+    );
   });
 
   it("keeps the vision on the key its answers were written under", () => {

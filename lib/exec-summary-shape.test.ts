@@ -106,9 +106,20 @@ describe("execSummaryDefaultText", () => {
 // to summarise, so step 5 asks this before it offers the button. It is a gate on the MODEL,
 // not on the group: every step stays editable whatever this returns.
 describe("execSummaryReadiness", () => {
-  const full = { changes: 2, changesTotal: 2, placements: 6, responses: 4, moves: 2, movesTotal: 2 };
+  const full = {
+    grounding: 2,
+    groundingTotal: 2,
+    priorities: 3,
+    outcomes: 1,
+    outcomesTotal: 1,
+    responses: 4,
+    vision: 1,
+    visionTotal: 1,
+    directions: 3,
+    sharpened: 3,
+  };
 
-  it("is ready when all four steps have been worked", () => {
+  it("is ready when all six activities have been worked", () => {
     const r = execSummaryReadiness(full);
     expect(r.ready).toBe(true);
     expect(r.missing).toEqual([]);
@@ -116,39 +127,61 @@ describe("execSummaryReadiness", () => {
 
   it("reports every step with its state, so the locked panel can tick off what is done", () => {
     // The panel shows the whole list, not just the gaps: a group wants to see how close it
-    // is, and four names with three ticks says that where a list of one gap does not.
+    // is, and six names with five ticks says that where a list of one gap does not.
     expect(execSummaryReadiness({ ...full, responses: 0 }).steps).toEqual([
-      { label: "Structure & assumptions", done: true },
-      { label: "Risks & opportunities", done: true },
+      { label: "Reconnect", done: true },
+      { label: "Prioritize", done: true },
+      { label: "Desired outcomes", done: true },
       { label: "Strategic responses", done: false },
-      { label: "Identity & direction", done: true },
+      { label: "Set the vision", done: true },
+      { label: "Three directions", done: true },
     ]);
   });
 
   it("marks a step with no prompts done rather than leaving it unticked forever", () => {
-    const r = execSummaryReadiness({ ...full, changes: 0, changesTotal: 0 });
-    expect(r.steps[0]).toEqual({ label: "Structure & assumptions", done: true });
+    const r = execSummaryReadiness({ ...full, grounding: 0, groundingTotal: 0 });
+    expect(r.steps[0]).toEqual({ label: "Reconnect", done: true });
   });
 
   it("names every step still empty, in step order, so the list reads as the tabs do", () => {
     expect(
-      execSummaryReadiness({ ...full, changes: 1, placements: 0, responses: 0, moves: 0 }).missing
+      execSummaryReadiness({
+        ...full,
+        grounding: 1,
+        priorities: 0,
+        outcomes: 0,
+        responses: 0,
+        vision: 0,
+        directions: 0,
+      }).missing
     ).toEqual([
-      "Structure & assumptions",
-      "Risks & opportunities",
+      "Reconnect",
+      "Prioritize",
+      "Desired outcomes",
       "Strategic responses",
-      "Identity & direction",
+      "Set the vision",
+      "Three directions",
     ]);
   });
 
   it("counts a partly answered written step as missing, not as done", () => {
-    expect(execSummaryReadiness({ ...full, moves: 1 }).missing).toEqual(["Identity & direction"]);
+    expect(execSummaryReadiness({ ...full, grounding: 1 }).missing).toEqual(["Reconnect"]);
+  });
+
+  it("asks that directions be CHOSEN, not that they be sharpened", () => {
+    // The gate asks whether there is enough on the board to write about, and three named
+    // directions are that even before their nine fields are filled. Holding the handoff
+    // shut until every field is answered would make the last tab unreachable for a group
+    // that ran out of time with its recommendations already made.
+    const r = execSummaryReadiness({ ...full, sharpened: 0 });
+    expect(r.ready).toBe(true);
+    expect(r.missing).toEqual([]);
   });
 
   it("treats a step with no prompts at all as satisfied rather than permanently blocking", () => {
     // A facilitator can edit the program and remove a step's prompts. Nobody could ever
     // answer them, so holding the button hostage to them would be a dead end.
-    expect(execSummaryReadiness({ ...full, changes: 0, changesTotal: 0 }).ready).toBe(true);
+    expect(execSummaryReadiness({ ...full, grounding: 0, groundingTotal: 0 }).ready).toBe(true);
   });
 });
 

@@ -84,38 +84,48 @@ async function q(builder) {
   return data;
 }
 
-// lib/exercise-types.ts COMMITMENTS_SECTIONS. The keys are the permanent answer-card
-// buckets (w4-role is matched by identity by the handoff deck), so they are copied
-// verbatim; the labels and help text are the display side and may drift from the code
-// without consequence here, because a stamped exercise owns its own snapshot.
+// lib/exercise-types.ts COMMITMENTS_SECTIONS, the six-activity shape. Kept in step BY HAND
+// because scripts/ cannot import lib/ (it is `import "server-only"`), so changing a prompt
+// means changing it in both places or this script re-stamps the old text over the new.
+//
+// THE KEYS ARE THE PERMANENT ANSWER-CARD BUCKETS and are copied verbatim; the labels and
+// help text are the display side and may drift without consequence, because a stamped
+// exercise owns its own snapshot. `w4-role` is matched by identity by the handoff deck and
+// is deliberately NOT renamed although its activity is now "Set the vision" — the answers
+// under it are the same kind of thing.
+//
+// ONLY THREE OF THE SIX ACTIVITIES APPEAR HERE. Acts 2, 4 and 6 are boards: the group's
+// answer there is what it stars, writes on a card or sharpens, and their discussion
+// prompts are guidance that lives in each board's Directions fold.
 const COMMITMENTS_SECTIONS = [
   {
-    key: "w4-summary",
+    key: "w4-attention",
     kind: "question",
-    step: "Key changes",
-    label: "How has the field of public health changed the most in this world?",
-    help: "Describe how the whole field works in this world. Write it so someone who missed every session could follow you.",
+    step: "Reconnect",
+    label: "What most needs our attention in this future?",
+    help: "Not a recap of the scenario — what, in it, you cannot let pass. You will choose three priorities next; this is the thinking that gets you there.",
   },
   {
-    key: "w4-assumptions",
+    key: "w4-keep-in-mind",
     kind: "question",
-    step: "Key changes",
-    label: "Which of today's assumptions about public health stop being true in this scenario?",
-    help: "Look for what nobody argues about today, because everyone takes it for granted. In this world it no longer holds.",
+    step: "Reconnect",
+    label: "What should we keep in mind today?",
+    help: "Anything from the last three sessions the group wants held in view while it works — an unresolved argument, a caveat, something that keeps coming back.",
+  },
+  {
+    key: "w4-outcomes",
+    kind: "question",
+    step: "Desired outcomes",
+    label:
+      "Looking at your priorities and hopes, what do you want public health to make possible for communities in this future?",
+    help: "One or two for each priority. Write what would be different for communities if public health did its job well here — the outcome, not the activity that produces it.",
   },
   {
     key: "w4-role",
     kind: "question",
-    step: "Bold moves",
-    label: "What is the aspirational role for public health in this world?",
-    help: "Write what the field is reaching for, not what you expect it to settle for. Put it in the present tense, as though this world has already arrived. The moves below are how you get there.",
-  },
-  {
-    key: "w4-bold-moves",
-    kind: "question",
-    step: "Bold moves",
-    label: "What are the boldest moves public health could make in this world to reach that role?",
-    help: "Write three, one per answer. Name who acts and what they do, concretely enough that you could picture it happening.",
+    step: "Set the vision",
+    label: "What future do you want to work toward?",
+    help: "A short aspiration statement that answers this scenario's particular challenges. Write it in the present tense, as though this world has already arrived, and test it: is this worth achieving for people?",
   },
 ];
 

@@ -207,7 +207,10 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
   const [shorts, setShorts] = useState<Map<string, boolean>>(() => new Map());
   // Week 4's timeline: which two-year period a milestone was just dragged into. The
   // period lives in `section`, so this overlays that column rather than a dedicated one.
-  const [sections, setSections] = useState<Map<string, string>>(() => new Map());
+  // Nullable because CLEARING one is a real act: un-flagging a disputed Week 4 priority
+  // puts the pick back to carrying no section at all. Dropping the overlay instead would
+  // fall back to the server's row, which still says disputed until the write lands.
+  const [sections, setSections] = useState<Map<string, string | null>>(() => new Map());
   // `inflight` counts this card's score writes that haven't come back yet. While any is
   // outstanding the overlay has to stand, because the server list in hand may predate it.
   const [scores, setScores] = useState<Map<string, { patch: ScorePatch; inflight: number }>>(
@@ -380,7 +383,7 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
           ...(parks.has(c.id) ? { parked: parks.get(c.id)! } : {}),
           ...(descs.has(c.id) ? { description: descs.get(c.id)! } : {}),
           ...(shorts.has(c.id) ? { shortlisted: shorts.get(c.id)! } : {}),
-          ...(sections.has(c.id) ? { section: sections.get(c.id)! } : {}),
+          ...(sections.has(c.id) ? { section: sections.get(c.id) ?? null } : {}),
         };
       });
   }, [serverCards, adds, deletes, sorts, edits, scores, reparents, parks, descs, shorts, sections]);
@@ -435,7 +438,7 @@ export function useOptimisticCards(serverCards: RippleCard[]) {
     []
   );
   const sectionLocal = useCallback(
-    (id: string, section: string) => setSections((p) => new Map(p).set(id, section)),
+    (id: string, section: string | null) => setSections((p) => new Map(p).set(id, section)),
     []
   );
   const dropSectionLocal = useCallback(
@@ -662,6 +665,26 @@ export async function periodRippleCard(
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Could not move that milestone.");
   return data as { ok: true; period: string };
+}
+
+// Week 4 act 2: flag a priority as a consequential issue the room could not settle, or
+// clear the flag. The note explaining the split is `description` and is written separately,
+// so it survives the flag being cleared and comes back if the group re-flags it.
+export async function disputeRippleCard(
+  code: string,
+  cardId: string,
+  body: { participantId: string; disputed: boolean }
+) {
+  const res = await fetch(
+    `/api/sessions/${encodeURIComponent(code)}/ripples/cards/${encodeURIComponent(cardId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "dispute", ...body }),
+    }
+  );
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+  return res.json();
 }
 
 export async function parkRippleCard(

@@ -10,6 +10,8 @@ import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/worksho
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { ResponseRecap } from "@/components/workshop/commitments/ResponseRecap";
+import { PriorityRecap } from "@/components/workshop/commitments/PriorityRecap";
+import { MovesBoard } from "@/components/workshop/commitments/MovesBoard";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
 import { StepProgress } from "@/components/workshop/commitments/StepProgress";
 import ExecSummaryComposer from "@/components/design-groups/ExecSummaryComposer";
@@ -20,8 +22,11 @@ import {
   useRipplesView,
   useOptimisticCards,
   deleteRippleCard,
+  describeRippleCard,
+  disputeRippleCard,
   editRippleCard,
   postRippleCard,
+  shortlistRippleCard,
   scoreRippleCard,
   reorderRippleCard,
   submitRippleBoard,
@@ -34,11 +39,17 @@ import type { ScorePatchInput } from "@/lib/ripples-scoring";
 import { cardScores } from "@/lib/ripples-scoring";
 import { SORT_STEP } from "@/lib/synthesis-shape";
 import {
+  DIRECTION_FIELDS,
+  DISPUTED_SECTION,
   indexCommitmentsBoard,
+  isSharpened,
+  priorities,
+  sharpenFor,
+  type DirectionFieldKey,
 } from "@/lib/commitments-shape";
 import {
-  COMMITMENTS_KEY_ROLE,
-  COMMITMENTS_STEP_MOVES,
+  commitmentsSectionsFor,
+  type CommitmentsSectionStep,
   type WorksheetSection,
 } from "@/lib/exercise-types";
 import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
@@ -78,22 +89,37 @@ function NoPrompts() {
   );
 }
 
-// Local to this file, the way Week 3 keeps its own. There is no step registry and these
-// are not worth inventing one for.
-type CommitStep = "changes" | "matrix" | "responses" | "moves" | "review";
+// The six activities, plus the handoff. Local to this file, the way Week 3 keeps its own:
+// these are the TABS, and which authored sections land on one is the separate question
+// COMMITMENTS_SECTION_STEPS answers in lib/exercise-types. Three tabs render sections,
+// three are boards, and the last is the review.
+type CommitStep =
+  | "reconnect"
+  | "prioritize"
+  | "outcomes"
+  | "responses"
+  | "vision"
+  | "directions"
+  | "review";
 const COMMIT_STEPS: readonly CommitStep[] = [
-  "changes",
-  "matrix",
+  "reconnect",
+  "prioritize",
+  "outcomes",
   "responses",
-  "moves",
+  "vision",
+  "directions",
   "review",
 ];
+// Short on purpose: seven tabs share one row, and the number is what a facilitator calls
+// out in the room ("everyone on 4"). The full activity name is the slide's heading.
 const STEP_LABELS: Record<CommitStep, string> = {
-  changes: "1 \u00b7 Structure & assumptions",
-  matrix: "2 \u00b7 Risks & opportunities",
-  responses: "3 \u00b7 Strategic responses",
-  moves: "4 \u00b7 Identity & direction",
-  review: "5 \u00b7 Handoff",
+  reconnect: "1 \u00b7 Reconnect",
+  prioritize: "2 \u00b7 Prioritize",
+  outcomes: "3 \u00b7 Desired outcomes",
+  responses: "4 \u00b7 Strategic responses",
+  vision: "5 \u00b7 Set the vision",
+  directions: "6 \u00b7 Three directions",
+  review: "7 \u00b7 Handoff",
 };
 
 export function CommitmentsTeamView({
@@ -145,6 +171,9 @@ export function CommitmentsTeamView({
     unremoveLocal,
     reorderLocal,
     editLocal,
+    describeLocal,
+    shortlistLocal,
+    sectionLocal,
     scoreLocal,
     settleScoreLocal,
     dropScoreLocal,
@@ -154,7 +183,7 @@ export function CommitmentsTeamView({
   const [showScenario, setShowScenario] = useState(true);
   // Declared up here with the other state, NOT inside the build branch below — several
   // early returns sit between the two, and a hook after one of them would break the order.
-  const [step, setStep] = useState<CommitStep>("changes");
+  const [step, setStep] = useState<CommitStep>("reconnect");
   // Step 5's marks, keyed `<kind>:<sourceCardId>`, while their write is in flight. A mark
   // has no id until the server mints one, so it cannot ride the card overlay the way every
   // other write on this board does; without this the board showed nothing at all for the
@@ -562,6 +591,125 @@ export function CommitmentsTeamView({
     toggleMark("pick", { id: card.id, text: card.text }, false);
   };
 
+  // --- act 2: naming the three priorities, and flagging a dispute ----------------------
+  //
+  // BOTH MARKERS RIDE ON THE PICK, which is forced rather than chosen: 0018's unique
+  // (code, source_card_id) permits exactly one Week 4 card per Session 3 source, so a
+  // separate "priority" or "disputed" card pointing at a risk that already has a pick
+  // could not be written. `ensurePick` is the same mint the matrix uses, so starring a row
+  // nobody scored brings the pick into being exactly as a first score click would.
+  //
+  // THE CAP IS NOT ENFORCED HERE. canAddPriority is what the board reads to disable a
+  // fourth star; a group that gets one anyway (two people clicking at once) sees it
+  // reported rather than silently dropped, the same call every other cap on this week
+  // makes.
+  const togglePriority = (card: RippleCard, on: boolean) =>
+    run(async () => {
+      const pickId = await ensurePick({ id: card.id, text: card.text });
+      if (cancelledMints.current.has(card.id)) return;
+      shortlistLocal(pickId, on);
+      try {
+        await shortlistRippleCard(code, pickId, { participantId: pid, shortlisted: on });
+      } catch (e) {
+        shortlistLocal(pickId, !on);
+        throw e;
+      }
+    });
+
+  const toggleDisputed = (card: RippleCard, on: boolean) =>
+    run(async () => {
+      const pickId = await ensurePick({ id: card.id, text: card.text });
+      if (cancelledMints.current.has(card.id)) return;
+      const before = board.picks.get(card.id)?.section ?? null;
+      sectionLocal(pickId, on ? DISPUTED_SECTION : null);
+      try {
+        await disputeRippleCard(code, pickId, { participantId: pid, disputed: on });
+      } catch (e) {
+        sectionLocal(pickId, before);
+        throw e;
+      }
+    });
+
+  // Why the room could not agree. SEPARATE FROM THE FLAG so it survives being un-flagged
+  // and comes back if the group changes its mind — the note is the group's writing and the
+  // flag is a state, and losing the first to toggle the second would be the worse bug.
+  const setDisputeNote = (card: RippleCard, note: string) =>
+    run(async () => {
+      const pickId = await ensurePick({ id: card.id, text: card.text });
+      if (cancelledMints.current.has(card.id)) return;
+      const before = board.picks.get(card.id)?.description ?? null;
+      describeLocal(pickId, note);
+      try {
+        await describeRippleCard(code, pickId, { participantId: pid, description: note });
+      } catch (e) {
+        describeLocal(pickId, before);
+        throw e;
+      }
+    });
+
+  // --- act 6: choosing three directions, and sharpening each ---------------------------
+  //
+  // A DIRECTION IS A RESPONSE CARRYING `shortlisted`. No second card and no rank column —
+  // see lib/commitments-shape — so a tick here is a real write that survives a reload and
+  // that every member sees. Un-ticking strands the sharpening answers rather than deleting
+  // them; they come back whole if the group re-chooses it, which is what
+  // strandedSharpening reports.
+  const toggleDirection = (card: RippleCard, on: boolean) =>
+    run(async () => {
+      shortlistLocal(card.id, on);
+      try {
+        await shortlistRippleCard(code, card.id, { participantId: pid, shortlisted: on });
+      } catch (e) {
+        shortlistLocal(card.id, !on);
+        throw e;
+      }
+    });
+
+  // One of a direction's three fields. Creates on first answer, edits in place after, and
+  // DELETES when the text is cleared — an empty card would read as answered to every
+  // counter on the board while showing nothing.
+  const setSharpen = (
+    direction: RippleCard,
+    field: DirectionFieldKey,
+    text: string
+  ) =>
+    run(async () => {
+      const existing = sharpenFor(board, direction.id, field)[0];
+      const next = text.trim();
+      if (!next) {
+        if (!existing) return;
+        removeLocal(existing.id);
+        try {
+          await deleteRippleCard(code, existing.id, { participantId: pid });
+        } catch (e) {
+          unremoveLocal(existing.id);
+          throw e;
+        }
+        return;
+      }
+      if (existing) {
+        const before = existing.text;
+        editLocal(existing.id, next);
+        try {
+          await editRippleCard(code, existing.id, { participantId: pid, text: next });
+        } catch (e) {
+          editLocal(existing.id, before);
+          throw e;
+        }
+        return;
+      }
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "SECOND",
+        cardKind: "sharpen",
+        parentCardId: direction.id,
+        section: field,
+        text: next,
+      });
+      const created = res?.card as RippleCard | undefined;
+      if (created) addLocal(created);
+    });
+
   // What step 2 SHOWS for a Session 3 card: the pick's scores once it exists, and the
   // optimistic patch before it does.
   const scoresFor = (sourceId: string) => {
@@ -593,16 +741,12 @@ export function CommitmentsTeamView({
 
   // ---- the steps -------------------------------------------------------------
 
-  // TWO steps carry written fields. Anything an admin adds with no step, or with a step
-  // string that matches neither, falls to step 1 beside the summary prompts, which is where
-  // an extra question belongs. The two branches are disjoint, so no section can render on
-  // two tabs at once.
-  const sectionsFor = (which: "changes" | "moves") =>
-    sections.filter((sec) =>
-      which === "moves"
-        ? sec.step === COMMITMENTS_STEP_MOVES
-        : sec.step !== COMMITMENTS_STEP_MOVES
-    );
+  // THREE tabs carry written fields, and which sections land on one is the step registry's
+  // call, not this file's — so a pre-rebuild board and an admin's hand-typed tab name are
+  // handled in one place rather than re-guessed here. The buckets are disjoint, so no
+  // section can render on two tabs at once.
+  const sectionsFor = (step: CommitmentsSectionStep) =>
+    commitmentsSectionsFor(sections, step);
 
   // How many of a step's prompts have been answered at all. The unit is the PROMPT, not the
   // answer: each takes as many answers as the group has, so counting answers would give a
@@ -620,14 +764,16 @@ export function CommitmentsTeamView({
   // a group's draft never ships in the payload every member's board fetches. On this board
   // it is already in hand, because this component holds the session row.
   const execReady = execSummaryReadiness({
-    changes: answeredCount(sectionsFor("changes")),
-    changesTotal: sectionsFor("changes").length,
-    placements: [...board.picks.values()].filter(
-      (p) => p.plausibility !== null && p.impact !== null
-    ).length,
+    grounding: answeredCount(sectionsFor("reconnect")),
+    groundingTotal: sectionsFor("reconnect").length,
+    priorities: priorities(board).length,
+    outcomes: answeredCount(sectionsFor("outcomes")),
+    outcomesTotal: sectionsFor("outcomes").length,
     responses: board.responses.length,
-    moves: answeredCount(sectionsFor("moves")),
-    movesTotal: sectionsFor("moves").length,
+    vision: answeredCount(sectionsFor("vision")),
+    visionTotal: sectionsFor("vision").length,
+    directions: board.boldMoves.length,
+    sharpened: board.boldMoves.filter((m) => isSharpened(board, m.id)).length,
   });
   const execOverride = coerceExecSummary(
     (view?.session.config as Record<string, unknown> | undefined)?.execSummary
@@ -655,29 +801,19 @@ export function CommitmentsTeamView({
   // closes: it stays stored, it still renders on the handoff, and it is there to edit again
   // the moment the four steps are done.
   const reviewLocked = !execReady.ready;
-  const stepsDone = 4 - execReady.missing.length;
+  const stepsDone = execReady.steps.length - execReady.missing.length;
 
-  // Step 4's second question. Split exactly as the handoff deck splits it — everything on
-  // the moves step that is not the role prompt — so a facilitator who adds a third prompt
-  // there gets it here too rather than having it silently dropped.
-  // Step 4's FIRST question. By KEY, not position, for the same reason as the moves below.
-  const aspirationAnswers = sectionsFor("moves")
-    .filter((sec) => sec.key === COMMITMENTS_KEY_ROLE)
-    .flatMap((sec) =>
+  // The answers to one tab's prompts, flattened in board order. Used by the review step,
+  // which reads the week back rather than editing it.
+  const answersOn = (step: CommitmentsSectionStep) =>
+    sectionsFor(step).flatMap((sec) =>
       cards
         .filter((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
         .sort((a, b) => a.sort - b.sort)
         .map((c) => c.text.trim())
     );
 
-  const boldMoveAnswers = sectionsFor("moves")
-    .filter((sec) => sec.key !== COMMITMENTS_KEY_ROLE)
-    .flatMap((sec) =>
-      cards
-        .filter((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
-        .sort((a, b) => a.sort - b.sort)
-        .map((c) => c.text.trim())
-    );
+  const visionAnswers = answersOn("vision");
 
   const execComposer = (
     <ExecSummaryComposer
@@ -703,13 +839,6 @@ export function CommitmentsTeamView({
       onReorder={reorderSectionCard}
     />
   );
-
-  const aspirationBody =
-    sectionsFor("changes").length > 0 ? (
-      worksheetFor(sectionsFor("changes"))
-    ) : (
-      <NoPrompts />
-    );
 
   const stepBody = (
     <div className="flex flex-col gap-8">
@@ -773,42 +902,86 @@ export function CommitmentsTeamView({
         })}
       </div>
 
-      {step === "changes" && (
+      {/* Act 1. What needs attention, and what to keep in view — with the whole of the
+          last three sessions in the rail, because "reconnect" is what the activity is. */}
+      {step === "reconnect" && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-5">
-            {aspirationBody}
+            {sectionsFor("reconnect").length > 0 ? (
+              worksheetFor(sectionsFor("reconnect"))
+            ) : (
+              <NoPrompts />
+            )}
             {/* Counts PROMPTS with at least one answer, not answers: the prompts take as
                 many as the group has, so a tally of answers would have no denominator and
                 could not be a bar. */}
             <StepProgress
-              done={answeredCount(sectionsFor("changes"))}
-              total={sectionsFor("changes").length}
+              done={answeredCount(sectionsFor("reconnect"))}
+              total={sectionsFor("reconnect").length}
               noun="answered"
             />
           </div>
+          <Week3Reference cards={week3Cards} week2Cards={week2Cards} scenario={scenario} />
+        </div>
+      )}
+
+      {/* Act 2. Weigh the walls, then name three. The discussion prompts are guidance and
+          live in the board's own Directions fold — the group's answer here is what it
+          stars, not a paragraph it types. */}
+      {step === "prioritize" && (
+        <MatrixBoard
+          week3Cards={week3Cards}
+          board={board}
+          pickFor={pickFor}
+          scoresFor={scoresFor}
+          editable={editable}
+          busy={busy}
+          onScore={scoreStake}
+          onClear={clearStake}
+          onTogglePriority={togglePriority}
+          onToggleDisputed={toggleDisputed}
+          onNote={setDisputeNote}
+        />
+      )}
+
+      {/* Act 3. The priorities ride above as context rather than as headings to write
+          under: the group was asked for outcomes for its top three, not one outcome per
+          row, and nesting the boxes would have made the looser answer impossible. */}
+      {step === "outcomes" && (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="flex min-w-0 flex-col gap-5">
+            <PriorityRecap
+              rows={priorities(board)}
+              onGoToPriorities={() => setStep("prioritize")}
+            />
+            {sectionsFor("outcomes").length > 0 ? (
+              worksheetFor(sectionsFor("outcomes"))
+            ) : (
+              <NoPrompts />
+            )}
+            <StepProgress
+              done={answeredCount(sectionsFor("outcomes"))}
+              total={sectionsFor("outcomes").length}
+              noun="answered"
+            />
+          </div>
+          {/* RISKS AND FEARS FIRST, THEN HOPES — the order the activity asks for. A group
+              writing what it wants public health to make possible should meet what it is
+              afraid of before what it hopes for, or the outcomes come out as restated
+              hopes. */}
           <Week3Reference
             cards={week3Cards}
             week2Cards={week2Cards}
             scenario={scenario}
+            variant="stakes-first"
           />
         </div>
-      )}
-
-      {step === "matrix" && (
-        <MatrixBoard
-          week3Cards={week3Cards}
-          pickFor={pickFor}
-          scoresFor={scoresFor}
-          editable={editable}
-          onScore={scoreStake}
-          onClear={clearStake}
-        />
       )}
 
       {step === "responses" && (
         <ResponseBoard
           board={board}
-          sections={sectionsFor("changes")}
+          sections={sectionsFor("outcomes")}
           cards={cards}
           week3Cards={week3Cards}
           week2Cards={week2Cards}
@@ -818,20 +991,32 @@ export function CommitmentsTeamView({
           onAdd={addResponse}
           onEdit={editCard}
           onDelete={removeCard}
-          onGoToAspiration={() => setStep("changes")}
+          onGoToAspiration={() => setStep("outcomes")}
         />
       )}
 
-      {/* Step 4. The prompts are sections; the responses below them are READ-ONLY raw
-          material, not a menu to choose from, which is what the microcopy has to carry. */}
-      {step === "moves" && (
+      {/* Act 5. One short statement, with the outcomes and the response wall under it as
+          the raw material it is drawn from. */}
+      {step === "vision" && (
         <div className="flex flex-col gap-6">
-          {sectionsFor("moves").length > 0 ? worksheetFor(sectionsFor("moves")) : <NoPrompts />}
+          {sectionsFor("vision").length > 0 ? worksheetFor(sectionsFor("vision")) : <NoPrompts />}
           <ResponseRecap
             responses={board.responses}
             onGoToResponses={() => setStep("responses")}
           />
         </div>
+      )}
+
+      {/* Act 6. Choose three off the wall, then sharpen each. */}
+      {step === "directions" && (
+        <MovesBoard
+          board={board}
+          editable={editable}
+          busy={busy}
+          onToggle={toggleDirection}
+          onSharpen={setSharpen}
+          onGoToResponses={() => setStep("responses")}
+        />
       )}
 
       {/* Step 5. It reads the same optimistic cards as every other step now: the pane that
@@ -844,8 +1029,14 @@ export function CommitmentsTeamView({
         <ReviewBoard
           summaryHref={summaryHref}
           composer={execComposer}
-          aspiration={aspirationAnswers}
-          boldMoves={boldMoveAnswers}
+          vision={visionAnswers}
+          directions={board.boldMoves.map((m) => ({
+            text: m.text,
+            fields: DIRECTION_FIELDS.map((f) => ({
+              label: f.label,
+              answers: sharpenFor(board, m.id, f.key).map((c) => c.text.trim()).filter(Boolean),
+            })),
+          }))}
           submittedAt={submitted.at}
           submittedBy={submitted.by}
           editable={editable}

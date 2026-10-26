@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { getSessionByCode, supabaseConfigured, updateSession } from "@/lib/workshop";
 import { getPlayerByParticipant, listBoardCards } from "@/lib/ripples";
 import { getExerciseBySessionCode } from "@/lib/design-group-exercises";
-import { getExerciseType, resolveEffectiveSections, COMMITMENTS_STEP_MOVES } from "@/lib/exercise-types";
-import { indexCommitmentsBoard } from "@/lib/commitments-shape";
+import {
+  getExerciseType,
+  resolveEffectiveSections,
+  commitmentsSectionsFor,
+} from "@/lib/exercise-types";
+import { indexCommitmentsBoard, isSharpened, priorities } from "@/lib/commitments-shape";
 import {
   coerceExecSummary,
   execSummaryReadiness,
@@ -77,25 +81,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
 
     const cards = await listBoardCards(session.code);
     const sections = resolveEffectiveSections(exercise.type, exercise.sections);
-    const changeSecs = sections.filter((s) => s.step !== COMMITMENTS_STEP_MOVES);
-    const moveSecs = sections.filter((s) => s.step === COMMITMENTS_STEP_MOVES);
+    // Bucketed by the step registry, the same one the board uses, so this route and the
+    // board can never disagree about which tab a prompt belongs to.
+    const groundingSecs = commitmentsSectionsFor(sections, "reconnect");
+    const outcomeSecs = commitmentsSectionsFor(sections, "outcomes");
+    const visionSecs = commitmentsSectionsFor(sections, "vision");
     const answered = (specs: typeof sections) =>
       specs.filter((sec) =>
         cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
       ).length;
     const board = indexCommitmentsBoard(cards);
-    const placements = [...board.picks.values()].filter(
-      (p) => p.plausibility !== null && p.impact !== null
-    );
 
     // Re-checked server-side. The UI hides the button, but the button is not the rule.
     const readiness = execSummaryReadiness({
-      changes: answered(changeSecs),
-      changesTotal: changeSecs.length,
-      placements: placements.length,
+      grounding: answered(groundingSecs),
+      groundingTotal: groundingSecs.length,
+      priorities: priorities(board).length,
+      outcomes: answered(outcomeSecs),
+      outcomesTotal: outcomeSecs.length,
       responses: board.responses.length,
-      moves: answered(moveSecs),
-      movesTotal: moveSecs.length,
+      vision: answered(visionSecs),
+      visionTotal: visionSecs.length,
+      directions: board.boldMoves.length,
+      sharpened: board.boldMoves.filter((m) => isSharpened(board, m.id)).length,
     });
     if (!readiness.ready) {
       return NextResponse.json(
@@ -118,15 +126,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
     // material and nothing else. It is all local work over cards already in hand.
     const material: ExecSummaryInput = {
       scenarioTitle: session.prompt ?? "",
-      changes: answersFor(changeSecs),
-      role: answersFor(moveSecs),
+      // The model gets what the group WROTE: the grounding it set out with, the outcomes
+      // it wants and the vision it is working toward. The priorities and directions reach
+      // it through `stakes` and `responses` below, which carry the same cards.
+      changes: [...answersFor(groundingSecs), ...answersFor(outcomeSecs)],
+      role: answersFor(visionSecs),
       // Session 2's key changes reach this board as seeded copies carrying sourceLabel.
       keyChanges: cards
         .filter((c) => isTreeRoot(c) && c.sourceLabel && c.text.trim())
         .map((c) => c.text.trim())
         .slice(0, 10),
       // Strongest first, so a truncated digest keeps what the group weighted highest.
-      stakes: placements
+      stakes: [...board.picks.values()]
+        .filter((p) => p.plausibility !== null && p.impact !== null)
         .map((p) => ({ text: p.text.trim(), score: p.plausibility! * p.impact! }))
         .sort((a, b) => b.score - a.score),
       responses: board.responses.map((r) => r.text.trim()).filter(Boolean),

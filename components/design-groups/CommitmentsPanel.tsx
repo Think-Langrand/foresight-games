@@ -7,9 +7,10 @@ import {
   type BoldMoveLane,
   type CommitmentsExercise,
   type HandoffMark,
+  type DirectionRow,
   type PanelOpts,
 } from "@/components/design-groups/AnswerPanels";
-import { COMMITMENTS_STEP_MOVES } from "@/lib/exercise-types";
+import { commitmentsSectionsFor } from "@/lib/exercise-types";
 import { SCORE_MAX } from "@/lib/ripples-scoring";
 
 // Read-only rendering of a Week 4 (commitments) week, in the order the week is worked:
@@ -136,6 +137,123 @@ function Notice({
 // its kind, and nothing was added to it to make this easier: the live board and the handoff
 // deck both have Week 3 loaded and pass it, the admin viewer shapes one week at a time and
 // does not, and gets the same list without the colour.
+// ACT 2'S ACTUAL OUTPUT, separate from the matrix above it. The matrix shows everything
+// the group weighed; this shows the three it chose and anything it could not settle, which
+// is what reaches the handoff's opening slide.
+//
+// NO DELETE HERE. Un-starring happens on the board, and the pick itself is deleted from
+// the matrix row above — offering it in two places would let a facilitator remove a scored
+// placement while meaning only to drop a star.
+function Priorities({
+  picks,
+  stakeKind,
+}: {
+  picks: HandoffMark[];
+  stakeKind?: (sourceId: string) => "risk" | "opportunity" | undefined;
+}) {
+  const chosen = picks.filter((p) => p.priority);
+  const disputed = picks.filter((p) => p.disputed);
+  const kindOf = (p: HandoffMark) => stakeKind?.(p.sourceId);
+
+  return (
+    <div>
+      <p className="m-0 flex items-baseline gap-2 border-b border-ink pb-2">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+          Priorities <span className="tabular-nums text-muted">{chosen.length}</span>
+        </span>
+      </p>
+      {chosen.length === 0 ? (
+        <p className="m-0 py-2 text-[13px] italic text-muted">
+          The group flagged a dispute but never named its three.
+        </p>
+      ) : (
+        <ul className="m-0 list-none p-0">
+          {chosen.map((p) => (
+            <li
+              key={p.id}
+              className="border-b border-[var(--hairline)] py-[9px] last:border-b-0"
+            >
+              <span className="mr-1.5 text-amber">★</span>
+              <span className="text-[14px] leading-[1.45]">{p.text}</span>
+              {kindOf(p) && (
+                <span className="ml-2 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
+                  {kindOf(p)}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* A dispute is a finding about the ROOM, so it is shown even when it sits on an
+          issue that did not make the three. */}
+      {disputed.length > 0 && (
+        <div className="mt-4">
+          <p className="m-0 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-blue">
+            Still disputed <span className="tabular-nums text-muted">{disputed.length}</span>
+          </p>
+          <ul className="m-0 list-none p-0">
+            {disputed.map((p) => (
+              <li
+                key={p.id}
+                className="border-b border-[var(--hairline)] py-[9px] last:border-b-0"
+              >
+                <span className="block text-[14px] leading-[1.45]">{p.text}</span>
+                {p.note && (
+                  <span className="mt-[2px] block text-[13px] italic text-muted">{p.note}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Act 6's chosen directions, each with the three answers that sharpen it. Every field is
+// printed answered or not: an unsharpened direction is the thing a facilitator most wants
+// to see before a session ends.
+function Directions({ rows }: { rows: DirectionRow[] }) {
+  return (
+    <div>
+      <p className="m-0 flex items-baseline gap-2 border-b border-ink pb-2">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+          Three directions <span className="tabular-nums text-muted">{rows.length}</span>
+        </span>
+      </p>
+      <ol className="m-0 list-none p-0">
+        {rows.map((d, i) => (
+          <li key={d.move.id} className="border-b border-[var(--hairline)] py-3 last:border-b-0">
+            <p className="m-0 text-[14px] font-bold leading-[1.4]">
+              <span className="mr-2 font-mono text-[11px] tabular-nums text-blue">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              {d.move.text}
+            </p>
+            <dl className="m-0 mt-2 grid gap-x-6 gap-y-2 pl-7 sm:grid-cols-3">
+              {d.fields.map((f) => (
+                <div key={f.key}>
+                  <dt className="m-0 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-muted">
+                    {f.label}
+                  </dt>
+                  <dd className="m-0 text-[13px] leading-[1.45]">
+                    {f.answers.length === 0 ? (
+                      <span className="italic text-muted">Not answered.</span>
+                    ) : (
+                      f.answers.map((a) => <span key={a.id} className="block">{a.text}</span>)
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function Placements({
   picks,
   stakeKind,
@@ -241,12 +359,14 @@ export function CommitmentsPanel({
     ex.orphans.length === 0 &&
     ex.questions.every((q) => q.answers.length === 0);
 
-  // Split on the authored step so the week reads in the order it is worked. A block with no
-  // step at all — anything an admin added to this week by hand — stays with step 1 rather
-  // than being dropped, which is also where the editor puts it by default.
+  // Bucketed by the step registry so the week reads in the order it is worked, and so a
+  // board stamped before the six-activity rebuild still lands somewhere a facilitator can
+  // see it. A block whose step nobody recognises — anything an admin added by hand —
+  // stays with act 1 rather than being dropped, which is where the editor puts it anyway.
   const answered = ex.questions.filter((q) => q.answers.length > 0);
-  const changeBlocks = answered.filter((q) => q.step !== COMMITMENTS_STEP_MOVES);
-  const moveBlocks = answered.filter((q) => q.step === COMMITMENTS_STEP_MOVES);
+  const groundingBlocks = commitmentsSectionsFor(answered, "reconnect");
+  const outcomeBlocks = commitmentsSectionsFor(answered, "outcomes");
+  const visionBlocks = commitmentsSectionsFor(answered, "vision");
 
   return (
     <div className="flex flex-col gap-6">
@@ -269,15 +389,20 @@ export function CommitmentsPanel({
 
       {empty && <p className="text-[13px] italic text-muted">Nothing on this board yet.</p>}
 
-      {/* Step 1. The prompts are the facilitator's, so their headings come from the data. */}
-      {changeBlocks.length > 0 && <QuestionBlocks questions={changeBlocks} {...opts} />}
+      {/* Act 1. The prompts are the facilitator's, so their headings come from the data. */}
+      {groundingBlocks.length > 0 && <QuestionBlocks questions={groundingBlocks} {...opts} />}
 
-      {/* Step 2. */}
+      {/* Act 2. The matrix, then the three the group actually chose off it. */}
       {ex.picks.length > 0 && <Placements picks={ex.picks} stakeKind={stakeKind} {...opts} />}
+      {ex.picks.some((p) => p.priority || p.disputed) && (
+        <Priorities picks={ex.picks} stakeKind={stakeKind} />
+      )}
 
-      {/* Step 3. No star: the three-move down-select is parked with the backcasting, so a
-          `shortlisted` flag here is leftover data from the old shape and marking it would
-          show a choice this week no longer asks anyone to make. */}
+      {/* Act 3. */}
+      {outcomeBlocks.length > 0 && <QuestionBlocks questions={outcomeBlocks} {...opts} />}
+
+      {/* Act 4. No star on the wall itself: a chosen direction is shown under act 6 with
+          what the group wrote about it, and marking it twice would read as two lists. */}
       {ex.responses.length > 0 && (
         <div>
           <div className="flex items-baseline justify-between gap-3 border-b border-ink pb-2">
@@ -317,8 +442,18 @@ export function CommitmentsPanel({
         </div>
       )}
 
-      {/* Step 4. Authored sections again, so again no heading of ours. */}
-      {moveBlocks.length > 0 && <QuestionBlocks questions={moveBlocks} {...opts} />}
+      {/* Act 5. Authored sections again, so again no heading of ours. */}
+      {visionBlocks.length > 0 && <QuestionBlocks questions={visionBlocks} {...opts} />}
+
+      {/* Act 6. */}
+      {ex.directions.length > 0 && <Directions rows={ex.directions} />}
+      {ex.strandedSharpening.length > 0 && (
+        <p className="m-0 text-[12.5px] italic leading-[1.45] text-muted">
+          {ex.strandedSharpening.length} answer
+          {ex.strandedSharpening.length === 1 ? "" : "s"} written about a response the group
+          has since un-chosen. Nothing is lost — they come back if it is chosen again.
+        </p>
+      )}
 
       {/* Parked. See SHOW_BACKCASTING. */}
       {SHOW_BACKCASTING && ex.settledMarks.length > 0 && (

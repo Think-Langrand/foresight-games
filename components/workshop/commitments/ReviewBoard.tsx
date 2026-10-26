@@ -40,6 +40,13 @@ const REVIEW_DIRECTIONS = [
   "If you can see a gap here, so will they. Go back to that step and fill it.",
 ];
 
+// One chosen direction as the review panel needs it: its text, and whether each of its
+// three fields was answered. Not the answers themselves — see the tally below.
+export interface DirectionSummary {
+  text: string;
+  fields: { label: string; answers: string[] }[];
+}
+
 function when(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -158,9 +165,10 @@ function SubmitBar({
   );
 }
 
-// THE ROLE, AND HOW TO GET THERE — step 4's two questions side by side under one heading,
-// because they are one claim. The aspiration on its own is a wish and the moves on their own
-// are a list of errands; the group wrote them as a pair and the committee reads them as one.
+// THE VISION, AND THE DIRECTIONS THAT REACH IT — acts 5 and 6 side by side under one
+// heading, because they are one claim. The vision on its own is a wish and the directions
+// on their own are a list of errands; the group wrote them as a pair and the committee
+// reads them as one.
 //
 // ONE SHARED HEADING over two boxes rather than a heading each: two headings would invite
 // the two to be read as separate findings, which is the reading this is trying to prevent.
@@ -169,12 +177,12 @@ function RoleAndMoves({
   boldMoves,
 }: {
   aspiration: string[];
-  boldMoves: string[];
+  boldMoves: DirectionSummary[];
 }) {
   return (
     <section>
       <h2 className="m-0 mb-3 border-b-[1.5px] border-ink pb-2 text-[15px] font-extrabold uppercase tracking-tight">
-        The role of public health and how to get there
+        Your vision, and the directions that reach it
       </h2>
       {/* SLATE, AND THE ONLY DARK THING ON THE STEP. This pair is the handoff's actual
           claim; everything else here is either context for it or the way out, so it is
@@ -196,11 +204,11 @@ function RoleAndMoves({
               #2b2b24 — body 12.9:1, the 10px labels at 70% 7.1:1, the 11px numbers and
               the empty state at 60% 5.7:1. The 15% rules are decoration, not text. */}
           <p className="m-0 mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-paper/70">
-            The role
+            The vision
           </p>
           {aspiration.length === 0 ? (
             <p className="m-0 py-2 text-[13px] italic text-paper/60">
-              Nothing written yet. Step 4&rsquo;s first question is where this comes from.
+              Nothing written yet. Step 5 is where this comes from.
             </p>
           ) : (
             <div className="flex flex-col gap-3">
@@ -214,23 +222,33 @@ function RoleAndMoves({
         </div>
         <div className="min-h-[240px] rounded-[3px] bg-slate px-5 py-4 text-paper">
           <p className="m-0 mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-paper/70">
-            How to get there <span className="tabular-nums">{boldMoves.length}</span>
+            The directions <span className="tabular-nums">{boldMoves.length}</span>
           </p>
           {boldMoves.length === 0 ? (
             <p className="m-0 py-2 text-[13px] italic text-paper/60">
-              Nothing written yet. Step 4&rsquo;s second question is where these come from.
+              Nothing chosen yet. Step 6 is where these come from.
             </p>
           ) : (
             <ol className="m-0 list-none p-0">
               {boldMoves.map((m, i) => (
                 <li
-                  key={m + i}
+                  key={m.text + i}
                   className="grid grid-cols-[auto_1fr] items-start gap-x-3 border-b border-paper/15 py-[11px] last:border-b-0"
                 >
                   <span className="pt-[2px] font-mono text-[11px] tabular-nums text-paper/60">
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <span className="max-w-[52ch] text-[14px] leading-[1.45]">{m}</span>
+                  <span className="min-w-0">
+                    <span className="block max-w-[52ch] text-[14px] leading-[1.45]">{m.text}</span>
+                    {/* The three fields as a one-line tally, not in full. This panel is a
+                        last look before submitting, and an unsharpened direction is the
+                        thing worth seeing here — the answers themselves are on step 6 and
+                        on the deck. */}
+                    <span className="mt-1 block font-mono text-[9.5px] uppercase tracking-[0.1em] text-paper/60">
+                      {m.fields.filter((f) => f.answers.length > 0).length} of{" "}
+                      {m.fields.length} answered
+                    </span>
+                  </span>
                 </li>
               ))}
             </ol>
@@ -244,8 +262,8 @@ function RoleAndMoves({
 export function ReviewBoard({
   summaryHref,
   composer,
-  aspiration = [],
-  boldMoves = [],
+  vision = [],
+  directions = [],
   submittedAt,
   submittedBy,
   editable,
@@ -257,17 +275,15 @@ export function ReviewBoard({
   // Built by CommitmentsTeamView, which is the only thing holding the board state the
   // readiness check needs. Passed as a node so this panel stays a layout.
   composer?: React.ReactNode;
-  // Step 4's FIRST question — "the aspirational role for public health in this world".
-  // Matched by section key upstream, not by position, because a facilitator can reorder or
-  // relabel the week's prompts.
-  aspiration?: string[];
-  // Step 4's SECOND QUESTION — "the boldest moves public health could make" — as answers.
-  //
-  // NOT `shaped.boldMoves`, which is a different thing wearing the same name: the strategic
-  // responses the group shortlisted on step 3's wall. Reading that here printed "none
-  // picked yet" at groups who had written three bold moves one step earlier. The caller
-  // filters the section, because only it holds the week's sections.
-  boldMoves?: string[];
+  // Act 5's answers — the aspiration statement. Matched by the step registry upstream, not
+  // by position, because a facilitator can reorder or relabel the week's prompts.
+  vision?: string[];
+  // Act 6's chosen directions. These ARE `board.boldMoves` — the responses carrying
+  // `shortlisted` — which is the opposite of the trap the previous shape fell into: this
+  // panel used to take act 4's section answers under the name `boldMoves` while a field of
+  // the same name on the shaped week meant the shortlisted responses, and reading the
+  // wrong one printed "none picked yet" at groups who had just chosen three.
+  directions?: DirectionSummary[];
   submittedAt: string | null;
   submittedBy: string | null;
   editable: boolean;
@@ -282,7 +298,7 @@ export function ReviewBoard({
           read-back under it. Both opened on something other than what the group actually
           decided. It now opens on step 4's two answers, which ARE the handoff's claim —
           everything else here is either context for them or the way out. */}
-      <RoleAndMoves aspiration={aspiration} boldMoves={boldMoves} />
+      <RoleAndMoves aspiration={vision} boldMoves={directions} />
 
       {/* Then the one thing left to write, and it is optional. */}
       {composer}
