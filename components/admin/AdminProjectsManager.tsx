@@ -41,6 +41,7 @@ type FormState = {
   hiddenScenarioSections: ScenarioSectionKey[];
   defaultScenarioSetId: string | null;
   handoffVisible: boolean;
+  handoffPublic: boolean;
 };
 
 function toForm(p?: AdminProject): FormState {
@@ -56,6 +57,7 @@ function toForm(p?: AdminProject): FormState {
     hiddenScenarioSections: cfg.hiddenScenarioSections,
     defaultScenarioSetId: cfg.defaultScenarioSetId,
     handoffVisible: cfg.handoffVisible,
+    handoffPublic: cfg.handoffPublic,
   };
 }
 
@@ -170,6 +172,7 @@ function ProjectForm({
             hiddenScenarioSections: f.hiddenScenarioSections,
             defaultScenarioSetId: f.defaultScenarioSetId,
             handoffVisible: f.handoffVisible,
+            handoffPublic: f.handoffPublic,
           },
         }),
       });
@@ -349,6 +352,23 @@ function ProjectForm({
             </span>
           )}
         </label>
+        <label className="mt-1.5 flex items-center gap-2 rounded-[2px] border border-[var(--hairline)] bg-paper px-3 py-1.5 text-[13px] font-semibold text-ink">
+          <input
+            type="checkbox"
+            checked={f.handoffPublic}
+            onChange={(e) => set("handoffPublic", e.target.checked)}
+          />
+          Publish at /h/&lt;project&gt;/&lt;group&gt;
+          {!f.handoffPublic && (
+            <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted">
+              not published
+            </span>
+          )}
+        </label>
+        <p className="mt-1.5 text-[11px] leading-[1.4] text-muted">
+          Publishing serves every group&rsquo;s handoff to anyone with the link, with no
+          passphrase and no edit controls. Unticking it takes the links down again.
+        </p>
       </div>
 
       {/* The scenario set the home "Scenarios" card opens directly. */}

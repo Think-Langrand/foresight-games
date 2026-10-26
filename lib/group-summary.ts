@@ -23,6 +23,7 @@ import type {
 } from "@/components/design-groups/AnswerPanels";
 import type { RippleCard } from "@/lib/ripples-types";
 import { orderLabelForDepth, TREE_ORDERS } from "@/lib/ripples-types";
+import { sortRootsByRank } from "@/lib/ripples-scoring";
 import { READING_FIELDS } from "@/lib/synthesis-shape";
 import { COMMITMENTS_STEP_MOVES } from "@/lib/exercise-types";
 
@@ -109,10 +110,17 @@ export interface GroupSummary {
   // Which weeks actually have a board with work on it, so the page can say "not yet" rather
   // than render an empty section as if it were the finding.
   has: { assessment: boolean; implications: boolean; synthesis: boolean; commitments: boolean };
+  // Strongest first (plausibility x impact, unscored last), NOT board order. The deck
+  // leads with these and draws them on a matrix, and both want the ranking the room gave
+  // them rather than the order they happened to be typed in.
   keyChanges: SummaryKeyChange[];
   orderCounts: SummaryOrderCount[];
   totalImplicationCards: number;
   themes: SummaryTheme[];
+  // Totals across every theme, for the title slide. Shaped here rather than summed in the
+  // view so one number cannot drift from the lists it claims to count.
+  riskCount: number;
+  opportunityCount: number;
   clusterFlow: ClusterFlow;
   unclustered: number;
   flips: SummaryFlip[];
@@ -254,7 +262,9 @@ export function buildGroupSummary(
 
   // ---- Week 2: key changes and their chains -------------------------------------------
   const cards: RippleCard[] = implications?.kind === "implications" ? implications.cards : [];
-  const roots = cards.filter((c) => c.order === "FIRST");
+  // sortRootsByRank is the same comparator the board, the tree and the wheel use, so the
+  // deck's order matches what the group saw when it scored them.
+  const roots = sortRootsByRank(cards.filter((c) => c.order === "FIRST"));
   const keyChanges: SummaryKeyChange[] = roots.map((c) => {
     const { label, body } = splitKeyChange(c.text);
     return { id: c.id, label, body, plausibility: c.plausibility, impact: c.impact };
@@ -507,6 +517,8 @@ export function buildGroupSummary(
           commitments.questions.some((q) => q.answers.length > 0)),
     },
     keyChanges,
+    riskCount: themes.reduce((n, t) => n + t.risks.length, 0),
+    opportunityCount: themes.reduce((n, t) => n + t.opportunities.length, 0),
     orderCounts,
     totalImplicationCards: cards.length,
     themes,

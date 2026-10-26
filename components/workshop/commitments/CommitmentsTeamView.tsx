@@ -12,6 +12,9 @@ import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { ResponseRecap } from "@/components/workshop/commitments/ResponseRecap";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
 import { StepProgress } from "@/components/workshop/commitments/StepProgress";
+import ExecSummaryComposer from "@/components/design-groups/ExecSummaryComposer";
+import HandoffGuideLocked from "@/components/design-groups/HandoffGuideLocked";
+import { coerceExecSummary, execSummaryReadiness } from "@/lib/exec-summary-shape";
 import { ReviewBoard } from "@/components/workshop/commitments/ReviewBoard";
 import {
   useRipplesView,
@@ -24,7 +27,6 @@ import {
   submitRippleBoard,
   unsubmitRippleBoard,
 } from "@/components/workshop/hooks";
-import { shapeFromView } from "@/lib/group-answers-shape";
 import { useSharedBoardMembership } from "@/components/workshop/membership";
 import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import type { RippleCard, RipplePhase } from "@/lib/ripples-types";
@@ -35,6 +37,7 @@ import {
   indexCommitmentsBoard,
 } from "@/lib/commitments-shape";
 import {
+  COMMITMENTS_KEY_ROLE,
   COMMITMENTS_STEP_MOVES,
   type WorksheetSection,
 } from "@/lib/exercise-types";
@@ -43,15 +46,19 @@ import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 // Session 4, the COMMITMENTS board. Five steps on one shared board, and the whole week
 // builds the handoff rather than curating it in a step of its own:
 //
-//   1. Key changes       summarize this world, and what it stops making true
-//   2. Risks & opps      Session 3's stakes placed on the impact x plausibility matrix
-//   3. Responses         a wall of moves
-//   4. Role & moves      the role public health plays here, and three bold moves
-//   5. Review            read the whole week back, then submit
+//   1. Structure & assumptions   how this world works, and what it stops making true
+//   2. Risks & opps              Session 3's stakes on the impact x plausibility matrix
+//   3. Responses                 a wall of moves
+//   4. Identity & direction      the role public health plays here, and the moves there
+//   5. Handoff                   what is being handed over, then submit
 //
 // Steps 1 and 4 ride the section substrate, so their prompts are the facilitator's and are
 // edited in the program editor rather than here. Steps 2, 3 and 5 are code. See
 // lib/commitments-shape's header for why the week is split that way.
+//
+// THE STEP NAMES ABOVE ARE DISPLAY ONLY. Underneath, a section's `step` is still the string
+// it was stored as — "Key changes" and "Bold moves" — because that value is persisted and
+// every split in the app is an equality test against it. See COMMITMENTS_STEP_CHANGES.
 //
 // PARKED, NOT DELETED. The backcasting timeline and the three-move down-select are wanted
 // for the next workshop, so `BacktrackTimeline` and `MovesBoard` stay in the tree, their
@@ -82,11 +89,11 @@ const COMMIT_STEPS: readonly CommitStep[] = [
   "review",
 ];
 const STEP_LABELS: Record<CommitStep, string> = {
-  changes: "1 \u00b7 Key changes",
+  changes: "1 \u00b7 Structure & assumptions",
   matrix: "2 \u00b7 Risks & opportunities",
   responses: "3 \u00b7 Strategic responses",
-  moves: "4 \u00b7 Role & bold moves",
-  review: "5 \u00b7 Review & submit",
+  moves: "4 \u00b7 Identity & direction",
+  review: "5 \u00b7 Handoff",
 };
 
 export function CommitmentsTeamView({
@@ -242,6 +249,7 @@ export function CommitmentsTeamView({
   // the UI never offers a control the route will refuse. Seeded cards have no author at
   // all, so an author-only rule would make them uneditable by everyone.
   const canEditCard = config.sharedTeam ? () => true : (c: RippleCard) => c.authorPlayerId === myPlayer?.id;
+
 
   if (!myPlayer) {
     return (
@@ -568,32 +576,6 @@ export function CommitmentsTeamView({
 
   // ---- step 5 ----------------------------------------------------------------
 
-  // What the group is approving, shaped exactly the way the admin viewer and the CSV shape
-  // it, so the three cannot disagree. From `view` (the SERVER's cards) and not from the
-  // optimistic `cards`: everywhere else on this board the overlay is the right answer, but
-  // a review pane must not show a line as written when its write is still in flight.
-  //
-  // Deliberately NOT useMemo — several early returns sit above this line and a hook here
-  // would break the hook order. The guard on `step` is what keeps it off the other four
-  // steps' render path; on this one it walks the board once.
-  const reviewShape = (() => {
-    if (step !== "review") return null;
-    const shaped = shapeFromView(
-      {
-        id: "live",
-        title: title || "Commitments",
-        type: "commitments",
-        sections,
-        // The LOCAL stamp, not the page's: this viewer may have pressed Submit a second
-        // ago and the page prop is from the last server render. Without it the read-back
-        // would contradict the submit bar directly above it.
-        submittedAt: submitted.at,
-        submittedBy: submitted.by,
-      },
-      view
-    );
-    return shaped.kind === "commitments" ? shaped : null;
-  })();
 
   // The server's stamp is the authority on both of these: on a shared board two people can
   // press Submit seconds apart, and the response says whose press counted.
@@ -630,6 +612,83 @@ export function CommitmentsTeamView({
       cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
     ).length;
 
+  // Step 5's composer. Built here because this is the only place holding the four signals
+  // the readiness gate reads, and the stored override, which lives on the session config
+  // rather than on a card.
+  //
+  // RAW config, not resolveConfig(): execSummary is deliberately outside that whitelist so
+  // a group's draft never ships in the payload every member's board fetches. On this board
+  // it is already in hand, because this component holds the session row.
+  const execReady = execSummaryReadiness({
+    changes: answeredCount(sectionsFor("changes")),
+    changesTotal: sectionsFor("changes").length,
+    placements: [...board.picks.values()].filter(
+      (p) => p.plausibility !== null && p.impact !== null
+    ).length,
+    responses: board.responses.length,
+    moves: answeredCount(sectionsFor("moves")),
+    movesTotal: sectionsFor("moves").length,
+  });
+  const execOverride = coerceExecSummary(
+    (view?.session.config as Record<string, unknown> | undefined)?.execSummary
+  );
+
+  // THE STEP IS LOCKED until the four earlier ones are done.
+  //
+  // IT RE-LOCKS IF A STEP IS UNDONE, unless the group has written its own lead. The gate
+  // exists to stop a summary being built out of nothing, so a group that deletes an answer
+  // should see the checklist again — the first version kept the step open for ANY stored
+  // draft, which meant undoing a step changed nothing and looked broken.
+  //
+  // An EDITED lead is different: that is the group's own writing, and hiding it behind a
+  // checklist because they went back to fix a typo in step 4 would be taking their work
+  // away. An untouched machine draft is not their work and costs nothing to rebuild.
+  // THE FOUR STEPS, AND NOTHING ELSE. This used to read `!execReady.ready && !execEdited`,
+  // so a stored note held the step open on a board that was not finished — and deleting
+  // that note slammed it shut with no way back, because the only thing that had been
+  // unlocking it was the thing just deleted. A group could write a note, delete it, and
+  // never reach the box again short of finishing all four steps.
+  //
+  // The `execEdited` escape dates from when this override was the handoff's LEAD and the
+  // rule was that a group's own writing must never be hidden behind a checklist. It is a
+  // note alongside the deck now, not the deck's opening, and it is not lost when the step
+  // closes: it stays stored, it still renders on the handoff, and it is there to edit again
+  // the moment the four steps are done.
+  const reviewLocked = !execReady.ready;
+  const stepsDone = 4 - execReady.missing.length;
+
+  // Step 4's second question. Split exactly as the handoff deck splits it — everything on
+  // the moves step that is not the role prompt — so a facilitator who adds a third prompt
+  // there gets it here too rather than having it silently dropped.
+  // Step 4's FIRST question. By KEY, not position, for the same reason as the moves below.
+  const aspirationAnswers = sectionsFor("moves")
+    .filter((sec) => sec.key === COMMITMENTS_KEY_ROLE)
+    .flatMap((sec) =>
+      cards
+        .filter((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
+        .sort((a, b) => a.sort - b.sort)
+        .map((c) => c.text.trim())
+    );
+
+  const boldMoveAnswers = sectionsFor("moves")
+    .filter((sec) => sec.key !== COMMITMENTS_KEY_ROLE)
+    .flatMap((sec) =>
+      cards
+        .filter((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
+        .sort((a, b) => a.sort - b.sort)
+        .map((c) => c.text.trim())
+    );
+
+  const execComposer = (
+    <ExecSummaryComposer
+      sessionCode={code}
+      participantId={pid}
+      override={execOverride}
+      canEdit={editable}
+      onStored={refresh}
+    />
+  );
+
   const worksheetFor = (spec: typeof sections) => (
     <WorksheetSections
       sections={spec}
@@ -664,20 +723,54 @@ export function CommitmentsTeamView({
         aria-label="Commitments steps"
         className="flex flex-wrap gap-1 border-b border-[var(--rule)]"
       >
-        {COMMIT_STEPS.map((s) => (
-          <button
-            key={s}
-            role="tab"
-            aria-selected={step === s}
-            onClick={() => setStep(s)}
-            className={
-              "-mb-px border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
-              (step === s ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")
-            }
-          >
-            {STEP_LABELS[s]}
-          </button>
-        ))}
+        {COMMIT_STEPS.map((sp) => {
+          // Step 5 is the only one that can be shut. It is built FROM the other four, so
+          // opening it early shows a locked box and a model call made out of nothing.
+          const locked = sp === "review" && reviewLocked;
+          return (
+            <button
+              key={sp}
+              role="tab"
+              aria-selected={step === sp}
+              // CLICKABLE EVEN WHEN LOCKED. A padlock that does nothing on click tells a
+              // group only that the page is broken; clicking it opens the list of what is
+              // left, which is the question they clicked to ask.
+              title={locked ? `Finish these first: ${execReady.missing.join(", ")}` : undefined}
+              onClick={() => setStep(sp)}
+              className={
+                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
+                (locked
+                  ? "rounded-t-[2px] bg-[var(--rule)] text-muted " +
+                    (step === sp ? "border-ink" : "border-transparent hover:text-ink")
+                  : step === sp
+                    ? "border-ink text-ink"
+                    : "border-transparent text-muted hover:text-ink")
+              }
+            >
+              {locked && (
+                // A padlock, inline rather than an icon font: two paths, and it has to sit
+                // on the baseline of 12px uppercase text.
+                <svg
+                  aria-hidden
+                  viewBox="0 0 10 12"
+                  className="h-[11px] w-[9px] shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                >
+                  <rect x="0.7" y="5" width="8.6" height="6.3" rx="1" />
+                  <path d="M2.6 5V3.3a2.4 2.4 0 0 1 4.8 0V5" />
+                </svg>
+              )}
+              {STEP_LABELS[sp]}
+              {locked && (
+                <span className="font-mono text-[10px] font-bold tabular-nums">
+                  {stepsDone}/4
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {step === "changes" && (
@@ -741,26 +834,26 @@ export function CommitmentsTeamView({
         </div>
       )}
 
-      {/* Step 5. The read-back is shaped from the SERVER's view, not the optimistic cards:
-          this is the pane a group approves, so it should show what is actually stored rather
-          than what is still in flight. Everywhere else on this board the overlay is the
-          right answer; here a line that has not landed yet must not look landed. */}
-      {step === "review" &&
-        (reviewShape ? (
-          <ReviewBoard
-            shaped={reviewShape}
-            week3Cards={week3Cards}
-            summaryHref={summaryHref}
-            submittedAt={submitted.at}
-            submittedBy={submitted.by}
-            editable={editable}
-            busy={busy}
-            onSubmit={submitWeek}
-            onUndo={undoSubmit}
-          />
-        ) : (
-          <p className="text-[13px] italic text-muted">Opening the board…</p>
-        ))}
+      {/* Step 5. It reads the same optimistic cards as every other step now: the pane that
+          had to be shaped from the server's view was the read-back, and that is gone. What
+          is left is the group's own two answers, where a line appearing the instant it is
+          typed is the right behaviour rather than the wrong one. */}
+      {step === "review" && reviewLocked && <HandoffGuideLocked steps={execReady.steps} />}
+
+      {step === "review" && !reviewLocked && (
+        <ReviewBoard
+          summaryHref={summaryHref}
+          composer={execComposer}
+          aspiration={aspirationAnswers}
+          boldMoves={boldMoveAnswers}
+          submittedAt={submitted.at}
+          submittedBy={submitted.by}
+          editable={editable}
+          busy={busy}
+          onSubmit={submitWeek}
+          onUndo={undoSubmit}
+        />
+      )}
     </div>
   );
 

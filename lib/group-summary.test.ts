@@ -267,10 +267,12 @@ describe("buildGroupSummary", () => {
     });
   });
 
-  it("reads the key changes with their scores and labels", () => {
+  it("reads the key changes with their scores and labels, strongest first", () => {
+    // kc2 is 3x4 and kc1 is 2x3, so kc2 leads even though kc1 was written first. The deck
+    // opens on these and plots them on a matrix; board order would bury the strongest one.
     expect(s.keyChanges).toEqual([
-      { id: "kc1", label: "POWER", body: "Power sits locally.", plausibility: 2, impact: 3 },
       { id: "kc2", label: "FUNDING", body: "Money is assured.", plausibility: 3, impact: 4 },
+      { id: "kc1", label: "POWER", body: "Power sits locally.", plausibility: 2, impact: 3 },
     ]);
   });
 
@@ -636,5 +638,85 @@ describe("buildGroupSummary · the curated handoff", () => {
     expect(s.worldReading).toEqual([
       { label: "What feels most important or distinctive", answers: ["Power is local"] },
     ]);
+  });
+});
+
+// The handoff deck leads with the key changes and prints risk/opportunity totals on its
+// title slide. Both are facts about the WHOLE group, so they are shaped here rather than
+// recomputed in the view, where a second implementation could disagree with this one.
+describe("handoff ordering and totals", () => {
+  const implications = (cards: RippleCard[]): ExerciseAnswers => ({
+    kind: "implications",
+    exerciseId: "EX2",
+    title: "Session 2",
+    scenarioTitle: "A world",
+    cards,
+    brainstorm: [],
+    questions: [],
+  });
+
+  it("orders key changes strongest first, not in board order", () => {
+    // Entered weakest-first on purpose: board order is creation order, and the deck's job
+    // is to lead with what the room ranked highest.
+    const s = buildGroupSummary(
+      [
+        implications([
+          card("weak", "FIRST", { text: "weak", plausibility: 1, impact: 1 }),
+          card("strong", "FIRST", { text: "strong", plausibility: 5, impact: 5 }),
+          card("mid", "FIRST", { text: "mid", plausibility: 3, impact: 3 }),
+        ]),
+      ],
+      { name: "G" }
+    );
+    expect(s.keyChanges.map((k) => k.id)).toEqual(["strong", "mid", "weak"]);
+  });
+
+  it("sinks an unscored key change below every scored one", () => {
+    const s = buildGroupSummary(
+      [
+        implications([
+          card("none", "FIRST", { text: "never scored" }),
+          card("low", "FIRST", { text: "low", plausibility: 1, impact: 2 }),
+        ]),
+      ],
+      { name: "G" }
+    );
+    expect(s.keyChanges.map((k) => k.id)).toEqual(["low", "none"]);
+  });
+
+  it("counts every risk and opportunity across the themes", () => {
+    const s = buildGroupSummary(
+      [
+        {
+          kind: "synthesis",
+          exerciseId: "EX3",
+          title: "Session 3",
+          cards: [],
+          themes: [
+            theme("t1", "One", {
+              risks: [stake("r1", "a"), stake("r2", "b")],
+              opportunities: [stake("o1", "c")],
+            }),
+            theme("t2", "Two", { risks: [stake("r3", "d")], opportunities: [] }),
+          ],
+          hopesFears: [],
+          role: [],
+          unclustered: [],
+          parked: [],
+          orphans: [],
+          questions: [],
+          summary: null,
+        },
+      ],
+      { name: "G" }
+    );
+    expect(s.riskCount).toBe(3);
+    expect(s.opportunityCount).toBe(1);
+  });
+
+  it("reports zero counts rather than undefined for a group with no Session 3", () => {
+    const s = buildGroupSummary([], { name: "G" });
+    expect(s.riskCount).toBe(0);
+    expect(s.opportunityCount).toBe(0);
   });
 });
