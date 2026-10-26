@@ -526,10 +526,13 @@ export default function GroupSummaryView({
   // is told where to look. Six statements, set large enough to be read from the back of a
   // room, is the whole slide.
   //
-  // NO PLACEMENTS, NO SLIDE. "Top three" is a claim about a ranking, and before Session 4
+  // NOTHING SCORED, NO SLIDE. "Top three" is a claim about a ranking, and before Session 4
   // nobody has ranked anything; inventing an order from Week 3's board would put words in the
-  // group's mouth. Slide 10 still carries the full walls in that state.
-  if (s.placements.length > 0) {
+  // group's mouth. Scored, not merely placed: a pick is minted on the first axis click and
+  // carries rank null until both are set, so a group halfway through step 2 has placements
+  // with no order among them, and this slide would print board order under a title that says
+  // "ranked highest". Slide 10 carries the full walls in both states.
+  if (s.placements.some((p) => p.rank !== null)) {
     // Already sorted strongest-first in lib/group-summary (rank desc, unscored last), so this
     // is a take, not a sort. Unscored rows can only reach the top three on a wall with fewer
     // than three scored, and TopThree prints those without a rank number.
@@ -657,7 +660,7 @@ export default function GroupSummaryView({
             <>
               Your group gathered {s.themes.reduce((a, t) => a + t.implications, 0)} implications
               into {s.themes.length} {s.themes.length === 1 ? "theme" : "themes"}, ordered by how
-              your group ranked impact.
+              much each one puts at stake.
             </>
           }
         >
@@ -877,7 +880,7 @@ export default function GroupSummaryView({
           intro={
             <>
               The hopes and fears your group has for public health in this future. Highlighted
-              are the ones that were created as fears.
+              are the ones that were created from fears.
             </>
           }
         >
@@ -901,7 +904,7 @@ export default function GroupSummaryView({
                   className={`px-[18px] py-4 ${f.hopes.length ? "border-l-[3px]" : "sm:border-l sm:border-l-[var(--hairline)]"}`}
                   style={
                     f.hopes.length
-                      ? { background: "rgba(196,255,103,0.16)", borderLeftColor: "#3f5209" }
+                      ? { background: "rgba(196,255,103,0.10)", borderLeftColor: "#3f5209" }
                       : undefined
                   }
                 >

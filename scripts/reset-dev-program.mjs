@@ -164,6 +164,11 @@ const EXPECTED_CARDS = {
   4: [53, 70, 103],
 };
 
+// What this script is allowed to delete outright. Matching nothing but Groups 1-4 is NOT a
+// licence to drop a group: a renamed cohort, or a fifth group added next month, would fail
+// that test too and it holds real work. A group has to say it is scratch.
+const DISPOSABLE = /^\s*(zz|test)\b/i;
+
 const groupNumber = (name) => {
   const m = String(name).match(/^group\s*(\d+)\b/i);
   return m ? Number(m[1]) : null;
@@ -203,10 +208,15 @@ async function main() {
 
   const keep = [];
   const drop = [];
+  const leave = [];
   for (const g of groups) {
     const n = groupNumber(g.name);
     if (n && GROUP_IDENTITY[n]) keep.push({ ...g, n });
-    else drop.push(g);
+    else if (DISPOSABLE.test(g.name)) drop.push(g);
+    else leave.push(g);
+  }
+  for (const g of leave) {
+    console.log(`Leaving  "${g.name}" (sort ${g.sort}) alone: not one of Groups 1-4, and not named as scratch.\n`);
   }
   if (keep.length !== 4) {
     throw new Error(`Expected to find Groups 1-4; found ${keep.length} (${keep.map((g) => g.name).join(", ")}).`);
@@ -253,13 +263,21 @@ async function main() {
     // Week 4: the commitments row parked at sort 5 is already the right type with the right
     // sections and a board whose config carries this group's scenario snapshot. Renumbering
     // it beats provisioning a new board, which would need the Foresight platform up.
-    const w4 = exercises.find((e) => e.type === "commitments");
+    const w4 = exercises.find((e) => e.sort > 2 && e.type === "commitments");
     if (!w4) {
       console.error(`   !       no commitments row to promote to week 3`);
       problems++;
     } else {
       const n = await cardCount(w4.session_code);
-      console.log(`   week 3  ${w4.session_code}  promote from sort ${w4.sort}, wipe ${n} scratch card(s)`);
+      if (n > 0 && !force) {
+        console.error(
+          `   !       week 4 board ${w4.session_code} holds ${n} card(s). This wipes it. If that is Session 4's\n` +
+            `           real work, STOP. Re-run with --force only if you know it is scratch.`
+        );
+        problems++;
+      } else {
+        console.log(`   week 3  ${w4.session_code}  promote from sort ${w4.sort}, wipe ${n} card(s)`);
+      }
     }
 
     // Everything else is a stray test week: registry row AND its backing session go.
@@ -320,8 +338,6 @@ async function main() {
             locked: false,
             closed: false,
             opens_at: null,
-            submitted_at: null,
-            submitted_by: null,
           })
           .eq("id", id)
       );
