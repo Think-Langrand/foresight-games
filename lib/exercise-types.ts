@@ -144,79 +144,137 @@ const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
 // "removed block" heading rather than vanishing.
 const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 
-// --- Commitments (Week 4), steps 1 and 4 --------------------------------------
-// Steps 2, 3 and 5 are code (the impact matrix, the response wall, the review). Steps 1
-// and 4 ride the ordinary section substrate, the same hybrid Week 2 uses for its Sandbox,
-// and for the same reason: a facilitator can reword these prompts, add one or drop one, in
-// the program editor with no deploy. That is why neither step has card kinds of its own.
+// --- Commitments (Week 4), the six-activity shape -----------------------------
+// SIX ACTIVITIES, AND ONLY THREE OF THEM ASK FOR WRITING. Acts 1, 3 and 5 ride the
+// ordinary section substrate, the same hybrid Week 2 uses for its Sandbox, and for the
+// same reason: a facilitator can reword these prompts, add one or drop one, in the program
+// editor with no deploy. Acts 2, 4 and 6 are boards — the group's answer there is what it
+// stars, writes on a card, or sharpens, NOT a paragraph it types. Their discussion prompts
+// are guidance and live in each board's `Directions` fold, which is why they appear
+// nowhere in this file.
 //
-// `step` buckets them onto a tab. Sections sharing a step render as one flat stack;
-// CommitmentsTeamView splits on this, and anything an admin adds with no step falls to
-// step 1, which is where an extra question belongs.
+// `step` buckets a section onto a tab. Sections sharing a step render as one flat stack,
+// and anything an admin adds with no step falls to act 1, which is where a stray extra
+// question belongs. See COMMITMENTS_STEPS below for the registry that does the bucketing.
 //
 // KEYS ARE PERMANENT ids written onto every answer card's `section` — never rename one.
 // The LABEL is the editable part. `aspiration-statement`, `aspiration-serves`,
-// `aspiration-holds` and `handoff-committee-line` are RETIRED, not reused: the week was
-// restructured away from a three-part aspiration and a handoff step, and any card still
-// carrying one of those keys surfaces in the admin viewer under a "removed block" heading
-// rather than vanishing.
+// `aspiration-holds`, `handoff-committee-line`, `w4-summary`, `w4-assumptions` and
+// `w4-bold-moves` are RETIRED, not reused. The last three retired when the week moved to
+// the six-activity agenda: act 1 now asks what needs attention rather than restating
+// Week 2's key changes, and the bold moves became act 6's structured directions, which are
+// cards rather than prose. Any card still carrying a retired key surfaces in the admin
+// viewer under a "removed block" heading rather than vanishing.
 //
 // `question` rather than `brainstorm` because each prompt accumulates short answers, one
 // card each: three people in a breakout have three readings and all three belong on the
 // sheet. Migration 0027 is the record of what forcing one answer per question cost.
-// Exported so the board filters `sections` on these rather than on string literals it
-// would have to keep in sync by hand.
-// THESE TWO STRINGS ARE STORED DATA, not labels. A section's `step` is persisted in
+
+// THESE STRINGS ARE STORED DATA, not labels. A section's `step` is persisted in
 // design_group_exercises.sections (jsonb) the moment an admin edits a week or stamps a
 // template, and every split in the app — the deck, the handoff, the readiness gate — is an
 // equality test against these exact values. Renaming one silently re-buckets every stored
 // section on every board that has ever been edited.
 //
-// SO THE DISPLAY NAMES LIVE ELSEWHERE and are free to disagree with them: the steps read
-// "Structure & assumptions" and "Identity & direction" on the board (STEP_LABELS in
-// CommitmentsTeamView) and in the locked checklist (execSummaryReadiness). These are the
-// names the data was written under, and they stay.
+// SO THE DISPLAY NAMES LIVE ELSEWHERE and are free to disagree with them: the tabs read
+// "Reconnect", "Desired outcomes" and "Set the vision" on the board (STEP_LABELS in
+// CommitmentsTeamView). These are the names the data was written under, and they stay.
+//
+// THE TWO OLD STRINGS STAY EXPORTED. Every board stamped before the six-activity rebuild
+// carries `"Key changes"` or `"Bold moves"` on its sections, and those rows are not
+// rewritten by a deploy — only by a re-stamp. Keeping the constants is what lets the
+// registry below map that stored data onto a tab instead of dropping it.
 export const COMMITMENTS_STEP_CHANGES = "Key changes";
 export const COMMITMENTS_STEP_MOVES = "Bold moves";
-// The role's section key, named because the handoff deck gives it a slide of its own and
+export const COMMITMENTS_STEP_RECONNECT = "Reconnect";
+export const COMMITMENTS_STEP_OUTCOMES = "Desired outcomes";
+export const COMMITMENTS_STEP_VISION = "Set the vision";
+// The vision's section key, named because the handoff deck gives it a slide of its own and
 // has to find it by IDENTITY rather than by position. Keys are permanent (see the header),
 // so this is the stable thing to match on; the label belongs to whoever edits the program.
-export const COMMITMENTS_KEY_ROLE = "w4-role";
-const STEP_CHANGES = COMMITMENTS_STEP_CHANGES;
-const STEP_MOVES = COMMITMENTS_STEP_MOVES;
+//
+// STILL `w4-role` though the activity is now "Set the vision": the key is the permanent id
+// every answer ever written under it carries, and the answers it holds ARE an aspiration
+// statement. Renaming it would orphan them to buy a tidier string.
+export const COMMITMENTS_KEY_VISION = "w4-role";
+/** @deprecated Use {@link COMMITMENTS_KEY_VISION}; same key, current name. */
+export const COMMITMENTS_KEY_ROLE = COMMITMENTS_KEY_VISION;
+export const COMMITMENTS_KEY_OUTCOMES = "w4-outcomes";
 
 const COMMITMENTS_SECTIONS: WorksheetSection[] = [
   {
-    key: "w4-summary",
+    key: "w4-attention",
     kind: "question",
-    step: STEP_CHANGES,
-    label: "How has the field of public health changed the most in this world?",
-    help: "Describe how the whole field works in this world. Write it so someone who missed every session could follow you.",
+    step: COMMITMENTS_STEP_RECONNECT,
+    label: "What most needs our attention in this future?",
+    help: "Not a recap of the scenario — what, in it, you cannot let pass. You will choose three priorities next; this is the thinking that gets you there.",
   },
   {
-    key: "w4-assumptions",
+    key: "w4-keep-in-mind",
     kind: "question",
-    step: STEP_CHANGES,
+    step: COMMITMENTS_STEP_RECONNECT,
+    label: "What should we keep in mind today?",
+    help: "Anything from the last three sessions the group wants held in view while it works — an unresolved argument, a caveat, something that keeps coming back.",
+  },
+  {
+    key: COMMITMENTS_KEY_OUTCOMES,
+    kind: "question",
+    step: COMMITMENTS_STEP_OUTCOMES,
     label:
-      "Which of today's assumptions about public health stop being true in this scenario?",
-    help: "Look for what nobody argues about today, because everyone takes it for granted. In this world it no longer holds.",
+      "Looking at your priorities and hopes, what do you want public health to make possible for communities in this future?",
+    help: "One or two for each priority. Write what would be different for communities if public health did its job well here — the outcome, not the activity that produces it.",
   },
   {
-    key: "w4-role",
+    key: COMMITMENTS_KEY_VISION,
     kind: "question",
-    step: STEP_MOVES,
-    label: "What is the aspirational role for public health in this world?",
-    help: "Write what the field is reaching for, not what you expect it to settle for. Put it in the present tense, as though this world has already arrived. The moves below are how you get there.",
-  },
-  {
-    key: "w4-bold-moves",
-    kind: "question",
-    step: STEP_MOVES,
-    label:
-      "What are the boldest moves public health could make in this world to reach that role?",
-    help: "Write three, one per answer. Name who acts and what they do, concretely enough that you could picture it happening.",
+    step: COMMITMENTS_STEP_VISION,
+    label: "What future do you want to work toward?",
+    help: "A short aspiration statement that answers this scenario's particular challenges. Write it in the present tense, as though this world has already arrived, and test it: is this worth achieving for people?",
   },
 ];
+
+// THE STEP REGISTRY — which tab a stored `step` string belongs to.
+//
+// IT USED TO BE ONE EQUALITY TEST. The week had two section tabs, so every split in the
+// app asked `step === "Bold moves" ? moves : changes` — five copies of the same ternary,
+// in the board, the summary, the admin viewer, the exec-summary route and the readiness
+// gate. That shape has exactly one failure mode and it is silent: a THIRD step falls into
+// the else-branch, and a group's desired outcomes appear on the handoff slide reserved for
+// its claim. Adding act 3 and act 5 made that failure certain, so the ternary is gone.
+//
+// A TAB IS THE UNIT, NOT A STEP STRING. Several stored strings may land on one tab, which
+// is how a board stamped before the rebuild still renders: its `"Key changes"` sections
+// were act 1's prompts and go to `reconnect`, its `"Bold moves"` sections were the role
+// plus the free-text moves and go to `vision`. Those boards keep working, read-only in
+// effect, until they are re-stamped.
+//
+// UNKNOWN AND ABSENT STEPS FALL TO ACT 1. An admin typing a new tab name in the program
+// editor gets a question on the first tab rather than a question that renders nowhere.
+export const COMMITMENTS_SECTION_STEPS = ["reconnect", "outcomes", "vision"] as const;
+export type CommitmentsSectionStep = (typeof COMMITMENTS_SECTION_STEPS)[number];
+
+const COMMITMENTS_STEP_BY_STORED: Record<string, CommitmentsSectionStep> = {
+  [COMMITMENTS_STEP_RECONNECT]: "reconnect",
+  [COMMITMENTS_STEP_OUTCOMES]: "outcomes",
+  [COMMITMENTS_STEP_VISION]: "vision",
+  // Pre-rebuild data. See the header above for why these two still resolve.
+  [COMMITMENTS_STEP_CHANGES]: "reconnect",
+  [COMMITMENTS_STEP_MOVES]: "vision",
+};
+
+/** Which commitments tab a section belongs on. Unknown or absent → the first tab. */
+export function commitmentsStepOf(section: { step?: string }): CommitmentsSectionStep {
+  const stored = section.step?.trim();
+  return (stored && COMMITMENTS_STEP_BY_STORED[stored]) || "reconnect";
+}
+
+/** The sections for one commitments tab, in authored order. */
+export function commitmentsSectionsFor<T extends { step?: string }>(
+  sections: T[],
+  step: CommitmentsSectionStep
+): T[] {
+  return sections.filter((s) => commitmentsStepOf(s) === step);
+}
 
 export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   "scenario-assessment": {

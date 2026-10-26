@@ -166,15 +166,25 @@ export const CARD_DESCRIPTION_MAX = 1000;
 //            `opportunity` walls, all on a theme
 //   step 3 — `hope` / `fear` as ROOT cards, the board's own
 //   step 4 — a `hope` chained under the `fear` it flips
-// Week 4's cards of a kind (Commitments):
-//   step 2 — `response` as ROOT cards, the wall of strategic responses
-//   step 3 — no kind of its own: a bold move is a `response` carrying `shortlisted`
-//   step 4 — a `milestone` under the `response` it backcasts, its period in `section`
-//   step 5 — a `pick` or a `settled`, each a ROOT card whose `source_card_id` points at an
-//            EARLIER week's card. A pick says "this Session 3 risk or opportunity is one of
-//            our top three"; a settled says "this Session 1 uncertainty is no longer open".
-//            Both carry the source's text so the handoff reads without a join, and 0018's
-//            unique (code, source_card_id) stops the same source being marked twice.
+// Week 4's cards of a kind (Commitments), under the six-activity shape:
+//   act 2 — a `pick`: a ROOT card whose `source_card_id` points at the Session 3 risk or
+//           opportunity it brings onto this board. It carries the source's text so the
+//           handoff reads without a join. ONE PICK PER SOURCE, enforced by 0018's unique
+//           (code, source_card_id) — which is exactly why "one of our three priorities"
+//           and "still disputed" are both properties OF the pick rather than cards of
+//           their own: a second card pointing at the same source cannot be written. See
+//           lib/commitments-shape for the two markers.
+//   act 4 — `response` as ROOT cards, the wall of strategic responses
+//   act 6 — no kind of its own for the choosing: a direction is a `response` carrying
+//           `shortlisted`. The three fields that SHARPEN it are `sharpen` children of
+//           that response, each keyed by `section` (DIRECTION_FIELDS) — the same
+//           parent-plus-section shape `milestone` uses, and safe under 0018 because a
+//           child carries no `source_card_id`.
+//   `settled` is a ROOT card pointing at a Session 1 uncertainty ("no longer open"), from
+//   the retired handoff step; `milestone` is a backcast child of a response. Both are
+//   parked rather than removed — see the SHOW_ flags in GroupSummary.
+// Acts 1, 3 and 5 are authored worksheet sections, so their answers are plain stickies and
+// need no kind. See lib/commitments-shape for why that is deliberate.
 // Step 1's aspiration prompts are authored worksheet sections, so their answers are plain
 // stickies and need no kind. See lib/commitments-shape for why that is deliberate.
 // `reading`, `assumed_role`, `question`, `tension`, `concerns`, `assumption`, `condition`,
@@ -206,6 +216,7 @@ export const CARD_KINDS = [
   "milestone",
   "pick",
   "settled",
+  "sharpen",
 ] as const;
 export type CardKind = (typeof CARD_KINDS)[number];
 

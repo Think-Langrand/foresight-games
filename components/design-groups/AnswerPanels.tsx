@@ -131,6 +131,22 @@ export interface HandoffMark extends AnswerRow {
   // rankValue = plausibility x impact, or null while either axis is unset. The ORDER, not
   // the score: the handoff deck and the review step both lead with the highest.
   rank: number | null;
+  // Act 2's two markers, both carried ON the pick because 0018's unique
+  // (code, source_card_id) allows exactly one card per source. Independent of each other:
+  // the issues a group argues hardest about are often the ones it also prioritises.
+  priority: boolean; // one of the three the group named
+  disputed: boolean; // flagged as a consequential issue where disagreement remains
+  // Why it is disputed, when the group said. Null on an undisputed pick, and on a disputed
+  // one nobody explained.
+  note: string | null;
+}
+
+// One of act 6's three directions, as the admin viewer and the handoff deck read it.
+export interface DirectionRow {
+  move: AnswerRow; // the chosen response — the move itself
+  // Every field, answered or not. An unanswered one is a gap worth printing, not a row to
+  // drop: a direction with no rationale has not been sharpened.
+  fields: { key: string; label: string; prompt: string; answers: AnswerRow[] }[];
 }
 export interface MilestoneCell {
   key: string; // the permanent period key — see PERIODS in lib/commitments-shape
@@ -145,27 +161,34 @@ export interface CommitmentsExercise {
   kind: "commitments";
   exerciseId: string;
   title: string;
-  cards: RippleCard[]; // the whole shared board (responses, milestones)
-  // Step 1 lives entirely in `questions`: the aspiration prompts are authored worksheet
-  // sections, so their answers arrive as ordinary question blocks. There is no
-  // `aspiration` field on purpose — the prompts' wording is the facilitator's, not code's.
-  responses: StakeRow[]; // step 2's wall; `shortlisted` marks a bold move
-  boldMoves: AnswerRow[]; // step 3's picks, in wall order
-  lanes: BoldMoveLane[]; // step 4's timeline, one lane per bold move
+  cards: RippleCard[]; // the whole shared board (responses, directions, milestones)
+  // Acts 1, 3 and 5 live entirely in `questions`: their prompts are authored worksheet
+  // sections, so their answers arrive as ordinary question blocks. There is no `vision` or
+  // `outcomes` field on purpose — that wording is the facilitator's, not code's.
+  responses: StakeRow[]; // act 4's wall; `shortlisted` marks a chosen direction
+  boldMoves: AnswerRow[]; // act 6's chosen three, in wall order
+  // Act 6 proper: each chosen direction with the three answers that sharpen it.
+  directions: DirectionRow[];
+  // Answers written about a response the group has since un-chosen. Same contract as
+  // `stranded` below — intact, returning the moment it is chosen again, and reported so the
+  // work is never silently invisible.
+  strandedSharpening: AnswerRow[];
+  lanes: BoldMoveLane[]; // the parked backcast timeline, one lane per chosen direction
   // Milestones under a response the group has since un-ticked. Not lost and not orphaned:
   // they return the moment the move is picked again. Reported so a reader is never left
   // wondering where a timeline went.
   stranded: AnswerRow[];
-  // Step 5's marks. Each carries the earlier card it points at AND that card's words, which
+  // Act 2's marks. Each carries the earlier card it points at AND that card's words, which
   // the mark stored when it was written, so a reader does not need the other board loaded to
   // know what was chosen. Nothing on Session 1's or Session 3's board was changed to make
   // this true; the star on the handoff deck is derived from these.
   picks: HandoffMark[];
   settledMarks: HandoffMark[];
-  // Cards the board could not place — a milestone with an unrecognised period. Surfaced so
-  // nothing is ever silently lost; an empty list is the normal case.
+  // Cards the board could not place — a milestone with an unrecognised period, a sharpening
+  // answer with an unknown field. Surfaced so nothing is ever silently lost; an empty list
+  // is the normal case.
   orphans: AnswerRow[];
-  questions: QuestionBlock[]; // steps 1 and 4's prompts, plus anything an admin added
+  questions: QuestionBlock[]; // acts 1, 3 and 5's prompts, plus anything an admin added
   // When the GROUP said it had finished (migration 0029), and who pressed it. Null means
   // not submitted. It gates nothing — the board stays editable — so this is a signal to a
   // facilitator, which is why it has to actually reach one. See CommitmentsPanel.

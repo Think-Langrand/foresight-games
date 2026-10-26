@@ -246,12 +246,22 @@ describe("synthesisCsvRows", () => {
 
 const wrow = (id: string, text: string) => ({ id, text, author: "Ana", createdAt: "2026-01-01" });
 // A Week 4 mark: a step-2 matrix placement, or a settled uncertainty, which is never scored.
-const wmark = (id: string, text: string, sourceId: string, p: number | null = null, i: number | null = null) => ({
+const wmark = (
+  id: string,
+  text: string,
+  sourceId: string,
+  p: number | null = null,
+  i: number | null = null,
+  over: { priority?: boolean; disputed?: boolean; note?: string | null } = {}
+) => ({
   ...wrow(id, text),
   sourceId,
   plausibility: p,
   impact: i,
   rank: p !== null && i !== null ? p * i : null,
+  priority: over.priority ?? false,
+  disputed: over.disputed ?? false,
+  note: over.note ?? null,
 });
 
 const qblock = (
@@ -416,6 +426,8 @@ const cex = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
   cards: [],
   responses: [],
   boldMoves: [],
+  directions: [],
+  strandedSharpening: [],
   lanes: [],
   stranded: [],
   picks: [],
