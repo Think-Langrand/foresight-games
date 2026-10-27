@@ -1020,8 +1020,8 @@ export function CommitmentsTeamView({
       {step === "responses" && (
         <ResponseBoard
           board={board}
-          sections={sectionsFor("outcomes")}
-          cards={cards}
+          outcomes={answersOn("outcomes")}
+          priorities={priorities(board)}
           week3Cards={week3Cards}
           week2Cards={week2Cards}
           scenario={scenario}
@@ -1030,7 +1030,6 @@ export function CommitmentsTeamView({
           onAdd={addResponse}
           onEdit={editCard}
           onDelete={removeCard}
-          onGoToAspiration={() => setStep("outcomes")}
         />
       )}
 

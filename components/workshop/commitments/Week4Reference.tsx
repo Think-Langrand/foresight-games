@@ -78,7 +78,7 @@ export function Week4Reference({
   responses?: RippleCard[];
 }) {
   return (
-    <aside className="flex flex-col gap-3 rounded-[4px] border border-[var(--rule)] px-4 py-3">
+    <aside className="flex flex-col gap-3 rounded-[4px] border-2 border-ink bg-card px-4 py-3">
       <div>
         <h3 className="m-0 text-[13px] font-bold">What you have said so far</h3>
         <p className="m-0 mt-0.5 text-[12px] italic leading-[1.45] text-muted">
@@ -87,8 +87,26 @@ export function Week4Reference({
         </p>
       </div>
 
-      {/* OPEN, and first when it is here at all. Act 3 is writing outcomes FOR these, so
-          they are the thing the question is about rather than background to it. */}
+      {/* FIRST WHERE THEY APPEAR, AND OPEN. On act 4 the responses are written toward
+          these; on act 5 the vision is what they add up to. Either way they lead. */}
+      {outcomes.length > 0 && (
+      <Fold label="Desired outcomes" count={outcomes.length} defaultOpen>
+        <ul className="m-0 flex list-none flex-col p-0">
+          {outcomes.map((o, i) => (
+            <li
+              key={i}
+              className="border-b border-black/10 py-2 text-[13px] leading-[1.45] last:border-b-0"
+            >
+              {o}
+            </li>
+          ))}
+        </ul>
+      </Fold>
+      )}
+
+      {/* ALWAYS OPEN. Act 3 writes outcomes FOR these and act 4 writes responses linked to
+          them, so on both steps they are what the question is about rather than background
+          to it. */}
       {priorities.length > 0 && (
         <Fold label="Your priorities" count={priorities.length} defaultOpen>
           <ul className="m-0 flex list-none flex-col p-0">
@@ -108,24 +126,6 @@ export function Week4Reference({
             ))}
           </ul>
         </Fold>
-      )}
-
-      {/* OUTCOMES FIRST, AND OPEN. The vision is what the outcomes add up to, so they are
-          the thing to have in view; the responses are how you would get there and matter
-          second here. */}
-      {outcomes.length > 0 && (
-      <Fold label="Desired outcomes" count={outcomes.length} defaultOpen>
-        <ul className="m-0 flex list-none flex-col p-0">
-          {outcomes.map((o, i) => (
-            <li
-              key={i}
-              className="border-b border-black/10 py-2 text-[13px] leading-[1.45] last:border-b-0"
-            >
-              {o}
-            </li>
-          ))}
-        </ul>
-      </Fold>
       )}
 
       {responses.length > 0 && (

@@ -158,7 +158,7 @@ export function Week3Reference({
   // hopes after them. A group that meets its hopes first writes outcomes that are the
   // hopes again in other words; meeting the risks and fears first is what makes the
   // outcomes answer something.
-  variant?: "default" | "stakes-first";
+  variant?: "default" | "stakes-first" | "collapsed";
   cards: RippleCard[];
   // Session 2's board. Only its ROOTS are used — the six key changes — which is the one
   // piece of Week 2 this week leans on. Passed as raw cards for the same reason Session 3
@@ -176,6 +176,7 @@ export function Week3Reference({
   const fears = hopesFears.filter((c) => c.cardKind === "fear");
   const hopes = hopesFears.filter((c) => c.cardKind === "hope");
   const stakesFirst = variant === "stakes-first";
+  const collapsed = variant === "collapsed";
 
   // Session 2's key changes: the tree ROOTS of that board, split the way the handoff deck
   // splits them, so a group that typed "POWER: …" gets its own label back.
@@ -270,7 +271,7 @@ export function Week3Reference({
           group's attention, and these six lines are the ground it has to stand on while
           it answers, so they are the thing to have in view. Closed in the stakes-first
           rail, where the risks and fears lead instead. */}
-      <Fold label="Key changes" count={keyChanges.length} defaultOpen={!stakesFirst}>
+      <Fold label="Key changes" count={keyChanges.length} defaultOpen={!stakesFirst && !collapsed}>
         <ul className="m-0 flex list-none flex-col p-0">
           {keyChanges.map((k) => (
             <li
