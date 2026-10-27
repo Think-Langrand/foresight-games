@@ -175,11 +175,17 @@ export const CARD_DESCRIPTION_MAX = 1000;
 //           their own: a second card pointing at the same source cannot be written. See
 //           lib/commitments-shape for the two markers.
 //   act 4 — `response` as ROOT cards, the wall of strategic responses
-//   act 6 — no kind of its own for the choosing: a direction is a `response` carrying
-//           `shortlisted`. The three fields that SHARPEN it are `sharpen` children of
-//           that response, each keyed by `section` (DIRECTION_FIELDS) — the same
-//           parent-plus-section shape `milestone` uses, and safe under 0018 because a
-//           child carries no `source_card_id`.
+//   act 6 — a `direction` ROOT card, one per recommendation, whose `text` is the move
+//           itself. The three further questions about it are `sharpen` children, each
+//           keyed by `section` (DIRECTION_FIELDS) — the same parent-plus-section shape
+//           `milestone` uses, and safe under 0018 because a child carries no
+//           `source_card_id`.
+//
+//           A DIRECTION IS WRITTEN, NOT PICKED. An earlier shape made it a `response`
+//           carrying `shortlisted`, reusing act 4's wall as the menu. That lost the thing
+//           the activity is for: a recommendation is a claim the group composes, and on a
+//           finished board nobody could tell where the three had come from or why those
+//           three. The wall is now context in the rail, which is what it always was.
 //   `settled` is a ROOT card pointing at a Session 1 uncertainty ("no longer open"), from
 //   the retired handoff step; `milestone` is a backcast child of a response. Both are
 //   parked rather than removed — see the SHOW_ flags in GroupSummary.
@@ -216,6 +222,7 @@ export const CARD_KINDS = [
   "milestone",
   "pick",
   "settled",
+  "direction",
   "sharpen",
 ] as const;
 export type CardKind = (typeof CARD_KINDS)[number];

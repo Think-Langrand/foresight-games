@@ -1,60 +1,54 @@
 "use client";
 
+import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import {
   DIRECTION_FIELDS,
-  MAX_BOLD_MOVES,
+  MAX_DIRECTIONS,
   sharpenCount,
   sharpenFor,
-  strandedSharpening,
   type CommitmentsBoard,
   type DirectionFieldKey,
 } from "@/lib/commitments-shape";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
-// ACT 6 — select and sharpen three directions. Two halves, and the order matters: the wall
-// from act 4 is the option space, the group says which three it would stand behind, and
-// then it answers three questions about each.
+// ACT 6 — three directions, WRITTEN rather than picked.
 //
-// A DIRECTION IS A RESPONSE CARRYING `shortlisted`. There is no second card and no rank
-// column — see lib/commitments-shape's header. That means a tick here is a real write, not
-// transient client state: it survives a reload and every member of the group sees it.
+// AN EARLIER SHAPE MADE THIS A DOWN-SELECT: tick three cards off act 4's wall and answer
+// three questions about each. It read fine on an empty board and badly on a finished one —
+// nothing on the handoff said where the three had come from or why those three, because
+// nobody had written that down. The wall was the menu, so the recommendation was never
+// composed, only chosen.
 //
-// THE MOVE IS THE RESPONSE'S OWN TEXT, which is why only three fields are composed here
-// rather than four. "What should change?" was answered on the wall; editing it is editing
-// the response, which happens on act 4 where it was written.
-//
-// SHARPENING SURVIVES UN-CHOOSING. The three answers are children of the response, so
-// un-ticking a direction strands them rather than deleting them and re-ticking brings them
-// back whole. That is reported rather than left to be discovered — see the stranded note.
-//
-// The cap is enforced HERE and not by the database. Counting server-side would be a
-// read-then-write race on a board several people work at once, so the copy says "up to
-// three" and the shape reports a fourth rather than hiding it. An over-pick is a thing to
+// A direction is its own card now. The group writes the move, then answers three questions
+// about it, and act 4's wall is in the rail as the raw material it always was. That is also
+// why there is no cap enforcement beyond the composer closing: an over-write is a thing to
 // tell the group about, not a thing to make impossible.
+//
+// THE MOVE IS THE CARD'S TEXT, not a fourth `sharpen` child. It is the thing the direction
+// IS — a card with no move is not a direction with one field missing, it is nothing — so it
+// is the one field you cannot leave blank and the one that cannot live in a child.
 
 const movesDirections = makePrefStore("commitments.directions.moves", "open", DIRECTIONS_FOLD);
 
-// The activity's discussion prompts, as guidance. The group's answer is the three it
-// chooses and what it writes about them, not a paragraph typed under a heading.
+// The activity's discussion prompts, as guidance. The output is the three cards.
 const MOVES_DIRECTIONS = [
-  `Pick up to ${MAX_BOLD_MOVES}. If everything is bold, nothing is.`,
+  `Write up to ${MAX_DIRECTIONS}. If everything is bold, nothing is.`,
   "Which three would contribute most to your vision? Do they work together, or does one undo another?",
-  "Choose the ones that would change what your group actually does, not the ones that are easiest to agree on.",
-  "Then answer the three questions on each. If nobody can say what a move is for, it is not ready.",
-  "Test: if you did only these three, would you get anywhere near your vision?",
-  "You can reword a move on step 4; the card is the same card.",
-  "Nothing is lost by un-picking. The move goes back to the wall and keeps what you wrote about it.",
+  "Draw on your response wall, but do not just copy it. A direction is the recommendation you would defend, in your own words.",
+  "Answer all three questions on each. If nobody can say what a move is for, it is not ready.",
+  "Test: if you pursued only these three moves, would you make meaningful progress toward your vision?",
 ];
 
-// The three questions that sharpen one chosen direction.
+// The three questions that sharpen one direction.
 //
 // UNCONTROLLED, SAVING ON BLUR. A controlled textarea on a shared board fights every
-// realtime push while someone is mid-sentence, and these are short paragraphs rather than
-// a word. `defaultValue` keyed by the card's id means a field re-seeds when the direction
-// changes and otherwise leaves the typist alone. Clearing the box deletes the answer —
-// an empty card would count as answered everywhere while showing nothing.
+// realtime push while someone is mid-sentence, and these are short paragraphs rather than a
+// word. `defaultValue` keyed by the card's id means a field re-seeds when the answer changes
+// underneath and otherwise leaves the typist alone. Clearing the box deletes the answer — an
+// empty card would count as answered everywhere while showing nothing.
 function SharpenFields({
   direction,
   board,
@@ -69,7 +63,7 @@ function SharpenFields({
   onSharpen: (direction: RippleCard, field: DirectionFieldKey, text: string) => void;
 }) {
   return (
-    <div className="grid gap-4 border-t border-[var(--hairline)] bg-blue/[0.04] px-3 py-4 pl-10 sm:grid-cols-3">
+    <div className="grid gap-4 border-t border-[var(--hairline)] px-4 py-4 sm:grid-cols-3">
       {DIRECTION_FIELDS.map((f) => {
         const existing = sharpenFor(board, direction.id, f.key);
         return (
@@ -89,8 +83,8 @@ function SharpenFields({
               rows={3}
               className="mt-0.5 w-full rounded-[3px] border border-[var(--rule)] bg-paper px-2 py-1.5 text-[12.5px] leading-[1.45]"
             />
-            {/* The database does not hold one-answer-per-field (see DIRECTION_FIELDS), so
-                a second answer is SHOWN rather than hidden behind the one being edited. */}
+            {/* The database does not hold one-answer-per-field (see DIRECTION_FIELDS), so a
+                second answer is SHOWN rather than hidden behind the one being edited. */}
             {existing.length > 1 && (
               <span className="text-[11px] italic text-muted">
                 {existing.length - 1} other answer{existing.length > 2 ? "s" : ""} on this
@@ -108,149 +102,179 @@ export function MovesBoard({
   board,
   editable,
   busy,
-  onToggle,
+  onAdd,
+  onEditMove,
+  onDelete,
   onSharpen,
-  onGoToResponses,
 }: {
   board: CommitmentsBoard;
   editable: boolean;
-  // Passed for the FIELDS only. The ticks below are deliberately not gated on it — see the
-  // note at the checkbox.
   busy: boolean;
-  onToggle: (card: RippleCard, shortlisted: boolean) => void;
+  onAdd: (move: string) => void;
+  onEditMove: (direction: RippleCard, move: string) => void;
+  onDelete: (direction: RippleCard) => void;
   onSharpen: (direction: RippleCard, field: DirectionFieldKey, text: string) => void;
-  onGoToResponses: () => void;
 }) {
-  const picked = board.boldMoves.length;
-  const stranded = strandedSharpening(board);
-  const atCap = picked >= MAX_BOLD_MOVES;
-  const over = picked > MAX_BOLD_MOVES;
+  const [draft, setDraft] = useState("");
+  const [pending, setPending] = useState<RippleCard | null>(null);
+  const written = board.directions.length;
+  const atCap = written >= MAX_DIRECTIONS;
+  const over = written > MAX_DIRECTIONS;
 
-  if (board.responses.length === 0) {
-    return (
-      <div className="flex flex-col gap-5">
-        <div className="rounded-[4px] border border-dashed border-[var(--rule)] px-5 py-6 text-center">
-          <p className="m-0 text-[14px] font-bold">Nothing to choose between yet.</p>
-          <p className="m-0 mt-1 text-[13px] text-muted">
-            Open the option space first, then come back and pick {MAX_BOLD_MOVES}.
-          </p>
-          <button
-            type="button"
-            onClick={onGoToResponses}
-            className="mt-3 text-[13px] text-blue underline hover:no-underline"
-          >
-            &larr; Go to Strategic responses
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const submit = () => {
+    const t = draft.trim();
+    if (!t) return;
+    onAdd(t);
+    setDraft("");
+  };
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-w-0">
-          {/* The count is the step's whole state, so it sits above the list and stays
-              there rather than floating over it: this list is short enough to see at
-              once, and a bar that covers the last card is worse than a heading. */}
-          <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-ink bg-paper px-1 py-2">
-            <span className="text-[14px] font-bold">
-              {picked} of {MAX_BOLD_MOVES} chosen
-            </span>
-            <span className="text-[12px] italic text-muted">
-              {over
-                ? `That is ${picked - MAX_BOLD_MOVES} more than ${MAX_BOLD_MOVES}. Un-pick the ones you would not defend.`
-                : atCap
-                  ? "Un-pick one to swap it for another."
-                  : `Pick the ${MAX_BOLD_MOVES - picked === 1 ? "one" : MAX_BOLD_MOVES - picked} you would stand behind.`}
-            </span>
-          </div>
-
-          <ul className="m-0 list-none p-0">
-            {board.responses.map((c) => {
-              const on = c.shortlisted;
-              // At the cap the unpicked go genuinely disabled rather than silently
-              // no-op'ing on click: a tick that does nothing reads as a bug.
-              const locked = !on && atCap;
-              return (
-                <li key={c.id} className="border-b border-[var(--hairline)] last:border-b-0">
-                  <label
-                    className={
-                      "flex cursor-pointer items-start gap-3 py-3 pl-2 pr-3 transition-colors " +
-                      (on ? "bg-blue/10" : locked ? "opacity-45" : "hover:bg-black/[0.03]") +
-                      (locked ? " cursor-not-allowed" : "")
-                    }
-                  >
-                    {/* NOT disabled on `busy`. That flag is board-wide, so gating the
-                        ticks on it disabled every checkbox for the length of each write
-                        and a group ticking three moves in a row lost the second and third
-                        clicks silently. The optimistic overlay shows a tick at once and
-                        `run` surfaces a refusal as the flash, so there is nothing to wait
-                        for; the cap below reads the same overlay, so it is enforced from
-                        the first click rather than from the round trip. */}
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      disabled={!editable || locked}
-                      onChange={() => onToggle(c, !on)}
-                      className="mt-[3px] h-4 w-4 shrink-0 accent-[var(--blue)]"
-                    />
-                    <span className="min-w-0">
-                      <span
-                        className={
-                          "block max-w-[76ch] text-[14px] leading-[1.45] " + (on ? "font-bold" : "")
-                        }
-                      >
-                        {c.text}
-                      </span>
-                      {on && (
-                        <span className="mt-1 block font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-blue">
-                          ★ a direction &middot; {sharpenCount(board, c.id)} of{" "}
-                          {DIRECTION_FIELDS.length} answered
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                  {/* THE FIELDS SIT UNDER THE MOVE THEY SHARPEN, not on a tab of their
-                      own. The questions are about THIS direction and are meaningless
-                      apart from it, and a group reading them in a separate list would
-                      have to hold the move in its head while answering. */}
-                  {on && (
-                    <SharpenFields
-                      direction={c}
-                      board={board}
-                      editable={editable}
-                      busy={busy}
-                      onSharpen={onSharpen}
-                    />
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          {/* "Where did what I wrote go?" answered before it is asked. Un-choosing a
-              direction leaves its three answers intact under the response, so this says
-              so rather than letting the group find out by re-choosing. */}
-          {stranded.length > 0 && (
-            <p className="m-0 rounded-[3px] border-l-[3px] border-blue bg-blue/10 px-3 py-2 text-[12.5px] leading-[1.45]">
-              {stranded.length} answer{stranded.length === 1 ? "" : "s"} you wrote about a
-              move you have since un-picked.{" "}
-              <span className="italic text-muted">
-                Pick it again and they come back.
-              </span>
-            </p>
-          )}
-          <Directions
-            title="Choosing three, then sharpening them"
-            lines={MOVES_DIRECTIONS}
-            fold={movesDirections}
-            first
-          />
+      <div className="max-w-[72ch] rounded-[3px] border-l-[3px] border-ink bg-card px-4 py-3">
+        <h3 className="m-0 mb-1.5 text-[15px] font-extrabold uppercase tracking-tight">
+          Select and sharpen three directions
+        </h3>
+        <div className="flex flex-col gap-2 text-[14px] leading-[1.5]">
+          <p className="m-0">
+            What are three directions the field of public health should take to achieve the
+            vision, and why do they matter?
+          </p>
+          <p className="m-0">
+            Which three moves would make the greatest contribution to achieving this vision?
+            Do they work together? What would change? What would need to be in place, or done
+            differently from today, for each move to work?
+          </p>
+          <p className="m-0 font-bold">
+            Test: if we pursued only these three moves, would we make meaningful progress
+            toward our vision?
+          </p>
         </div>
       </div>
+
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-ink pb-2">
+        <span className="text-[14px] font-bold">
+          {written} of {MAX_DIRECTIONS} written
+        </span>
+        <span className="text-[12px] italic text-muted">
+          {over
+            ? `That is ${written - MAX_DIRECTIONS} more than ${MAX_DIRECTIONS}. Delete the ones you would not defend.`
+            : atCap
+              ? "Delete one to make room for another."
+              : `Write ${MAX_DIRECTIONS - written} more.`}
+        </span>
+      </div>
+
+      <ol className="m-0 flex list-none flex-col gap-4 p-0">
+        {board.directions.map((d, i) => (
+          <li key={d.id} className="rounded-[4px] border-2 border-ink bg-card">
+            <div className="flex items-start gap-3 px-4 py-3">
+              <span className="pt-[3px] font-mono text-[12px] font-bold tabular-nums text-blue">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className="mb-1 block font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-blue">
+                  The move
+                </span>
+                <span className="mb-1 block text-[11.5px] italic leading-[1.35] text-muted">
+                  What should change?
+                </span>
+                {/* Same uncontrolled-on-blur handling as the fields below, and for the same
+                    reason: this is a shared board and someone may be mid-sentence. */}
+                <textarea
+                  key={d.id}
+                  defaultValue={d.text}
+                  disabled={!editable || busy}
+                  onBlur={(e) => {
+                    const t = e.target.value.trim();
+                    if (!t || t === d.text) return;
+                    onEditMove(d, t);
+                  }}
+                  rows={2}
+                  className="w-full rounded-[3px] border border-[var(--rule)] bg-paper px-2 py-1.5 text-[13.5px] font-bold leading-[1.45]"
+                />
+                <span className="mt-1 block font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
+                  {sharpenCount(board, d.id)} of {DIRECTION_FIELDS.length} questions answered
+                </span>
+              </div>
+              {editable && (
+                <button
+                  type="button"
+                  onClick={() => setPending(d)}
+                  className="shrink-0 text-[11px] text-muted underline hover:text-coral"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+            <SharpenFields
+              direction={d}
+              board={board}
+              editable={editable}
+              busy={busy}
+              onSharpen={onSharpen}
+            />
+          </li>
+        ))}
+      </ol>
+
+      {/* The composer closes at the cap rather than refusing on submit: a box you can type
+          into and then be told no is worse than one that is not there. */}
+      {editable && !atCap && (
+        <div className="rounded-[4px] border-2 border-dashed border-[var(--rule)] px-4 py-3">
+          <label className="block">
+            <span className="mb-1 block font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-blue">
+              The move
+            </span>
+            <span className="mb-1.5 block text-[11.5px] italic leading-[1.35] text-muted">
+              What should change? Write one, then answer the three questions about it.
+            </span>
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={busy}
+              rows={2}
+              placeholder="One move. Who does what…"
+              className="w-full rounded-[3px] border border-[var(--rule)] bg-paper px-2 py-1.5 text-[13.5px] leading-[1.45]"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={busy || !draft.trim()}
+            className="mt-2 rounded-[3px] bg-ink px-4 py-1.5 text-[12px] font-bold uppercase tracking-[0.06em] text-paper disabled:opacity-40"
+          >
+            Add direction
+          </button>
+        </div>
+      )}
+
+      <Directions
+        title="Writing three directions"
+        lines={MOVES_DIRECTIONS}
+        fold={movesDirections}
+      />
+
+      <ConfirmModal
+        open={pending !== null}
+        title="Delete this direction?"
+        message={
+          <>
+            <span className="block">{pending?.text}</span>
+            {pending && sharpenCount(board, pending.id) > 0 && (
+              <span className="mt-2 block font-bold">
+                This takes {sharpenCount(board, pending.id)} answered question
+                {sharpenCount(board, pending.id) === 1 ? "" : "s"} with it.
+              </span>
+            )}
+          </>
+        }
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (pending) onDelete(pending);
+          setPending(null);
+        }}
+        onCancel={() => setPending(null)}
+      />
     </div>
   );
 }

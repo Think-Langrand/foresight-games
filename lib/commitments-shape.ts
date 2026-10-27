@@ -21,11 +21,15 @@
 //           context rather than nested under them.
 //   act 4 — `response` cards, tree roots, one per strategic response.
 //   act 5 — an authored section (`w4-role`, labelled "Set the vision").
-//   act 6 — `shortlisted` on a `response` picks the three directions. No separate card and
-//           no rank column: migration 0022 says shortlist_rank is cleanly additive and to
-//           not pre-build it, and the response's own `sort` is already the wall's drag
-//           order, so one list has one order. Each direction is then SHARPENED by three
-//           `sharpen` children, the field in `section` (DIRECTION_FIELDS).
+//   act 6 — a `direction` ROOT card per recommendation, its `text` the move itself, with
+//           three `sharpen` children carrying the further questions, the field in
+//           `section` (DIRECTION_FIELDS).
+//
+//           WRITTEN, NOT PICKED. An earlier shape made a direction a `response` carrying
+//           `shortlisted`, so act 4's wall was the menu act 6 chose from. On a finished
+//           board that left no way to tell where the three had come from or why those
+//           three — the thing the activity exists to make explicit. The wall is context in
+//           the rail now, which is what it always was.
 //
 // THE AUTHORED SECTIONS ARE DELIBERATELY ABSENT FROM THIS MODULE. Their wording lives in
 // the exercise's `sections` column and is editable in the admin block editor with no
@@ -80,11 +84,10 @@ export function isCommitmentPeriod(v: unknown): v is PeriodKey {
 // ---------------------------------------------------------------------------
 // Act 6 — the three fields that sharpen a direction
 // ---------------------------------------------------------------------------
-// A direction is a `response` carrying `shortlisted`; its TEXT is the move itself ("what
-// should change?"), so only the three remaining questions need cards. Each is a `sharpen`
-// child of that response with its key in `section` — the same parent-plus-section address
-// a milestone uses, for the same reason: the parent says which move, `section` says which
-// question about it.
+// A direction's own TEXT is the move ("what should change?"), so only the three remaining
+// questions need cards of their own. Each is a `sharpen` child of the direction with its
+// key in `section` — the same parent-plus-section address a milestone uses, for the same
+// reason: the parent says which move, `section` says which question about it.
 //
 // KEYS ARE PERMANENT AND LABELS ARE NOT, exactly as for PERIODS above. The prompt wording
 // here is the one piece of act 6 that is NOT admin-editable, because these are fields on a
@@ -142,7 +145,12 @@ export const DISPUTED_SECTION = "w4-disputed";
 // Caps
 // ---------------------------------------------------------------------------
 // Three moves, because the point of the step is that choosing is the work.
+//
+// MAX_BOLD_MOVES is the PARKED backcast timeline's cap, over shortlisted responses.
+// MAX_DIRECTIONS is act 6's, over `direction` cards. Same number, different things: one
+// counts what a retired step picked off a wall, the other what this step writes.
 export const MAX_BOLD_MOVES = 3;
+export const MAX_DIRECTIONS = 3;
 
 // Five milestones per move across the WHOLE span, free to cluster — not one per period.
 // Backcasting from a ten-year horizon rarely lands one beat per biennium; a group clusters
@@ -190,10 +198,10 @@ export interface CommitmentsBoard {
   // to scan. A source that appears twice is impossible: 0018's unique (code, source_card_id).
   picks: Map<string, RippleCard>; // sourceCardId → the pick marking it
   settled: Map<string, RippleCard>; // sourceCardId → the mark saying it is no longer open
-  // Act 6. responseId → field key → the answers sharpening that direction. Keyed by EVERY
-  // live response, not only the chosen three, for the same reason `milestones` is:
-  // un-choosing a direction must not strand what was written about it, and re-choosing it
-  // must bring the answers back.
+  // Act 6's recommendations, in board order. Roots of kind `direction`; the move itself is
+  // the card's own text.
+  directions: RippleCard[];
+  // directionId → field key → the answers sharpening it.
   sharpen: Map<string, Map<DirectionFieldKey, RippleCard[]>>;
   parked: RippleCard[]; // set aside, non-STICKY
   // Cards no bucket could legitimately hold: a response hung off something, a milestone with
@@ -217,6 +225,7 @@ const byOrder = (a: RippleCard, b: RippleCard) =>
 // routes refuse an unknown period with a 400 rather than storing null.
 export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
   const responses: RippleCard[] = [];
+  const directions: RippleCard[] = [];
   const parked: RippleCard[] = [];
   const orphans: RippleCard[] = [];
   // Flat first, bucketed into periods only once we know which parents are live.
@@ -236,6 +245,11 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
       // A response is the wall's own card; hung off something it is not a response to
       // anything this board draws.
       if (isTreeRoot(c)) responses.push(c);
+      else orphans.push(c);
+      continue;
+    }
+    if (c.cardKind === "direction") {
+      if (isTreeRoot(c)) directions.push(c);
       else orphans.push(c);
       continue;
     }
@@ -298,10 +312,13 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
     milestones.set(parentId, periods);
   }
 
+  directions.sort(byOrder);
+  const liveDirections = new Set(directions.map((d) => d.id));
+
   // Act 6's sharpening answers, under the same reachability rule as the milestones above.
   const sharpen = new Map<string, Map<DirectionFieldKey, RippleCard[]>>();
   for (const [parentId, arr] of sharpenByParent) {
-    if (!live.has(parentId)) {
+    if (!liveDirections.has(parentId)) {
       orphans.push(...arr);
       continue;
     }
@@ -340,6 +357,7 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
 
   return {
     responses,
+    directions,
     boldMoves,
     milestones,
     picks,
@@ -415,17 +433,22 @@ export function isSharpened(board: CommitmentsBoard, directionId: string): boole
   return sharpenCount(board, directionId) === DIRECTION_FIELD_KEYS.length;
 }
 
-// Answers written about a response the group has since un-chosen. Same contract as
-// strandedMilestones: the cards are intact and return the moment it is chosen again, and
-// they are reported so the UI can say so rather than letting the work vanish silently.
+// Answers hanging off a direction the board no longer draws — one the group parked. Not
+// orphans: the cards are intact and come back with it. Reported so the UI can say so
+// rather than letting the work vanish silently.
 export function strandedSharpening(board: CommitmentsBoard): RippleCard[] {
-  const chosen = new Set(board.boldMoves.map((m) => m.id));
+  const live = new Set(board.directions.map((d) => d.id));
   const out: RippleCard[] = [];
   for (const [directionId, fields] of board.sharpen) {
-    if (chosen.has(directionId)) continue;
+    if (live.has(directionId)) continue;
     for (const arr of fields.values()) out.push(...arr);
   }
   return out.sort(byOrder);
+}
+
+/** Whether another direction can be written. Held here, not by the database — see above. */
+export function canAddDirection(board: CommitmentsBoard): boolean {
+  return board.directions.length < MAX_DIRECTIONS;
 }
 
 // --- act 2: priorities, and what is still disputed --------------------------------------

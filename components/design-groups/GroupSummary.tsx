@@ -708,9 +708,9 @@ export default function GroupSummaryView({
           intro={
             <>
               {s.directions.length}{" "}
-              {s.directions.length === 1 ? "move" : "moves"} your group would recommend,
-              chosen out of everything on its response wall. This is the only part of the
-              program that says what it would actually do.
+              {s.directions.length === 1 ? "move" : "moves"} your group would recommend, and
+              what each one is for. This is the only part of the program that says what it
+              would actually do.
             </>
           }
         >

@@ -102,8 +102,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
       responses: board.responses.length,
       vision: answered(visionSecs),
       visionTotal: visionSecs.length,
-      directions: board.boldMoves.length,
-      sharpened: board.boldMoves.filter((m) => isSharpened(board, m.id)).length,
+      directions: board.directions.length,
+      sharpened: board.directions.filter((d) => isSharpened(board, d.id)).length,
     });
     if (!readiness.ready) {
       return NextResponse.json(

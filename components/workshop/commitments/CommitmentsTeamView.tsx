@@ -38,7 +38,6 @@ import type { ScorePatchInput } from "@/lib/ripples-scoring";
 import { cardScores } from "@/lib/ripples-scoring";
 import { SORT_STEP } from "@/lib/synthesis-shape";
 import {
-  DIRECTION_FIELDS,
   DISPUTED_SECTION,
   indexCommitmentsBoard,
   isSharpened,
@@ -667,18 +666,43 @@ export function CommitmentsTeamView({
 
   // --- act 6: choosing three directions, and sharpening each ---------------------------
   //
-  // A DIRECTION IS A RESPONSE CARRYING `shortlisted`. No second card and no rank column —
-  // see lib/commitments-shape — so a tick here is a real write that survives a reload and
-  // that every member sees. Un-ticking strands the sharpening answers rather than deleting
-  // them; they come back whole if the group re-chooses it, which is what
-  // strandedSharpening reports.
-  const toggleDirection = (card: RippleCard, on: boolean) =>
+  // A DIRECTION IS ITS OWN CARD, written rather than picked off act 4's wall — see
+  // lib/commitments-shape for why that changed. Its text is the move; the three questions
+  // about it are children.
+  const addDirection = (move: string) =>
     run(async () => {
-      shortlistLocal(card.id, on);
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "FIRST",
+        cardKind: "direction",
+        text: move,
+        sort: endSort(board.directions),
+      });
+      const created = res?.card as RippleCard | undefined;
+      if (created) addLocal(created);
+    });
+
+  const editDirection = (card: RippleCard, move: string) =>
+    run(async () => {
+      const before = card.text;
+      editLocal(card.id, move);
       try {
-        await shortlistRippleCard(code, card.id, { participantId: pid, shortlisted: on });
+        await editRippleCard(code, card.id, { participantId: pid, text: move });
       } catch (e) {
-        shortlistLocal(card.id, !on);
+        editLocal(card.id, before);
+        throw e;
+      }
+    });
+
+  // Deleting a direction takes its answers with it. 0026's delete walks the children, so
+  // this is one call rather than four, and the confirm says what goes.
+  const removeDirection = (card: RippleCard) =>
+    run(async () => {
+      removeLocal(card.id);
+      try {
+        await deleteRippleCard(code, card.id, { participantId: pid });
+      } catch (e) {
+        unremoveLocal(card.id);
         throw e;
       }
     });
@@ -790,8 +814,8 @@ export function CommitmentsTeamView({
     responses: board.responses.length,
     vision: answeredCount(sectionsFor("vision")),
     visionTotal: sectionsFor("vision").length,
-    directions: board.boldMoves.length,
-    sharpened: board.boldMoves.filter((m) => isSharpened(board, m.id)).length,
+    directions: board.directions.length,
+    sharpened: board.directions.filter((d) => isSharpened(board, d.id)).length,
   });
   const execOverride = coerceExecSummary(
     (view?.session.config as Record<string, unknown> | undefined)?.execSummary
@@ -831,7 +855,6 @@ export function CommitmentsTeamView({
         .map((c) => c.text.trim())
     );
 
-  const visionAnswers = answersOn("vision");
 
   const execComposer = (
     <ExecSummaryComposer
@@ -1060,34 +1083,46 @@ export function CommitmentsTeamView({
 
       {/* Act 6. Choose three off the wall, then sharpen each. */}
       {step === "directions" && (
-        <MovesBoard
-          board={board}
-          editable={editable}
-          busy={busy}
-          onToggle={toggleDirection}
-          onSharpen={setSharpen}
-          onGoToResponses={() => setStep("responses")}
-        />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="min-w-0">
+            <MovesBoard
+              board={board}
+              editable={editable}
+              busy={busy}
+              onAdd={addDirection}
+              onEditMove={editDirection}
+              onDelete={removeDirection}
+              onSharpen={setSharpen}
+            />
+          </div>
+          {/* The material a direction is composed FROM: the wall it draws on, the
+              priorities and outcomes its purpose field has to name, and the vision its
+              test is against. Week 3 below, closed. */}
+          <div className="flex flex-col gap-4">
+            <Week4Reference
+              outcomes={answersOn("outcomes")}
+              priorities={priorities(board)}
+              responses={board.responses}
+            />
+            <Week3Reference
+              cards={week3Cards}
+              week2Cards={week2Cards}
+              scenario={scenario}
+              variant="collapsed"
+            />
+          </div>
+        </div>
       )}
 
-      {/* Step 5. It reads the same optimistic cards as every other step now: the pane that
-          had to be shaped from the server's view was the read-back, and that is gone. What
-          is left is the group's own two answers, where a line appearing the instant it is
-          typed is the right behaviour rather than the wrong one. */}
+      {/* Act 7, the handoff. No read-back: by here the group has just written its three
+          directions, and the deck is one click away and reads the whole week better than a
+          panel on this step ever did. What is left is the optional note and the way out. */}
       {step === "review" && reviewLocked && <HandoffGuideLocked steps={execReady.steps} />}
 
       {step === "review" && !reviewLocked && (
         <ReviewBoard
           summaryHref={summaryHref}
           composer={execComposer}
-          vision={visionAnswers}
-          directions={board.boldMoves.map((m) => ({
-            text: m.text,
-            fields: DIRECTION_FIELDS.map((f) => ({
-              label: f.label,
-              answers: sharpenFor(board, m.id, f.key).map((c) => c.text.trim()).filter(Boolean),
-            })),
-          }))}
           submittedAt={submitted.at}
           submittedBy={submitted.by}
           editable={editable}

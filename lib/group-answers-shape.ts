@@ -274,7 +274,7 @@ export function shapeFromView(
       })),
       // Act 6. Every field on every chosen direction, answered or not — an unsharpened
       // direction is a gap the handoff should print, not a row to quietly drop.
-      directions: board.boldMoves.map((move) => ({
+      directions: board.directions.map((move) => ({
         move: toRow(move),
         fields: DIRECTION_FIELDS.map((f) => ({
           key: f.key,
