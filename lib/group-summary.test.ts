@@ -692,34 +692,85 @@ describe("buildGroupSummary · the curated handoff", () => {
     ]);
   });
 
-  it("carries act 2's priorities and disputes with the scores they were given", () => {
-    // Both markers ride ON the pick — 0018's unique (code, source_card_id) allows exactly
-    // one card per source — so they must come through on the same rows as `placements`,
-    // scores included, or the two could disagree about an issue's words or its wall.
+  it("takes act 2's priorities off the top of the ranking, strongest first", () => {
+    // NOT off a stored flag. `priority: true` sits on the two LOWEST-scoring picks here on
+    // purpose: it was a manual star, it could disagree with the scores on the very same
+    // row, and that disagreement is what this replaced. The scores decide.
     const s = buildGroupSummary(
       [
         w3(),
         w4({
           cards: [{ id: "c" } as never],
           picks: [
-            mark("p1", "Funding comes from one source", "r1", 4, 5, { priority: true }),
+            mark("p1", "Funding comes from one source", "r1", 4, 5, { priority: false }),
             mark("p2", "Upstream prevention", "o1", 2, 3, { priority: true, disputed: true, note: "Half the room thinks this is the whole game." }),
-            mark("p3", "Something else", "r2", 1, 1),
+            mark("p3", "Something else", "r2", 1, 1, { priority: true }),
           ],
         }),
       ],
       { name: "G" }
     );
-    // The WORDS come off Session 3, not off the pick, even though the pick stores a copy:
-    // these fixtures give the two deliberately different text so the source of the words is
-    // not ambiguous. A facilitator who fixes a typo on Session 3 gets the fix in the handoff.
-    expect(s.priorities.map((p) => p.text)).toEqual(["starred risk", "starred opp"]);
+    // 20, then 6, then 1. The WORDS come off Session 3, not off the pick, even though the
+    // pick stores a copy: these fixtures give the two deliberately different text so the
+    // source of the words is not ambiguous. A facilitator who fixes a typo on Session 3
+    // gets the fix in the handoff.
+    expect(s.priorities.map((p) => p.text)).toEqual(["starred risk", "starred opp", "plain risk"]);
     // A priority keeps its wall and its scores, so the slide can mark it risk or
     // opportunity without re-deriving anything.
     expect(s.priorities[0]).toMatchObject({ kind: "risk", plausibility: 4, impact: 5, rank: 20 });
     expect(s.priorities[1].kind).toBe("opportunity");
-    // Independent axes: an issue can be both, and the interesting ones usually are.
+    // The dispute flag IS still a choice, and an independent one: an issue can be both,
+    // and the interesting ones usually are.
     expect(s.disputed.map((p) => p.text)).toEqual(["starred opp"]);
+  });
+
+  it("cuts the priorities at three, and runs long only on a dead heat", () => {
+    const four = (scores: [number, number][]) =>
+      buildGroupSummary(
+        [
+          w3(),
+          w4({
+            cards: [{ id: "c" } as never],
+            picks: [
+              mark("p1", "a", "r1", ...scores[0]),
+              mark("p2", "b", "o1", ...scores[1]),
+              mark("p3", "c", "r2", ...scores[2]),
+              mark("p4", "d", "o2", ...scores[3]),
+            ],
+          }),
+        ],
+        { name: "G" }
+      ).priorities;
+
+    // Four scored, no tie at the cut: three.
+    expect(four([[5, 5], [4, 5], [3, 5], [2, 2]])).toHaveLength(3);
+    // The fourth ties the third on BOTH axes — nothing in the scores prefers one, so both
+    // stand rather than one being dropped on an accident of board order.
+    expect(four([[5, 5], [4, 5], [3, 5], [3, 5]])).toHaveLength(4);
+    // Same product, different impact: 5x3 outranks 3x5, so this is not a tie and the cut
+    // holds at three.
+    expect(four([[5, 5], [4, 5], [5, 3], [3, 5]])).toHaveLength(3);
+  });
+
+  it("will not make an unscored issue a priority to fill the three", () => {
+    // Half-scored and unscored stakes have no defensible place on the matrix, so they have
+    // none at the top of it either. Two scored and two not gives two priorities.
+    const s = buildGroupSummary(
+      [
+        w3(),
+        w4({
+          cards: [{ id: "c" } as never],
+          picks: [
+            mark("p1", "a", "r1", 5, 5),
+            mark("p2", "b", "o1", 4, 4),
+            mark("p3", "c", "r2", 3, null),
+            mark("p4", "d", "o2"),
+          ],
+        }),
+      ],
+      { name: "G" }
+    );
+    expect(s.priorities.map((p) => p.rank)).toEqual([25, 16]);
   });
 
   it("drops a priority whose Session 3 card is gone, rather than guessing its wall", () => {

@@ -45,6 +45,12 @@
 // deck gates them behind SHOW_BACKCASTING / SHOW_UNSETTLED.
 
 import { isTreeRoot, type RippleCard } from "@/lib/ripples-types";
+import {
+  cardScores,
+  compareByRank,
+  rankValue,
+  topScoredWithTies,
+} from "@/lib/ripples-scoring";
 
 // ---------------------------------------------------------------------------
 // The timeline's periods
@@ -458,13 +464,30 @@ export function isPicked(board: CommitmentsBoard, sourceId: string): boolean {
   return board.picks.has(sourceId);
 }
 
-/** The picks the group named as its priorities, in the order they were minted. */
+/**
+ * The group's priorities: the highest-scoring issues on the matrix, strongest first.
+ *
+ * DERIVED, NOT CHOSEN. This was a manual star, and the star was a second mechanism that
+ * could disagree with the scores — a group would score "shut out of the system" 5×5 and
+ * still see a 3×4 in the rail because that was what somebody had clicked. The scoring step
+ * IS the prioritising step, so there is nothing left to click: score the walls and the
+ * three fall out. (`shortlisted` on a pick is now dead for priorities; it still carries
+ * act 6's directions, which really are a choice.)
+ *
+ * MORE THAN THREE WHEN THE SCORES TIE, and FEWER THAN THREE before the walls are scored —
+ * see topScoredWithTies. A half-scored issue has no defensible place on the matrix and so
+ * none at the top of it either.
+ */
 export function priorities(board: CommitmentsBoard): RippleCard[] {
-  return [...board.picks.values()].filter((p) => p.shortlisted).sort(byOrder);
+  const ranked = [...board.picks.values()].sort(compareByRank);
+  return topScoredWithTies(ranked, MAX_PRIORITIES, (c) => ({
+    value: rankValue(c),
+    impact: cardScores(c).impact,
+  }));
 }
 
 export function isPriority(board: CommitmentsBoard, sourceId: string): boolean {
-  return board.picks.get(sourceId)?.shortlisted ?? false;
+  return priorities(board).some((p) => p.sourceCardId === sourceId);
 }
 
 /**
@@ -479,16 +502,6 @@ export function disputed(board: CommitmentsBoard): RippleCard[] {
 
 export function isDisputed(board: CommitmentsBoard, sourceId: string): boolean {
   return board.picks.get(sourceId)?.section === DISPUTED_SECTION;
-}
-
-/**
- * Whether another issue can be named a priority. The cap is held HERE and not by the
- * database, the same call the bold moves make: counting server-side would be a
- * read-then-write race on a board several people work at once. An over-pick is reported,
- * not made impossible.
- */
-export function canAddPriority(board: CommitmentsBoard): boolean {
-  return priorities(board).length < MAX_PRIORITIES;
 }
 
 // An earlier uncertainty is STILL OPEN unless the group has said otherwise. The default

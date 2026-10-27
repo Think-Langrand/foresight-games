@@ -26,7 +26,6 @@ import {
   disputeRippleCard,
   editRippleCard,
   postRippleCard,
-  shortlistRippleCard,
   scoreRippleCard,
   reorderRippleCard,
   submitRippleBoard,
@@ -177,7 +176,6 @@ export function CommitmentsTeamView({
     reorderLocal,
     editLocal,
     describeLocal,
-    shortlistLocal,
     sectionLocal,
     scoreLocal,
     settleScoreLocal,
@@ -628,31 +626,20 @@ export function CommitmentsTeamView({
     toggleMark("pick", { id: card.id, text: card.text }, false);
   };
 
-  // --- act 2: naming the three priorities, and flagging a dispute ----------------------
+  // --- act 2: flagging a dispute --------------------------------------------------------
   //
-  // BOTH MARKERS RIDE ON THE PICK, which is forced rather than chosen: 0018's unique
-  // (code, source_card_id) permits exactly one Week 4 card per Session 3 source, so a
-  // separate "priority" or "disputed" card pointing at a risk that already has a pick
-  // could not be written. `ensurePick` is the same mint the matrix uses, so starring a row
-  // nobody scored brings the pick into being exactly as a first score click would.
+  // THERE IS NO WRITE FOR A PRIORITY. There was: a star, stored as `shortlisted` on the
+  // pick. It was a second way of saying what the two scores already said, and the two
+  // disagreed in practice — a group would score "some people will be shut out" 5×5 and
+  // still find a 3×4 in its priorities, because that was the row somebody had clicked.
+  // `priorities()` now reads the top of the ranking, so re-scoring re-prioritises with no
+  // second write and nothing to keep in sync.
   //
-  // THE CAP IS NOT ENFORCED HERE. The board disables a fourth star off `priorities(board)`
-  // directly; a group that gets one anyway (two people clicking at once) sees it
-  // reported rather than silently dropped, the same call every other cap on this week
-  // makes.
-  const togglePriority = (card: RippleCard, on: boolean) =>
-    run(async () => {
-      const pickId = await ensurePick({ id: card.id, text: card.text });
-      if (cancelledMints.current.has(card.id)) return;
-      shortlistLocal(pickId, on);
-      try {
-        await shortlistRippleCard(code, pickId, { participantId: pid, shortlisted: on });
-      } catch (e) {
-        shortlistLocal(pickId, !on);
-        throw e;
-      }
-    });
-
+  // THE DISPUTE MARK IS STILL A CHOICE and still rides on the pick, which is forced rather
+  // than chosen: 0018's unique (code, source_card_id) permits exactly one Week 4 card per
+  // Session 3 source, so a separate "disputed" card pointing at a risk that already has a
+  // pick could not be written. `ensurePick` is the same mint the matrix uses, so flagging
+  // a row nobody scored brings the pick into being exactly as a first score click would.
   const toggleDisputed = (card: RippleCard, on: boolean) =>
     run(async () => {
       const pickId = await ensurePick({ id: card.id, text: card.text });
@@ -1036,7 +1023,6 @@ export function CommitmentsTeamView({
           busy={busy}
           onScore={scoreStake}
           onClear={clearStake}
-          onTogglePriority={togglePriority}
           onToggleDisputed={toggleDisputed}
           onNote={setDisputeNote}
         />

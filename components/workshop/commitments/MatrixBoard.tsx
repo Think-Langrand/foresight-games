@@ -63,7 +63,7 @@ const MATRIX_DIRECTIONS = [
   "A risk you hate can still be low impact. Something years off can still be near certain.",
   `Score at least ${PLACED_FLOOR_PER_KIND} of each wall, and more if they matter. A card reaches the matrix when both scales are set.`,
   "Skip any card your group has no view on.",
-  `Star ${MAX_PRIORITIES} in total. They can all come off one wall.`,
+  `The ${MAX_PRIORITIES} highest-scoring become your priorities, across both walls. Nothing to click — re-score and they change.`,
   "If the room splits on one and you keep it anyway, tick the box and say what the argument was.",
   "Score as a group with one person recording. Two people scoring the same card will overwrite each other.",
 ];
@@ -77,15 +77,13 @@ function Panel({
   scoresFor,
   editable,
   busy,
-  atCap,
-  isStarred,
+  isPriorityRow,
   isFlagged,
   noteFor,
   hoveredId,
   onHover,
   onScore,
   onClear,
-  onTogglePriority,
   onToggleDisputed,
   onNote,
 }: {
@@ -97,15 +95,14 @@ function Panel({
   scoresFor: (sourceId: string) => { plausibility: Score | null; impact: Score | null };
   editable: boolean;
   busy: boolean;
-  atCap: boolean;
-  isStarred: (sourceId: string) => boolean;
+  // A READOUT, not a control: whether the scores put this row in the top three.
+  isPriorityRow: (sourceId: string) => boolean;
   isFlagged: (sourceId: string) => boolean;
   noteFor: (sourceId: string) => string;
   hoveredId: string | null;
   onHover: (id: string | null) => void;
   onScore: (card: RippleCard, patch: ScorePatchInput) => void;
   onClear: (card: RippleCard) => void;
-  onTogglePriority: (card: RippleCard, on: boolean) => void;
   onToggleDisputed: (card: RippleCard, on: boolean) => void;
   onNote: (card: RippleCard, note: string) => void;
 }) {
@@ -177,7 +174,7 @@ function Panel({
                 const touched =
                   Boolean(pick) || scores.plausibility !== null || scores.impact !== null;
                 const done = isDone(c);
-                const starred = isStarred(c.id);
+                const starred = isPriorityRow(c.id);
                 const flagged = isFlagged(c.id);
                 return (
                   <li
@@ -199,33 +196,12 @@ function Panel({
                         {starred && <span className="mr-1 text-amber">★</span>}
                         {c.text}
                       </span>
-                      {/* THE STAR SITS ON THE ROW IT IS ABOUT. This used to be a second
-                          list of every stake below the matrix, which meant the same forty
-                          cards twice on one tab and a group scrolling between them to
-                          match one to the other. Scoring and choosing happen on the same
-                          row now, in that order, left to right. */}
-                      {editable && (
-                        <button
-                          type="button"
-                          onClick={() => onTogglePriority(c, !starred)}
-                          disabled={busy || (!starred && atCap)}
-                          title={
-                            !starred && atCap
-                              ? `Un-star one first. You get ${MAX_PRIORITIES}.`
-                              : starred
-                                ? "Remove from your priorities"
-                                : "Make this a priority"
-                          }
-                          className={
-                            "shrink-0 text-[13px] leading-none transition-colors disabled:opacity-30 " +
-                            (starred ? "text-amber" : "text-muted hover:text-amber")
-                          }
-                          aria-pressed={starred}
-                          aria-label={starred ? `Un-star ${c.text}` : `Star ${c.text}`}
-                        >
-                          {starred ? "★" : "☆"}
-                        </button>
-                      )}
+                      {/* NO STAR. There was one here, and it was a second way of saying
+                          what the two scores already say — a group would score an issue
+                          5×5 and still find a 3×4 in its priorities because that was what
+                          somebody had clicked. Scoring IS the prioritising; the star on
+                          the text above is a readout of where this row landed, not a
+                          control. */}
                       {/* Only once something has been scored. There is no placement act to
                           undo any more, but a mis-click still has to be reversible, and an
                           untouched card has nothing to clear. */}
@@ -239,11 +215,19 @@ function Panel({
                         </button>
                       )}
                     </div>
-                    {/* The dispute note, on the row it belongs to. SHOWN WHILE FLAGGED even
-                        if the star has come off: the flag survives un-starring and still
-                        reaches the handoff, so hiding the only control that clears it left
-                        a dispute on the deck with no way back to it. */}
-                    {(starred || flagged) && editable && (
+                    {/* The dispute note, on the row it belongs to. ON ANY SCORED ROW, not
+                        just the top three: this step's own third question asks whether
+                        there is anything the group cannot afford to overlook EVEN IF it
+                        disagrees about how likely it is — which is a low-plausibility row
+                        by definition, and so never one of the three. Gating this on the
+                        priorities would have put the control everywhere except the rows it
+                        was written for.
+
+                        SHOWN WHILE FLAGGED whatever the scores now say: the flag survives
+                        re-scoring and still reaches the handoff, so hiding the only
+                        control that clears it would leave a dispute on the deck with no
+                        way back to it. */}
+                    {(touched || flagged) && editable && (
                       <label className="mt-1.5 flex items-start gap-1.5 text-[11px] text-muted">
                         <input
                           type="checkbox"
@@ -315,32 +299,33 @@ function Panel({
   );
 }
 
-// The three the group has starred, under the matrix that informed them.
+// The three the scores chose, under the matrix that chose them.
 //
 // A READ-BACK, NOT A PICKER. Starring happens on the row itself, in the walls on the left,
 // because that is where the card and its scores already are. This panel used to be a
 // second list of all forty stakes below the matrix, which put the same cards on the tab
 // twice and made a group scroll between the two to match one to the other.
 function ChosenThree({ rows }: { rows: { card: RippleCard; kind: Kind }[] }) {
-  const over = rows.length > MAX_PRIORITIES;
+  // MORE THAN THREE IS NOT AN ERROR. It used to be — the star let a group pick a fourth
+  // and this said "1 too many" in coral. Now the only way past three is a dead heat on
+  // both axes, which is the scores being honest rather than the group being sloppy.
+  const tied = rows.length > MAX_PRIORITIES;
   return (
     <div className="mt-4 border-t border-[var(--hairline)] pt-3">
       <p className="m-0 flex flex-wrap items-baseline gap-2">
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]">
           Your priorities
         </span>
-        <span className="text-[12px] font-bold tabular-nums">
-          {rows.length} of {MAX_PRIORITIES}
-        </span>
-        {over && (
-          <span className="text-[11px] italic text-coral">
-            {rows.length - MAX_PRIORITIES} too many
+        <span className="text-[12px] font-bold tabular-nums">{rows.length}</span>
+        {tied && (
+          <span className="text-[11px] italic text-muted">
+            {rows.length} because the scores tie
           </span>
         )}
       </p>
       {rows.length === 0 ? (
         <p className="m-0 mt-1.5 text-[12px] italic text-muted">
-          Star {MAX_PRIORITIES} on the walls. They can all come off the same one.
+          Score the walls and the {MAX_PRIORITIES} highest land here.
         </p>
       ) : (
         <ol className="m-0 mt-2 list-none p-0">
@@ -373,7 +358,6 @@ export function MatrixBoard({
   busy,
   onScore,
   onClear,
-  onTogglePriority,
   onToggleDisputed,
   onNote,
 }: {
@@ -391,7 +375,6 @@ export function MatrixBoard({
   busy: boolean;
   onScore: (card: RippleCard, patch: ScorePatchInput) => void;
   onClear: (card: RippleCard) => void;
-  onTogglePriority: (card: RippleCard, on: boolean) => void;
   onToggleDisputed: (card: RippleCard, on: boolean) => void;
   onNote: (card: RippleCard, note: string) => void;
 }) {
@@ -449,20 +432,20 @@ export function MatrixBoard({
   // Session 3 should not leave the handoff quoting the old wording through a pick that
   // copied it.
   const chosen = useMemo(() => {
-    const rows: { card: RippleCard; kind: Kind }[] = [];
+    const live = new Map<string, { card: RippleCard; kind: Kind }>();
     for (const arr of w3.risks.values())
-      for (const c of arr) if (isPriority(board, c.id)) rows.push({ card: c, kind: "risk" });
+      for (const c of arr) live.set(c.id, { card: c, kind: "risk" });
     for (const arr of w3.opportunities.values())
-      for (const c of arr)
-        if (isPriority(board, c.id)) rows.push({ card: c, kind: "opportunity" });
-    const rank = (id: string) => {
-      const sc = scoresFor(id);
-      return sc.plausibility !== null && sc.impact !== null ? sc.plausibility * sc.impact : -1;
-    };
-    return rows.sort((a, b) => rank(b.card.id) - rank(a.card.id));
-  }, [w3, board, scoresFor]);
-
-  const atCap = priorities(board).length >= MAX_PRIORITIES;
+      for (const c of arr) live.set(c.id, { card: c, kind: "opportunity" });
+    // ORDERED BY `priorities`, not re-sorted here. Two sorts of the same list is two
+    // places for the tiebreak to be written, and they would disagree the first time one
+    // of them changed — this panel used to rank on the product alone while the rail used
+    // the product then impact.
+    return priorities(board).flatMap((p) => {
+      const row = p.sourceCardId ? live.get(p.sourceCardId) : undefined;
+      return row ? [row] : [];
+    });
+  }, [w3, board]);
 
   const panel = (kind: Kind) => (
     <Panel
@@ -472,15 +455,13 @@ export function MatrixBoard({
       scoresFor={scoresFor}
       editable={editable}
       busy={busy}
-      atCap={atCap}
-      isStarred={(id) => isPriority(board, id)}
+      isPriorityRow={(id) => isPriority(board, id)}
       isFlagged={(id) => isDisputed(board, id)}
       noteFor={(id) => board.picks.get(id)?.description ?? ""}
       hoveredId={hovered}
       onHover={setHovered}
       onScore={onScore}
       onClear={onClear}
-      onTogglePriority={onTogglePriority}
       onToggleDisputed={onToggleDisputed}
       onNote={onNote}
     />
