@@ -2,6 +2,15 @@
 //
 //   node scripts/reset-dev-program.mjs plan
 //   node scripts/reset-dev-program.mjs apply [--force]
+//   node scripts/reset-dev-program.mjs sections
+//
+// `sections` RE-STAMPS WEEK 4'S PROMPTS AND NOTHING ELSE. It exists because of a trap:
+// resolveEffectiveSections prefers the row's stored `sections` over the code template, so
+// once a week has been stamped, editing COMMITMENTS_SECTIONS reaches nobody. Every group
+// keeps reading the prompts it was stamped with until something rewrites the column, and
+// the symptom is a facilitator asking why the wording they just changed is not on the
+// board. `apply` does rewrite it, but it also wipes Week 4's board on the way past, which
+// is the wrong price for a typo fix once a group has work on it.
 //
 // WHY THIS EXISTS. Dev holds the groups' real work — every card on weeks 1-3 matches the
 // admin viewer's Oct-19 prod exports, card for card — but the PROGRAM around it was taken
@@ -61,8 +70,8 @@ loadEnv();
 const argv = process.argv.slice(2);
 const command = argv[0] ?? "";
 const force = argv.includes("--force");
-if (!["plan", "apply"].includes(command)) {
-  console.error("Usage: reset-dev-program.mjs plan|apply [--force]");
+if (!["plan", "apply", "sections"].includes(command)) {
+  console.error("Usage: reset-dev-program.mjs plan|apply [--force]\n                          sections");
   process.exit(1);
 }
 
@@ -203,7 +212,50 @@ async function wipeBoard(code) {
   await q(sb.from("ripple_players").delete().eq("code", code));
 }
 
+// Rewrite Week 4's `sections` for every group, touching nothing else: no board, no card,
+// no registry column. Idempotent, and prints what changed so a run that does nothing says
+// so rather than looking like a success.
+async function stampSections() {
+  console.log(`target   ${URL.replace(/^https:\/\//, "")}`);
+  console.log(`project  ${PROJECT}`);
+  console.log(`mode     sections (prompts only; no board is touched)\n`);
+
+  const [project] = await q(sb.from("projects").select("id, slug").eq("slug", PROJECT));
+  if (!project) throw new Error(`No project with slug ${PROJECT}.`);
+  const groups = await q(
+    sb.from("design_groups").select("id, name").eq("project_id", project.id).order("sort")
+  );
+
+  let changed = 0;
+  for (const g of groups) {
+    const rows = await q(
+      sb
+        .from("design_group_exercises")
+        .select("id, sort, type, sections")
+        .eq("group_id", g.id)
+        .eq("type", "commitments")
+    );
+    for (const row of rows) {
+      const before = JSON.stringify(row.sections ?? []);
+      const after = JSON.stringify(COMMITMENTS_SECTIONS);
+      if (before === after) {
+        console.log(`   = ${g.name}: already current`);
+        continue;
+      }
+      const { error } = await sb
+        .from("design_group_exercises")
+        .update({ sections: COMMITMENTS_SECTIONS, updated_at: new Date().toISOString() })
+        .eq("id", row.id);
+      if (error) throw error;
+      changed += 1;
+      console.log(`   + ${g.name}: ${(row.sections ?? []).length} -> ${COMMITMENTS_SECTIONS.length} section(s) re-stamped`);
+    }
+  }
+  console.log(changed ? `\n✓ ${changed} week(s) re-stamped` : "\n✓ nothing to do; every group already current");
+}
+
 async function main() {
+  if (command === "sections") return stampSections();
   const weeks = canonicalWeeks();
   console.log(`target   ${URL.replace(/^https:\/\//, "")}`);
   console.log(`project  ${PROJECT}`);
