@@ -10,7 +10,6 @@ import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/worksho
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { Week4Reference } from "@/components/workshop/commitments/Week4Reference";
-import { PriorityRecap } from "@/components/workshop/commitments/PriorityRecap";
 import { MovesBoard } from "@/components/workshop/commitments/MovesBoard";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
 import { StepProgress } from "@/components/workshop/commitments/StepProgress";
@@ -987,10 +986,6 @@ export function CommitmentsTeamView({
       {step === "outcomes" && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-5">
-            <PriorityRecap
-              rows={priorities(board)}
-              onGoToPriorities={() => setStep("prioritize")}
-            />
             {sectionsFor("outcomes").length > 0 ? (
               worksheetFor(sectionsFor("outcomes"))
             ) : (
@@ -1002,16 +997,23 @@ export function CommitmentsTeamView({
               noun="answered"
             />
           </div>
-          {/* RISKS AND FEARS FIRST, THEN HOPES — the order the activity asks for. A group
-              writing what it wants public health to make possible should meet what it is
-              afraid of before what it hopes for, or the outcomes come out as restated
-              hopes. */}
-          <Week3Reference
-            cards={week3Cards}
-            week2Cards={week2Cards}
-            scenario={scenario}
-            variant="stakes-first"
-          />
+          {/* TWO BLOCKS, THIS WEEK'S WORK ABOVE THE EARLIER SESSIONS'. The priorities are
+              what the group is writing outcomes FOR, so they sit at the top of the rail;
+              Week 3's walls are the material underneath them.
+
+              RISKS AND FEARS FIRST, THEN HOPES, inside that second block — the order the
+              activity asks for. A group writing what it wants public health to make
+              possible should meet what it is afraid of before what it hopes for, or the
+              outcomes come out as the hopes again in other words. */}
+          <div className="flex flex-col gap-4">
+            <Week4Reference priorities={priorities(board)} />
+            <Week3Reference
+              cards={week3Cards}
+              week2Cards={week2Cards}
+              scenario={scenario}
+              variant="stakes-first"
+            />
+          </div>
         </div>
       )}
 

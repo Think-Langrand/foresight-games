@@ -7,15 +7,20 @@ import { Dot } from "@/components/workshop/synthesis/ThemeRail";
 // THIS WEEK'S OWN WORK, in the rail — the counterpart to Week3Reference, which carries the
 // earlier sessions.
 //
-// Act 5 asks the group to look across its desired outcomes and its response ideas and say
-// what future it is working toward. Both of those are on tabs it has left, and the version
-// of this step that put the response wall in a panel UNDER the question had the group
-// scrolling away from the box it was meant to be writing in. A rail keeps the material
-// beside the writing, which is the arrangement acts 1 and 3 already use for Week 3.
+// EVERY SECTION IS OPTIONAL, so one component serves several steps: act 3 wants the
+// priorities beside it, act 5 wants the outcomes and the response wall. Pass what the step
+// is working from and nothing else renders.
 //
-// READ-ONLY, and no affordances. Editing an outcome happens on act 3 and a response on act
-// 4, where each was written; a tick or a drag here would be a second place to change the
-// same card.
+// WHY A RAIL AND NOT A PANEL ABOVE OR BELOW. Both of these steps work FROM earlier answers
+// while writing new ones, and both were first built with that material stacked around the
+// question — which meant scrolling away from the box you are meant to be writing in to
+// read the thing you are meant to be writing about. Beside it, the two stay in view
+// together. That is the arrangement acts 1 and 3 already use for Week 3.
+//
+// READ-ONLY, and no affordances. Editing a priority happens on act 2, an outcome on act 3,
+// a response on act 4 — each where it was written. A tick or a drag here would be a second
+// place to change the same card, and the one on the step that owns it would stop being the
+// obvious one.
 function Fold({
   label,
   count,
@@ -59,27 +64,56 @@ function Fold({
 }
 
 export function Week4Reference({
-  outcomes,
-  responses,
+  priorities = [],
+  outcomes = [],
+  responses = [],
 }: {
+  // Act 2's starred picks. Cards rather than strings because a priority carries the note
+  // explaining a disagreement the room never settled, and a group writing outcomes for an
+  // issue it never settled should be reminded that it never settled it.
+  priorities?: RippleCard[];
   // Act 3's answers, already flattened to text by the view: they are worksheet stickies
   // rather than cards of a kind, so there is nothing here that needs the card.
-  outcomes: string[];
-  responses: RippleCard[];
+  outcomes?: string[];
+  responses?: RippleCard[];
 }) {
   return (
     <aside className="flex flex-col gap-3 rounded-[4px] border border-[var(--rule)] px-4 py-3">
       <div>
         <h3 className="m-0 text-[13px] font-bold">What you have said so far</h3>
         <p className="m-0 mt-0.5 text-[12px] italic leading-[1.45] text-muted">
-          Your own work from the last two steps. To change any of it, go back to the step it
+          Your own work from the earlier steps. To change any of it, go back to the step it
           was written on.
         </p>
       </div>
 
+      {/* OPEN, and first when it is here at all. Act 3 is writing outcomes FOR these, so
+          they are the thing the question is about rather than background to it. */}
+      {priorities.length > 0 && (
+        <Fold label="Your priorities" count={priorities.length} defaultOpen>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {priorities.map((c) => (
+              <li
+                key={c.id}
+                className="border-b border-black/10 py-2 text-[13px] leading-[1.45] last:border-b-0"
+              >
+                <span className="mr-1 text-amber">★</span>
+                {c.text}
+                {c.description && (
+                  <span className="mt-0.5 block text-[12px] italic text-muted">
+                    You did not agree on this: {c.description}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Fold>
+      )}
+
       {/* OUTCOMES FIRST, AND OPEN. The vision is what the outcomes add up to, so they are
           the thing to have in view; the responses are how you would get there and matter
           second here. */}
+      {outcomes.length > 0 && (
       <Fold label="Desired outcomes" count={outcomes.length} defaultOpen>
         <ul className="m-0 flex list-none flex-col p-0">
           {outcomes.map((o, i) => (
@@ -92,7 +126,9 @@ export function Week4Reference({
           ))}
         </ul>
       </Fold>
+      )}
 
+      {responses.length > 0 && (
       <Fold label="Strategic responses" count={responses.length}>
         <ul className="m-0 flex list-none flex-col p-0">
           {responses.map((c) => (
@@ -106,6 +142,7 @@ export function Week4Reference({
           ))}
         </ul>
       </Fold>
+      )}
     </aside>
   );
 }
