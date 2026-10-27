@@ -103,13 +103,14 @@ const COMMITMENTS_SECTIONS = [
     kind: "question",
     step: "Reconnect",
     label: "What most needs our attention in this future?",
+    help: "We aren't looking for how the world has changed, but instead looking for what has changed about the world that public health needs to prioritize and act on.",
   },
   {
     key: "w4-keep-in-mind",
     kind: "question",
     step: "Reconnect",
-    label:
-      "What should we most keep in mind from this scenario that is relevant to the world of today?",
+    label: "What is happening in this world that we need to keep in mind today?",
+    help: "What has already started happening in this world faster than expected? What is happening now that we are missing?",
   },
   {
     key: "w4-outcomes",
