@@ -234,7 +234,8 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     step: COMMITMENTS_STEP_OUTCOMES,
     label:
       "Looking at your priorities and hopes, what do you want public health to make possible for communities in this future?",
-    help: "One or two for each priority. Write what would be different for communities if public health did its job well here.",
+    help: "Write what would be different for communities if public health did its job well here.",
+    produces: "One or two desired outcomes for each of your top priorities.",
   },
   {
     key: COMMITMENTS_KEY_VISION,
