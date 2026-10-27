@@ -17,6 +17,9 @@ function card(
     parked?: boolean;
     description?: string | null;
     shortlisted?: boolean;
+    sourceCardId?: string;
+    plausibility?: number | null;
+    impact?: number | null;
   } = {}
 ): RippleCard {
   return {
@@ -31,10 +34,10 @@ function card(
     greyed: false,
     sort: opts.sort ?? 0,
     section: opts.section ?? null,
-    sourceCardId: null,
+    sourceCardId: opts.sourceCardId ?? null,
     sourceLabel: null,
-    plausibility: null,
-    impact: null,
+    plausibility: opts.plausibility ?? null,
+    impact: opts.impact ?? null,
     cardKind: opts.cardKind ?? null,
     parked: opts.parked ?? false,
     description: opts.description ?? null,
@@ -439,6 +442,40 @@ describe("shapeFromView — commitments weeks (Week 4)", () => {
     expect(shaped.stranded).toEqual([]);
     // Author names resolve the same way every other week's do.
     expect(shaped.responses[0].author).toBe("Ana");
+  });
+
+  // Act 2's priorities. DERIVED from the scores, so every reader of this shape — the admin
+  // answers viewer, the CSV, the review step — names the same three as the worksheet and
+  // the deck. It used to be the `shortlisted` column, set by a star that no longer exists.
+  const pick = (id: string, sourceId: string, p: number | null, i: number | null, opts: { shortlisted?: boolean; seq?: number } = {}) =>
+    card(id, "FIRST", { cardKind: "pick", sourceCardId: sourceId, plausibility: p, impact: i, seq: opts.seq ?? 1, shortlisted: opts.shortlisted });
+
+  it("names the three highest-scoring picks as priorities, whatever the old star says", () => {
+    const shaped = shapeFromView(
+      ex("commitments"),
+      view([
+        // `shortlisted` is set on the two WEAKEST on purpose: that is what a board carried
+        // over from the star era looks like, and reading the column would show those.
+        pick("p1", "s1", 5, 5, { seq: 1 }),
+        pick("p2", "s2", 4, 4, { seq: 2 }),
+        pick("p3", "s3", 3, 3, { seq: 3 }),
+        pick("p4", "s4", 1, 1, { seq: 4, shortlisted: true }),
+        pick("p5", "s5", 1, 2, { seq: 5, shortlisted: true }),
+      ])
+    );
+    if (shaped.kind !== "commitments") throw new Error("expected commitments");
+
+    expect(shaped.picks.filter((p) => p.priority).map((p) => p.sourceId)).toEqual(["s1", "s2", "s3"]);
+  });
+
+  it("does not make an unscored pick a priority to fill the three", () => {
+    const shaped = shapeFromView(
+      ex("commitments"),
+      view([pick("p1", "s1", 5, 5, { seq: 1 }), pick("p2", "s2", null, null, { seq: 2 })])
+    );
+    if (shaped.kind !== "commitments") throw new Error("expected commitments");
+
+    expect(shaped.picks.filter((p) => p.priority).map((p) => p.sourceId)).toEqual(["s1"]);
   });
 
   it("keeps every period on a lane, including the empty ones", () => {

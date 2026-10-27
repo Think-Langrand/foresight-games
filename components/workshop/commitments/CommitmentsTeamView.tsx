@@ -591,18 +591,21 @@ export function CommitmentsTeamView({
       return;
     }
 
-    // THE PICK IS NOT ONLY A SCORE ANY MORE. It also carries act 2's other two outputs —
-    // `shortlisted` for one of the three priorities, `section` for a dispute, and the note
-    // explaining it in `description`. Deleting it to clear two numbers would take all of
-    // that with it, silently, from a link whose label says "Clear" and sits on a row the
-    // group may have starred without ever scoring.
+    // THE PICK IS NOT ONLY A SCORE. It also carries act 2's other output — `section` for a
+    // dispute, and the note explaining it in `description`. Deleting it to clear two
+    // numbers would take that with it, silently, from a link whose label says "Clear".
     //
     // So: unset the scores in place and keep the card. The score route takes an explicit
     // null per axis ("explicit clear (un-score)"), which an older comment here claimed it
     // did not — that claim is what made deleting the row look like the only way.
+    //
+    // `shortlisted` USED TO BE IN THIS TEST, for the star that named a priority. The star
+    // is gone and priorities are read off the ranking, so the column means nothing on an
+    // act-2 pick now — testing it would only keep a card alive to carry a flag no reader
+    // looks at. Old boards still have it set; letting those rows go when nothing else is
+    // on them is the cleanup, not a loss.
     const pick = board.picks.get(card.id);
-    const carriesMore =
-      pick && (pick.shortlisted || pick.section === DISPUTED_SECTION || pick.description);
+    const carriesMore = pick && (pick.section === DISPUTED_SECTION || pick.description);
     if (pick && carriesMore) {
       const axes = ["plausibility", "impact"] as const;
       run(async () => {

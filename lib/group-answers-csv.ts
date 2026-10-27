@@ -236,7 +236,9 @@ export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
         : "pick (unscored)";
     // The two markers ride the kind column beside the scores, for the same reason the
     // scores do: every other row in this file would otherwise carry three empty cells.
-    // A star is act 2's actual output and was invisible here; so was the dispute.
+    // Both are act 2's actual output and were invisible here. `priority` is derived from
+    // the scores upstream in shapeFromView, not read off a column, so these stars cannot
+    // disagree with the ones on the worksheet or in the deck.
     const marks = [m.priority ? "★ priority" : "", m.disputed ? "⚡ disputed" : ""]
       .filter(Boolean)
       .join(" ");
