@@ -802,6 +802,24 @@ export function CommitmentsTeamView({
       setSubmitted({ at: null, by: null });
     });
 
+  // The priorities as the RAILS should show them: the Session 3 card's current words, not
+  // the snapshot the pick copied when it was minted. MatrixBoard's own panel already reads
+  // the live rows and says why; every other surface was reading the copy, so editing a
+  // risk's wording on Session 3 changed step 2 and nothing else.
+  //
+  // The pick's own text stays the fallback — it is what a reader with only this board in
+  // hand has, and it is why the copy is stored at all.
+  // NOT a useMemo: this file returns early four times above (loading, error, no view, not
+  // joined), so a hook here renders a different number of hooks on the first pass than on
+  // the second and React tears the tree down. Three items — the cap is three — so there is
+  // nothing to memoise anyway.
+  const livePriorityText = new Map(week3Cards.map((c) => [c.id, c.text]));
+  const railPriorities = priorities(board).map((p) =>
+    p.sourceCardId && livePriorityText.has(p.sourceCardId)
+      ? { ...p, text: livePriorityText.get(p.sourceCardId)! }
+      : p
+  );
+
   // ---- the steps -------------------------------------------------------------
 
   // THREE tabs carry written fields, and which sections land on one is the step registry's
@@ -1059,7 +1077,7 @@ export function CommitmentsTeamView({
               possible should meet what it is afraid of before what it hopes for, or the
               outcomes come out as the hopes again in other words. */}
           <div className="flex flex-col gap-4">
-            <Week4Reference priorities={priorities(board)} />
+            <Week4Reference priorities={railPriorities} />
             <Week3Reference
               cards={week3Cards}
               week2Cards={week2Cards}
@@ -1074,7 +1092,7 @@ export function CommitmentsTeamView({
         <ResponseBoard
           board={board}
           outcomes={answersOn("outcomes")}
-          priorities={priorities(board)}
+          priorities={railPriorities}
           week3Cards={week3Cards}
           week2Cards={week2Cards}
           scenario={scenario}
@@ -1143,7 +1161,7 @@ export function CommitmentsTeamView({
           <div className="flex flex-col gap-4">
             <Week4Reference
               outcomes={answersOn("outcomes")}
-              priorities={priorities(board)}
+              priorities={railPriorities}
               responses={board.responses}
             />
             <Week3Reference

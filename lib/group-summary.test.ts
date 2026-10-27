@@ -710,16 +710,16 @@ describe("buildGroupSummary · the curated handoff", () => {
       ],
       { name: "G" }
     );
-    expect(s.priorities.map((p) => p.text)).toEqual([
-      "Funding comes from one source",
-      "Upstream prevention",
-    ]);
+    // The WORDS come off Session 3, not off the pick, even though the pick stores a copy:
+    // these fixtures give the two deliberately different text so the source of the words is
+    // not ambiguous. A facilitator who fixes a typo on Session 3 gets the fix in the handoff.
+    expect(s.priorities.map((p) => p.text)).toEqual(["starred risk", "starred opp"]);
     // A priority keeps its wall and its scores, so the slide can mark it risk or
     // opportunity without re-deriving anything.
     expect(s.priorities[0]).toMatchObject({ kind: "risk", plausibility: 4, impact: 5, rank: 20 });
     expect(s.priorities[1].kind).toBe("opportunity");
     // Independent axes: an issue can be both, and the interesting ones usually are.
-    expect(s.disputed.map((p) => p.text)).toEqual(["Upstream prevention"]);
+    expect(s.disputed.map((p) => p.text)).toEqual(["starred opp"]);
   });
 
   it("drops a priority whose Session 3 card is gone, rather than guessing its wall", () => {

@@ -495,6 +495,14 @@ export function buildGroupSummary(
   // at, because a coral chip that is really an opportunity is worse than a missing one.
   const riskIds = new Set(sThemes.flatMap((t) => t.risks.map((r) => r.id)));
   const oppIds = new Set(sThemes.flatMap((t) => t.opportunities.map((o) => o.id)));
+  // WHAT THE CARD SAYS NOW, not what it said when it was picked. A pick stores a COPY of
+  // its source's words so a reader with only Week 4 in hand can still read it — but this
+  // builder holds Week 3 too, so it can do better than the copy. Edit a risk's wording on
+  // Session 3 and the handoff was still quoting the old sentence, for ever.
+  const stakeText = new Map<string, string>();
+  for (const t of sThemes) {
+    for (const r of [...t.risks, ...t.opportunities]) stakeText.set(r.id, r.text);
+  }
   const placements: SummaryPlacement[] =
     commitments?.kind === "commitments"
       ? commitments.picks.flatMap((p) => {
@@ -507,7 +515,7 @@ export function buildGroupSummary(
           return [
             {
               id: p.sourceId,
-              text: p.text,
+              text: stakeText.get(p.sourceId) ?? p.text,
               kind,
               plausibility: p.plausibility,
               impact: p.impact,
