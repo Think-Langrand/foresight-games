@@ -31,9 +31,8 @@
 // read from data/design-groups.seed.json — verified key-for-key against the Oct-19 exports,
 // and it additionally carries the `step` labels the answers export drops. Weeks 2 and 3 store
 // `[]` on purpose so resolveEffectiveSections falls back to lib/exercise-types.ts and they
-// stay in lockstep with the code. Week 4's four sections are duplicated below because
-// scripts/ cannot import lib/ (37 of those modules open with `import "server-only"` — see
-// import-facilitator-implications.mjs, which carries the same note).
+// stay in lockstep with the code. Week 4's come from ./week4-sections.mjs, the one copy
+// scripts/ keeps of them.
 //
 // CREDENTIALS. NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (.env / .env.local).
 // Refuses to run against the prod ref at all: this is a dev-shaped repair and the live
@@ -43,6 +42,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { COMMITMENTS_SECTIONS } from "./week4-sections.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -92,51 +92,6 @@ async function q(builder) {
   if (error) throw error;
   return data;
 }
-
-// lib/exercise-types.ts COMMITMENTS_SECTIONS, the six-activity shape. Kept in step BY HAND
-// because scripts/ cannot import lib/ (it is `import "server-only"`), so changing a prompt
-// means changing it in both places or this script re-stamps the old text over the new.
-//
-// THE KEYS ARE THE PERMANENT ANSWER-CARD BUCKETS and are copied verbatim; the labels and
-// help text are the display side and may drift without consequence, because a stamped
-// exercise owns its own snapshot. `w4-role` is matched by identity by the handoff deck and
-// is deliberately NOT renamed although its activity is now "Set the vision" — the answers
-// under it are the same kind of thing.
-//
-// ONLY THREE OF THE SIX ACTIVITIES APPEAR HERE. Acts 2, 4 and 6 are boards: the group's
-// answer there is what it stars, writes on a card or sharpens, and their discussion
-// prompts are guidance that lives in each board's Directions fold.
-const COMMITMENTS_SECTIONS = [
-  {
-    key: "w4-attention",
-    kind: "question",
-    step: "Reconnect",
-    label: "What most needs our attention in this future?",
-    help: "We aren't looking for how the world has changed, but instead looking for what has changed about the world that public health needs to prioritize and act on.",
-  },
-  {
-    key: "w4-keep-in-mind",
-    kind: "question",
-    step: "Reconnect",
-    label: "What is happening in this world that we need to keep in mind today?",
-    help: "What has already started happening in this world faster than expected? What is happening now that we are missing?",
-  },
-  {
-    key: "w4-outcomes",
-    kind: "question",
-    step: "Desired outcomes",
-    label:
-      "Looking at your priorities and hopes, what do you want public health to make possible for communities in this future?",
-    help: "One or two for each priority. Write what would be different for communities if public health did its job well here. The outcome, not the work that produces it.",
-  },
-  {
-    key: "w4-role",
-    kind: "question",
-    step: "Set the vision",
-    label: "What future do you want to work toward?",
-    help: "One short statement, in the present tense, as though this world has already arrived. Then test it. Is it worth achieving for people? Does it answer what this scenario actually throws at you?",
-  },
-];
 
 // Week 1's questions, from the fixture rather than inlined — it is the only committed
 // record of the 17 admin-authored sections, and the cards on every week-1 board are already
@@ -215,6 +170,18 @@ async function wipeBoard(code) {
 // Rewrite Week 4's `sections` for every group, touching nothing else: no board, no card,
 // no registry column. Idempotent, and prints what changed so a run that does nothing says
 // so rather than looking like a success.
+const canonical = (secs) =>
+  JSON.stringify(
+    (secs ?? []).map((s) =>
+      Object.fromEntries(
+        Object.entries(s)
+          .filter(([, v]) => v !== undefined && v !== null)
+          .sort(([a], [b]) => a.localeCompare(b))
+      )
+    )
+  );
+const sameSections = (a, b) => canonical(a) === canonical(b);
+
 async function stampSections() {
   console.log(`target   ${URL.replace(/^https:\/\//, "")}`);
   console.log(`project  ${PROJECT}`);
@@ -236,9 +203,10 @@ async function stampSections() {
         .eq("type", "commitments")
     );
     for (const row of rows) {
-      const before = JSON.stringify(row.sections ?? []);
-      const after = JSON.stringify(COMMITMENTS_SECTIONS);
-      if (before === after) {
+      // KEY-ORDER-INSENSITIVE. jsonb does not preserve the order keys were written in, so
+      // a plain JSON.stringify comparison reports "changed" on every run and the script
+      // can never honestly say it had nothing to do.
+      if (sameSections(row.sections ?? [], COMMITMENTS_SECTIONS)) {
         console.log(`   = ${g.name}: already current`);
         continue;
       }

@@ -335,7 +335,7 @@ describe("commitments exercise type", () => {
     }
   });
 
-  it("agrees with the hand-copy in scripts/reset-dev-program.mjs", () => {
+  it("agrees with the hand-copy in scripts/week4-sections.mjs", () => {
     // scripts/ cannot import lib/ — this file is `import \"server-only\"` — so the dev reset
     // script carries a verbatim copy of these sections. Letting the two drift means
     // `reset-dev-program apply` silently re-stamps yesterday's prompts over today's, which
@@ -345,13 +345,10 @@ describe("commitments exercise type", () => {
     // exercise owns its own snapshot, so those may differ without consequence; what must
     // not differ is which answer bucket a prompt writes to and which tab it lands on.
     const script = readFileSync(
-      new URL("../scripts/reset-dev-program.mjs", import.meta.url),
+      new URL("../scripts/week4-sections.mjs", import.meta.url),
       "utf8"
     );
-    const block = script.slice(
-      script.indexOf("const COMMITMENTS_SECTIONS = ["),
-      script.indexOf("function week1Sections()")
-    );
+    const block = script.slice(script.indexOf("export const COMMITMENTS_SECTIONS = ["));
     const pairs = [...block.matchAll(/key: "([^"]+)",\s*\n\s*kind: "[^"]+",\s*\n\s*step: "([^"]+)"/g)];
     expect(pairs.map((m) => [m[1], m[2]])).toEqual(
       EXERCISE_TYPES.commitments.sections!.map((s) => [s.key, s.step])
