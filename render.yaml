@@ -16,7 +16,7 @@ services:
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
-        value: "22"
+        value: "22.23.4"  # patched for Oct 2026 Node security release + eMudhra CA compromise
       # --- Supabase (live workshop state + game content) ---
       # URL + anon key are public (shipped to the browser for realtime).
       - key: NEXT_PUBLIC_SUPABASE_URL
