@@ -479,18 +479,35 @@ describe("shapeFromView — commitments weeks (Week 4)", () => {
 
   it("falls back to the type's section template when the week was never customized", () => {
     // The bug this guards: reading ex.sections (which is []) instead of the effective set
-    // would make step 1 — the whole aspiration — invisible in the admin viewer.
+    // would make act 1 — everything the group wrote — invisible in the admin viewer.
     const shaped = shapeFromView(
       ex("commitments", []),
-      view([card("a1", "STICKY", { section: "w4-summary", seq: 1 })])
+      view([card("a1", "STICKY", { section: "w4-attention", seq: 1 })])
     );
     if (shaped.kind !== "commitments") throw new Error("expected commitments");
 
     const template = EXERCISE_TYPES.commitments.sections ?? [];
     expect(shaped.questions.map((q) => q.key)).toEqual(template.map((s) => s.key));
-    const first = shaped.questions.find((q) => q.key === "w4-summary");
+    const first = shaped.questions.find((q) => q.key === "w4-attention");
     expect(first?.answers.map((a) => a.text)).toEqual(["a1-text"]);
     expect(first?.label).toBe(template[0].label);
+  });
+
+  it("still surfaces an answer written under a key the rebuild retired", () => {
+    // The six-activity rebuild retired `w4-summary`, `w4-assumptions` and `w4-bold-moves`.
+    // Groups that ran the old Week 4 have real answers under them, and those must not
+    // vanish from the admin viewer just because the question is no longer asked — the same
+    // contract the three aspiration keys got when the week was last restructured.
+    const shaped = shapeFromView(
+      ex("commitments", []),
+      view([card("old", "STICKY", { section: "w4-bold-moves", seq: 1 })]),
+      { includeRemoved: true }
+    );
+    if (shaped.kind !== "commitments") throw new Error("expected commitments");
+
+    const retired = shaped.questions.find((q) => q.key === "w4-bold-moves");
+    expect(retired?.removed).toBe(true);
+    expect(retired?.answers.map((a) => a.text)).toEqual(["old-text"]);
   });
 
   it("shapes an empty board as a commitments week, not a placeholder", () => {

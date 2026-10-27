@@ -199,7 +199,7 @@ export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
     rows.push([
       ex.title,
       "Strategic responses",
-      r.shortlisted ? "response ★" : "response",
+      "response",
       r.text,
       r.author,
       r.createdAt,
@@ -234,7 +234,43 @@ export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
       m.plausibility !== null && m.impact !== null
         ? `pick P${m.plausibility} I${m.impact}`
         : "pick (unscored)";
-    rows.push([ex.title, "On the matrix", score, m.text, m.author, m.createdAt]);
+    // The two markers ride the kind column beside the scores, for the same reason the
+    // scores do: every other row in this file would otherwise carry three empty cells.
+    // A star is act 2's actual output and was invisible here; so was the dispute.
+    const marks = [m.priority ? "★ priority" : "", m.disputed ? "⚡ disputed" : ""]
+      .filter(Boolean)
+      .join(" ");
+    rows.push([
+      ex.title,
+      "On the matrix",
+      marks ? `${score} ${marks}` : score,
+      m.text,
+      m.author,
+      m.createdAt,
+    ]);
+    // The note is its own row rather than appended to the text: it is prose the group
+    // wrote, it is the only prose act 2 asks for, and a facilitator reading the sheet
+    // should find it as a thing somebody said rather than as a suffix.
+    if (m.note) {
+      rows.push([ex.title, "On the matrix", "dispute note", m.note, m.author, m.createdAt]);
+    }
+  }
+  // Act 6, the week's headline output. One row for the move, then one per answered field,
+  // each carrying the move's text so a row read on its own says what it is about.
+  for (const d of ex.directions) {
+    rows.push([ex.title, "Three directions", "direction", d.move.text, d.move.author, d.move.createdAt]);
+    for (const f of d.fields) {
+      for (const a of f.answers) {
+        rows.push([
+          ex.title,
+          `Three directions · ${f.label}`,
+          "direction field",
+          `${d.move.text} — ${a.text}`,
+          a.author,
+          a.createdAt,
+        ]);
+      }
+    }
   }
   for (const m of ex.settledMarks) {
     rows.push([

@@ -711,10 +711,13 @@ export async function setCardParked(code: string, cardId: string, parked: boolea
 // the one tree card that carries one — so this is a plain column write; the ROUTE owns
 // checking that the card is a milestone and the key is a real period, the same way
 // setCardShortlisted leaves the kind allow-list to its caller.
+// `section` nullable because clearing is a real act: un-flagging a disputed priority puts
+// the pick back to carrying no section at all, which is how every reader tells the two
+// apart. A milestone's period, the other caller, never passes null.
 export async function setCardSection(
   code: string,
   cardId: string,
-  section: string
+  section: string | null
 ): Promise<void> {
   const { error } = await supabaseAdmin()
     .from("ripple_cards")

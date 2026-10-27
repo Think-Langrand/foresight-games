@@ -148,7 +148,17 @@ export function Week3Reference({
   cards,
   week2Cards = [],
   scenario,
+  variant = "default",
 }: {
+  // Which order to open the rail in.
+  //
+  // `stakes-first` is act 3's. It asks what the group wants public health to MAKE
+  // POSSIBLE, and the activity's own instruction is to look at the priorities and hopes —
+  // so the rail leads with what is at stake and what the room is afraid of, and puts the
+  // hopes after them. A group that meets its hopes first writes outcomes that are the
+  // hopes again in other words; meeting the risks and fears first is what makes the
+  // outcomes answer something.
+  variant?: "default" | "stakes-first" | "collapsed";
   cards: RippleCard[];
   // Session 2's board. Only its ROOTS are used — the six key changes — which is the one
   // piece of Week 2 this week leans on. Passed as raw cards for the same reason Session 3
@@ -160,6 +170,13 @@ export function Week3Reference({
 
   const hopesFears = board.hopesFears;
   const flipCount = [...board.chains.values()].flat().length;
+  // Split for the stakes-first rail, which shows them as two folds rather than one. The
+  // default rail keeps the combined list — in act 1 they are one body of work, and
+  // splitting it there would add a fold without adding a distinction.
+  const fears = hopesFears.filter((c) => c.cardKind === "fear");
+  const hopes = hopesFears.filter((c) => c.cardKind === "hope");
+  const stakesFirst = variant === "stakes-first";
+  const collapsed = variant === "collapsed";
 
   // Session 2's key changes: the tree ROOTS of that board, split the way the handoff deck
   // splits them, so a group that typed "POWER: …" gets its own label back.
@@ -211,10 +228,50 @@ export function Week3Reference({
         </p>
       </div>
 
-      {/* FIRST, and the one section that opens itself. Step 1 asks how the field has
-          changed most in this world, and these six lines are the group's own earlier answer
-          to very nearly that question, so they are the thing to have in view. */}
-      <Fold label="Key changes" count={keyChanges.length} defaultOpen>
+      {/* ACT 3'S ORDER: what is at stake, then what the room fears, then what it hopes.
+          Three folds, all open, because this rail is the material the activity works FROM
+          rather than a reference to go looking in. The default rail's combined hopes-and-
+          fears fold would bury the fears halfway down a list. */}
+      {stakesFirst && (
+        <>
+          <Fold label="Risks" count={riskTotal} defaultOpen>
+            <StakeList
+              tone="risk"
+              title="Risks"
+              groups={riskGroups}
+              emptyHint="Nothing on this theme."
+            />
+          </Fold>
+          <Fold label="Fears" count={fears.length} defaultOpen>
+            <ul className="m-0 list-none p-0">
+              {fears.map((c) => (
+                <Pair key={c.id} card={c} flips={board.chains.get(c.id) ?? []} />
+              ))}
+            </ul>
+          </Fold>
+          <Fold label="Hopes" count={hopes.length} defaultOpen>
+            <ul className="m-0 list-none p-0">
+              {hopes.map((c) => (
+                <Pair key={c.id} card={c} flips={board.chains.get(c.id) ?? []} />
+              ))}
+            </ul>
+          </Fold>
+          <Fold label="Opportunities" count={oppTotal}>
+            <StakeList
+              tone="opportunity"
+              title="Opportunities"
+              groups={oppGroups}
+              emptyHint="Nothing on this theme."
+            />
+          </Fold>
+        </>
+      )}
+
+      {/* FIRST, and the one section that opens itself. Act 1 asks what most needs the
+          group's attention, and these six lines are the ground it has to stand on while
+          it answers, so they are the thing to have in view. Closed in the stakes-first
+          rail, where the risks and fears lead instead. */}
+      <Fold label="Key changes" count={keyChanges.length} defaultOpen={!stakesFirst && !collapsed}>
         <ul className="m-0 flex list-none flex-col p-0">
           {keyChanges.map((k) => (
             <li
@@ -234,34 +291,40 @@ export function Week3Reference({
 
       {/* A fold like the others. It used to be open, which made the rail start with every
           hope and fear the group ever wrote and buried the rest under it. */}
-      <Fold
-        label="Hopes &amp; fears"
-        count={hopesFears.length}
-        note={flipCount > 0 ? `with ${flipCount} ${flipCount === 1 ? "flip" : "flips"}` : undefined}
-      >
-        <ul className="m-0 list-none p-0">
-          {hopesFears.map((c) => (
-            <Pair key={c.id} card={c} flips={board.chains.get(c.id) ?? []} />
-          ))}
-        </ul>
-      </Fold>
+      {!stakesFirst && (
+        <>
+          <Fold
+            label="Hopes &amp; fears"
+            count={hopesFears.length}
+            note={
+              flipCount > 0 ? `with ${flipCount} ${flipCount === 1 ? "flip" : "flips"}` : undefined
+            }
+          >
+            <ul className="m-0 list-none p-0">
+              {hopesFears.map((c) => (
+                <Pair key={c.id} card={c} flips={board.chains.get(c.id) ?? []} />
+              ))}
+            </ul>
+          </Fold>
 
-      <Fold label="Risks" count={riskTotal}>
-        <StakeList
-          tone="risk"
-          title="Risks"
-          groups={riskGroups}
-          emptyHint="Nothing on this theme."
-        />
-      </Fold>
-      <Fold label="Opportunities" count={oppTotal}>
-        <StakeList
-          tone="opportunity"
-          title="Opportunities"
-          groups={oppGroups}
-          emptyHint="Nothing on this theme."
-        />
-      </Fold>
+          <Fold label="Risks" count={riskTotal}>
+            <StakeList
+              tone="risk"
+              title="Risks"
+              groups={riskGroups}
+              emptyHint="Nothing on this theme."
+            />
+          </Fold>
+          <Fold label="Opportunities" count={oppTotal}>
+            <StakeList
+              tone="opportunity"
+              title="Opportunities"
+              groups={oppGroups}
+              emptyHint="Nothing on this theme."
+            />
+          </Fold>
+        </>
+      )}
 
       {board.themes.length > 0 && (
         <Fold label="Themes" count={board.themes.length}>

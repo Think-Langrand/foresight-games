@@ -20,7 +20,11 @@ import {
   type CardOrder,
 } from "@/lib/ripples-types";
 import { placementError } from "@/lib/synthesis-shape";
-import { MILESTONES_PER_MOVE, isCommitmentPeriod } from "@/lib/commitments-shape";
+import {
+  MILESTONES_PER_MOVE,
+  isCommitmentPeriod,
+  isDirectionField,
+} from "@/lib/commitments-shape";
 
 export const dynamic = "force-dynamic";
 
@@ -268,6 +272,18 @@ export async function POST(
       );
     }
 
+    // Act 6's sharpening answers address themselves the same way a milestone does — a
+    // parent saying which direction, a `section` saying which of the three questions — so
+    // the guard is the same shape and REFUSES rather than nulling: an answer filed under
+    // no field belongs to no column of the card and would sit in the database drawn by no
+    // view. The vocabulary is DIRECTION_FIELDS in lib/commitments-shape.
+    if (kind === "sharpen" && !isDirectionField(body.section)) {
+      return NextResponse.json(
+        { error: "That answer belongs to one of a direction's fields." },
+        { status: 400 }
+      );
+    }
+
     if (kind === "milestone") {
       if (!isCommitmentPeriod(body.section)) {
         return NextResponse.json(
@@ -301,12 +317,14 @@ export async function POST(
       parentId,
       text: copyText ?? text,
       sort: typeof body.sort === "number" ? body.sort : 0,
-      // A worksheet buckets sticky cards into named areas, and Week 4's milestones are the
-      // one kind of tree card that also carries one (its timeline period, guarded above).
-      // Every reader of worksheet sections filters on STICKY first, so the two uses cannot
-      // collide — see the note at PERIODS in lib/commitments-shape.
+      // A worksheet buckets sticky cards into named areas; Week 4's milestones and its
+      // sharpening answers are the tree cards that also carry one (guarded above), and a
+      // pick carries one when the group flags it disputed (set by the PATCH route, never
+      // here). Every reader of worksheet sections filters on STICKY first, so the uses
+      // cannot collide — see the note at PERIODS in lib/commitments-shape.
       section:
-        (order === "STICKY" || kind === "milestone") && typeof body.section === "string"
+        (order === "STICKY" || kind === "milestone" || kind === "sharpen") &&
+        typeof body.section === "string"
           ? body.section
           : null,
       cardKind: kind,
