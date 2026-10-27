@@ -110,7 +110,7 @@ export default function ExecSummaryComposer({
           Additional thoughts for the steering committee
         </h2>
         <p className="m-0 mt-1 max-w-[68ch] text-[13px] leading-[1.45] text-muted">
-          Anything about this scenario the four steps did not ask you &mdash; a caveat, a
+          Anything about this scenario the activities did not ask you &mdash; a caveat, a
           disagreement worth recording, something you would want read alongside the rest.
           Optional: leave it empty if the steps have said it all.
         </p>

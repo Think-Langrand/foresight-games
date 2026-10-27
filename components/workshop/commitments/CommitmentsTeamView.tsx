@@ -238,7 +238,7 @@ export function CommitmentsTeamView({
     }
   }, []);
 
-  // One index for all four steps; every Session 4 selector reads it.
+  // One index for the whole week; every Session 4 selector reads it.
   const board = useMemo(() => indexCommitmentsBoard(cards), [cards]);
 
   // A resolved `mintingPick` entry is kept on purpose (see ensurePick) to bridge the window
@@ -819,7 +819,7 @@ export function CommitmentsTeamView({
       cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
     ).length;
 
-  // Step 5's composer. Built here because this is the only place holding the four signals
+  // The handoff's composer. Built here because this is the only place holding the signals
   // the readiness gate reads, and the stored override, which lives on the session config
   // rather than on a card.
   //
@@ -861,7 +861,7 @@ export function CommitmentsTeamView({
   // rule was that a group's own writing must never be hidden behind a checklist. It is a
   // note alongside the deck now, not the deck's opening, and it is not lost when the step
   // closes: it stays stored, it still renders on the handoff, and it is there to edit again
-  // the moment the four steps are done.
+  // the moment the activities are done.
   const reviewLocked = !execReady.ready;
   const stepsDone = execReady.steps.length - execReady.missing.length;
 
@@ -1030,6 +1030,15 @@ export function CommitmentsTeamView({
       {step === "outcomes" && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-5">
+            {sectionsFor("outcomes").length > 0 && (
+              <StepIntro n="03" title="Describe desired outcomes">
+                <p className="m-0">
+                  Your three priorities are in the rail, with what the room was afraid of and
+                  what it hoped for underneath them. Write what you want public health to make
+                  possible, not what it would do to get there.
+                </p>
+              </StepIntro>
+            )}
             {sectionsFor("outcomes").length > 0 ? (
               worksheetFor(sectionsFor("outcomes"))
             ) : (

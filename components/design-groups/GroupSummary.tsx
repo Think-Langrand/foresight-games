@@ -1456,7 +1456,7 @@ export default function GroupSummaryView({
           chip={<Chip tone="next">From the group</Chip>}
           intro={
             <>
-              Written by your group on Session 4, outside the four steps: what it wanted the
+              Written by your group on Session 4, outside the activities: what it wanted the
               committee to read alongside the rest.
             </>
           }
