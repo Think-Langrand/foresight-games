@@ -1448,11 +1448,11 @@ export default function GroupSummaryView({
   if (execOverride) {
     slides.push({
       id: "committee-note",
-      label: "A note to the committee",
+      label: "Additional Notes",
       node: (
         <Slide
           n={num()}
-          title="A note to the committee"
+          title="Additional Notes"
           chip={<Chip tone="next">From the group</Chip>}
           intro={
             <>
