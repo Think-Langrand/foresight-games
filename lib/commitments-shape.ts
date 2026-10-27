@@ -11,12 +11,16 @@
 //   act 1 — authored worksheet sections ("what most needs our attention", "what to keep in
 //           mind"), so their answers are ordinary STICKY cards carrying a section key.
 //   act 2 — `pick` cards, ROOTS carrying a `source_card_id` pointing at the Session 3 risk
-//           or opportunity they bring onto this board. TWO MARKERS RIDE ON A PICK rather
-//           than being cards of their own, because 0018's unique (code, source_card_id)
-//           allows exactly one card per source:
-//             · `shortlisted`                   → one of the three priorities
+//           or opportunity they bring onto this board. WHICH ONES ARE PRIORITIES IS NOT
+//           STORED: it is the top of the ranking, read back by `priorities()`. The one
+//           marker that IS stored rides on the pick rather than being a card of its own,
+//           because 0018's unique (code, source_card_id) allows exactly one card per
+//           source:
 //             · `section === DISPUTED_SECTION`  → still disputed; why is in `description`
-//           The two are independent: a priority may also be disputed.
+//           It is independent of the ranking: a priority may also be disputed, and the
+//           issue a room cannot agree on is often the one it scored low.
+//           (`shortlisted` was the priority marker, set by a star on the matrix. The star
+//           is gone — see `priorities()` — and the column means nothing on a pick now.)
 //   act 3 — an authored section (`w4-outcomes`). Flat, with the priorities shown as
 //           context rather than nested under them.
 //   act 4 — `response` cards, tree roots, one per strategic response.

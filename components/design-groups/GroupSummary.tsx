@@ -312,11 +312,15 @@ function PriorityList({ rows }: { rows: SummaryPlacement[] }) {
         const colour = p.kind === "risk" ? "var(--coral)" : "#3f5209";
         return (
           <li key={p.id} className="grid grid-cols-[auto_1fr] items-start gap-x-4">
-            {/* A NUMBER HERE CLAIMS A RANK. Starring no longer requires scoring — the
-                readiness gate asks only that three be chosen — so "starred but never
-                scored" is a normal end state, and printing 01 02 03 over it would invent
-                an order the room never gave. An unscored row gets the dot StakeColumn
-                gives it, the same rule the per-wall slide carried before it was replaced. */}
+            {/* A NUMBER HERE CLAIMS A RANK, and now it can always make the claim: a
+                priority IS the top of the ranking, so an unscored one cannot reach this
+                list. The dot branch below is the type being honest rather than a state
+                this slide expects — `rank` is nullable on every placement, and a slide
+                that threw on one would be a worse answer than a dot.
+
+                It was not always unreachable. When a star named the priorities, "starred
+                but never scored" was a normal end state and printing 01 02 03 over it
+                invented an order the room never gave. */}
             <span
               className="pt-[7px] font-mono text-[13px] font-bold tabular-nums"
               style={{ color: colour }}
@@ -612,8 +616,8 @@ export default function GroupSummaryView({
                   starred would otherwise read "weighed 3 and carried 3 forward", which
                   sounds like a tautology rather than a narrowing. */}
               {/* WEIGHED means SCORED, not merely on the board. A pick is minted by the
-                  first score click OR by a star, so counting every placement credits the
-                  group with weighing things it only starred. */}
+                  first score click OR by flagging a dispute, so counting every placement
+                  would credit the group with weighing an issue it only argued about. */}
               {scoredCount > s.priorities.length ? (
                 <>
                   Your group weighed {scoredCount} risks and opportunities and carried{" "}

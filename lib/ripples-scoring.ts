@@ -82,8 +82,11 @@ export function isScored(card: RippleCard): boolean {
 
 // The ranking value: plausibility × impact (1..25). null when either axis is unset.
 // Multiplicative, not additive: a sum makes 5+1 tie with 3+3, which is exactly the
-// distinction the matrix exists to draw. Changing the formula is a change to this
-// function alone — nothing else knows it.
+// distinction the matrix exists to draw.
+//
+// ONE OTHER PLACE KNOWS IT IS A PRODUCT. `topScoredWithTies` treats equal value AND equal
+// impact as a genuine tie, which is only sound because equal product with equal impact
+// forces equal plausibility too. Change this formula and read that one before you do.
 export function rankValue(card: RippleCard): number | null {
   const { plausibility, impact } = cardScores(card);
   return plausibility === null || impact === null ? null : plausibility * impact;

@@ -50,8 +50,8 @@ const matrixDirections = makePrefStore(
 );
 
 // The questions the breakout is actually discussing. They sit open at the top of the tab,
-// not in the fold below: the group's answer to them is the three cards it stars, so they
-// have to be in view while it scores rather than tucked behind a toggle.
+// not in the fold below: the group's answer to them IS the scoring, so they have to be in
+// view while it scores rather than tucked behind a toggle.
 const MATRIX_PROMPTS = [
   "Which risks and opportunities have the greatest consequences?",
   "How well are they supported by the conditions of our scenario?",
@@ -301,10 +301,14 @@ function Panel({
 
 // The three the scores chose, under the matrix that chose them.
 //
-// A READ-BACK, NOT A PICKER. Starring happens on the row itself, in the walls on the left,
-// because that is where the card and its scores already are. This panel used to be a
-// second list of all forty stakes below the matrix, which put the same cards on the tab
-// twice and made a group scroll between the two to match one to the other.
+// A READ-BACK, AND NOW THERE IS NOTHING ELSE IT COULD BE. It was a read-back beside a
+// picker — the star lived on the row itself, in the walls on the left, because that is
+// where the card and its scores already are. The star is gone and the scores decide, so
+// this is the one place the group sees what its scoring chose.
+//
+// Before that it was a second list of all forty stakes below the matrix, which put the
+// same cards on the tab twice and made a group scroll between the two to match one to the
+// other.
 function ChosenThree({ rows }: { rows: { card: RippleCard; kind: Kind }[] }) {
   // MORE THAN THREE IS NOT AN ERROR. It used to be — the star let a group pick a fourth
   // and this said "1 too many" in coral. Now the only way past three is a dead heat on

@@ -801,8 +801,8 @@ export function CommitmentsTeamView({
   // hand has, and it is why the copy is stored at all.
   // NOT a useMemo: this file returns early four times above (loading, error, no view, not
   // joined), so a hook here renders a different number of hooks on the first pass than on
-  // the second and React tears the tree down. Three items — the cap is three — so there is
-  // nothing to memoise anyway.
+  // the second and React tears the tree down. Three items, or four on a dead heat — there
+  // is nothing here worth memoising.
   const livePriorityText = new Map(week3Cards.map((c) => [c.id, c.text]));
   const railPriorities = priorities(board).map((p) =>
     p.sourceCardId && livePriorityText.has(p.sourceCardId)
