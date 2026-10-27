@@ -239,8 +239,11 @@ function Panel({
                         </button>
                       )}
                     </div>
-                    {/* The dispute note, on the starred row it belongs to. */}
-                    {starred && editable && (
+                    {/* The dispute note, on the row it belongs to. SHOWN WHILE FLAGGED even
+                        if the star has come off: the flag survives un-starring and still
+                        reaches the handoff, so hiding the only control that clears it left
+                        a dispute on the deck with no way back to it. */}
+                    {(starred || flagged) && editable && (
                       <label className="mt-1.5 flex items-start gap-1.5 text-[11px] text-muted">
                         <input
                           type="checkbox"
@@ -254,11 +257,20 @@ function Panel({
                         </span>
                       </label>
                     )}
-                    {starred && flagged && (
+                    {/* KEYED ON THE NOTE, and a no-op blur writes nothing. Uncontrolled
+                        with a fixed key, a box that mounted empty never learned about a
+                        note a teammate typed afterwards — and then any click away posted
+                        its blank over their words. Same two guards MovesBoard's fields
+                        carry, and for the same reason. */}
+                    {flagged && (
                       <textarea
+                        key={noteFor(c.id)}
                         defaultValue={noteFor(c.id)}
                         disabled={!editable || busy}
-                        onBlur={(e) => onNote(c, e.target.value)}
+                        onBlur={(e) => {
+                          if (e.target.value.trim() === noteFor(c.id).trim()) return;
+                          onNote(c, e.target.value);
+                        }}
                         rows={2}
                         placeholder="What does the room disagree about here?"
                         className="mt-1 w-full rounded-[3px] border border-[var(--rule)] bg-paper px-2 py-1.5 text-[12px] leading-[1.45]"

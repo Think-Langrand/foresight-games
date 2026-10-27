@@ -354,6 +354,7 @@ export function CommitmentsPanel({
     ex.picks.length === 0 &&
     ex.settledMarks.length === 0 &&
     ex.responses.length === 0 &&
+    ex.directions.length === 0 &&
     ex.lanes.length === 0 &&
     ex.stranded.length === 0 &&
     ex.orphans.length === 0 &&
@@ -401,8 +402,9 @@ export function CommitmentsPanel({
       {/* Act 3. */}
       {outcomeBlocks.length > 0 && <QuestionBlocks questions={outcomeBlocks} {...opts} />}
 
-      {/* Act 4. No star on the wall itself: a chosen direction is shown under act 6 with
-          what the group wrote about it, and marking it twice would read as two lists. */}
+      {/* Act 4. No star on the wall itself: `shortlisted` here is retired data from the
+          down-select act 6 replaced, and act 6's directions are cards of their own, shown
+          below with what the group wrote about each. */}
       {ex.responses.length > 0 && (
         <div>
           <div className="flex items-baseline justify-between gap-3 border-b border-ink pb-2">
@@ -447,13 +449,6 @@ export function CommitmentsPanel({
 
       {/* Act 6. */}
       {ex.directions.length > 0 && <Directions rows={ex.directions} />}
-      {ex.strandedSharpening.length > 0 && (
-        <p className="m-0 text-[12.5px] italic leading-[1.45] text-muted">
-          {ex.strandedSharpening.length} answer
-          {ex.strandedSharpening.length === 1 ? "" : "s"} written about a response the group
-          has since un-chosen. They come back if it is chosen again.
-        </p>
-      )}
 
       {/* Parked. See SHOW_BACKCASTING. */}
       {SHOW_BACKCASTING && ex.settledMarks.length > 0 && (

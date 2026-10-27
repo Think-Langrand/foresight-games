@@ -191,8 +191,6 @@ export const CARD_DESCRIPTION_MAX = 1000;
 //   parked rather than removed — see the SHOW_ flags in GroupSummary.
 // Acts 1, 3 and 5 are authored worksheet sections, so their answers are plain stickies and
 // need no kind. See lib/commitments-shape for why that is deliberate.
-// Step 1's aspiration prompts are authored worksheet sections, so their answers are plain
-// stickies and need no kind. See lib/commitments-shape for why that is deliberate.
 // `reading`, `assumed_role`, `question`, `tension`, `concerns`, `assumption`, `condition`,
 // `alternative`, `test`, `desired_role` and `investigate` are earlier shapes; none is
 // offered any more but every kind stays here, because a kind is the permanent link to

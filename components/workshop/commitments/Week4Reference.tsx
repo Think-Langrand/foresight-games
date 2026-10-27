@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
+import { DISPUTED_SECTION } from "@/lib/commitments-shape";
 import { Dot } from "@/components/workshop/synthesis/ThemeRail";
 
 // THIS WEEK'S OWN WORK, in the rail — the counterpart to Week3Reference, which carries the
@@ -117,9 +118,14 @@ export function Week4Reference({
               >
                 <span className="mr-1 text-amber">★</span>
                 {c.text}
-                {c.description && (
+                {/* THE FLAG, NOT THE NOTE. `description` deliberately survives un-ticking
+                    "we did not agree" so a group that changes its mind twice keeps its
+                    words — which means a surviving note is not evidence of a live dispute.
+                    Keying off it told groups they disagreed about things they had just
+                    agreed on. */}
+                {c.section === DISPUTED_SECTION && (
                   <span className="mt-0.5 block text-[12px] italic text-muted">
-                    You did not agree on this: {c.description}
+                    You did not agree on this{c.description ? `: ${c.description}` : "."}
                   </span>
                 )}
               </li>

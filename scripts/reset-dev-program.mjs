@@ -201,6 +201,11 @@ async function stampSections() {
         .select("id, sort, type, sections")
         .eq("group_id", g.id)
         .eq("type", "commitments")
+        // SORT > 2, NOT TYPE ALONE. 10016ba fixed this exact bug once: an early week typed
+        // `commitments` — a type change in the program editor is one dropdown — gets Week
+        // 4's prompts stamped over its own authored sections, orphaning every answer under
+        // the old keys. Week 4 is the only commitments week past sort 2.
+        .gt("sort", 2)
     );
     for (const row of rows) {
       // KEY-ORDER-INSENSITIVE. jsonb does not preserve the order keys were written in, so

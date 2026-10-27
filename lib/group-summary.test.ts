@@ -376,7 +376,6 @@ describe("buildGroupSummary · Session 4", () => {
     responses: [],
     boldMoves: [],
     directions: [],
-    strandedSharpening: [],
     lanes: [],
     stranded: [],
     picks: [],
@@ -562,7 +561,7 @@ describe("buildGroupSummary · the curated handoff", () => {
   const stake = (id: string, text: string) => ({ ...row(id, text), mechanism: null, shortlisted: false });
   const w4 = (over: Partial<CommitmentsExercise>): CommitmentsExercise => ({
     kind: "commitments", exerciseId: "EX4", title: "Session 4", cards: [{ id: "c" } as never],
-    responses: [], boldMoves: [], directions: [], strandedSharpening: [], lanes: [], stranded: [],
+    responses: [], boldMoves: [], directions: [], lanes: [], stranded: [],
     picks: [], settledMarks: [], orphans: [], questions: [],
     submittedAt: null, submittedBy: null,
     ...over,

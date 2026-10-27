@@ -427,7 +427,6 @@ const cex = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
   responses: [],
   boldMoves: [],
   directions: [],
-  strandedSharpening: [],
   lanes: [],
   stranded: [],
   picks: [],
@@ -447,18 +446,67 @@ describe("commitmentsCsvRows", () => {
     expect(rows[0]).toEqual(["Session 4", "Strategic responses", "response", "fund joint posts", "Ana", "2026-01-01"]);
   });
 
-  it("stars a bold move on its own row rather than giving it a second one", () => {
-    // A bold move IS a response carrying `shortlisted`. Emitting it twice would double
-    // every picked move in any count taken off the sheet.
+  it("does not star the response wall, because act 6 no longer picks from it", () => {
+    // `shortlisted` on a response is retired data from the down-select act 6 replaced. A
+    // star here would mark a choice this week no longer asks anyone to make, and on a
+    // board worked under the old shape it would light cards at random. The directions get
+    // rows of their own below.
     const rows = commitmentsCsvRows(
       cex({
-        responses: [stake("r1", "picked", { shortlisted: true }), stake("r2", "not picked")],
-        boldMoves: [row("r1", "picked")],
+        responses: [stake("r1", "old pick", { shortlisted: true }), stake("r2", "not picked")],
       })
     );
     expect(rows.map((r) => [r[2], r[3]])).toEqual([
-      ["response ★", "picked"],
+      ["response", "old pick"],
       ["response", "not picked"],
+    ]);
+  });
+
+  it("emits a row for each direction and each of its answered fields", () => {
+    // Act 6 is the week's headline output and had no row in this file at all. Every field
+    // row carries the move's text, so a line read on its own says what it is about.
+    const rows = commitmentsCsvRows(
+      cex({
+        directions: [
+          {
+            move: row("d1", "Fund partners permanently"),
+            fields: [
+              { key: "w4-dir-purpose", label: "The purpose", prompt: "?", answers: [row("f1", "The trust priority.")] },
+              { key: "w4-dir-rationale", label: "The rationale", prompt: "?", answers: [] },
+            ],
+          },
+        ],
+      })
+    );
+    expect(rows.map((r) => [r[1], r[2], r[3]])).toEqual([
+      ["Three directions", "direction", "Fund partners permanently"],
+      [
+        "Three directions · The purpose",
+        "direction field",
+        "Fund partners permanently — The trust priority.",
+      ],
+    ]);
+  });
+
+  it("carries a priority star, a dispute and its note off the matrix", () => {
+    // Act 2's actual output. The markers were invisible in this export and the dispute
+    // note — the only prose act 2 asks for — appeared nowhere at all.
+    const rows = commitmentsCsvRows(
+      cex({
+        picks: [
+          wmark("p1", "Funding is fragile", "r1", 4, 5, {
+            priority: true,
+            disputed: true,
+            note: "Half the room thinks this is the whole game.",
+          }),
+          wmark("p2", "Quietly fine", "r2", 2, 2),
+        ],
+      })
+    );
+    expect(rows.map((r) => [r[2], r[3]])).toEqual([
+      ["pick P4 I5 ★ priority ⚡ disputed", "Funding is fragile"],
+      ["dispute note", "Half the room thinks this is the whole game."],
+      ["pick P2 I2", "Quietly fine"],
     ]);
   });
 

@@ -14,14 +14,17 @@ import { Week4Reference } from "@/components/workshop/commitments/Week4Reference
 import { StepIntro } from "@/components/workshop/commitments/StepIntro";
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
 
-// STEP 3 — strategic responses. One wall, filled as fast as the group can type: what could
-// we actually do about any of this? Step 1's reading of the world sits above the wall and
-// Session 3's risks and opportunities sit beside it, so responses are written against what
-// the group already found rather than from memory.
+// ACT 4 — strategic responses. One wall, filled as fast as the group can type: what could
+// we actually do about any of this? The group's own desired outcomes and its three
+// priorities sit in the RAIL beside the wall, with Session 3's material collapsed under
+// them, so responses are written against what the group already decided rather than from
+// memory. They used to sit in a panel above the wall, which is the first thing to scroll
+// away once anyone starts typing.
 //
-// NOTHING ON THIS WALL IS CHOSEN. Step 4 does not pick three of these; it asks the group to
-// write three bold moves with this wall as raw material, which is why there is no star here
-// and no counter. The old down-select is parked (see MovesBoard).
+// NOTHING ON THIS WALL IS CHOSEN. Act 6 does not pick three of these; it asks the group to
+// WRITE three directions with this wall as raw material, which is why there is no star
+// here and no counter. A `shortlisted` flag on a response is retired data from the
+// down-select act 6 replaced — see MovesBoard.
 //
 // NO TAGGING. A response points at nothing: no theme, no risk, no opportunity. Session 3
 // is the evidence for that decision — every optional field on that board came back empty

@@ -7,7 +7,12 @@ import {
   resolveEffectiveSections,
   commitmentsSectionsFor,
 } from "@/lib/exercise-types";
-import { indexCommitmentsBoard, isSharpened, priorities } from "@/lib/commitments-shape";
+import {
+  DIRECTION_FIELDS,
+  indexCommitmentsBoard,
+  priorities,
+  sharpenFor,
+} from "@/lib/commitments-shape";
 import {
   coerceExecSummary,
   execSummaryReadiness,
@@ -103,8 +108,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
       vision: answered(visionSecs),
       visionTotal: visionSecs.length,
       directions: board.directions.length,
-      sharpened: board.directions.filter((d) => isSharpened(board, d.id)).length,
-    });
+      });
     if (!readiness.ready) {
       return NextResponse.json(
         { error: `Finish these first: ${readiness.missing.join(", ")}.`, missing: readiness.missing },
@@ -127,8 +131,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
     const material: ExecSummaryInput = {
       scenarioTitle: session.prompt ?? "",
       // The model gets what the group WROTE: the grounding it set out with, the outcomes
-      // it wants and the vision it is working toward. The priorities and directions reach
-      // it through `stakes` and `responses` below, which carry the same cards.
+      // it wants and the vision it is working toward. The priorities arrive through
+      // `stakes` below, which carries the same picks; the directions have a field of their
+      // own, because nothing else on this board holds them.
       changes: [...answersFor(groundingSecs), ...answersFor(outcomeSecs)],
       role: answersFor(visionSecs),
       // Session 2's key changes reach this board as seeded copies carrying sourceLabel.
@@ -142,6 +147,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
         .map((p) => ({ text: p.text.trim(), score: p.plausibility! * p.impact! }))
         .sort((a, b) => b.score - a.score),
       responses: board.responses.map((r) => r.text.trim()).filter(Boolean),
+      // Each direction as one line: the move, then whichever of its three questions were
+      // answered. Flattened rather than nested because the digest is prose for a model,
+      // and an unanswered field is simply absent rather than announced as a gap.
+      directions: board.directions.map((d) =>
+        [
+          d.text.trim(),
+          ...DIRECTION_FIELDS.flatMap((f) =>
+            sharpenFor(board, d.id, f.key)
+              .map((c) => c.text.trim())
+              .filter(Boolean)
+              .map((t) => `${f.label}: ${t}`)
+          ),
+        ].join(" — ")
+      ),
     };
 
     // IS THERE ANYTHING TO SAY? A draft built from exactly this material is current however

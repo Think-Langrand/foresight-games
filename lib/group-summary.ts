@@ -179,9 +179,9 @@ export interface SummaryPlacement {
   plausibility: number | null;
   impact: number | null;
   rank: number | null; // plausibility x impact, or null while either axis is unset
-  // Why the room could not agree, when the group said. Null on an undisputed placement and
-  // on a disputed one nobody explained. Carried on the placement rather than on a separate
-  // `disputed` list so the note cannot drift from the words it is about.
+  // Why the room could not agree, when the group said. SURVIVES UN-FLAGGING, so a
+  // non-null note does not mean a live dispute — `disputed` is the list for that. Carried
+  // on the placement rather than beside it so the note cannot drift from its words.
   note: string | null;
 }
 

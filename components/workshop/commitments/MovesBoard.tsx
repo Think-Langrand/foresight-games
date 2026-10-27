@@ -209,13 +209,21 @@ export function MovesBoard({
                 </span>
                 {/* Same uncontrolled-on-blur handling as the fields below, and for the same
                     reason: this is a shared board and someone may be mid-sentence. */}
+                {/* A MOVE CANNOT BE BLANKED — the card IS its move, so an empty one is
+                    not a direction missing a field. Emptying the box puts the text back
+                    rather than silently dropping the write and leaving the screen and the
+                    board disagreeing until a remount. Delete is how a direction goes. */}
                 <textarea
-                  key={d.id}
+                  key={d.id + d.text}
                   defaultValue={d.text}
                   disabled={!editable || busy}
                   onBlur={(e) => {
                     const t = e.target.value.trim();
-                    if (!t || t === d.text) return;
+                    if (t === d.text) return;
+                    if (!t) {
+                      e.target.value = d.text;
+                      return;
+                    }
                     onEditMove(d, t);
                   }}
                   rows={2}

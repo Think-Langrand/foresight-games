@@ -32,7 +32,6 @@ import {
   milestonesFor,
   strandedMilestones,
   sharpenFor,
-  strandedSharpening,
 } from "@/lib/commitments-shape";
 
 // Pure shaping of one design-group week's board into its read-only answers — worksheet
@@ -283,7 +282,6 @@ export function shapeFromView(
           answers: sharpenFor(board, move.id, f.key).map(toRow),
         })),
       })),
-      strandedSharpening: strandedSharpening(board).map(toRow),
       stranded: strandedMilestones(board).map(toRow),
       // Step 2's matrix placements, highest rankValue first, so every reader of this shape
       // — the review step, the admin viewer, the CSV, the handoff deck — leads with what the

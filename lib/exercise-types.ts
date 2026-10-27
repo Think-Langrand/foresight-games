@@ -167,7 +167,7 @@ const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 //
 // `step` buckets a section onto a tab. Sections sharing a step render as one flat stack,
 // and anything an admin adds with no step falls to act 1, which is where a stray extra
-// question belongs. See COMMITMENTS_STEPS below for the registry that does the bucketing.
+// question belongs. See COMMITMENTS_SECTION_STEPS below for the registry that buckets them.
 //
 // KEYS ARE PERMANENT ids written onto every answer card's `section` — never rename one.
 // The LABEL is the editable part. `aspiration-statement`, `aspiration-serves`,
@@ -201,9 +201,10 @@ export const COMMITMENTS_STEP_MOVES = "Bold moves";
 export const COMMITMENTS_STEP_RECONNECT = "Reconnect";
 export const COMMITMENTS_STEP_OUTCOMES = "Desired outcomes";
 export const COMMITMENTS_STEP_VISION = "Set the vision";
-// The vision's section key, named because the handoff deck gives it a slide of its own and
-// has to find it by IDENTITY rather than by position. Keys are permanent (see the header),
-// so this is the stable thing to match on; the label belongs to whoever edits the program.
+// The vision's section key. Exported because a key is the stable thing to match on when
+// anything needs THIS prompt rather than whatever happens to sit on its tab — the deck
+// buckets by `commitmentsStepOf` now, but the stamper and the tests still name it, and the
+// label belongs to whoever edits the program.
 //
 // STILL `w4-role` though the activity is now "Set the vision": the key is the permanent id
 // every answer ever written under it carries, and the answers it holds ARE an aspiration

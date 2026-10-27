@@ -41,7 +41,6 @@ import { SORT_STEP } from "@/lib/synthesis-shape";
 import {
   DISPUTED_SECTION,
   indexCommitmentsBoard,
-  isSharpened,
   priorities,
   sharpenFor,
   type DirectionFieldKey,
@@ -53,27 +52,34 @@ import {
 } from "@/lib/exercise-types";
 import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 
-// Session 4, the COMMITMENTS board. Five steps on one shared board, and the whole week
-// builds the handoff rather than curating it in a step of its own:
+// Session 4, the COMMITMENTS board. Six activities and a handoff on one shared board, and
+// the whole week builds that handoff rather than curating it in a step of its own:
 //
-//   1. Structure & assumptions   how this world works, and what it stops making true
-//   2. Risks & opps              Session 3's stakes on the impact x plausibility matrix
-//   3. Responses                 a wall of moves
-//   4. Identity & direction      the role public health plays here, and the moves there
-//   5. Handoff                   what is being handed over, then submit
+//   1. Reconnect             what needs attention here, and what to carry into today
+//   2. Prioritize            Session 3's stakes scored, then three named as priorities
+//   3. Desired outcomes      what public health should make possible
+//   4. Strategic responses   a wall of options
+//   5. Vision               one aspiration statement the group agrees on
+//   6. Three directions      three recommendations, each sharpened by three questions
+//   7. Handoff               the note to the committee, then submit
 //
-// Steps 1 and 4 ride the section substrate, so their prompts are the facilitator's and are
-// edited in the program editor rather than here. Steps 2, 3 and 5 are code. See
-// lib/commitments-shape's header for why the week is split that way.
+// THREE ASK FOR WRITING AND THREE ARE BOARDS. Acts 1, 3 and 5 ride the section substrate,
+// so their prompts are the facilitator's and are edited in the program editor rather than
+// here. On acts 2, 4 and 6 the group's answer is what it stars, writes on a card or
+// sharpens, so their prompts are guidance in each board's own Directions fold. See
+// lib/commitments-shape's header for where each activity's work lives.
 //
-// THE STEP NAMES ABOVE ARE DISPLAY ONLY. Underneath, a section's `step` is still the string
-// it was stored as — "Key changes" and "Bold moves" — because that value is persisted and
-// every split in the app is an equality test against it. See COMMITMENTS_STEP_CHANGES.
+// THE STEP NAMES ABOVE ARE DISPLAY ONLY. Underneath, a section carries the `step` STRING it
+// was stored with, and that is not always one of today's: a board stamped before the
+// six-activity rebuild still says "Key changes" or "Bold moves". Nothing compares those
+// strings by hand any more — `commitmentsStepOf` owns the mapping, including for the old
+// values, which is what lets a pre-rebuild board keep rendering.
 //
-// PARKED, NOT DELETED. The backcasting timeline and the three-move down-select are wanted
-// for the next workshop, so `BacktrackTimeline` and `MovesBoard` stay in the tree, their
-// card kinds stay in CARD_KINDS, and their write paths stay on the routes. They are simply
-// not in COMMIT_STEPS. Putting either back is adding its entry here and its branch below.
+// PARKED, NOT DELETED. The backcasting timeline is wanted for a future workshop, so
+// `BacktrackTimeline` stays in the tree with its card kinds and write paths, simply not in
+// COMMIT_STEPS. `MovesBoard` was the three-move down-select and is NOT parked — act 6
+// rewrote it into the direction composer, because a recommendation picked off act 4's wall
+// recorded no reason for having been picked.
 
 const NO_CARDS: RippleCard[] = [];
 
@@ -587,6 +593,38 @@ export function CommitmentsTeamView({
       return;
     }
 
+    // THE PICK IS NOT ONLY A SCORE ANY MORE. It also carries act 2's other two outputs —
+    // `shortlisted` for one of the three priorities, `section` for a dispute, and the note
+    // explaining it in `description`. Deleting it to clear two numbers would take all of
+    // that with it, silently, from a link whose label says "Clear" and sits on a row the
+    // group may have starred without ever scoring.
+    //
+    // So: unset the scores in place and keep the card. The score route takes an explicit
+    // null per axis ("explicit clear (un-score)"), which an older comment here claimed it
+    // did not — that claim is what made deleting the row look like the only way.
+    const pick = board.picks.get(card.id);
+    const carriesMore =
+      pick && (pick.shortlisted || pick.section === DISPUTED_SECTION || pick.description);
+    if (pick && carriesMore) {
+      const axes = ["plausibility", "impact"] as const;
+      run(async () => {
+        scoreLocal(pick.id, { plausibility: null, impact: null });
+        try {
+          await scoreRippleCard(code, pick.id, {
+            participantId: pid,
+            plausibility: null,
+            impact: null,
+          });
+          settleScoreLocal(pick.id);
+        } catch (e) {
+          dropScoreLocal(pick.id, [...axes]);
+          throw e;
+        }
+      });
+      return;
+    }
+
+    // Nothing else on it, so the mark itself goes.
     toggleMark("pick", { id: card.id, text: card.text }, false);
   };
 
@@ -598,8 +636,8 @@ export function CommitmentsTeamView({
   // could not be written. `ensurePick` is the same mint the matrix uses, so starring a row
   // nobody scored brings the pick into being exactly as a first score click would.
   //
-  // THE CAP IS NOT ENFORCED HERE. canAddPriority is what the board reads to disable a
-  // fourth star; a group that gets one anyway (two people clicking at once) sees it
+  // THE CAP IS NOT ENFORCED HERE. The board disables a fourth star off `priorities(board)`
+  // directly; a group that gets one anyway (two people clicking at once) sees it
   // reported rather than silently dropped, the same call every other cap on this week
   // makes.
   const togglePriority = (card: RippleCard, on: boolean) =>
@@ -676,8 +714,9 @@ export function CommitmentsTeamView({
       }
     });
 
-  // Deleting a direction takes its answers with it. 0026's delete walks the children, so
-  // this is one call rather than four, and the confirm says what goes.
+  // Deleting a direction takes its answers with it — 0007's `on delete cascade`, not
+  // 0026, which only locks the row and refuses a theme holding children. One call rather
+  // than four, and the confirm says what goes.
   const removeDirection = (card: RippleCard) =>
     run(async () => {
       removeLocal(card.id);
@@ -797,13 +836,12 @@ export function CommitmentsTeamView({
     vision: answeredCount(sectionsFor("vision")),
     visionTotal: sectionsFor("vision").length,
     directions: board.directions.length,
-    sharpened: board.directions.filter((d) => isSharpened(board, d.id)).length,
   });
   const execOverride = coerceExecSummary(
     (view?.session.config as Record<string, unknown> | undefined)?.execSummary
   );
 
-  // THE STEP IS LOCKED until the four earlier ones are done.
+  // THE STEP IS LOCKED until the six activities before it are done.
   //
   // IT RE-LOCKS IF A STEP IS UNDONE, unless the group has written its own lead. The gate
   // exists to stop a summary being built out of nothing, so a group that deletes an answer
@@ -813,11 +851,11 @@ export function CommitmentsTeamView({
   // An EDITED lead is different: that is the group's own writing, and hiding it behind a
   // checklist because they went back to fix a typo in step 4 would be taking their work
   // away. An untouched machine draft is not their work and costs nothing to rebuild.
-  // THE FOUR STEPS, AND NOTHING ELSE. This used to read `!execReady.ready && !execEdited`,
+  // THE SIX ACTIVITIES, AND NOTHING ELSE. This used to read `!execReady.ready && !execEdited`,
   // so a stored note held the step open on a board that was not finished — and deleting
   // that note slammed it shut with no way back, because the only thing that had been
   // unlocking it was the thing just deleted. A group could write a note, delete it, and
-  // never reach the box again short of finishing all four steps.
+  // never reach the box again short of finishing every activity.
   //
   // The `execEdited` escape dates from when this override was the handoff's LEAD and the
   // rule was that a group's own writing must never be hidden behind a checklist. It is a
@@ -876,7 +914,8 @@ export function CommitmentsTeamView({
         className="flex flex-wrap gap-1 border-b border-[var(--rule)]"
       >
         {COMMIT_STEPS.map((sp) => {
-          // Step 5 is the only one that can be shut. It is built FROM the other four, so
+          // The handoff is the only one that can be shut. It is built FROM the six before
+          // it, so
           // opening it early shows a locked box and a model call made out of nothing.
           const locked = sp === "review" && reviewLocked;
           return (
@@ -917,7 +956,7 @@ export function CommitmentsTeamView({
               {STEP_LABELS[sp]}
               {locked && (
                 <span className="font-mono text-[10px] font-bold tabular-nums">
-                  {stepsDone}/4
+                  {stepsDone}/{execReady.steps.length}
                 </span>
               )}
             </button>
@@ -1075,7 +1114,7 @@ export function CommitmentsTeamView({
         </div>
       )}
 
-      {/* Act 6. Choose three off the wall, then sharpen each. */}
+      {/* Act 6. Write three, and sharpen each. */}
       {step === "directions" && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div className="min-w-0">

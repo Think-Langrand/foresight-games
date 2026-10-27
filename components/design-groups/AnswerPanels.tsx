@@ -136,8 +136,9 @@ export interface HandoffMark extends AnswerRow {
   // the issues a group argues hardest about are often the ones it also prioritises.
   priority: boolean; // one of the three the group named
   disputed: boolean; // flagged as a consequential issue where disagreement remains
-  // Why it is disputed, when the group said. Null on an undisputed pick, and on a disputed
-  // one nobody explained.
+  // Why the room could not agree, when the group said. SURVIVES UN-FLAGGING — see
+  // setDisputeNote — so a non-null note is not evidence of a live dispute; read `disputed`
+  // for that. Null only where nobody ever wrote one.
   note: string | null;
 }
 
@@ -169,10 +170,6 @@ export interface CommitmentsExercise {
   boldMoves: AnswerRow[]; // act 6's chosen three, in wall order
   // Act 6 proper: each chosen direction with the three answers that sharpen it.
   directions: DirectionRow[];
-  // Answers written about a response the group has since un-chosen. Same contract as
-  // `stranded` below — intact, returning the moment it is chosen again, and reported so the
-  // work is never silently invisible.
-  strandedSharpening: AnswerRow[];
   lanes: BoldMoveLane[]; // the parked backcast timeline, one lane per chosen direction
   // Milestones under a response the group has since un-ticked. Not lost and not orphaned:
   // they return the moment the move is picked again. Reported so a reader is never left

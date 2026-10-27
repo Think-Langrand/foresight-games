@@ -3,8 +3,8 @@
 //
 // The week, in six activities: the group reconnects with the scenario, picks three
 // PRIORITIES off Session 3's risk and opportunity walls, says what outcomes it wants,
-// opens a wall of strategic responses, sets a VISION, then chooses three of the responses
-// as DIRECTIONS and sharpens each with three further answers.
+// opens a wall of strategic responses, sets a VISION, then WRITES three DIRECTIONS and
+// sharpens each with three further answers.
 //
 // Where each activity's work actually lives:
 //
@@ -327,6 +327,13 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
   const sharpen = new Map<string, Map<DirectionFieldKey, RippleCard[]>>();
   for (const [parentId, arr] of sharpenByParent) {
     if (!liveDirections.has(parentId)) {
+      // ORPHANS, NOT A "STRANDED" LIST. A direction has no un-chosen state the way a
+      // shortlisted response does: it is written, edited or deleted, and 0007's cascade
+      // takes its children with it. So the only way a sharpening answer outlives its
+      // parent is a parked or malformed direction, which is exactly what `orphans` is for.
+      // An earlier version of this file carried a `strandedSharpening` helper that copied
+      // the milestone shape without the second state that makes it work, so it could only
+      // ever return [] while the admin viewer promised to report what it found.
       orphans.push(...arr);
       continue;
     }
@@ -439,19 +446,6 @@ export function sharpenCount(board: CommitmentsBoard, directionId: string): numb
 /** A direction is sharpened when all three of its fields are answered. */
 export function isSharpened(board: CommitmentsBoard, directionId: string): boolean {
   return sharpenCount(board, directionId) === DIRECTION_FIELD_KEYS.length;
-}
-
-// Answers hanging off a direction the board no longer draws — one the group parked. Not
-// orphans: the cards are intact and come back with it. Reported so the UI can say so
-// rather than letting the work vanish silently.
-export function strandedSharpening(board: CommitmentsBoard): RippleCard[] {
-  const live = new Set(board.directions.map((d) => d.id));
-  const out: RippleCard[] = [];
-  for (const [directionId, fields] of board.sharpen) {
-    if (live.has(directionId)) continue;
-    for (const arr of fields.values()) out.push(...arr);
-  }
-  return out.sort(byOrder);
 }
 
 /** Whether another direction can be written. Held here, not by the database — see above. */

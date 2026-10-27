@@ -112,7 +112,7 @@ export function execSummaryDefaultText(changes: Block[], role: Block[]): string 
   return lines.filter((l) => l.trim()).join("\n\n");
 }
 
-// Whether step 5 can offer to draft the lead, and what is still missing if not.
+// Whether the handoff step can offer to draft the lead, and what is still missing if not.
 //
 // A GATE ON THE MODEL, NOT ON THE GROUP. StepProgress is explicit that nothing on this week
 // is enforced, and that stays true: every step remains editable whatever this returns. What
@@ -132,14 +132,13 @@ export interface ExecSummarySteps {
   vision: number;
   visionTotal: number;
   directions: number;
-  sharpened: number; // directions with all three of their fields answered
 }
 
 export function execSummaryReadiness(s: ExecSummarySteps): {
   ready: boolean;
   missing: string[];
   // Every step with its state, not just the gaps. The locked panel shows the whole list so
-  // a group can see how close it is — four names with three ticks says that, and a list of
+  // a group can see how close it is — six names with five ticks says that, and a list of
   // the one thing left does not.
   steps: { label: string; done: boolean }[];
 } {

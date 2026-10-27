@@ -116,7 +116,6 @@ describe("execSummaryReadiness", () => {
     vision: 1,
     visionTotal: 1,
     directions: 3,
-    sharpened: 3,
   };
 
   it("is ready when all six activities have been worked", () => {
@@ -168,12 +167,13 @@ describe("execSummaryReadiness", () => {
     expect(execSummaryReadiness({ ...full, grounding: 1 }).missing).toEqual(["Reconnect"]);
   });
 
-  it("asks that directions be CHOSEN, not that they be sharpened", () => {
+  it("asks that directions be WRITTEN, not that they be sharpened", () => {
     // The gate asks whether there is enough on the board to write about, and three named
     // directions are that even before their nine fields are filled. Holding the handoff
     // shut until every field is answered would make the last tab unreachable for a group
-    // that ran out of time with its recommendations already made.
-    const r = execSummaryReadiness({ ...full, sharpened: 0 });
+    // that ran out of time with its recommendations already made — so there is no
+    // `sharpened` input at all, rather than one the gate quietly ignores.
+    const r = execSummaryReadiness({ ...full, directions: 1 });
     expect(r.ready).toBe(true);
     expect(r.missing).toEqual([]);
   });

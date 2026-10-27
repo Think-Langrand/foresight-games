@@ -12,6 +12,7 @@ const base: ExecSummaryInput = {
     { text: "New coalitions", score: 12 },
   ],
   responses: ["Fund the pilot."],
+  directions: ["Fund the pilot permanently — The purpose: the funding priority."],
 };
 
 describe("execSummaryFingerprint", () => {

@@ -80,10 +80,11 @@ function Chip({ tone, children }: { tone: "live" | "next"; children: React.React
 //
 // THE THREE PICTURES ARE NOT INTERCHANGEABLE FURNITURE. Every slide used to get the same
 // 28%-wide 4:3 box on the same side, which made three different images read as one
-// repeated page ornament. `size`, `side` and `shape` are the knobs: a tall portrait beside
-// the opening claim, a square on the left of the moves. Named variants rather than free
-// class strings so Tailwind's scan always sees them and a call site cannot invent a width
-// that breaks the stack.
+// repeated page ornament. `size`, `side` and `shape` are the knobs: today the only live
+// caller is the opening claim, which takes a tall portrait at the widest size — the moves
+// slide that took a small square on the left became act 6's structured directions, which
+// carry no figure. The other variants stay because the parked slides below use them and
+// because a call site inventing its own width is how the stack broke the first time.
 //
 // FIGURE_SHAPE IS SHARED WITH THE SCENARIO SLIDE, which lays itself out rather than calling
 // WithFigure but takes its ratios from here — `landscape` for its lead and `band` for the
@@ -311,11 +312,16 @@ function PriorityList({ rows }: { rows: SummaryPlacement[] }) {
         const colour = p.kind === "risk" ? "var(--coral)" : "#3f5209";
         return (
           <li key={p.id} className="grid grid-cols-[auto_1fr] items-start gap-x-4">
+            {/* A NUMBER HERE CLAIMS A RANK. Starring no longer requires scoring — the
+                readiness gate asks only that three be chosen — so "starred but never
+                scored" is a normal end state, and printing 01 02 03 over it would invent
+                an order the room never gave. An unscored row gets the dot StakeColumn
+                gives it, the same rule the per-wall slide carried before it was replaced. */}
             <span
               className="pt-[7px] font-mono text-[13px] font-bold tabular-nums"
               style={{ color: colour }}
             >
-              {String(i + 1).padStart(2, "0")}
+              {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
             </span>
             <div>
               <p className="m-0 max-w-[44ch] text-[clamp(16px,1.7vw,21px)] font-light leading-[1.4]">
@@ -590,6 +596,7 @@ export default function GroupSummaryView({
 
   // ---- 02 · what we're facing -------------------------------------------------------
   if (s.has.commitments && (s.priorities.length > 0 || s.disputed.length > 0)) {
+    const scoredCount = s.placements.filter((p) => p.rank !== null).length;
     slides.push({
       id: "facing",
       label: "What we're facing",
@@ -604,10 +611,13 @@ export default function GroupSummaryView({
                   the count carried forward. A group that scored exactly the three it
                   starred would otherwise read "weighed 3 and carried 3 forward", which
                   sounds like a tautology rather than a narrowing. */}
-              {s.placements.length > s.priorities.length ? (
+              {/* WEIGHED means SCORED, not merely on the board. A pick is minted by the
+                  first score click OR by a star, so counting every placement credits the
+                  group with weighing things it only starred. */}
+              {scoredCount > s.priorities.length ? (
                 <>
-                  Your group weighed {s.placements.length} risks and opportunities and
-                  carried {s.priorities.length} forward.
+                  Your group weighed {scoredCount} risks and opportunities and carried{" "}
+                  {s.priorities.length} forward.
                 </>
               ) : (
                 <>
@@ -822,13 +832,13 @@ export default function GroupSummaryView({
       .split(/\n\s*\n/)
       .map((t) => t.trim())
       .filter(Boolean);
-    // The claim and the moves have already shown images 0 and 1, so reaching for 2 first is
-    // what keeps the LEAD fresh on a scenario that has all three. `second` cannot be: with
-    // three images all three are spoken for, so the band under the lead always repeats one
-    // of the earlier slides. That is the honest answer rather than a gap — cropped to a
-    // 16:9 band it reads as a detail of the world, not as the same figure again.
+    // Only the claim slide takes a figure now, and it takes images[0] — so reaching for 2
+    // keeps the LEAD fresh, and the band under it takes 1, which nothing else draws. An
+    // earlier version picked `images.find((im) => im !== lead)`, which handed the band
+    // images[0] and repeated the claim's figure while image 1 sat unused; that was true of
+    // the layout it was written for, where the moves slide had already spent 1.
     const lead = images[2] ?? images[0];
-    const second = images.find((im) => im !== lead);
+    const second = images.find((im) => im !== lead && im !== images[0]) ?? images[1];
     slides.push({
       id: "scenario",
       label: "The scenario",
@@ -936,6 +946,41 @@ export default function GroupSummaryView({
             ))}
           </div>
           </WithFigure>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- where the group started ------------------------------------------------------
+  // ACT 1'S ANSWERS, which for a while reached no slide at all. The step registry's whole
+  // promise is that a mis-bucketed section is "a group's words on the wrong slide rather
+  // than a crash" — but the `reconnect` bucket had no slide, so anything landing there was
+  // a group's words on NO slide, which is the silent loss the registry exists to prevent.
+  //
+  // IT MATTERS MOST FOR PRE-REBUILD BOARDS. A week stamped before the six-activity change
+  // carries "Key changes" on its sections, which maps to `reconnect`, and those answers
+  // used to open the deck on the old claim slide. Without this they would simply vanish
+  // from the handoff the day the code shipped.
+  //
+  // IN THE APPENDIX, NOT THE FRONT. It is the ground the group set out from rather than
+  // something it concluded, and the front of the deck is the three outputs.
+  if (s.has.commitments && s.grounding.length > 0) {
+    slides.push({
+      id: "grounding",
+      label: "Where you started",
+      node: (
+        <Slide
+          n={num()}
+          title="Where your group started"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              What your group said needed its attention when it came back to this scenario,
+              before it chose anything.
+            </>
+          }
+        >
+          <Blocks blocks={s.grounding} />
         </Slide>
       ),
     });
