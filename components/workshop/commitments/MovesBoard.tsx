@@ -65,7 +65,7 @@ function SharpenFields({
   onSharpen: (direction: RippleCard, field: DirectionFieldKey, text: string) => void;
 }) {
   return (
-    <div className="grid gap-4 border-t border-[var(--hairline)] px-4 py-4 sm:grid-cols-3">
+    <div className="grid gap-4 border-t border-ink/15 px-4 py-4 sm:grid-cols-3">
       {DIRECTION_FIELDS.map((f) => {
         const existing = sharpenFor(board, direction.id, f.key);
         return (
@@ -184,7 +184,18 @@ export function MovesBoard({
 
       <ol className="m-0 flex list-none flex-col gap-4 p-0">
         {board.directions.map((d, i) => (
-          <li key={d.id} className="rounded-[4px] border-2 border-ink bg-card">
+          <li
+            key={d.id}
+            className="overflow-hidden rounded-[4px] border-2 border-ink"
+            // A --blue wash, the colour this week already uses for its own accents (the
+            // field labels, the step numbers). It does two jobs: three directions read as
+            // three objects rather than one long form, and every input inside them keeps
+            // `bg-paper`, so a box you can type in is the one thing on the card that is
+            // NOT tinted. Light, because this is a card you read and write in rather than
+            // a panel you glance at — HandoffGuideLocked's heavier 13% is sized for the
+            // latter and would fight the text here.
+            style={{ background: "rgba(39,93,226,0.07)" }}
+          >
             <div className="flex items-start gap-3 px-4 py-3">
               <span className="pt-[3px] font-mono text-[12px] font-bold tabular-nums text-blue">
                 {String(i + 1).padStart(2, "0")}
