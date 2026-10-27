@@ -47,6 +47,12 @@ export interface ExecSummaryInput {
   // than telling it nothing.
   stakes: { text: string; score: number | null }[];
   responses: string[];
+  // Act 6's three recommendations, each already flattened to "the move — purpose —
+  // rationale — requirements". The week's HEADLINE OUTPUT, and for a while the one thing
+  // the model never saw: the old shape fed them in as section answers under `role`, and
+  // when act 6 became cards of its own that path quietly emptied while the readiness gate
+  // went on requiring three of them before it would let anyone press the button.
+  directions: string[];
 }
 
 function digest(i: ExecSummaryInput): string {
@@ -63,6 +69,7 @@ function digest(i: ExecSummaryInput): string {
       i.stakes.map((s) => `${s.score === null ? "" : `(${s.score}) `}${s.text}`)
     ),
     block("The responses it chose", i.responses),
+    block("The three directions it recommends", i.directions),
     block(
       "The role it would argue for, and its boldest moves",
       i.role.flatMap((b) => b.answers.map((a) => `${b.label} — ${a}`))

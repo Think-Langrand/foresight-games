@@ -1,11 +1,16 @@
 // The group's handoff, as a deck: one full-screen slide per section.
 //
 // Server-rendered from lib/group-summary.buildGroupSummary and handed to HandoffDeck, which
-// owns only the stepping. Every slide is the group's own work now that Session 4 is built;
-// slide 08 keeps an outlined fallback for a group that has not run it yet, so the deck is
-// honest about what is missing rather than silently shorter.
+// owns only the stepping.
 //
-// Slide 03 mounts ImplicationsMap: the real Session 2 map, split, with the branch you pick
+// THE ORDER IS A BRIEF, THEN ITS WORKING, THEN AN APPENDIX. The front is what four sessions
+// concluded — the claim and the role, the top risks and opportunities, the moves — then the
+// working that produced it: the key changes and where they led. The scenario itself follows,
+// answering "what world was this?" at the point a reader finally asks it, and everything
+// after is reference: the regrouping, the themes, every risk and opportunity, the hopes and
+// fears, and the group's own note to the committee last.
+//
+// Slide 06 mounts ImplicationsMap: the real Session 2 map, split, with the branch you pick
 // read out as sentences beside it.
 //
 // It shows what the room DID. A theme whose risks-and-opportunities walls were never filled
@@ -15,12 +20,12 @@
 import {
   themesByStakes,
   type GroupSummary,
+  type SummaryDirection,
   type SummaryKeyChange,
   type SummaryPlacement,
 } from "@/lib/group-summary";
 import type { ImplicationsExercise, StakeRow } from "@/components/design-groups/AnswerPanels";
 import { AXIS_ENDS, AXIS_LABELS, SCORE_AXES } from "@/lib/ripples-scoring";
-import { COMMITMENTS_KEY_ROLE } from "@/lib/exercise-types";
 import ImplicationsMap from "@/components/design-groups/ImplicationsMap";
 import HandoffDeck, { type DeckSlide } from "@/components/design-groups/HandoffDeck";
 import SummaryMatrix from "@/components/design-groups/SummaryMatrix";
@@ -42,6 +47,15 @@ const SHOW_UNSETTLED = false;
 // under the old shape still carries its lanes and the slide is correct whenever it returns.
 const SHOW_BACKCASTING = false;
 
+// "How this world works" — Session 1's own read of the scenario — is PARKED. It is going
+// into a separate deck, and showing the same answers in both would have a committee reading
+// one group's account of the world twice. Same pattern as the two flags above: the shaping
+// in lib/group-summary.ts keeps running, so the slide is correct whenever it comes back.
+//
+// NOT THE SAME THING AS THE SCENARIO SLIDE that replaced it in the running order. That one
+// is the scenario record's own Overview; this is what the group made of it.
+const SHOW_WORLD_READING = false;
+
 function Chip({ tone, children }: { tone: "live" | "next"; children: React.ReactNode }) {
   const cls =
     tone === "live" ? "border-transparent bg-lime text-ink" : "border-transparent bg-blue text-white";
@@ -54,41 +68,84 @@ function Chip({ tone, children }: { tone: "live" | "next"; children: React.React
   );
 }
 
-// A slide: a header that stays put, and a body that scrolls if it has to. `fill` hands the
-// body's height to the child instead, for the map, which manages its own two columns.
 // Scenario artwork on a slide.
 //
 // SIDE BY SIDE ON WIDE SCREENS, stacked below lg. The picture is context for the words,
 // not the subject of the slide, so it takes a third and the text keeps the measure it was
-// set for; at narrow widths a third of the width is not a picture, so it goes above.
+// set for; at narrow widths a third of the width is not a picture, so the two stack.
 //
 // IT MAY NOT ARRIVE. FigureImage renders nothing when the URL is missing or 403s — the
 // signed URLs are short-lived — so this has to read correctly with the figure absent,
 // which is why the text column is a normal flow child rather than half of a fixed grid.
+//
+// THE THREE PICTURES ARE NOT INTERCHANGEABLE FURNITURE. Every slide used to get the same
+// 28%-wide 4:3 box on the same side, which made three different images read as one
+// repeated page ornament. `size`, `side` and `shape` are the knobs: today the only live
+// caller is the opening claim, which takes a tall portrait at the widest size — the moves
+// slide that took a small square on the left became act 6's structured directions, which
+// carry no figure. The other variants stay because the parked slides below use them and
+// because a call site inventing its own width is how the stack broke the first time.
+//
+// FIGURE_SHAPE IS SHARED WITH THE SCENARIO SLIDE, which lays itself out rather than calling
+// WithFigure but takes its ratios from here — `landscape` for its lead and `band` for the
+// crop beneath it — so the deck has one list of the shapes a picture may be.
+const FIGURE_SIZE = {
+  narrow: "lg:w-[clamp(190px,22%,280px)]",
+  standard: "lg:w-[clamp(220px,28%,340px)]",
+  wide: "lg:w-[clamp(260px,38%,440px)]",
+} as const;
+
+const FIGURE_SHAPE = {
+  portrait: "aspect-[3/4]",
+  square: "aspect-square",
+  landscape: "aspect-[4/3]",
+  band: "aspect-[16/9]",
+} as const;
+
 function WithFigure({
   image,
   alt,
+  size = "standard",
+  side = "right",
+  shape = "landscape",
   children,
 }: {
   image: ScenarioImage | undefined;
   alt: string;
+  size?: keyof typeof FIGURE_SIZE;
+  // Which side the picture takes on a WIDE screen only. Below lg both values stack the
+  // same way — text first, picture under it — which is why the base class is
+  // `flex-col-reverse` against a DOM order of figure-then-text: the reverse cancels the
+  // swap that `lg:flex-row-reverse` needs, leaving the mobile order exactly as it was
+  // before `side` existed. Deliberate, not an oversight. On a phone the figure is
+  // full-width, so a 3:4 portrait above the claim would be a screen of picture before the
+  // one sentence four sessions were for; the words go first and the picture follows.
+  side?: "left" | "right";
+  shape?: keyof typeof FIGURE_SHAPE;
   children: React.ReactNode;
 }) {
   if (!image?.url) return <>{children}</>;
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-      <div className="min-w-0 flex-1">{children}</div>
+    <div
+      className={
+        "flex flex-col-reverse gap-6 lg:items-start lg:gap-8 " +
+        (side === "left" ? "lg:flex-row" : "lg:flex-row-reverse")
+      }
+    >
       {/* NO VISIBLE CAPTION. The prompt is the instruction the picture was generated from,
           not a description of the world, and printing it tells a committee how the image was
           made rather than what it shows. FigureImage still uses it as alt text, where it is
           the most accurate description available to a screen reader. */}
-      <div className="w-full shrink-0 lg:w-[clamp(220px,28%,340px)]">
-        <FigureImage image={image} alt={alt} ratio="aspect-[4/3]" />
+      <div className={"w-full shrink-0 " + FIGURE_SIZE[size]}>
+        <FigureImage image={image} alt={alt} ratio={FIGURE_SHAPE[shape]} />
       </div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }
 
+// A slide: a header that stays put, and a body that scrolls if it has to. `fill` hands the
+// body's height to the child instead, for the map, which manages its own two columns.
 function Slide({
   n,
   title,
@@ -240,44 +297,125 @@ function KeyChangeRow({ kc, n }: { kc: SummaryKeyChange; n: number }) {
   );
 }
 
-// One wall's top three for slide 04. Set large and light, because this is a brief slide
-// read at a glance and not a table: no scores, no theme, nothing to compare across — the
-// statement and its position are the whole content. Module scope for the same reason as
-// StakeColumn below.
-function TopThree({ rows, tone }: { rows: SummaryPlacement[]; tone: "risk" | "opportunity" }) {
-  const colour = tone === "risk" ? "var(--coral)" : "#3f5209";
+
+// Act 2's chosen priorities, risks and opportunities in ONE list.
+//
+// ONE LIST, NOT TWO COLUMNS. The group was asked for three issues across both walls, not
+// three of each, so splitting them into a risk column and an opportunity column would
+// invent a symmetry it never claimed — and a group whose three are all risks would face a
+// column headed "Opportunities" saying it ranked nothing, which reads as a gap rather than
+// as the finding it is. The wall each one came from rides on the row instead.
+function PriorityList({ rows }: { rows: SummaryPlacement[] }) {
   return (
-    <div>
-      <p
-        className="m-0 mb-5 border-b-[1.5px] border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]"
-        style={{ color: colour }}
-      >
-        {tone === "risk" ? "Risks" : "Opportunities"}
-      </p>
-      {rows.length === 0 ? (
-        <p className="m-0 text-[14px] text-muted">
-          Your group ranked nothing from this wall.
-        </p>
-      ) : (
-        <ol className="m-0 flex list-none flex-col gap-6 p-0">
-          {rows.map((p, i) => (
-            <li key={p.id} className="grid grid-cols-[auto_1fr] items-start gap-x-4">
-              {/* A number here claims a rank, so an unscored row gets the same dot
-                  StakeColumn gives it rather than a position it never earned. */}
-              <span
-                className="pt-[7px] font-mono text-[13px] font-bold tabular-nums"
-                style={{ color: colour }}
-              >
-                {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
-              </span>
-              <p className="m-0 max-w-[40ch] text-[clamp(16px,1.7vw,21px)] font-light leading-[1.4]">
+    <ol className="m-0 flex list-none flex-col gap-6 p-0">
+      {rows.map((p, i) => {
+        const colour = p.kind === "risk" ? "var(--coral)" : "#3f5209";
+        return (
+          <li key={p.id} className="grid grid-cols-[auto_1fr] items-start gap-x-4">
+            {/* A NUMBER HERE CLAIMS A RANK. Starring no longer requires scoring — the
+                readiness gate asks only that three be chosen — so "starred but never
+                scored" is a normal end state, and printing 01 02 03 over it would invent
+                an order the room never gave. An unscored row gets the dot StakeColumn
+                gives it, the same rule the per-wall slide carried before it was replaced. */}
+            <span
+              className="pt-[7px] font-mono text-[13px] font-bold tabular-nums"
+              style={{ color: colour }}
+            >
+              {p.rank === null ? "·" : String(i + 1).padStart(2, "0")}
+            </span>
+            <div>
+              <p className="m-0 max-w-[44ch] text-[clamp(16px,1.7vw,21px)] font-light leading-[1.4]">
                 {p.text}
               </p>
-            </li>
-          ))}
-        </ol>
-      )}
+              <p
+                className="m-0 mt-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em]"
+                style={{ color: colour }}
+              >
+                {p.kind === "risk" ? "Risk" : "Opportunity"}
+              </p>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// "Note any consequential issue where disagreement remains."
+//
+// IT GOES ON THE SAME SLIDE AS THE PRIORITIES, under a rule of its own. A dispute the room
+// could not settle is a finding about the room, and a committee reading three tidy
+// priorities with no sign of the argument behind them is reading a smoother story than the
+// group actually told. Its own slide would overstate it; a footnote would bury it.
+function DisputedList({ rows }: { rows: SummaryPlacement[] }) {
+  return (
+    <div className="mt-9 border-t-[1.5px] border-ink pt-5">
+      <p className="m-0 mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-blue">
+        Still disputed
+      </p>
+      <ul className="m-0 flex list-none flex-col gap-4 p-0">
+        {rows.map((p) => (
+          <li key={p.id} className="max-w-[72ch]">
+            <p className="m-0 text-[15px] leading-[1.45]">{p.text}</p>
+            {/* THE NOTE IS THE FINDING, not the flag. "We could not agree about this" tells
+                a committee almost nothing; what the split was about is the thing worth
+                reading, which is why it prints at full size rather than as a caption. */}
+            {p.note && (
+              <p className="m-0 mt-1 text-[14px] italic leading-[1.45] text-muted">{p.note}</p>
+            )}
+            <p className="m-0 mt-1 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted">
+              {p.kind === "risk" ? "Risk" : "Opportunity"}
+            </p>
+          </li>
+        ))}
+      </ul>
     </div>
+  );
+}
+
+// One of act 6's three directions: the move, then the three answers that sharpen it.
+//
+// EVERY FIELD PRINTS, ANSWERED OR NOT. A direction with no rationale has not been
+// sharpened, and an empty field says so where a dropped field would quietly present three
+// questions as though only the answered ones had been asked. The prompt stays visible for
+// the same reason it does on the board: it is what the answer is an answer to.
+function DirectionCard({ d, n }: { d: SummaryDirection; n: number }) {
+  return (
+    <li className="border border-[var(--hairline)] bg-card">
+      <div className="grid grid-cols-[auto_1fr] items-start gap-4 border-b border-[var(--hairline)] px-5 py-4">
+        <span className="pt-[3px] font-mono text-[13px] font-bold tabular-nums text-blue">
+          {String(n).padStart(2, "0")}
+        </span>
+        <p className="m-0 max-w-[62ch] text-[clamp(15px,1.5vw,19px)] font-bold leading-[1.35]">
+          {d.text}
+        </p>
+      </div>
+      <dl className="m-0 grid grid-cols-1 gap-x-8 gap-y-4 px-5 py-4 sm:grid-cols-3">
+        {d.fields.map((f) => (
+          <div key={f.key}>
+            <dt className="m-0 mb-[6px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-muted">
+              {f.label}
+            </dt>
+            <dd className="m-0">
+              {f.answers.length === 0 ? (
+                <p className="m-0 text-[13px] italic leading-[1.45] text-muted">
+                  Not answered.
+                </p>
+              ) : (
+                f.answers.map((a, i) => (
+                  <p
+                    key={i}
+                    className="m-0 max-w-[40ch] text-[14px] leading-[1.45] [&:not(:first-of-type)]:mt-2"
+                  >
+                    {a}
+                  </p>
+                ))
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </li>
   );
 }
 
@@ -365,6 +503,7 @@ export default function GroupSummaryView({
   publicView = false,
   implications,
   images = [],
+  scenario = null,
   projectSlug,
   groupId,
 }: {
@@ -372,7 +511,7 @@ export default function GroupSummaryView({
   // The scenario's artwork, at most three, in position order. Empty whenever the platform
   // is unreachable or the scenario has none, and every use below tolerates that.
   images?: ScenarioImage[];
-  // The group's edited lead for slide 02, or null to show the projected answers.
+  // The group's own note to the committee — the deck's closing slide — or null for none.
   //
   // SEPARATE FROM execEdit ON PURPOSE. These are two different questions — "what does this
   // slide say" and "may the reader change it" — and an earlier version folded them into one
@@ -382,6 +521,11 @@ export default function GroupSummaryView({
   execOverride?: ExecSummaryOverride | null;
   // Set by the public reader. Drops deck chrome that only makes sense to the group.
   publicView?: boolean;
+  // The scenario record's own title and Overview prose, for the scenario slide. Null when
+  // Foresight is unreachable or the group has no scenario, and the slide is then skipped —
+  // the deck never invents a description of the world it is about. The title is a fallback
+  // for the cover's; the Overview is the only place this prose comes from.
+  scenario?: { title: string; overview: string } | null;
   // The shaped Session 2 week, passed through untouched so the map is the real panel rather
   // than a reshaping of it. Null before Session 2 has run.
   implications: ImplicationsExercise | null;
@@ -392,7 +536,15 @@ export default function GroupSummaryView({
   const hopeCount = s.standaloneHopes.length + flipped.reduce((a, f) => a + f.hopes.length, 0);
   const slides: DeckSlide[] = [];
 
-  // ---- 01 · title ----------------------------------------------------------------------
+  // The number printed in a slide's header. A RUNNING COUNT taken as the slide is pushed,
+  // so it always agrees with the deck's own "7 / 12" in the footer.
+  //
+  // IT USED TO BE A LITERAL PER SLIDE, which went stale the moment the order changed and
+  // was wrong by construction anyway: slides are conditional, so a group that had not run
+  // Session 4 got a deck whose headers skipped numbers while the footer counted plainly up.
+  const num = () => String(slides.length + 1).padStart(2, "0");
+
+  // ---- 01 · title -------------------------------------------------------------------
   slides.push({
     id: "title",
     label: "Title",
@@ -429,57 +581,166 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 02 · Session 4: what changes, and the role ---------------------------------------
-  // THE CLAIM, AT THE FRONT. These were slides 10 and 11, a reader's last stop. They are
-  // what four sessions were for, so the deck now opens on them and the working that
-  // produced them follows.
+  // ---- 02-04 · the three outputs ----------------------------------------------------
+  // THE WORKSHOP HAS THREE OUTPUTS and the front of the deck is them, in their order:
+  // here is what we're facing, here is what we want to achieve, here is what we could do
+  // about it. Everything after slide 04 is the working that produced them.
   //
-  // TWO HALVES ON ONE SLIDE rather than two slides: the change the group sees and the role
-  // it argues for are a single position — the role is what follows from the change, and a
-  // reader who met them a slide apart treated them as two findings.
+  // IT USED TO OPEN ON A SINGLE CLAIM SLIDE built from act 1's two prompts and the role.
+  // Those prompts retired with the six-activity rebuild — act 1 now asks what needs
+  // attention rather than restating Week 2 — and the claim they carried is better told as
+  // the three slides below, because that is the shape the room actually worked in.
   //
-  // THE HEADINGS ARE AUTHORED SECTIONS, which is why the halves are concatenated rather
-  // than relabelled here: every heading comes from the prompt the facilitator wrote, so
-  // rewording a step cannot leave a slide stale. Split by section KEY, never by position —
-  // a group that answered the moves and skipped the role used to publish three bold moves
-  // under "The role you would argue for".
-  const roleBlocks = s.role.filter((b) => b.key === COMMITMENTS_KEY_ROLE);
-  const moveBlocks = s.role.filter((b) => b.key !== COMMITMENTS_KEY_ROLE);
+  // EACH ONE DRAWS ONLY IF THE GROUP GOT THERE. A group that ran out of time at act 4 has
+  // a shorter deck rather than three headings over empty space.
 
-
-  if (s.has.commitments && (s.changes.length > 0 || roleBlocks.length > 0)) {
+  // ---- 02 · what we're facing -------------------------------------------------------
+  if (s.has.commitments && (s.priorities.length > 0 || s.disputed.length > 0)) {
+    const scoredCount = s.placements.filter((p) => p.rank !== null).length;
     slides.push({
-      id: "claim",
-      label: "What changes, and the role",
+      id: "facing",
+      label: "What we're facing",
       node: (
         <Slide
-          n="02"
-          title="What is different, and what public health is for"
+          n={num()}
+          title="What we're facing"
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
             <>
-              Your group&rsquo;s reading of this world after three sessions inside it: what
-              changes, which of today&rsquo;s assumptions quietly end, and the role it would
-              argue public health plays here. Everything after this slide is the working
-              that produced it.
+              {/* The count of what was weighed only earns a mention when it is BIGGER than
+                  the count carried forward. A group that scored exactly the three it
+                  starred would otherwise read "weighed 3 and carried 3 forward", which
+                  sounds like a tautology rather than a narrowing. */}
+              {/* WEIGHED means SCORED, not merely on the board. A pick is minted by the
+                  first score click OR by a star, so counting every placement credits the
+                  group with weighing things it only starred. */}
+              {scoredCount > s.priorities.length ? (
+                <>
+                  Your group weighed {scoredCount} risks and opportunities and carried{" "}
+                  {s.priorities.length} forward.
+                </>
+              ) : (
+                <>
+                  The {s.priorities.length} your group carried forward off its risk and
+                  opportunity walls.
+                </>
+              )}{" "}
+              The full walls, with their scores, are in the appendix.
             </>
           }
         >
-          <WithFigure image={images[0]} alt={s.scenarioTitle ?? s.groupName}>
-            <Blocks blocks={[...s.changes, ...roleBlocks]} />
+          {/* TALL, AND THE BIGGEST FIGURE IN THE DECK. This is the slide a committee is
+              certain to look at, so the picture gets room; a portrait beside a column of
+              short statements also stops the slide reading as one wide, flat band. */}
+          <WithFigure
+            image={images[0]}
+            alt={s.scenarioTitle ?? s.groupName}
+            size="wide"
+            shape="portrait"
+          >
+            {s.priorities.length > 0 ? (
+              <PriorityList rows={s.priorities} />
+            ) : (
+              <p className="m-0 text-[14px] text-muted">
+                Your group recorded a disagreement here but never chose its priorities.
+              </p>
+            )}
+            {s.disputed.length > 0 && <DisputedList rows={s.disputed} />}
           </WithFigure>
         </Slide>
       ),
     });
   }
 
-  // ---- 03 · key changes ----------------------------------------------------------------
+  // ---- 03 · what we want to achieve -------------------------------------------------
+  // THE VISION AND THE OUTCOMES ON ONE SLIDE, because they are one answer at two
+  // altitudes: the vision is the future the group is working toward and the outcomes are
+  // what that future means for communities. A reader who met them a slide apart would
+  // take the outcomes for a second, competing list.
+  if (s.has.commitments && (s.vision.length > 0 || s.outcomes.length > 0)) {
+    slides.push({
+      id: "achieve",
+      label: "What we want to achieve",
+      node: (
+        <Slide
+          n={num()}
+          title="What we want to achieve"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              The future your group would work toward, and what it would mean for
+              communities if public health did its job well here.
+            </>
+          }
+        >
+          {/* The vision set as the claim it is, then the outcomes under it as the detail.
+              The headings are the facilitator's own prompts, so rewording an activity
+              cannot leave this slide quoting a question nobody was asked. */}
+          {s.vision.length > 0 && (
+            <div className="mb-9">
+              {s.vision.map((b) => (
+                <div key={b.key} className="[&:not(:first-of-type)]:mt-6">
+                  <p className="m-0 mb-3 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+                    {b.label}
+                  </p>
+                  {b.answers.map((a, i) => (
+                    <p
+                      key={i}
+                      className="m-0 max-w-[48ch] text-[clamp(17px,2vw,24px)] font-light leading-[1.35] [&:not(:first-of-type)]:mt-4"
+                    >
+                      {a}
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          {s.outcomes.length > 0 && (
+            <div className={s.vision.length > 0 ? "border-t-[1.5px] border-ink pt-6" : ""}>
+              <Blocks blocks={s.outcomes} />
+            </div>
+          )}
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- 04 · what we could do about it -----------------------------------------------
+  if (s.has.commitments && s.directions.length > 0) {
+    slides.push({
+      id: "directions",
+      label: "What we could do about it",
+      node: (
+        <Slide
+          n={num()}
+          title="What we could do about it"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              {s.directions.length}{" "}
+              {s.directions.length === 1 ? "move" : "moves"} your group would recommend, and
+              what each one is for. This is the only part of the program that says what it
+              would actually do.
+            </>
+          }
+        >
+          <ol className="m-0 grid list-none gap-4 p-0">
+            {s.directions.map((d, i) => (
+              <DirectionCard key={d.id} d={d} n={i + 1} />
+            ))}
+          </ol>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- 05 · key changes -------------------------------------------------------------
   slides.push({
     id: "key-changes",
     label: "Key changes",
     node: (
       <Slide
-        n="03"
+        n={num()}
         title="Your key changes"
         chip={<Chip tone="live">On the board</Chip>}
         intro={
@@ -519,94 +780,14 @@ export default function GroupSummaryView({
     ),
   });
 
-  // ---- 04 · the top three on each wall -------------------------------------------------
-  // THE FRONT OF THE DECK IS A BRIEF, and this is its finding: of everything the group put on
-  // its risk and opportunity walls, these six are what it ranked highest. Deliberately no
-  // scores, no grid and no theme breakdown — those are slide 10, and a reader who wants them
-  // is told where to look. Six statements, set large enough to be read from the back of a
-  // room, is the whole slide.
-  //
-  // NOTHING SCORED, NO SLIDE. "Top three" is a claim about a ranking, and before Session 4
-  // nobody has ranked anything; inventing an order from Week 3's board would put words in the
-  // group's mouth. Scored, not merely placed: a pick is minted on the first axis click and
-  // carries rank null until both are set, so a group halfway through step 2 has placements
-  // with no order among them, and this slide would print board order under a title that says
-  // "ranked highest". Slide 10 carries the full walls in both states.
-  if (s.placements.some((p) => p.rank !== null)) {
-    // Already sorted strongest-first in lib/group-summary (rank desc, unscored last), so this
-    // is a take, not a sort. Unscored rows can only reach the top three on a wall with fewer
-    // than three scored, and TopThree prints those without a rank number.
-    const topRisks = s.placements.filter((p) => p.kind === "risk").slice(0, 3);
-    const topOpps = s.placements.filter((p) => p.kind === "opportunity").slice(0, 3);
-    slides.push({
-      id: "stakes-top",
-      label: "Top risks & opportunities",
-      node: (
-        <Slide
-          n="04"
-          title="Your top risks and opportunities"
-          chip={<Chip tone="live">Session 4</Chip>}
-          intro={
-            <>
-              The ones your group ranked highest on each wall, out of the {s.placements.length}{" "}
-              it placed. All of them, with the grid and the per-theme balance, are at 10.
-            </>
-          }
-        >
-          <div className="grid gap-x-12 gap-y-9 sm:grid-cols-2">
-            <TopThree rows={topRisks} tone="risk" />
-            <TopThree rows={topOpps} tone="opportunity" />
-          </div>
-        </Slide>
-      ),
-    });
-  }
-
-  // ---- 05 · Session 4: the bold moves ------------------------------------------------
-  if (s.has.commitments && moveBlocks.length > 0) {
-    const count = moveBlocks.reduce((n, b) => n + b.answers.length, 0);
-    slides.push({
-      id: "bold-moves",
-      label: "Bold moves",
-      node: (
-        <Slide
-          n="05"
-          title="The moves you would make"
-          chip={<Chip tone="live">Session 4</Chip>}
-          intro={
-            <>
-              {count} {count === 1 ? "move" : "moves"}, chosen out of everything on your
-              response wall. This is the only part of the program that says what your group
-              would actually do.
-            </>
-          }
-        >
-          <WithFigure image={images[1]} alt={s.scenarioTitle ?? s.groupName}>
-            <Blocks blocks={moveBlocks} numbered />
-          </WithFigure>
-        </Slide>
-      ),
-    });
-  }
-
-  // ---- The backcast table (parked, see SHOW_BACKCASTING) -------------------------------
-  // One table, not one slide per move: the finding is the SHAPE of the three lanes read
-  // together — where the group front-loaded, and where a lane runs out. Empty cells print
-  // as a dot for exactly that reason.
-  //
-  // Parked with the step that fills it. Session 4 no longer backcasts, so `boldMoves` comes
-  // back empty for every group worked under the new shape and this slide would never draw
-  // anyway; the flag is here so that turning backcasting back on for the next workshop is
-  // one line in each of the two places, not a rebuild. Its id and label collide with the
-  // step-4 moves slide above on purpose: only one of the two can ever be in the deck.
-  // ---- 06 · the map --------------------------------------------------------------------
+  // ---- 06 · the map -----------------------------------------------------------------
   if (implications && s.totalImplicationCards > 0) {
     slides.push({
       id: "map",
       label: "The map",
       node: (
         <Slide
-          n="06"
+          n={num()}
           title="Where the changes led"
           chip={<Chip tone="live">On the board</Chip>}
           fill
@@ -623,14 +804,196 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 07 · how the implications regrouped ---------------------------------------------
+  // ---- 07 · the scenario --------------------------------------------------------------
+  // THE WORLD, NOT THE GROUP'S READING OF IT. Session 1's own answers about this scenario
+  // are a different slide — parked below as SHOW_WORLD_READING — and this is the scenario
+  // itself: the same title and Overview prose every group has been reading since Session 1,
+  // taken off the record rather than retyped, so a retitled or reworded scenario upstream
+  // cannot leave the handoff quoting a version that no longer exists.
+  //
+  // IT SITS AFTER THE MAP, not at the front. A committee meets the group's claim first and
+  // the working behind it second; by here it has read six slides of findings and the
+  // question it now has is "what world was this?". At slide 01 the same words answer a
+  // question nobody has asked yet and hold up the only thing the deck is for.
+  //
+  // THE PICTURE IS THE SUBJECT, which is why this lays itself out instead of calling
+  // WithFigure: a 28% box in the margin is the treatment for artwork decorating a page of
+  // findings, and this is the one slide where the artwork IS the content.
+  //
+  // BUT IT STILL MUST NOT BE A SLIDE WITH A HOLE IN IT, which is the rule a143795 set when
+  // it put artwork on the deck at all: "WithFigure returns its children bare rather than an
+  // empty half-grid — a slide missing its image must not be a slide with a hole in it." The
+  // gate below passes on overview alone, and a scenario with no art is a documented normal
+  // case, so the two-column grid is conditional on there being a lead image to put in the
+  // second track. Without one the prose runs the full width instead of sitting at 48%
+  // beside nothing.
+  if (scenario && (scenario.overview || images.length > 0)) {
+    const paras = scenario.overview
+      .split(/\n\s*\n/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    // Only the claim slide takes a figure now, and it takes images[0] — so reaching for 2
+    // keeps the LEAD fresh, and the band under it takes 1, which nothing else draws. An
+    // earlier version picked `images.find((im) => im !== lead)`, which handed the band
+    // images[0] and repeated the claim's figure while image 1 sat unused; that was true of
+    // the layout it was written for, where the moves slide had already spent 1.
+    const lead = images[2] ?? images[0];
+    const second = images.find((im) => im !== lead && im !== images[0]) ?? images[1];
+    slides.push({
+      id: "scenario",
+      label: "The scenario",
+      node: (
+        <Slide
+          n={num()}
+          // THE SAME NAME THE COVER USES, which is the group row's, falling back to the
+          // scenario record's. The two genuinely disagree in live data — one group's row
+          // says "The Known and Unknown" where Foresight says "Known Here" — and a deck
+          // that calls its own subject two different things eight slides apart reads as a
+          // mistake to a committee that has no way to know they are the same world. One
+          // name throughout beats the more authoritative name used inconsistently.
+          // `scenario.title` may now be empty — the loader admits a scenario on its
+          // Overview alone — so this falls through to a plain label rather than a blank
+          // heading.
+          title={s.scenarioTitle || scenario.title || "The scenario"}
+          chip={<Chip tone="next">The scenario</Chip>}
+          intro={<>The world your group has been working inside since Session 1.</>}
+        >
+          <div
+            className={
+              "grid items-start gap-8 lg:gap-12 " +
+              (lead ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]" : "")
+            }
+          >
+            {/* SET LIKE A STANDFIRST, NOT LIKE A CAPTION. Everywhere else in the deck the
+                prose annotates the group's work; here it is the thing being read, so it
+                takes the measure and leading of one — the same 17px/1.65 the scenario
+                reader itself sets the Overview at. */}
+            <div className="flex flex-col gap-5 text-[clamp(15px,1.5vw,17px)] leading-[1.65]">
+              {paras.length > 0 ? (
+                paras.map((para, i) => (
+                  <p key={i} className="m-0 max-w-[58ch]">
+                    {para}
+                  </p>
+                ))
+              ) : (
+                <p className="m-0 text-[14px] italic text-muted">
+                  This scenario carries no overview text.
+                </p>
+              )}
+            </div>
+            {/* TWO SIZES, NOT TWO EQUAL BOXES. A matched pair reads as a contact sheet; a
+                lead image with a wide band beneath it reads as a spread.
+                Gated on `lead` with the grid above: no art, no column at all. */}
+            {lead && (
+              <div className="flex flex-col gap-4">
+                <FigureImage
+                  image={lead}
+                  alt={scenario.title}
+                  ratio={FIGURE_SHAPE.landscape}
+                />
+                {second && (
+                  <FigureImage image={second} alt={scenario.title} ratio={FIGURE_SHAPE.band} />
+                )}
+              </div>
+            )}
+          </div>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- how this world works (parked, see SHOW_WORLD_READING) ------------------------
+  // Session 1's own read of the scenario. Parked — see SHOW_WORLD_READING — and left in
+  // place rather than deleted so turning it back on is one line.
+  //
+  // WHEN IT RETURNS it belongs beside the scenario slide, not where it used to sit at the
+  // front: the two are the same subject read twice, once off the record and once by the
+  // group, and a reader meets them better as a pair than ten slides apart.
+  if (SHOW_WORLD_READING && s.worldReading.length > 0) {
+    slides.push({
+      id: "world",
+      label: "How this world works",
+      node: (
+        <Slide
+          n={num()}
+          title="How this world works"
+          intro={
+            <>
+              Your group&rsquo;s first read of this scenario, from Session 1 — the ground
+              every slide before this one was built on.
+            </>
+          }
+        >
+          <WithFigure image={images[2]} alt={s.scenarioTitle ?? s.groupName}>
+          <div className="flex flex-col gap-7">
+            {s.worldReading.map((block) => (
+              <div key={block.label}>
+                <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+                  {block.label}{" "}
+                  <span className="tabular-nums text-muted">{block.answers.length}</span>
+                </p>
+                <ul className="m-0 list-none p-0">
+                  {block.answers.map((a) => (
+                    <li
+                      key={a}
+                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[14.5px] leading-[1.5] last:border-b-0"
+                    >
+                      {a}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          </WithFigure>
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- where the group started ------------------------------------------------------
+  // ACT 1'S ANSWERS, which for a while reached no slide at all. The step registry's whole
+  // promise is that a mis-bucketed section is "a group's words on the wrong slide rather
+  // than a crash" — but the `reconnect` bucket had no slide, so anything landing there was
+  // a group's words on NO slide, which is the silent loss the registry exists to prevent.
+  //
+  // IT MATTERS MOST FOR PRE-REBUILD BOARDS. A week stamped before the six-activity change
+  // carries "Key changes" on its sections, which maps to `reconnect`, and those answers
+  // used to open the deck on the old claim slide. Without this they would simply vanish
+  // from the handoff the day the code shipped.
+  //
+  // IN THE APPENDIX, NOT THE FRONT. It is the ground the group set out from rather than
+  // something it concluded, and the front of the deck is the three outputs.
+  if (s.has.commitments && s.grounding.length > 0) {
+    slides.push({
+      id: "grounding",
+      label: "Where you started",
+      node: (
+        <Slide
+          n={num()}
+          title="Where your group started"
+          chip={<Chip tone="live">Session 4</Chip>}
+          intro={
+            <>
+              What your group said needed its attention when it came back to this scenario,
+              before it chose anything.
+            </>
+          }
+        >
+          <Blocks blocks={s.grounding} />
+        </Slide>
+      ),
+    });
+  }
+
+  // ---- 08 · how the implications regrouped ------------------------------------------
   if (s.clusterFlow.links.length > 0) {
     slides.push({
       id: "cluster",
       label: "How they regrouped",
       node: (
         <Slide
-          n="07"
+          n={num()}
           title="How the implications regrouped"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -646,14 +1009,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 08 · themes ---------------------------------------------------------------------
+  // ---- 09 · themes ------------------------------------------------------------------
   if (s.themes.length > 0) {
     slides.push({
       id: "themes",
       label: "Themes",
       node: (
         <Slide
-          n="08"
+          n={num()}
           title="Your themes"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -727,62 +1090,30 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 09 · how this world works -------------------------------------------------------
-  // Session 1's own read of the scenario, written in September and shown nowhere until now.
-  // It goes BEFORE the key changes because it is the ground the rest of the deck stands on:
-  // a committee reading four of these needs to know how this world works before it can read
-  // what the group thinks follows from it.
-  if (s.worldReading.length > 0) {
-    slides.push({
-      id: "world",
-      label: "How this world works",
-      node: (
-        <Slide
-          n="09"
-          title="How this world works"
-          intro={
-            <>
-              Your group&rsquo;s first read of this scenario, from Session 1 — the ground
-              every slide before this one was built on.
-            </>
-          }
-        >
-          <WithFigure image={images[2]} alt={s.scenarioTitle ?? s.groupName}>
-          <div className="flex flex-col gap-7">
-            {s.worldReading.map((block) => (
-              <div key={block.label}>
-                <p className="m-0 mb-2 border-b border-ink pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-                  {block.label}{" "}
-                  <span className="tabular-nums text-muted">{block.answers.length}</span>
-                </p>
-                <ul className="m-0 list-none p-0">
-                  {block.answers.map((a) => (
-                    <li
-                      key={a}
-                      className="max-w-[86ch] border-b border-[var(--hairline)] py-[10px] text-[14.5px] leading-[1.5] last:border-b-0"
-                    >
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          </WithFigure>
-        </Slide>
-      ),
-    });
-  }
-
-  // ---- 10 · every risk and opportunity -------------------------------------------------
-  // THE APPENDIX COPY. Slide 04 carries the finding — the top three on each wall — and this
-  // is where a reader who wants to check it finds everything: the full ranking, the shared
-  // grid, and Week 3's per-theme balance underneath.
+  // ---- 10 · every risk and opportunity ----------------------------------------------
+  // THE APPENDIX COPY. Slide 03 carries the finding — the top three on each wall — and this
+  // is where a reader who wants to check it finds the rest: the per-theme lean, the shared
+  // grid, and the full ranking.
+  //
+  // THE SHAPE FIRST, THEN THE WORDS, AND THE WORDS ONLY ONCE. This slide used to open on
+  // the ranked lists and close on the theme balance — which carried its own full copy of
+  // every risk and opportunity, so the same sentences appeared twice here and a third time
+  // on the themes slide. The balance now leads, where a committee reads the lean of the
+  // walls before meeting a single sentence, and exactly one list follows.
+  //
+  // EACH CHART SITS WITH WHAT IT IS ABOUT. The balance is about THEMES and takes the full
+  // width alone; the grid is about these exact PLACEMENTS and sits beside the list of them.
+  // Putting both charts together at the top read as two unrelated pictures and left a
+  // reader working out which one the grid belonged to.
+  //
+  // THE RANKING IS THE LIST THAT SURVIVED, because it is the only reading nothing else in
+  // the deck gives: the themes slide already prints every stake in its theme's own words.
+  // What is here and nowhere else is the order Session 4 put them in, with the scores.
   //
   // IT GROWS. Before Session 4 runs there are no placements, so this is the theme balance
-  // alone and 04 does not draw at all — there is no 'top three' until somebody ranks
-  // something. The ranked block and its sub-heading are gated together, so neither can show
-  // up without the other.
+  // alone and 03 does not draw at all — there is no 'top three' until somebody ranks
+  // something. The grid, the legend and the ranked columns are gated together, so none can
+  // show up without the others.
   //
   // RISKS AND OPPORTUNITIES IN ONE COLUMN EACH, AND ONE SHARED GRID. The two lists give the
   // order; the single grid is what makes them comparable, because the finding a committee is
@@ -794,30 +1125,49 @@ export default function GroupSummaryView({
     const opps = s.placements.filter((p) => p.kind === "opportunity");
     slides.push({
       id: "stakes-all",
-      label: "All risks & opportunities",
+      // Matches the title. The dot's tooltip and the footer caption are the only place a
+      // reader meets a slide's name before opening it, so a label that disagrees with the
+      // heading sends them to the wrong slide.
+      label: "Top risks & opportunities",
       node: (
         <Slide
-          n="10"
-          title="Every risk and opportunity"
+          n={num()}
+          title="Top risks and opportunities"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
             <>
-              Every risk and opportunity your group wrote, the themes with the most at stake
-              first.
+              What each theme puts at stake and which way it leans, themes with the most at
+              stake first.
               {s.placements.length > 0 && (
                 <>
                   {" "}
                   Session 4 ranked {s.placements.length} of them against each other:{" "}
                   {risks.length} {risks.length === 1 ? "risk" : "risks"} and {opps.length}{" "}
-                  {opps.length === 1 ? "opportunity" : "opportunities"}.
+                  {opps.length === 1 ? "opportunity" : "opportunities"}. Every one of them in
+                  its theme&rsquo;s own words is on the themes slide.
                 </>
               )}
             </>
           }
         >
+          {/* THE THEME BALANCE, FULL WIDTH AND FIRST. It is the one reading here that is
+              about themes rather than about individual stakes, so it answers "which way do
+              the walls lean" before a reader meets a single sentence. Its rows are long
+              theme names with bars beside them; at two thirds of the width, next to the
+              grid, the bars lost the room that makes them comparable. */}
+          {s.gaps.stakes > 0 && <StakesBalance themes={s.themes} />}
+
+          {/* THE GRID BELONGS TO THE LIST, NOT TO THE CHART ABOVE IT. It plots these exact
+              rows — same cards, same scores — so beside the theme balance it read as a
+              second chart about something else, and a reader had to work out which of the
+              two it belonged to. Next to the list it is the same finding drawn twice: the
+              order on the left, the spread on the right. */}
           {s.placements.length > 0 && (
             <>
-              <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
+              <p className={`mb-0 text-[15px] font-bold ${s.gaps.stakes > 0 ? "mt-10" : ""}`}>
+                The order they ranked them in
+              </p>
+              <div className="mt-4 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
                 <div className="grid gap-7 sm:grid-cols-2">
                   <StakeColumn rows={risks} tone="risk" />
                   <StakeColumn rows={opps} tone="opportunity" />
@@ -854,27 +1204,19 @@ export default function GroupSummaryView({
               </p>
             </>
           )}
-          {s.gaps.stakes > 0 && (
-            <>
-              {s.placements.length > 0 && (
-                <p className="mb-0 mt-8 text-[15px] font-bold">All of them, by theme</p>
-              )}
-              <StakesBalance themes={s.themes} />
-            </>
-          )}
         </Slide>
       ),
     });
   }
 
-  // ---- 11 · hopes, fears, flips --------------------------------------------------------
+  // ---- 11 · hopes, fears, flips -----------------------------------------------------
   if (s.flips.length + s.standaloneHopes.length > 0) {
     slides.push({
       id: "hopes-fears",
       label: "Hopes & fears",
       node: (
         <Slide
-          n="11"
+          n={num()}
           title="Hopes, fears, and the flips"
           chip={<Chip tone="live">On the board</Chip>}
           intro={
@@ -958,18 +1300,16 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 11 · Session 4: the role, and the bold moves ------------------------------------
-  // TWO SLIDES from one step, split BY SECTION KEY. It used to split positionally — first
-  // block is the role, rest are the moves — which broke the moment a group answered the
-  // moves and skipped the role: empty blocks are dropped upstream, so the moves became
-  // element zero and three bold moves were published under "The role you would argue for".
+  // ---- The backcast table (parked, see SHOW_BACKCASTING) -------------------------------
+  // One table, not one slide per move: the finding is the SHAPE of the three lanes read
+  // together — where the group front-loaded, and where a lane runs out. Empty cells print
+  // as a dot for exactly that reason.
   //
-  // Keys are permanent ids and labels are the facilitator's, so the key is the only stable
-  // thing to match on. Still generic in the direction that matters: a facilitator who adds
-  // a fourth step-4 prompt gets it on the moves slide rather than breaking either.
-  //
-  // The role is its own slide because it is the one claim in four sessions that is an
-  // argument rather than an observation, and a reader should meet it alone.
+  // Parked with the step that fills it. Session 4 no longer backcasts, so `boldMoves` comes
+  // back empty for every group worked under the new shape and this slide would never draw
+  // anyway; the flag is here so that turning backcasting back on for the next workshop is
+  // one line in each of the two places, not a rebuild. Its id and label collide with the
+  // step-4 moves slide above on purpose: only one of the two can ever be in the deck.
   if (SHOW_BACKCASTING && s.boldMoves.length > 0) {
     const periods = s.boldMoves[0].periods;
     slides.push({
@@ -977,7 +1317,7 @@ export default function GroupSummaryView({
       label: "Bold moves",
       node: (
         <Slide
-          n="10"
+          n={num()}
           title="The moves you committed to, and when"
           chip={<Chip tone="live">Session 4</Chip>}
           intro={
@@ -1058,14 +1398,14 @@ export default function GroupSummaryView({
     });
   }
 
-  // ---- 12 · What we never settled (parked, see SHOW_UNSETTLED) ---------------
+  // ---- what we never settled (parked, see SHOW_UNSETTLED) ---------------------------
   if (SHOW_UNSETTLED && s.unsettled.length > 0) {
     slides.push({
       id: "unsettled",
       label: "What we never settled",
       node: (
         <Slide
-          n="12"
+          n={num()}
           title="What we never settled"
           chip={<Chip tone="next">Still open</Chip>}
           intro={
@@ -1111,15 +1451,12 @@ export default function GroupSummaryView({
       label: "A note to the committee",
       node: (
         <Slide
-          // 14, fixed, like every other slide here. These numbers are nominal, not a
-          // running count: slides are conditional, so two of them already share "10" and
-          // "13" prints whether or not the twelve before it were pushed.
-          n="13"
+          n={num()}
           title="A note to the committee"
           chip={<Chip tone="next">From the group</Chip>}
           intro={
             <>
-              Written by your group on Session 4, outside the four steps: what it wanted the
+              Written by your group on Session 4, outside the activities: what it wanted the
               committee to read alongside the rest.
             </>
           }

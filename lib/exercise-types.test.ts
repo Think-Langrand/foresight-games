@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   EXERCISE_TYPES,
   DEFAULT_PROGRAM,
@@ -12,6 +13,15 @@ import {
   resolveSections,
   newSectionKey,
   defaultProgramWeeks,
+  commitmentsStepOf,
+  commitmentsSectionsFor,
+  COMMITMENTS_STEP_CHANGES,
+  COMMITMENTS_STEP_MOVES,
+  COMMITMENTS_STEP_RECONNECT,
+  COMMITMENTS_STEP_OUTCOMES,
+  COMMITMENTS_STEP_VISION,
+  COMMITMENTS_KEY_VISION,
+  COMMITMENTS_KEY_ROLE,
 } from "./exercise-types";
 
 describe("exercise-types registry", () => {
@@ -262,39 +272,95 @@ describe("commitments exercise type", () => {
     expect(supportsSections("commitments")).toBe(true);
   });
 
-  it("splits its written fields across the two steps that have them", () => {
+  it("splits its written fields across the three activities that ask for writing", () => {
     const sections = EXERCISE_TYPES.commitments.sections!;
     expect(sections.map((s) => s.key)).toEqual([
-      "w4-summary",
-      "w4-assumptions",
+      "w4-attention",
+      "w4-keep-in-mind",
+      "w4-outcomes",
       "w4-role",
-      "w4-bold-moves",
     ]);
     // `question`, not `brainstorm`: three people in a breakout have three readings and each
     // answer is its own card. Migration 0027 is the record of what forcing one cost.
     for (const s of sections) expect(s.kind).toBe("question");
     for (const s of sections) expect(s.label.length).toBeGreaterThan(0);
-    // TWO steps, in board order. The view splits `sections` on this, so a section landing
-    // on the wrong step renders on the wrong tab, and one with no step falls to step 1.
-    expect(worksheetSteps(sections)).toEqual(["Key changes", "Bold moves"]);
-    expect(sections.filter((s) => s.step === "Key changes")).toHaveLength(2);
-    expect(sections.filter((s) => s.step === "Bold moves")).toHaveLength(2);
+    // THREE steps, in board order. Acts 2, 4 and 6 are boards: their prompts are guidance
+    // in a Directions fold, so they own no sections and must not appear here.
+    expect(worksheetSteps(sections)).toEqual([
+      COMMITMENTS_STEP_RECONNECT,
+      COMMITMENTS_STEP_OUTCOMES,
+      COMMITMENTS_STEP_VISION,
+    ]);
+    expect(commitmentsSectionsFor(sections, "reconnect").map((s) => s.key)).toEqual([
+      "w4-attention",
+      "w4-keep-in-mind",
+    ]);
+    expect(commitmentsSectionsFor(sections, "outcomes").map((s) => s.key)).toEqual([
+      "w4-outcomes",
+    ]);
+    expect(commitmentsSectionsFor(sections, "vision").map((s) => s.key)).toEqual(["w4-role"]);
   });
 
-  it("never reuses a key retired by the restructure", () => {
+  it("routes pre-rebuild step strings onto a tab rather than dropping them", () => {
+    // A board stamped before the six-activity rebuild carries "Key changes" and "Bold
+    // moves" on its sections, and a deploy does not rewrite those rows. They have to land
+    // somewhere a reader can see them: act 1's prompts were the key-changes pair, and the
+    // role lived with the bold moves.
+    expect(commitmentsStepOf({ step: COMMITMENTS_STEP_CHANGES })).toBe("reconnect");
+    expect(commitmentsStepOf({ step: COMMITMENTS_STEP_MOVES })).toBe("vision");
+    // An admin typing a tab name of their own, or leaving it blank, gets act 1 — a question
+    // on the first tab beats a question that renders nowhere.
+    expect(commitmentsStepOf({ step: "Something a facilitator typed" })).toBe("reconnect");
+    expect(commitmentsStepOf({ step: "  " })).toBe("reconnect");
+    expect(commitmentsStepOf({})).toBe("reconnect");
+  });
+
+  it("never reuses a key retired by a restructure", () => {
     // A key is the permanent link to every answer card ever written under it. The week
-    // moved away from a three-part aspiration and a handoff step; those four keys stay
-    // retired so their cards surface under a "removed block" heading rather than being
-    // silently re-pointed at a different question.
+    // moved away from a three-part aspiration and a handoff step, and then away from
+    // restating Week 2's key changes and from prose bold moves; those keys stay retired so
+    // their cards surface under a "removed block" heading rather than being silently
+    // re-pointed at a different question.
     const keys = EXERCISE_TYPES.commitments.sections!.map((s) => s.key);
     for (const retired of [
       "aspiration-statement",
       "aspiration-serves",
       "aspiration-holds",
       "handoff-committee-line",
+      "w4-summary",
+      "w4-assumptions",
+      "w4-bold-moves",
     ]) {
       expect(keys).not.toContain(retired);
     }
+  });
+
+  it("agrees with the hand-copy in scripts/week4-sections.mjs", () => {
+    // scripts/ cannot import lib/ — this file is `import \"server-only\"` — so the dev reset
+    // script carries a verbatim copy of these sections. Letting the two drift means
+    // `reset-dev-program apply` silently re-stamps yesterday's prompts over today's, which
+    // is invisible until a group opens the board and finds the wrong question.
+    //
+    // KEYS AND STEPS ONLY. The labels and help text are the display side and a stamped
+    // exercise owns its own snapshot, so those may differ without consequence; what must
+    // not differ is which answer bucket a prompt writes to and which tab it lands on.
+    const script = readFileSync(
+      new URL("../scripts/week4-sections.mjs", import.meta.url),
+      "utf8"
+    );
+    const block = script.slice(script.indexOf("export const COMMITMENTS_SECTIONS = ["));
+    const pairs = [...block.matchAll(/key: "([^"]+)",\s*\n\s*kind: "[^"]+",\s*\n\s*step: "([^"]+)"/g)];
+    expect(pairs.map((m) => [m[1], m[2]])).toEqual(
+      EXERCISE_TYPES.commitments.sections!.map((s) => [s.key, s.step])
+    );
+  });
+
+  it("keeps the vision on the key its answers were written under", () => {
+    // The activity was renamed from "the aspirational role" to "Set the vision", but the
+    // answers are the same kind of thing and the key is permanent. Renaming it would orphan
+    // every aspiration ever written to buy a tidier string.
+    expect(COMMITMENTS_KEY_VISION).toBe("w4-role");
+    expect(COMMITMENTS_KEY_ROLE).toBe(COMMITMENTS_KEY_VISION);
   });
 
   it("is session 4 of the default program, replacing the placeholder", () => {
@@ -303,10 +369,10 @@ describe("commitments exercise type", () => {
     // The canonical week carries the EFFECTIVE keyset, so a group that never customizes
     // still gets step 1.
     expect(defaultProgramWeeks()[3].sections.map((s) => s.key)).toEqual([
-      "w4-summary",
-      "w4-assumptions",
+      "w4-attention",
+      "w4-keep-in-mind",
+      "w4-outcomes",
       "w4-role",
-      "w4-bold-moves",
     ]);
   });
 });

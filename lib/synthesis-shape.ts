@@ -183,6 +183,19 @@ export function placementError(
       // which column it belongs in.
       return parentKind === "response" ? null : "A milestone belongs on a bold move.";
 
+    case "direction":
+      // Week 4 act 6. One of the three recommendations, composed by the group rather than
+      // picked off act 4's wall, so it is a root like the wall's own cards.
+      return root ? null : "A direction is a top-level card.";
+
+    case "sharpen":
+      // One of the three further questions about a direction — purpose, rationale,
+      // requirements — hung off the direction it is about. Which field it is lives in
+      // `section` (DIRECTION_FIELDS) and is checked by the route, the same division of
+      // labour as a milestone's period: a parent says which move, `section` says which
+      // question about it.
+      return parentKind === "direction" ? null : "That belongs on a direction.";
+
     case "pick":
     case "settled":
       // Week 4's handoff. Both are marks ABOUT an earlier week's card, not cards under
@@ -331,6 +344,8 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
       case "milestone":
       case "pick":
       case "settled":
+      case "direction":
+      case "sharpen":
         // Week 4's kinds. A Session 3 board should never hold one, so this is not a bucket
         // but a statement that there is no bucket: it shows up rather than vanishing.
         orphans.push(c);

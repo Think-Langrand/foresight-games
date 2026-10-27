@@ -26,9 +26,12 @@ import {
 import { rankValue } from "@/lib/ripples-scoring";
 import {
   PERIODS,
+  DIRECTION_FIELDS,
+  DISPUTED_SECTION,
   indexCommitmentsBoard,
   milestonesFor,
   strandedMilestones,
+  sharpenFor,
 } from "@/lib/commitments-shape";
 
 // Pure shaping of one design-group week's board into its read-only answers — worksheet
@@ -268,6 +271,17 @@ export function shapeFromView(
           milestones: milestonesFor(board, move.id, p.key).map(toRow),
         })),
       })),
+      // Act 6. Every field on every chosen direction, answered or not — an unsharpened
+      // direction is a gap the handoff should print, not a row to quietly drop.
+      directions: board.directions.map((move) => ({
+        move: toRow(move),
+        fields: DIRECTION_FIELDS.map((f) => ({
+          key: f.key,
+          label: f.label,
+          prompt: f.prompt,
+          answers: sharpenFor(board, move.id, f.key).map(toRow),
+        })),
+      })),
       stranded: strandedMilestones(board).map(toRow),
       // Step 2's matrix placements, highest rankValue first, so every reader of this shape
       // — the review step, the admin viewer, the CSV, the handoff deck — leads with what the
@@ -281,6 +295,11 @@ export function shapeFromView(
           plausibility: c.plausibility,
           impact: c.impact,
           rank: rankValue(c),
+          // Act 2's two markers. Both ride on the pick — see DISPUTED_SECTION — so they are
+          // read off the same row rather than from a second card that cannot exist.
+          priority: c.shortlisted,
+          disputed: c.section === DISPUTED_SECTION,
+          note: c.description,
         }))
         .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1)),
       settledMarks: [...board.settled].map(([sourceId, c]) => ({
@@ -291,6 +310,9 @@ export function shapeFromView(
         plausibility: null,
         impact: null,
         rank: null,
+        priority: false,
+        disputed: false,
+        note: null,
       })),
       orphans: board.orphans.map(toRow),
       // resolveEffectiveSections, not the raw column: a commitments week that was never

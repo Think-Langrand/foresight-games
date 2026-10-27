@@ -13,6 +13,13 @@
 // same comparator the themes slide uses, so the two cannot disagree. The LETTER comes from
 // board order and travels with the theme, so position carries the finding and the letter
 // carries the identity.
+//
+// A SHAPE, AND ONLY A SHAPE. It used to print every risk and opportunity in full underneath
+// the bars, "so the slide carries the group's words and not only a shape" — but the themes
+// slide already prints exactly those words, with mechanism and shortlist star, under the
+// theme's real name instead of a one-letter stand-in. Two copies of the same list in one
+// deck taught a reader that one of them was the real one and left them hunting for it. The
+// words live on the themes slide; the lean lives here.
 
 import { themesByStakes, type SummaryTheme } from "@/lib/group-summary";
 import { POLARITY_COLOR } from "@/lib/analysis/cohort-palette";
@@ -112,57 +119,6 @@ export default function StakesBalance({ themes }: { themes: SummaryTheme[] }) {
         })}
       </ul>
 
-      {/* The cards themselves, so the slide carries the group's words and not only a shape. */}
-      <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {(
-          [
-            ["Risks", POLARITY_COLOR.risk, worked.flatMap(({ t, letter }) => t.risks.map((r) => ({ r, letter })))],
-            [
-              "Opportunities",
-              POLARITY_COLOR.opportunity,
-              worked.flatMap(({ t, letter }) => t.opportunities.map((r) => ({ r, letter }))),
-            ],
-          ] as const
-        ).map(([label, color, rows]) => (
-          <div key={label}>
-            <p className="m-0 flex items-center gap-2 border-b border-ink pb-2">
-              <span
-                className="inline-block h-3 w-3 rounded-[2px]"
-                style={{ background: color }}
-                aria-hidden="true"
-              />
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-                {label} <span className="tabular-nums text-muted">{rows.length}</span>
-              </span>
-            </p>
-            <ul className="m-0 list-none p-0">
-              {rows.map(({ r, letter }) => (
-                <li
-                  key={r.id}
-                  className="flex gap-3 border-b border-[var(--hairline)] py-[9px] last:border-b-0"
-                >
-                  <span className="shrink-0 pt-[2px] font-mono text-[10px] font-bold text-blue">
-                    {letter}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block max-w-[52ch] text-[14px] leading-[1.45]">{r.text}</span>
-                    {r.mechanism && (
-                      <span className="mt-[2px] block text-[13px] italic text-muted">
-                        {r.mechanism}
-                      </span>
-                    )}
-                  </span>
-                  {r.shortlisted && (
-                    <span className="ml-auto shrink-0 text-[12px] text-amber" title="Shortlisted">
-                      ★
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

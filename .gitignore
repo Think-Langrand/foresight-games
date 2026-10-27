@@ -56,3 +56,9 @@ next-env.d.ts
 # and must never be committed (it carries machine identifiers and caches)
 /chrome-profile/
 /*-profile/
+
+# Answer exports pulled from the admin viewer. The committed fixtures live in docs/data/ —
+# that path is the deliberate exception and stays tracked. Anywhere else these are a dump
+# that happens to be sitting in the repo, and data/ is one `git add .` from taking a
+# megabyte of them along with a real change.
+/data/week*/

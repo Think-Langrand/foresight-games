@@ -25,7 +25,10 @@ import type { RippleCard } from "@/lib/ripples-types";
 import { orderLabelForDepth, TREE_ORDERS } from "@/lib/ripples-types";
 import { sortRootsByRank } from "@/lib/ripples-scoring";
 import { READING_FIELDS } from "@/lib/synthesis-shape";
-import { COMMITMENTS_STEP_MOVES } from "@/lib/exercise-types";
+import {
+  commitmentsStepOf,
+  type CommitmentsSectionStep,
+} from "@/lib/exercise-types";
 
 // A key change, split so the page can lead with the label the group typed. Three groups
 // prefixed theirs ("POWER: …"), one numbered them ("1. …"), one wrote plain sentences — so
@@ -138,19 +141,29 @@ export interface GroupSummary {
   // Week 4's written work arrives as QUESTION BLOCKS, not fixed strings, because its
   // prompts are authored worksheet sections: the headings belong to whoever edited the
   // program, so the deck renders what the group was actually asked. A facilitator can
-  // reword step 1 or step 4 without any slide here going stale.
+  // reword an activity without any slide here going stale.
   //
-  // SPLIT ON THE AUTHORED STEP, because the two halves are different slides. `changes` is
-  // step 1 — what is different in this world, and which of today's assumptions it breaks.
-  // `role` is step 4 — the role public health plays here, then the bold moves. Blocks with
-  // no step fall into `changes`, which is where the editor puts anything an admin adds.
-  changes: { key: string; label: string; answers: string[] }[];
-  // Carries `key` because the deck splits this one by identity: COMMITMENTS_KEY_ROLE is
-  // the role slide and everything else on the step is a move.
-  role: { key: string; label: string; answers: string[] }[];
-  // Step 2's matrix, strongest first. The order IS the finding: it is the one place in four
+  // BUCKETED BY THE STEP REGISTRY in lib/exercise-types, never by an equality test here.
+  // Three activities ask for writing and each is a different slide, so a wrong bucket is a
+  // group's words on the wrong slide rather than a crash. `commitmentsStepOf` also decides
+  // where pre-rebuild step strings land, which is why this file must not second-guess it.
+  //
+  // Act 1 — what needs attention, and what to keep in mind. Grounding, not a finding.
+  grounding: { key: string; label: string; answers: string[] }[];
+  // Act 3 — what the group wants public health to make possible.
+  outcomes: { key: string; label: string; answers: string[] }[];
+  // Act 5 — the aspiration statement. A list because the prompt takes one answer per
+  // person and a breakout of three writes three; the slide reads them as one claim.
+  vision: { key: string; label: string; answers: string[] }[];
+  // Act 2's matrix, strongest first. The order IS the finding: it is the one place in four
   // sessions where the group ranked its own stakes against each other.
   placements: SummaryPlacement[];
+  // Act 2's chosen three, and anything it flagged as still disputed. Both are drawn from
+  // `placements`' own rows, so a priority carries its scores with it.
+  priorities: SummaryPlacement[];
+  disputed: SummaryPlacement[];
+  // Act 6 — the three directions, each with the three answers that sharpen it.
+  directions: SummaryDirection[];
   // Parked with the backcasting step, not removed: when the timeline returns for the next
   // workshop its lanes fill and the slide behind SHOW_BACKCASTING draws again.
   boldMoves: SummaryBoldMove[];
@@ -166,6 +179,21 @@ export interface SummaryPlacement {
   plausibility: number | null;
   impact: number | null;
   rank: number | null; // plausibility x impact, or null while either axis is unset
+  // Why the room could not agree, when the group said. SURVIVES UN-FLAGGING, so a
+  // non-null note does not mean a live dispute — `disputed` is the list for that. Carried
+  // on the placement rather than beside it so the note cannot drift from its words.
+  note: string | null;
+}
+
+// One of act 6's three directions: the move itself, and the three answers that sharpen it.
+//
+// EVERY FIELD IS CARRIED, ANSWERED OR NOT, for the same reason SummaryBoldMove keeps its
+// empty periods: a direction with a move and no rationale has not been sharpened, and
+// dropping the empty field would present it as though it had. The slide prints the gap.
+export interface SummaryDirection {
+  id: string;
+  text: string; // the move — "what should change?"
+  fields: { key: string; label: string; prompt: string; answers: string[] }[];
 }
 
 // One bold move and its backcast, for the handoff's timeline slide. `periods` carries
@@ -428,9 +456,10 @@ export function buildGroupSummary(
         })
       : [];
 
-  // ---- Week 4: what changes, the matrix, the role and the moves ------------------------
-  // Split on the authored step, the same split CommitmentsPanel makes, so the deck reads
-  // the week in the order it was worked. A block with no step at all joins `changes`.
+  // ---- Week 4: the written activities, the matrix, and the directions ------------------
+  // Bucketed by the step registry, the same one the board and the admin viewer use, so the
+  // deck reads the week in the order it was worked and a pre-rebuild board still lands
+  // somewhere a reader can see it. A block whose step nobody recognises joins act 1.
   const w4Blocks =
     commitments?.kind === "commitments"
       ? commitments.questions
@@ -438,21 +467,26 @@ export function buildGroupSummary(
           .map((q) => ({
             key: q.key,
             label: q.label || q.key,
-            step: q.step,
+            // `commitmentsStepOf` takes the stored string; the tab is what the deck wants.
+            tab: commitmentsStepOf(q),
             answers: q.answers.map((a) => a.text),
           }))
       : [];
+  // `key` rides along on every bucket so a slide can find one block BY IDENTITY rather
+  // than by position. An earlier version split step 4 positionally, and a group that
+  // answered the moves but skipped the role had its three moves rendered under "The role
+  // you would argue for" — empty blocks are dropped here, so the moves became element
+  // zero. Keys are permanent; positions are not.
   const strip = (b: { key: string; label: string; answers: string[] }) => ({
     key: b.key,
     label: b.label,
     answers: b.answers,
   });
-  const changes = w4Blocks.filter((b) => b.step !== COMMITMENTS_STEP_MOVES).map(strip);
-  // `key` rides along so the deck can find the role BY IDENTITY. It used to split step 4
-  // positionally, and a group that answered the moves but skipped the role then had its
-  // three moves rendered under "The role you would argue for" — empty blocks are dropped
-  // here, so the moves became element zero. Keys are permanent; positions are not.
-  const role = w4Blocks.filter((b) => b.step === COMMITMENTS_STEP_MOVES).map(strip);
+  const forTab = (tab: CommitmentsSectionStep) =>
+    w4Blocks.filter((b) => b.tab === tab).map(strip);
+  const grounding = forTab("reconnect");
+  const outcomes = forTab("outcomes");
+  const vision = forTab("vision");
 
   // Step 2's placements. Which wall each came from is derived from Week 3's own rows, the
   // one thing this builder can do that no single-week shape can: a pick carries its
@@ -478,6 +512,7 @@ export function buildGroupSummary(
               plausibility: p.plausibility,
               impact: p.impact,
               rank: p.rank,
+              note: p.note,
             },
           ];
         })
@@ -485,6 +520,38 @@ export function buildGroupSummary(
         // The slide numbers these by position, so "strongest first" has to be true of the
         // field itself or the printed ranks quietly lie. Unscored placements last.
         .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1))
+      : [];
+
+  // Act 2's two outputs, drawn from the SAME rows as `placements` so a priority carries its
+  // scores with it and the two can never disagree about an issue's words or its wall.
+  // Filtering by source id rather than re-deriving: a pick dropped above (its Session 3
+  // card deleted) must not reappear here wearing a star.
+  const priorityIds = new Set(
+    commitments?.kind === "commitments"
+      ? commitments.picks.filter((p) => p.priority).map((p) => p.sourceId)
+      : []
+  );
+  const disputedIds = new Set(
+    commitments?.kind === "commitments"
+      ? commitments.picks.filter((p) => p.disputed).map((p) => p.sourceId)
+      : []
+  );
+  const priorities = placements.filter((p) => priorityIds.has(p.id));
+  const disputed = placements.filter((p) => disputedIds.has(p.id));
+
+  // Act 6. Every field on every direction, answered or not — see SummaryDirection.
+  const directions: SummaryDirection[] =
+    commitments?.kind === "commitments"
+      ? commitments.directions.map((d) => ({
+          id: d.move.id,
+          text: d.move.text,
+          fields: d.fields.map((f) => ({
+            key: f.key,
+            label: f.label,
+            prompt: f.prompt,
+            answers: f.answers.map((a) => a.text),
+          })),
+        }))
       : [];
 
   const boldMoves: SummaryBoldMove[] =
@@ -530,9 +597,13 @@ export function buildGroupSummary(
     unsettled,
     settledCount,
     worldReading,
-    changes,
-    role,
+    grounding,
+    outcomes,
+    vision,
     placements,
+    priorities,
+    disputed,
+    directions,
     boldMoves,
   };
 }

@@ -112,7 +112,7 @@ export function execSummaryDefaultText(changes: Block[], role: Block[]): string 
   return lines.filter((l) => l.trim()).join("\n\n");
 }
 
-// Whether step 5 can offer to draft the lead, and what is still missing if not.
+// Whether the handoff step can offer to draft the lead, and what is still missing if not.
 //
 // A GATE ON THE MODEL, NOT ON THE GROUP. StepProgress is explicit that nothing on this week
 // is enforced, and that stays true: every step remains editable whatever this returns. What
@@ -123,19 +123,22 @@ export function execSummaryDefaultText(changes: Block[], role: Block[]): string 
 // whose prompts were removed can never be answered — holding the button hostage to it would
 // be a dead end with no way out from inside the board.
 export interface ExecSummarySteps {
-  changes: number;
-  changesTotal: number;
-  placements: number;
+  grounding: number;
+  groundingTotal: number;
+  priorities: number;
+  outcomes: number;
+  outcomesTotal: number;
   responses: number;
-  moves: number;
-  movesTotal: number;
+  vision: number;
+  visionTotal: number;
+  directions: number;
 }
 
 export function execSummaryReadiness(s: ExecSummarySteps): {
   ready: boolean;
   missing: string[];
   // Every step with its state, not just the gaps. The locked panel shows the whole list so
-  // a group can see how close it is — four names with three ticks says that, and a list of
+  // a group can see how close it is — six names with five ticks says that, and a list of
   // the one thing left does not.
   steps: { label: string; done: boolean }[];
 } {
@@ -145,10 +148,16 @@ export function execSummaryReadiness(s: ExecSummarySteps): {
     // A step with no prompts counts as done. Facilitators can edit the program, and a step
     // whose prompts were removed can never be answered — leaving it unticked forever would
     // be a dead end with no way out from inside the board.
-    { label: "Structure & assumptions", done: s.changesTotal === 0 || s.changes >= s.changesTotal },
-    { label: "Risks & opportunities", done: s.placements >= 1 },
+    { label: "Reconnect", done: s.groundingTotal === 0 || s.grounding >= s.groundingTotal },
+    { label: "Prioritize", done: s.priorities >= 1 },
+    { label: "Desired outcomes", done: s.outcomesTotal === 0 || s.outcomes >= s.outcomesTotal },
     { label: "Strategic responses", done: s.responses >= 1 },
-    { label: "Identity & direction", done: s.movesTotal === 0 || s.moves >= s.movesTotal },
+    { label: "Set the vision", done: s.visionTotal === 0 || s.vision >= s.visionTotal },
+    // CHOSEN, NOT SHARPENED. The gate asks whether there is enough on the board to write
+    // about, and three named directions are that even before their fields are filled;
+    // holding the handoff shut until nine more boxes are answered would make the last tab
+    // unreachable for a group that ran out of time with its recommendations already made.
+    { label: "Three directions", done: s.directions >= 1 },
   ];
   const missing = steps.filter((x) => !x.done).map((x) => x.label);
   return { ready: missing.length === 0, missing, steps };

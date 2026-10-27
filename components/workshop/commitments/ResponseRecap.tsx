@@ -4,6 +4,11 @@ import type { RippleCard } from "@/lib/ripples-types";
 import { TONE } from "@/components/workshop/synthesis/CardWall";
 import { Dot } from "@/components/workshop/synthesis/ThemeRail";
 
+// UNREFERENCED since act 5 moved its material into the rail (Week4Reference). Kept rather
+// than deleted, the same call BacktrackTimeline and HandoffBoard got: a step that wants the
+// response wall read back UNDER its question rather than beside it is one import away, and
+// the reasoning below about not making it look selectable is the part worth keeping.
+//
 // Step 3's wall, read back on step 4 as RAW MATERIAL.
 //
 // This is deliberately not a selectable list and must not look like one. The week used to

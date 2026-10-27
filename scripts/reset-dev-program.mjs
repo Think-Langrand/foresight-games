@@ -2,6 +2,15 @@
 //
 //   node scripts/reset-dev-program.mjs plan
 //   node scripts/reset-dev-program.mjs apply [--force]
+//   node scripts/reset-dev-program.mjs sections
+//
+// `sections` RE-STAMPS WEEK 4'S PROMPTS AND NOTHING ELSE. It exists because of a trap:
+// resolveEffectiveSections prefers the row's stored `sections` over the code template, so
+// once a week has been stamped, editing COMMITMENTS_SECTIONS reaches nobody. Every group
+// keeps reading the prompts it was stamped with until something rewrites the column, and
+// the symptom is a facilitator asking why the wording they just changed is not on the
+// board. `apply` does rewrite it, but it also wipes Week 4's board on the way past, which
+// is the wrong price for a typo fix once a group has work on it.
 //
 // WHY THIS EXISTS. Dev holds the groups' real work — every card on weeks 1-3 matches the
 // admin viewer's Oct-19 prod exports, card for card — but the PROGRAM around it was taken
@@ -22,9 +31,8 @@
 // read from data/design-groups.seed.json — verified key-for-key against the Oct-19 exports,
 // and it additionally carries the `step` labels the answers export drops. Weeks 2 and 3 store
 // `[]` on purpose so resolveEffectiveSections falls back to lib/exercise-types.ts and they
-// stay in lockstep with the code. Week 4's four sections are duplicated below because
-// scripts/ cannot import lib/ (37 of those modules open with `import "server-only"` — see
-// import-facilitator-implications.mjs, which carries the same note).
+// stay in lockstep with the code. Week 4's come from ./week4-sections.mjs, the one copy
+// scripts/ keeps of them.
 //
 // CREDENTIALS. NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (.env / .env.local).
 // Refuses to run against the prod ref at all: this is a dev-shaped repair and the live
@@ -34,6 +42,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { COMMITMENTS_SECTIONS } from "./week4-sections.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -61,8 +70,8 @@ loadEnv();
 const argv = process.argv.slice(2);
 const command = argv[0] ?? "";
 const force = argv.includes("--force");
-if (!["plan", "apply"].includes(command)) {
-  console.error("Usage: reset-dev-program.mjs plan|apply [--force]");
+if (!["plan", "apply", "sections"].includes(command)) {
+  console.error("Usage: reset-dev-program.mjs plan|apply [--force]\n                          sections");
   process.exit(1);
 }
 
@@ -83,41 +92,6 @@ async function q(builder) {
   if (error) throw error;
   return data;
 }
-
-// lib/exercise-types.ts COMMITMENTS_SECTIONS. The keys are the permanent answer-card
-// buckets (w4-role is matched by identity by the handoff deck), so they are copied
-// verbatim; the labels and help text are the display side and may drift from the code
-// without consequence here, because a stamped exercise owns its own snapshot.
-const COMMITMENTS_SECTIONS = [
-  {
-    key: "w4-summary",
-    kind: "question",
-    step: "Key changes",
-    label: "How has the field of public health changed the most in this world?",
-    help: "Describe how the whole field works in this world. Write it so someone who missed every session could follow you.",
-  },
-  {
-    key: "w4-assumptions",
-    kind: "question",
-    step: "Key changes",
-    label: "Which of today's assumptions about public health stop being true in this scenario?",
-    help: "Look for what nobody argues about today, because everyone takes it for granted. In this world it no longer holds.",
-  },
-  {
-    key: "w4-role",
-    kind: "question",
-    step: "Bold moves",
-    label: "What is the aspirational role for public health in this world?",
-    help: "Write what the field is reaching for, not what you expect it to settle for. Put it in the present tense, as though this world has already arrived. The moves below are how you get there.",
-  },
-  {
-    key: "w4-bold-moves",
-    kind: "question",
-    step: "Bold moves",
-    label: "What are the boldest moves public health could make in this world to reach that role?",
-    help: "Write three, one per answer. Name who acts and what they do, concretely enough that you could picture it happening.",
-  },
-];
 
 // Week 1's questions, from the fixture rather than inlined — it is the only committed
 // record of the 17 admin-authored sections, and the cards on every week-1 board are already
@@ -193,7 +167,68 @@ async function wipeBoard(code) {
   await q(sb.from("ripple_players").delete().eq("code", code));
 }
 
+// Rewrite Week 4's `sections` for every group, touching nothing else: no board, no card,
+// no registry column. Idempotent, and prints what changed so a run that does nothing says
+// so rather than looking like a success.
+const canonical = (secs) =>
+  JSON.stringify(
+    (secs ?? []).map((s) =>
+      Object.fromEntries(
+        Object.entries(s)
+          .filter(([, v]) => v !== undefined && v !== null)
+          .sort(([a], [b]) => a.localeCompare(b))
+      )
+    )
+  );
+const sameSections = (a, b) => canonical(a) === canonical(b);
+
+async function stampSections() {
+  console.log(`target   ${URL.replace(/^https:\/\//, "")}`);
+  console.log(`project  ${PROJECT}`);
+  console.log(`mode     sections (prompts only; no board is touched)\n`);
+
+  const [project] = await q(sb.from("projects").select("id, slug").eq("slug", PROJECT));
+  if (!project) throw new Error(`No project with slug ${PROJECT}.`);
+  const groups = await q(
+    sb.from("design_groups").select("id, name").eq("project_id", project.id).order("sort")
+  );
+
+  let changed = 0;
+  for (const g of groups) {
+    const rows = await q(
+      sb
+        .from("design_group_exercises")
+        .select("id, sort, type, sections")
+        .eq("group_id", g.id)
+        .eq("type", "commitments")
+        // SORT > 2, NOT TYPE ALONE. 10016ba fixed this exact bug once: an early week typed
+        // `commitments` — a type change in the program editor is one dropdown — gets Week
+        // 4's prompts stamped over its own authored sections, orphaning every answer under
+        // the old keys. Week 4 is the only commitments week past sort 2.
+        .gt("sort", 2)
+    );
+    for (const row of rows) {
+      // KEY-ORDER-INSENSITIVE. jsonb does not preserve the order keys were written in, so
+      // a plain JSON.stringify comparison reports "changed" on every run and the script
+      // can never honestly say it had nothing to do.
+      if (sameSections(row.sections ?? [], COMMITMENTS_SECTIONS)) {
+        console.log(`   = ${g.name}: already current`);
+        continue;
+      }
+      const { error } = await sb
+        .from("design_group_exercises")
+        .update({ sections: COMMITMENTS_SECTIONS, updated_at: new Date().toISOString() })
+        .eq("id", row.id);
+      if (error) throw error;
+      changed += 1;
+      console.log(`   + ${g.name}: ${(row.sections ?? []).length} -> ${COMMITMENTS_SECTIONS.length} section(s) re-stamped`);
+    }
+  }
+  console.log(changed ? `\n✓ ${changed} week(s) re-stamped` : "\n✓ nothing to do; every group already current");
+}
+
 async function main() {
+  if (command === "sections") return stampSections();
   const weeks = canonicalWeeks();
   console.log(`target   ${URL.replace(/^https:\/\//, "")}`);
   console.log(`project  ${PROJECT}`);

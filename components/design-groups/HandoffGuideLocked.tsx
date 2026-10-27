@@ -31,8 +31,8 @@ export default function HandoffGuideLocked({
       </header>
       <div className="px-5 py-4">
         <p className="m-0 mb-4 max-w-[68ch] text-[13.5px] leading-[1.5] text-muted">
-          Your handoff is drawn from the four steps before this one. Finish them and it opens
-          on its own.
+          Your handoff is drawn from the steps before this one. Finish them and it opens on
+          its own.
         </p>
         <ul className="m-0 list-none border-t-[1.5px] border-ink p-0">
           {steps.map((s) => (

@@ -29,7 +29,7 @@ import {
   type ReparentRefusal,
 } from "@/lib/ripples-types";
 import { placementError } from "@/lib/synthesis-shape";
-import { isCommitmentPeriod } from "@/lib/commitments-shape";
+import { isCommitmentPeriod, DISPUTED_SECTION } from "@/lib/commitments-shape";
 
 // One human sentence per refusal planReparent can return — the reasons exist so the
 // message can name the real cause, like the POST route's three distinct parent refusals.
@@ -67,7 +67,8 @@ export async function PATCH(
       | "reparent"
       | "park"
       | "shortlist"
-      | "period";
+      | "period"
+      | "dispute";
     participantId?: string;
     sort?: number;
     text?: string;
@@ -80,6 +81,8 @@ export async function PATCH(
     // Week 4: which two-year period a milestone sits in. Validated against PERIODS rather
     // than typed as PeriodKey, because this is parsed JSON from the wire.
     period?: string;
+    // Week 4 act 2: whether a priority is flagged as still disputed.
+    disputed?: boolean;
   } = {};
   try {
     body = await req.json();
@@ -258,16 +261,21 @@ export async function PATCH(
       if (typeof body.shortlisted !== "boolean") {
         return NextResponse.json({ error: "shortlisted must be true or false." }, { status: 400 });
       }
+      // `pick` is here for Week 4 act 2: one of the group's three priorities is a pick
+      // carrying `shortlisted`, not a card of its own, because 0018's unique
+      // (code, source_card_id) allows exactly one card per Session 3 source. See
+      // lib/commitments-shape.
       if (
         card.cardKind !== "risk" &&
         card.cardKind !== "opportunity" &&
         card.cardKind !== "assumption" &&
-        card.cardKind !== "response"
+        card.cardKind !== "response" &&
+        card.cardKind !== "pick"
       ) {
         return NextResponse.json(
           {
             error:
-              "Only a risk, an opportunity, an assumption or a strategic response can go on the shortlist.",
+              "Only a risk, an opportunity, an assumption, a strategic response or a priority can go on the shortlist.",
           },
           { status: 400 }
         );
@@ -301,6 +309,32 @@ export async function PATCH(
       }
       await setCardSection(session.code, cardId, body.period);
       return NextResponse.json({ ok: true, period: body.period });
+    }
+
+    // Week 4 act 2: flag a priority as a consequential issue the room could not agree on,
+    // or clear the flag. ITS OWN ACTION rather than an overload of `description`, which
+    // holds the note explaining the split and has to survive the flag being cleared.
+    //
+    // THE MARK LIVES IN `section` ON THE PICK, which is not a free choice: 0018's unique
+    // (code, source_card_id) permits exactly one card per Session 3 source, so a separate
+    // "disputed" card pointing at a risk that already has a pick could not be written.
+    // Safe alongside the worksheet use of `section` because every reader of those filters
+    // on `order === "STICKY"` first and a pick is never a sticky — see DISPUTED_SECTION.
+    if (body.action === "dispute") {
+      if (!config.sharedTeam && card.authorPlayerId !== player.id) {
+        return NextResponse.json({ error: "You can only change your own card." }, { status: 403 });
+      }
+      if (typeof body.disputed !== "boolean") {
+        return NextResponse.json({ error: "disputed must be true or false." }, { status: 400 });
+      }
+      if (card.cardKind !== "pick") {
+        return NextResponse.json(
+          { error: "Only a priority can be flagged as disputed." },
+          { status: 400 }
+        );
+      }
+      await setCardSection(session.code, cardId, body.disputed ? DISPUTED_SECTION : null);
+      return NextResponse.json({ ok: true, disputed: body.disputed });
     }
 
     // Park a card in Week 3's tray — set aside, not deleted, and draggable back out. Uses
