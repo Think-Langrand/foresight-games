@@ -236,9 +236,9 @@ function Panel({
                           onChange={() => onToggleDisputed(c, !flagged)}
                           className="mt-[2px] h-3.5 w-3.5 shrink-0 accent-[var(--blue)]"
                         />
-                        <span className="font-bold uppercase tracking-[0.06em]">
-                          Add note or disagreement context
-                        </span>
+                        {/* Sentence case, not the uppercase every other label on this
+                            board wears: those are headings, and this is a thing to do. */}
+                        <span className="font-bold">Add note or disagreement context</span>
                       </label>
                     )}
                     {/* KEYED ON THE NOTE, and a no-op blur writes nothing. Uncontrolled
