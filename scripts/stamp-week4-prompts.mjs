@@ -121,8 +121,14 @@ function diff(before, after) {
     }
     byKey.delete(s.key);
     if (was.label !== s.label) lines.push(`        ~ ${s.key} label\n            was: ${was.label}\n            now: ${s.label}`);
-    if ((was.help ?? "") !== (s.help ?? ""))
-      lines.push(`        ~ ${s.key} help\n            was: ${was.help ?? "(none)"}\n            now: ${s.help ?? "(none)"}`);
+    // Every free-text field, not a hand-picked few: a field this missed would be written
+    // silently, which is the one thing a dry run exists to prevent.
+    for (const f of ["help", "test"]) {
+      if ((was[f] ?? "") === (s[f] ?? "")) continue;
+      lines.push(
+        `        ~ ${s.key} ${f}\n            was: ${was[f] ?? "(none)"}\n            now: ${s[f] ?? "(none)"}`
+      );
+    }
     if (was.step !== s.step) lines.push(`        ~ ${s.key} step  ${was.step} -> ${s.step}`);
   }
   // Prompts the template no longer offers. Their answers stay in the database.

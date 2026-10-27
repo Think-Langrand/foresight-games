@@ -78,6 +78,25 @@ import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 
 const NO_CARDS: RippleCard[] = [];
 
+// What a step is FOR, standing above its board or its questions.
+//
+// NOT THE `Directions` FOLD, which is how the tool works and is collapsed by default. This
+// is what the activity is, and it has to be read before anyone starts rather than opened
+// by the one person who thinks to look. Hardcoded rather than authored because nothing is
+// written under it: giving it an answer box is the misreading it exists to prevent.
+function StepIntro({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <div className="max-w-[72ch] rounded-[3px] border-l-[3px] border-ink bg-card px-4 py-3">
+      {title && (
+        <h3 className="m-0 mb-1.5 text-[15px] font-extrabold uppercase tracking-tight">
+          {title}
+        </h3>
+      )}
+      <div className="flex flex-col gap-2 text-[14px] leading-[1.5]">{children}</div>
+    </div>
+  );
+}
+
 // Steps 1 and 4 both render sections, so both can be empty, and both said this in their own
 // copy of the markup. One component, used twice.
 function NoPrompts() {
@@ -117,7 +136,7 @@ const STEP_LABELS: Record<CommitStep, string> = {
   prioritize: "2 \u00b7 Prioritize",
   outcomes: "3 \u00b7 Desired outcomes",
   responses: "4 \u00b7 Strategic responses",
-  vision: "5 \u00b7 Set the vision",
+  vision: "5 \u00b7 Vision",
   directions: "6 \u00b7 Three directions",
   review: "7 \u00b7 Handoff",
 };
@@ -916,12 +935,14 @@ export function CommitmentsTeamView({
                 THE COUNT IS DERIVED. A facilitator can add a third prompt in the program
                 editor, and "the two questions below" would then be quietly wrong. */}
             {sectionsFor("reconnect").length > 0 && (
-              <p className="m-0 max-w-[68ch] rounded-[3px] border-l-[3px] border-ink bg-card px-4 py-3 text-[14px] leading-[1.5]">
-                Take a few minutes to reconnect with your group&rsquo;s scenario. Think and
-                talk about the role of public health in this world and how it&rsquo;s
-                changed. Then answer the{" "}
-                {sectionsFor("reconnect").length === 2 ? "two " : ""}questions below.
-              </p>
+              <StepIntro title="Reconnect with the scenario">
+                <p className="m-0">
+                  Take a few minutes to reconnect with your group&rsquo;s scenario. Think and
+                  talk about the role of public health in this world and how it&rsquo;s
+                  changed. Then answer the{" "}
+                  {sectionsFor("reconnect").length === 2 ? "two " : ""}questions below.
+                </p>
+              </StepIntro>
             )}
             {sectionsFor("reconnect").length > 0 ? (
               worksheetFor(sectionsFor("reconnect"))
@@ -1015,6 +1036,14 @@ export function CommitmentsTeamView({
           the raw material it is drawn from. */}
       {step === "vision" && (
         <div className="flex flex-col gap-6">
+          {sectionsFor("vision").length > 0 && (
+            <StepIntro title="Vision">
+              <p className="m-0">
+                Your final output here is a single short aspirational statement that responds
+                to the challenges of the scenario.
+              </p>
+            </StepIntro>
+          )}
           {sectionsFor("vision").length > 0 ? worksheetFor(sectionsFor("vision")) : <NoPrompts />}
           <ResponseRecap
             responses={board.responses}

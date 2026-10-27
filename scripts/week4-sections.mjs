@@ -44,13 +44,14 @@ export const COMMITMENTS_SECTIONS = [
     step: "Desired outcomes",
     label:
       "Looking at your priorities and hopes, what do you want public health to make possible for communities in this future?",
-    help: "One or two for each priority. Write what would be different for communities if public health did its job well here. The outcome, not the work that produces it.",
+    help: "One or two for each priority. Write what would be different for communities if public health did its job well here.",
   },
   {
     key: "w4-role",
     kind: "question",
     step: "Set the vision",
     label: "What future do you want to work toward?",
-    help: "One short statement, in the present tense, as though this world has already arrived. Then test it. Is it worth achieving for people? Does it answer what this scenario actually throws at you?",
+    help: "Looking across our desired outcomes and response ideas, what future do we want to work toward? What would be different for communities because public health acted; what is public health making possible?",
+    test: "Pressure test: Is this worth achieving for people? Does it respond to the particular conditions of our scenario?",
   },
 ];

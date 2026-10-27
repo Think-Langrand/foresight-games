@@ -37,7 +37,7 @@ const responseDirections = makePrefStore(
 
 const RESPONSE_DIRECTIONS = [
   "One move per card. Name who acts and what they do.",
-  "Go for quantity. Step 4 asks for three bold moves, and you build them out of this wall.",
+  "For this step quantity is as good as quality. Step 6 asks for three moves, and you build them out of this wall.",
   `Aim for well more than ${RESPONSES_FOR_DONE}. You want enough here to combine two into something stronger.`,
   "Write the uncomfortable ones too. Nothing on this wall is a commitment.",
 ];

@@ -59,8 +59,7 @@ const MATRIX_PROMPTS = [
 
 // How the board works, which is a different thing from what the group is talking about.
 const MATRIX_DIRECTIONS = [
-  "Impact is how much would change if it landed. A risk you hate can still be low impact.",
-  "Plausibility is how well this scenario supports it. Something years off can still be near certain.",
+  "A risk you hate can still be low impact. Something years off can still be near certain.",
   `Score at least ${PLACED_FLOOR_PER_KIND} of each wall, and more if they matter. A card reaches the matrix when both scales are set.`,
   "Skip any card your group has no view on.",
   `Star ${MAX_PRIORITIES} in total. They can all come off one wall.`,
@@ -476,17 +475,27 @@ export function MatrixBoard({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* THE QUESTIONS AT THE TOP, OPEN. They are what the breakout is talking about while
-          it scores, so they belong where the eye starts rather than folded away under the
-          board. The Directions panel below still carries how the tool works. */}
-      <div className="rounded-[4px] border-2 border-ink px-5 py-4">
-        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+      {/* THE QUESTIONS AT THE TOP, OPEN, in the same block every other step uses for what
+          it is for. They are what the breakout is talking about while it scores, so they
+          belong where the eye starts rather than folded away under the board. The
+          Directions panel below still carries how the tool works. */}
+      <div className="max-w-[72ch] rounded-[3px] border-l-[3px] border-ink bg-card px-4 py-3">
+        <h3 className="m-0 mb-1.5 text-[15px] font-extrabold uppercase tracking-tight">
+          Prioritize risks and opportunities
+        </h3>
+        <div className="flex flex-col gap-2 text-[14px] leading-[1.5]">
           {MATRIX_PROMPTS.map((q) => (
-            <li key={q} className="text-[14.5px] leading-[1.45]">
+            <p key={q} className="m-0">
               {q}
-            </li>
+            </p>
           ))}
-        </ul>
+          {/* The one sentence that makes the two scales mean something. Without it a group
+              scores both axes the same way and the grid collapses onto its diagonal. */}
+          <p className="m-0">
+            Score each one twice: <b>impact</b> is how much would change if it landed,{" "}
+            <b>plausibility</b> is how well the conditions of this scenario support it.
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">

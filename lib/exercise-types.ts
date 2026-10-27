@@ -30,6 +30,12 @@ export interface WorksheetSection {
   step?: string; // optional wizard/tab bucket — consecutive sections sharing a step render on one tab
   group?: string; // optional cluster heading (sections sharing a group render together)
   help?: string; // guidance text under the heading
+  // The activity's pressure test, rendered bold under `help`. Its own field rather than
+  // the tail of the help string because it is a different kind of sentence: help explains
+  // what to write, a test is what the group checks its answer against before moving on.
+  // The source agenda carries one on three of Week 4's activities, so this models the
+  // material rather than smuggling markup into a plain-text field.
+  test?: string;
   board?: boolean; // brainstorm only: render as a large, board-like canvas (e.g. the Sandbox)
 }
 
@@ -222,14 +228,15 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     step: COMMITMENTS_STEP_OUTCOMES,
     label:
       "Looking at your priorities and hopes, what do you want public health to make possible for communities in this future?",
-    help: "One or two for each priority. Write what would be different for communities if public health did its job well here. The outcome, not the work that produces it.",
+    help: "One or two for each priority. Write what would be different for communities if public health did its job well here.",
   },
   {
     key: COMMITMENTS_KEY_VISION,
     kind: "question",
     step: COMMITMENTS_STEP_VISION,
     label: "What future do you want to work toward?",
-    help: "One short statement, in the present tense, as though this world has already arrived. Then test it. Is it worth achieving for people? Does it answer what this scenario actually throws at you?",
+    help: "Looking across our desired outcomes and response ideas, what future do we want to work toward? What would be different for communities because public health acted; what is public health making possible?",
+    test: "Pressure test: Is this worth achieving for people? Does it respond to the particular conditions of our scenario?",
   },
 ];
 
@@ -373,6 +380,7 @@ export function resolveSections(raw: unknown): WorksheetSection[] {
     const group = typeof r.group === "string" ? r.group.trim() : "";
     if (group) section.group = group;
     if (typeof r.help === "string" && r.help) section.help = r.help;
+    if (typeof r.test === "string" && r.test) section.test = r.test;
     if (r.board === true) section.board = true;
     out.push(section);
   }
