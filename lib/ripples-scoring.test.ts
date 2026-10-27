@@ -15,6 +15,7 @@ import {
   scoringComplete,
   scoringProgress,
   sortRootsByRank,
+  topScoredWithTies,
 } from "./ripples-scoring";
 import type { CardOrder, RippleCard } from "./ripples-types";
 
@@ -233,5 +234,42 @@ describe("progress", () => {
     // Otherwise an unseeded board would vacuously show "all ranked".
     expect(scoringComplete([card("note", "STICKY")])).toBe(false);
     expect(scoringProgress([])).toEqual({ scored: 0, total: 0 });
+  });
+});
+
+// The cut that turns a ranked list into "the group's priorities". Week 4 act 2 uses it for
+// the three, and the handoff deck uses it again for the same three — one rule, so the
+// worksheet and the deck can never name a different set.
+describe("topScoredWithTies", () => {
+  const s = (value: number | null, impact: number | null) => ({ value, impact });
+  const cut = (items: { value: number | null; impact: number | null }[]) =>
+    topScoredWithTies(items, 3, (i) => i);
+
+  it("takes the first three of an already sorted list", () => {
+    expect(cut([s(25, 5), s(20, 5), s(16, 4), s(9, 3)])).toHaveLength(3);
+  });
+
+  it("runs long when the fourth ties the third on both axes", () => {
+    // Same product AND same impact means the same plausibility too: the room scored them
+    // identically, so there is nothing to choose between them and both stand.
+    expect(cut([s(25, 5), s(20, 5), s(15, 5), s(15, 5)])).toHaveLength(4);
+    expect(cut([s(25, 5), s(15, 5), s(15, 5), s(15, 5)])).toHaveLength(4);
+  });
+
+  it("does not run long on the same product with a different impact", () => {
+    // 5x3 outranks 3x5 — compareByRank already separated them, so this is not a tie.
+    expect(cut([s(25, 5), s(20, 5), s(15, 5), s(15, 3)])).toHaveLength(3);
+  });
+
+  it("never admits an unscored item, even to fill the three", () => {
+    // A board nobody has scored has no top three. Padding it out would dress board order
+    // up as a decision the group made.
+    expect(cut([s(25, 5), s(16, 4), s(null, null), s(null, null)])).toHaveLength(2);
+    expect(cut([s(null, null), s(null, null)])).toEqual([]);
+  });
+
+  it("returns what there is when the list is shorter than the limit", () => {
+    expect(cut([s(25, 5)])).toHaveLength(1);
+    expect(cut([])).toEqual([]);
   });
 });

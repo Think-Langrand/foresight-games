@@ -82,8 +82,11 @@ export function isScored(card: RippleCard): boolean {
 
 // The ranking value: plausibility × impact (1..25). null when either axis is unset.
 // Multiplicative, not additive: a sum makes 5+1 tie with 3+3, which is exactly the
-// distinction the matrix exists to draw. Changing the formula is a change to this
-// function alone — nothing else knows it.
+// distinction the matrix exists to draw.
+//
+// ONE OTHER PLACE KNOWS IT IS A PRODUCT. `topScoredWithTies` treats equal value AND equal
+// impact as a genuine tie, which is only sound because equal product with equal impact
+// forces equal plausibility too. Change this formula and read that one before you do.
 export function rankValue(card: RippleCard): number | null {
   const { plausibility, impact } = cardScores(card);
   return plausibility === null || impact === null ? null : plausibility * impact;
@@ -103,7 +106,7 @@ export interface RankedRoot {
 // Fully scored first by value desc, ties by impact desc → plausibility desc →
 // createdTime asc; unscored roots keep createdTime order at the end. Total and
 // deterministic, so an unstable Array.sort can never reshuffle a board between renders.
-function compareRoots(a: RippleCard, b: RippleCard): number {
+export function compareByRank(a: RippleCard, b: RippleCard): number {
   const av = rankValue(a);
   const bv = rankValue(b);
   if (av === null && bv === null) return a.createdTime.localeCompare(b.createdTime);
@@ -121,7 +124,7 @@ function compareRoots(a: RippleCard, b: RippleCard): number {
 // The tree roots (key changes) in rank order, each carrying its scores and its 1-based
 // rank. Non-root and STICKY cards are never included.
 export function rankedRoots(cards: RippleCard[]): RankedRoot[] {
-  const roots = cards.filter(isTreeRoot).sort(compareRoots);
+  const roots = cards.filter(isTreeRoot).sort(compareByRank);
   let rank = 0;
   return roots.map((card) => {
     const { plausibility, impact } = cardScores(card);
@@ -145,7 +148,7 @@ export function rankByCardId(cards: RippleCard[]): Map<string, number> {
 // the given order when no root is scored, which is what keeps the solo/standalone game
 // and every pre-scoring board rendering exactly as before.
 export function sortRootsByRank(roots: RippleCard[]): RippleCard[] {
-  return [...roots].sort(compareRoots);
+  return [...roots].sort(compareByRank);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,4 +197,41 @@ export function scoringProgress(cards: RippleCard[]): { scored: number; total: n
 export function scoringComplete(cards: RippleCard[]): boolean {
   const { scored, total } = scoringProgress(cards);
   return total > 0 && scored === total;
+}
+
+// ---------------------------------------------------------------------------
+// Cutting a ranked list
+// ---------------------------------------------------------------------------
+
+// The first `limit` of an ALREADY SORTED list, plus anything tied with the last of them.
+//
+// A TIE RUNS THE LIST LONG rather than choosing arbitrarily. Two issues tie here when they
+// have the same product AND the same impact — and since the product is plausibility ×
+// impact, that means the same plausibility too. They are the same on both axes the room
+// scored, so there is nothing in the scores to prefer one by, and silently dropping one
+// would make the cut look like a judgement the group never made. Four priorities is a
+// truthful answer to a four-way tie; three is not.
+//
+// Unscored items (`value === null`) never tie their way in: they sort to the end and can
+// only appear inside the limit when there are too few scored items to fill it.
+export function topScoredWithTies<T>(
+  sorted: readonly T[],
+  limit: number,
+  score: (item: T) => { value: number | null; impact: number | null }
+): T[] {
+  // UNSCORED ITEMS ARE NOT IN THE RUNNING, so the list can come back SHORT. A half-scored
+  // stake has no defensible place on the matrix and so none at the top of it either —
+  // padding the three out with whatever happened to be typed first would make the cut look
+  // like a judgement nobody made. A board nobody has scored yet has no top three, which is
+  // the honest answer and the one that tells a group what to do next.
+  const scored = sorted.filter((item) => score(item).value !== null);
+  if (scored.length <= limit) return scored;
+  const cut = score(scored[limit - 1]);
+  const out = scored.slice(0, limit);
+  for (let i = limit; i < scored.length; i++) {
+    const s = score(scored[i]);
+    if (s.value !== cut.value || s.impact !== cut.impact) break;
+    out.push(scored[i]);
+  }
+  return out;
 }

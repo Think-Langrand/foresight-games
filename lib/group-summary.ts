@@ -23,12 +23,13 @@ import type {
 } from "@/components/design-groups/AnswerPanels";
 import type { RippleCard } from "@/lib/ripples-types";
 import { orderLabelForDepth, TREE_ORDERS } from "@/lib/ripples-types";
-import { sortRootsByRank } from "@/lib/ripples-scoring";
+import { sortRootsByRank, topScoredWithTies } from "@/lib/ripples-scoring";
 import { READING_FIELDS } from "@/lib/synthesis-shape";
 import {
   commitmentsStepOf,
   type CommitmentsSectionStep,
 } from "@/lib/exercise-types";
+import { MAX_PRIORITIES } from "@/lib/commitments-shape";
 
 // A key change, split so the page can lead with the label the group typed. Three groups
 // prefixed theirs ("POWER: …"), one numbered them ("1. …"), one wrote plain sentences — so
@@ -495,6 +496,14 @@ export function buildGroupSummary(
   // at, because a coral chip that is really an opportunity is worse than a missing one.
   const riskIds = new Set(sThemes.flatMap((t) => t.risks.map((r) => r.id)));
   const oppIds = new Set(sThemes.flatMap((t) => t.opportunities.map((o) => o.id)));
+  // WHAT THE CARD SAYS NOW, not what it said when it was picked. A pick stores a COPY of
+  // its source's words so a reader with only Week 4 in hand can still read it — but this
+  // builder holds Week 3 too, so it can do better than the copy. Edit a risk's wording on
+  // Session 3 and the handoff was still quoting the old sentence, for ever.
+  const stakeText = new Map<string, string>();
+  for (const t of sThemes) {
+    for (const r of [...t.risks, ...t.opportunities]) stakeText.set(r.id, r.text);
+  }
   const placements: SummaryPlacement[] =
     commitments?.kind === "commitments"
       ? commitments.picks.flatMap((p) => {
@@ -507,7 +516,7 @@ export function buildGroupSummary(
           return [
             {
               id: p.sourceId,
-              text: p.text,
+              text: stakeText.get(p.sourceId) ?? p.text,
               kind,
               plausibility: p.plausibility,
               impact: p.impact,
@@ -519,17 +528,26 @@ export function buildGroupSummary(
         // Sorted HERE and not merely inherited from shapeFromView, which already sorts.
         // The slide numbers these by position, so "strongest first" has to be true of the
         // field itself or the printed ranks quietly lie. Unscored placements last.
-        .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1))
+        //
+        // IMPACT BREAKS A TIE, matching compareByRank on the board: the priorities are cut
+        // off the front of this list, so if the two orders differed the deck and the
+        // worksheet would name different three.
+        .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1) || (b.impact ?? -1) - (a.impact ?? -1))
       : [];
 
   // Act 2's two outputs, drawn from the SAME rows as `placements` so a priority carries its
   // scores with it and the two can never disagree about an issue's words or its wall.
-  // Filtering by source id rather than re-deriving: a pick dropped above (its Session 3
-  // card deleted) must not reappear here wearing a star.
+  //
+  // THE PRIORITIES ARE THE TOP OF THE RANKING, not a stored flag. They were a manual star
+  // (`pick.priority`), which could and did disagree with the scores on the very same row.
+  // `placements` is already sorted strongest-first, so the three fall off the front of it
+  // — and taking them from `placements` rather than from the picks means a priority whose
+  // Session 3 card was deleted, dropped above, cannot reappear here.
   const priorityIds = new Set(
-    commitments?.kind === "commitments"
-      ? commitments.picks.filter((p) => p.priority).map((p) => p.sourceId)
-      : []
+    topScoredWithTies(placements, MAX_PRIORITIES, (p) => ({
+      value: p.rank,
+      impact: p.impact,
+    })).map((p) => p.id)
   );
   const disputedIds = new Set(
     commitments?.kind === "commitments"
