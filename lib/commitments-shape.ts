@@ -11,12 +11,16 @@
 //   act 1 — authored worksheet sections ("what most needs our attention", "what to keep in
 //           mind"), so their answers are ordinary STICKY cards carrying a section key.
 //   act 2 — `pick` cards, ROOTS carrying a `source_card_id` pointing at the Session 3 risk
-//           or opportunity they bring onto this board. TWO MARKERS RIDE ON A PICK rather
-//           than being cards of their own, because 0018's unique (code, source_card_id)
-//           allows exactly one card per source:
-//             · `shortlisted`                   → one of the three priorities
+//           or opportunity they bring onto this board. WHICH ONES ARE PRIORITIES IS NOT
+//           STORED: it is the top of the ranking, read back by `priorities()`. The one
+//           marker that IS stored rides on the pick rather than being a card of its own,
+//           because 0018's unique (code, source_card_id) allows exactly one card per
+//           source:
 //             · `section === DISPUTED_SECTION`  → still disputed; why is in `description`
-//           The two are independent: a priority may also be disputed.
+//           It is independent of the ranking: a priority may also be disputed, and the
+//           issue a room cannot agree on is often the one it scored low.
+//           (`shortlisted` was the priority marker, set by a star on the matrix. The star
+//           is gone — see `priorities()` — and the column means nothing on a pick now.)
 //   act 3 — an authored section (`w4-outcomes`). Flat, with the priorities shown as
 //           context rather than nested under them.
 //   act 4 — `response` cards, tree roots, one per strategic response.
@@ -45,6 +49,12 @@
 // deck gates them behind SHOW_BACKCASTING / SHOW_UNSETTLED.
 
 import { isTreeRoot, type RippleCard } from "@/lib/ripples-types";
+import {
+  cardScores,
+  compareByRank,
+  rankValue,
+  topScoredWithTies,
+} from "@/lib/ripples-scoring";
 
 // ---------------------------------------------------------------------------
 // The timeline's periods
@@ -458,13 +468,30 @@ export function isPicked(board: CommitmentsBoard, sourceId: string): boolean {
   return board.picks.has(sourceId);
 }
 
-/** The picks the group named as its priorities, in the order they were minted. */
+/**
+ * The group's priorities: the highest-scoring issues on the matrix, strongest first.
+ *
+ * DERIVED, NOT CHOSEN. This was a manual star, and the star was a second mechanism that
+ * could disagree with the scores — a group would score "shut out of the system" 5×5 and
+ * still see a 3×4 in the rail because that was what somebody had clicked. The scoring step
+ * IS the prioritising step, so there is nothing left to click: score the walls and the
+ * three fall out. (`shortlisted` on a pick is now dead for priorities; it still carries
+ * act 6's directions, which really are a choice.)
+ *
+ * MORE THAN THREE WHEN THE SCORES TIE, and FEWER THAN THREE before the walls are scored —
+ * see topScoredWithTies. A half-scored issue has no defensible place on the matrix and so
+ * none at the top of it either.
+ */
 export function priorities(board: CommitmentsBoard): RippleCard[] {
-  return [...board.picks.values()].filter((p) => p.shortlisted).sort(byOrder);
+  const ranked = [...board.picks.values()].sort(compareByRank);
+  return topScoredWithTies(ranked, MAX_PRIORITIES, (c) => ({
+    value: rankValue(c),
+    impact: cardScores(c).impact,
+  }));
 }
 
 export function isPriority(board: CommitmentsBoard, sourceId: string): boolean {
-  return board.picks.get(sourceId)?.shortlisted ?? false;
+  return priorities(board).some((p) => p.sourceCardId === sourceId);
 }
 
 /**
@@ -479,16 +506,6 @@ export function disputed(board: CommitmentsBoard): RippleCard[] {
 
 export function isDisputed(board: CommitmentsBoard, sourceId: string): boolean {
   return board.picks.get(sourceId)?.section === DISPUTED_SECTION;
-}
-
-/**
- * Whether another issue can be named a priority. The cap is held HERE and not by the
- * database, the same call the bold moves make: counting server-side would be a
- * read-then-write race on a board several people work at once. An over-pick is reported,
- * not made impossible.
- */
-export function canAddPriority(board: CommitmentsBoard): boolean {
-  return priorities(board).length < MAX_PRIORITIES;
 }
 
 // An earlier uncertainty is STILL OPEN unless the group has said otherwise. The default

@@ -30,6 +30,7 @@ import {
   DISPUTED_SECTION,
   indexCommitmentsBoard,
   milestonesFor,
+  priorities,
   strandedMilestones,
   sharpenFor,
 } from "@/lib/commitments-shape";
@@ -288,20 +289,32 @@ export function shapeFromView(
       // group said matters most without each re-deriving the order. Unscored placements sort
       // last (rank null) rather than being dropped: "placed but not yet scored" is a real
       // state of the step and hiding it would make a half-finished matrix look empty.
-      picks: [...board.picks]
-        .map(([sourceId, c]) => ({
-          ...toRow(c),
-          sourceId,
-          plausibility: c.plausibility,
-          impact: c.impact,
-          rank: rankValue(c),
-          // Act 2's two markers. Both ride on the pick — see DISPUTED_SECTION — so they are
-          // read off the same row rather than from a second card that cannot exist.
-          priority: c.shortlisted,
-          disputed: c.section === DISPUTED_SECTION,
-          note: c.description,
-        }))
-        .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1)),
+      picks: (() => {
+        // WHICH ONES ARE PRIORITIES IS DERIVED, not stored. It used to be `c.shortlisted`,
+        // set by a star on the matrix — and that star is gone, so reading the column here
+        // would show every reader of this shape the OLD stars on a board that has them and
+        // nothing at all on a board that does not. `priorities()` is the one definition;
+        // this calls the same cut over the same order so the admin viewer, the CSV and the
+        // deck cannot name a different three from the worksheet.
+        const priorityIds = new Set(
+          priorities(board).flatMap((c) => (c.sourceCardId ? [c.sourceCardId] : []))
+        );
+        return [...board.picks]
+          .map(([sourceId, c]) => ({
+            ...toRow(c),
+            sourceId,
+            plausibility: c.plausibility,
+            impact: c.impact,
+            rank: rankValue(c),
+            // Act 2's two markers. The dispute still rides on the pick — see
+            // DISPUTED_SECTION — so it is read off the row; the priority is read off the
+            // ranking.
+            priority: priorityIds.has(sourceId),
+            disputed: c.section === DISPUTED_SECTION,
+            note: c.description,
+          }))
+          .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1) || (b.impact ?? -1) - (a.impact ?? -1));
+      })(),
       settledMarks: [...board.settled].map(([sourceId, c]) => ({
         ...toRow(c),
         sourceId,

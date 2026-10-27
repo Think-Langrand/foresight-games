@@ -89,6 +89,22 @@ if (isProd && write && !flag("prod")) {
   process.exit(1);
 }
 
+// THE GUARD IN THE OTHER DIRECTION, and the one that actually caught somebody out: asking
+// for --prod while pointed at a different database. The TARGET_ vars are passed inline for
+// one command, so forgetting them is silent — the script falls back to .env, runs happily
+// against dev, and prints "already current" because dev was stamped days ago. Reading that
+// as "prod is fine" is the whole failure.
+if (!isProd && flag("prod")) {
+  console.error(
+    `\nYou passed --prod, but the target is ${URL.replace(/^https:\/\//, "")}, which is not it.\n` +
+      "Most likely the TARGET_SUPABASE_* vars were not set, so this fell back to .env.\n\n" +
+      "  TARGET_SUPABASE_URL=https://" + PROD_REF + ".supabase.co \\\n" +
+      '  TARGET_SUPABASE_SERVICE_ROLE_KEY="$PRODKEY" \\\n' +
+      "    node scripts/stamp-week4-prompts.mjs --project <slug> [--write --prod]\n"
+  );
+  process.exit(1);
+}
+
 const sb = createClient(URL, KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 async function q(builder) {
