@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
 import {
   DIRECTION_FIELDS,
+  DIRECTION_MOVE,
   MAX_DIRECTIONS,
   sharpenCount,
   sharpenFor,
@@ -13,6 +14,7 @@ import {
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { StepIntro } from "@/components/workshop/commitments/StepIntro";
 
 // ACT 6 — three directions, WRITTEN rather than picked.
 //
@@ -130,26 +132,42 @@ export function MovesBoard({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="max-w-[72ch] rounded-[3px] border-l-[3px] border-ink bg-card px-4 py-3">
-        <h3 className="m-0 mb-1.5 text-[15px] font-extrabold uppercase tracking-tight">
-          Select and sharpen three directions
-        </h3>
-        <div className="flex flex-col gap-2 text-[14px] leading-[1.5]">
-          <p className="m-0">
-            What are three directions the field of public health should take to achieve the
-            vision, and why do they matter?
-          </p>
-          <p className="m-0">
-            Which three moves would make the greatest contribution to achieving this vision?
-            Do they work together? What would change? What would need to be in place, or done
-            differently from today, for each move to work?
-          </p>
-          <p className="m-0 font-bold">
-            Test: if we pursued only these three moves, would we make meaningful progress
-            toward our vision?
-          </p>
-        </div>
-      </div>
+      <StepIntro
+        n="06"
+        title="Select and sharpen three directions"
+        // THE FOUR QUESTIONS BESIDE THE PROSE, not buried in it. A group should be able to
+        // see the shape of a direction before it writes one — four questions is a form, and
+        // a form read as a paragraph is a form nobody holds in their head. They are also
+        // the exact labels the composer below asks under, so the header is a key to it.
+        aside={
+          <dl className="m-0 grid gap-2.5">
+            {[DIRECTION_MOVE, ...DIRECTION_FIELDS].map((f) => (
+              <div key={f.label}>
+                <dt className="m-0 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-blue">
+                  {f.label}
+                </dt>
+                <dd className="m-0 text-[12.5px] italic leading-[1.4] text-muted">
+                  {f.prompt}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        }
+      >
+        <p className="m-0">
+          What are three directions the field of public health should take to achieve the
+          vision, and why do they matter?
+        </p>
+        <p className="m-0">
+          Which three moves would make the greatest contribution to achieving this vision? Do
+          they work together? What would change? What would need to be in place, or done
+          differently from today, for each move to work?
+        </p>
+        <p className="m-0 font-bold">
+          Test: if we pursued only these three moves, would we make meaningful progress
+          toward our vision?
+        </p>
+      </StepIntro>
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-ink pb-2">
         <span className="text-[14px] font-bold">
@@ -173,10 +191,10 @@ export function MovesBoard({
               </span>
               <div className="min-w-0 flex-1">
                 <span className="mb-1 block font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-blue">
-                  The move
+                  {DIRECTION_MOVE.label}
                 </span>
                 <span className="mb-1 block text-[11.5px] italic leading-[1.35] text-muted">
-                  What should change?
+                  {DIRECTION_MOVE.prompt}
                 </span>
                 {/* Same uncontrolled-on-blur handling as the fields below, and for the same
                     reason: this is a shared board and someone may be mid-sentence. */}
@@ -223,10 +241,10 @@ export function MovesBoard({
         <div className="rounded-[4px] border-2 border-dashed border-[var(--rule)] px-4 py-3">
           <label className="block">
             <span className="mb-1 block font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-blue">
-              The move
+              {DIRECTION_MOVE.label}
             </span>
             <span className="mb-1.5 block text-[11.5px] italic leading-[1.35] text-muted">
-              What should change? Write one, then answer the three questions about it.
+              {DIRECTION_MOVE.prompt} Write one, then answer the three questions about it.
             </span>
             <textarea
               value={draft}

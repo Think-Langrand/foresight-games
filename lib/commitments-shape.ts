@@ -98,6 +98,14 @@ export function isCommitmentPeriod(v: unknown): v is PeriodKey {
 // index covers a fixed list of kinds and is deliberately not extended — the same call
 // `milestone` made. A second answer to the same field is surfaced, not hidden: see
 // `sharpenFor`.
+// The move itself. NOT in DIRECTION_FIELDS, because it is not a child card — it is the
+// direction's own text, and a card with no move is not a direction with a field missing,
+// it is nothing. Here so the composer and the step header ask it in the same words.
+export const DIRECTION_MOVE = {
+  label: "The move",
+  prompt: "What should change?",
+} as const;
+
 export const DIRECTION_FIELDS = [
   {
     key: "w4-dir-purpose",

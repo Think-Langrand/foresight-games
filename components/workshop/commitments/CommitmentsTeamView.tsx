@@ -10,6 +10,7 @@ import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/worksho
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
 import { Week4Reference } from "@/components/workshop/commitments/Week4Reference";
+import { StepIntro } from "@/components/workshop/commitments/StepIntro";
 import { MovesBoard } from "@/components/workshop/commitments/MovesBoard";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
 import { StepProgress } from "@/components/workshop/commitments/StepProgress";
@@ -75,25 +76,6 @@ import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 // not in COMMIT_STEPS. Putting either back is adding its entry here and its branch below.
 
 const NO_CARDS: RippleCard[] = [];
-
-// What a step is FOR, standing above its board or its questions.
-//
-// NOT THE `Directions` FOLD, which is how the tool works and is collapsed by default. This
-// is what the activity is, and it has to be read before anyone starts rather than opened
-// by the one person who thinks to look. Hardcoded rather than authored because nothing is
-// written under it: giving it an answer box is the misreading it exists to prevent.
-function StepIntro({ title, children }: { title?: string; children: React.ReactNode }) {
-  return (
-    <div className="max-w-[72ch] rounded-[3px] border-l-[3px] border-ink bg-card px-4 py-3">
-      {title && (
-        <h3 className="m-0 mb-1.5 text-[15px] font-extrabold uppercase tracking-tight">
-          {title}
-        </h3>
-      )}
-      <div className="flex flex-col gap-2 text-[14px] leading-[1.5]">{children}</div>
-    </div>
-  );
-}
 
 // Steps 1 and 4 both render sections, so both can be empty, and both said this in their own
 // copy of the markup. One component, used twice.
@@ -957,7 +939,7 @@ export function CommitmentsTeamView({
                 THE COUNT IS DERIVED. A facilitator can add a third prompt in the program
                 editor, and "the two questions below" would then be quietly wrong. */}
             {sectionsFor("reconnect").length > 0 && (
-              <StepIntro title="Reconnect with the scenario">
+              <StepIntro n="01" title="Reconnect with the scenario">
                 <p className="m-0">
                   Take a few minutes to reconnect with your group&rsquo;s scenario. Think and
                   talk about the role of public health in this world and how it&rsquo;s
@@ -1066,6 +1048,18 @@ export function CommitmentsTeamView({
       {step === "vision" && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-5">
+            {sectionsFor("vision").length > 0 && (
+              <StepIntro n="05" title="Vision">
+                {/* Deliberately NOT a restatement of the question below it. That already
+                    carries the prompt, the pressure test and what it has to produce; this
+                    says the two things the question cannot — that the answer is one the
+                    whole group agrees on, and where the material it is drawn from is. */}
+                <p className="m-0">
+                  One short statement your group agrees on. What you are drawing on, your
+                  desired outcomes and your response wall, is in the rail.
+                </p>
+              </StepIntro>
+            )}
             {sectionsFor("vision").length > 0 ? (
               worksheetFor(sectionsFor("vision"))
             ) : (

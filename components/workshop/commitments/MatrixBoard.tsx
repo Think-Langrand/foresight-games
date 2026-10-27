@@ -18,6 +18,7 @@ import { ImpactMatrix } from "@/components/workshop/ImpactMatrix";
 import { ScoreScale } from "@/components/workshop/ScoreScale";
 import { TONE } from "@/components/workshop/synthesis/CardWall";
 import { Directions, DIRECTIONS_FOLD } from "@/components/workshop/synthesis/Directions";
+import { StepIntro } from "@/components/workshop/commitments/StepIntro";
 import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 import { StepProgress } from "@/components/workshop/commitments/StepProgress";
 
@@ -479,24 +480,19 @@ export function MatrixBoard({
           it is for. They are what the breakout is talking about while it scores, so they
           belong where the eye starts rather than folded away under the board. The
           Directions panel below still carries how the tool works. */}
-      <div className="max-w-[72ch] rounded-[3px] border-l-[3px] border-ink bg-card px-4 py-3">
-        <h3 className="m-0 mb-1.5 text-[15px] font-extrabold uppercase tracking-tight">
-          Prioritize risks and opportunities
-        </h3>
-        <div className="flex flex-col gap-2 text-[14px] leading-[1.5]">
-          {MATRIX_PROMPTS.map((q) => (
-            <p key={q} className="m-0">
-              {q}
-            </p>
-          ))}
-          {/* The one sentence that makes the two scales mean something. Without it a group
-              scores both axes the same way and the grid collapses onto its diagonal. */}
-          <p className="m-0">
-            Score each one twice: <b>impact</b> is how much would change if it landed,{" "}
-            <b>plausibility</b> is how well the conditions of this scenario support it.
+      <StepIntro n="02" title="Prioritize risks and opportunities">
+        {MATRIX_PROMPTS.map((q) => (
+          <p key={q} className="m-0">
+            {q}
           </p>
-        </div>
-      </div>
+        ))}
+        {/* The one sentence that makes the two scales mean something. Without it a group
+            scores both axes the same way and the grid collapses onto its diagonal. */}
+        <p className="m-0">
+          Score each one twice: <b>impact</b> is how much would change if it landed,{" "}
+          <b>plausibility</b> is how well the conditions of this scenario support it.
+        </p>
+      </StepIntro>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
         <div className="flex min-w-0 flex-col gap-4">

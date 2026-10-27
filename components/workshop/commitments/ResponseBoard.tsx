@@ -11,6 +11,7 @@ import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 import type { AddResult } from "@/components/workshop/synthesis/SynthesisCard";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { Week4Reference } from "@/components/workshop/commitments/Week4Reference";
+import { StepIntro } from "@/components/workshop/commitments/StepIntro";
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
 
 // STEP 3 — strategic responses. One wall, filled as fast as the group can type: what could
@@ -81,15 +82,12 @@ export function ResponseBoard({
       {/* WHAT THE STEP IS, in the same block every other step uses. The outcomes it says
           to link to are in the rail, not here: a panel of them above the wall was the
           first thing to scroll away once anyone started typing. */}
-      <div className="max-w-[72ch] rounded-[3px] border-l-[3px] border-ink bg-card px-4 py-3">
-        <h3 className="m-0 mb-1.5 text-[15px] font-extrabold uppercase tracking-tight">
-          Instructions
-        </h3>
-        <p className="m-0 text-[14px] leading-[1.5]">
+      <StepIntro n="04" title="Generate strategic responses">
+        <p className="m-0">
           Create a range of strategic options linked to your top priorities and outcomes.
           Begin with individual idea generation, then share, collaborate, and discuss.
         </p>
-      </div>
+      </StepIntro>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
