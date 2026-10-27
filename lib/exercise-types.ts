@@ -36,6 +36,12 @@ export interface WorksheetSection {
   // The source agenda carries one on three of Week 4's activities, so this models the
   // material rather than smuggling markup into a plain-text field.
   test?: string;
+  // What the activity has to hand over, rendered last. The agenda this week was built from
+  // has a "What it produces" column on every row, and it is the one line a group checks
+  // itself against when it thinks it is finished — so it goes after the test rather than
+  // in the step's standing intro, where it would be read before anyone had written
+  // anything and forgotten by the time it mattered.
+  produces?: string;
   board?: boolean; // brainstorm only: render as a large, board-like canvas (e.g. the Sandbox)
 }
 
@@ -237,6 +243,8 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
     label: "What future do you want to work toward?",
     help: "Looking across our desired outcomes and response ideas, what future do we want to work toward? What would be different for communities because public health acted; what is public health making possible?",
     test: "Pressure test: Is this worth achieving for people? Does it respond to the particular conditions of our scenario?",
+    produces:
+      "Give us a short aspirational statement that responds to the challenges of the scenario.",
   },
 ];
 
@@ -381,6 +389,7 @@ export function resolveSections(raw: unknown): WorksheetSection[] {
     if (group) section.group = group;
     if (typeof r.help === "string" && r.help) section.help = r.help;
     if (typeof r.test === "string" && r.test) section.test = r.test;
+    if (typeof r.produces === "string" && r.produces) section.produces = r.produces;
     if (r.board === true) section.board = true;
     out.push(section);
   }

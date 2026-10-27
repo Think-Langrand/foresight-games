@@ -120,16 +120,22 @@ function diff(before, after) {
       continue;
     }
     byKey.delete(s.key);
-    if (was.label !== s.label) lines.push(`        ~ ${s.key} label\n            was: ${was.label}\n            now: ${s.label}`);
-    // Every free-text field, not a hand-picked few: a field this missed would be written
-    // silently, which is the one thing a dry run exists to prevent.
-    for (const f of ["help", "test"]) {
-      if ((was[f] ?? "") === (s[f] ?? "")) continue;
-      lines.push(
-        `        ~ ${s.key} ${f}\n            was: ${was[f] ?? "(none)"}\n            now: ${s[f] ?? "(none)"}`
-      );
+    // EVERY FIELD ON EITHER SIDE, derived — never a hand-written list. That list was wrong
+    // twice in one afternoon: `test` was added and the diff said nothing, then `produces`
+    // was added and it said nothing again, both times reporting the group as changed with
+    // no lines under it. A field the diff misses is a field written silently, which is the
+    // one thing a dry run exists to prevent.
+    for (const f of [...new Set([...Object.keys(was), ...Object.keys(s)])].sort()) {
+      if (f === "key" || f === "kind") continue; // identity, not content
+      const a = was[f] ?? "";
+      const b = s[f] ?? "";
+      if (a === b) continue;
+      if (f === "step") {
+        lines.push(`        ~ ${s.key} step  ${a || "(none)"} -> ${b || "(none)"}`);
+        continue;
+      }
+      lines.push(`        ~ ${s.key} ${f}\n            was: ${a || "(none)"}\n            now: ${b || "(none)"}`);
     }
-    if (was.step !== s.step) lines.push(`        ~ ${s.key} step  ${was.step} -> ${s.step}`);
   }
   // Prompts the template no longer offers. Their answers stay in the database.
   for (const s of byKey.values()) lines.push(`        - ${s.key}  retired (answers kept)`);

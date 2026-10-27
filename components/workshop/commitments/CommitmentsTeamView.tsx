@@ -9,7 +9,7 @@ import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
 import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
-import { ResponseRecap } from "@/components/workshop/commitments/ResponseRecap";
+import { Week4Reference } from "@/components/workshop/commitments/Week4Reference";
 import { PriorityRecap } from "@/components/workshop/commitments/PriorityRecap";
 import { MovesBoard } from "@/components/workshop/commitments/MovesBoard";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
@@ -1034,21 +1034,26 @@ export function CommitmentsTeamView({
 
       {/* Act 5. One short statement, with the outcomes and the response wall under it as
           the raw material it is drawn from. */}
+      {/* Act 5. The outcomes and the response wall go in the RAIL rather than in a panel
+          under the question. This step asks the group to look across both and say what it
+          all adds up to, and material stacked below the writing meant scrolling away from
+          the box you are meant to be writing in. What the step produces is on the question
+          itself now, last, where it is read when it matters. */}
       {step === "vision" && (
-        <div className="flex flex-col gap-6">
-          {sectionsFor("vision").length > 0 && (
-            <StepIntro title="Vision">
-              <p className="m-0">
-                Your final output here is a single short aspirational statement that responds
-                to the challenges of the scenario.
-              </p>
-            </StepIntro>
-          )}
-          {sectionsFor("vision").length > 0 ? worksheetFor(sectionsFor("vision")) : <NoPrompts />}
-          <ResponseRecap
-            responses={board.responses}
-            onGoToResponses={() => setStep("responses")}
-          />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="flex min-w-0 flex-col gap-5">
+            {sectionsFor("vision").length > 0 ? (
+              worksheetFor(sectionsFor("vision"))
+            ) : (
+              <NoPrompts />
+            )}
+            <StepProgress
+              done={answeredCount(sectionsFor("vision"))}
+              total={sectionsFor("vision").length}
+              noun="answered"
+            />
+          </div>
+          <Week4Reference outcomes={answersOn("outcomes")} responses={board.responses} />
         </div>
       )}
 

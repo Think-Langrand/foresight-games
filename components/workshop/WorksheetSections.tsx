@@ -115,13 +115,14 @@ export function WorksheetSections({
                   onDelete={onDelete}
                   onReorder={onReorder}
                   onEdit={onEdit}
-                  header={<AreaHead label={s.label} help={s.help} test={s.test} />}
+                  header={<AreaHead label={s.label} help={s.help} test={s.test} produces={s.produces} />}
                 />
               ) : (
                 <QuestionSection
                   label={s.label}
                   help={s.help}
                   test={s.test}
+                  produces={s.produces}
                   answers={[...areaCards].sort((a, b) => a.createdTime.localeCompare(b.createdTime))}
                   authorName={(c) => playerNames.get(c.authorPlayerId ?? "") ?? ""}
                   canEdit={canEdit}
@@ -140,7 +141,17 @@ export function WorksheetSections({
   );
 }
 
-function AreaHead({ label, help, test }: { label: string; help?: string; test?: string }) {
+function AreaHead({
+  label,
+  help,
+  test,
+  produces,
+}: {
+  label: string;
+  help?: string;
+  test?: string;
+  produces?: string;
+}) {
   return (
     <div>
       <h3 className="text-[16px] font-extrabold uppercase tracking-tight">{label}</h3>
@@ -149,6 +160,13 @@ function AreaHead({ label, help, test }: { label: string; help?: string; test?: 
           thing the group checks its answer against before moving on, so it has to survive
           being skimmed past in a way the guidance above it does not. */}
       {test && <p className="mt-1.5 text-[13px] font-bold leading-[1.5] text-ink">{test}</p>}
+      {/* Last, and set apart: this is what the group hands over, so it is the line it
+          checks itself against when it thinks it is done. */}
+      {produces && (
+        <p className="mt-2 border-l-[3px] border-blue pl-3 text-[13px] leading-[1.5] text-ink">
+          {produces}
+        </p>
+      )}
     </div>
   );
 }
@@ -160,6 +178,7 @@ function QuestionSection({
   label,
   help,
   test,
+  produces,
   answers,
   canEdit,
   busy,
@@ -171,6 +190,7 @@ function QuestionSection({
   label: string;
   help?: string;
   test?: string;
+  produces?: string;
   answers: RippleCard[];
   // Author attribution is available but the per-answer byline is intentionally not shown.
   authorName: (c: RippleCard) => string;
@@ -214,7 +234,7 @@ function QuestionSection({
   };
   return (
     <section>
-      <AreaHead label={label} help={help} test={test} />
+      <AreaHead label={label} help={help} test={test} produces={produces} />
       <div className="mt-3">
         {answers.length === 0 ? (
           <p className="text-[13px] italic text-muted">{readOnly ? "No answers." : "No answers yet — add one below."}</p>

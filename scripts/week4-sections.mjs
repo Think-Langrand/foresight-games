@@ -53,5 +53,7 @@ export const COMMITMENTS_SECTIONS = [
     label: "What future do you want to work toward?",
     help: "Looking across our desired outcomes and response ideas, what future do we want to work toward? What would be different for communities because public health acted; what is public health making possible?",
     test: "Pressure test: Is this worth achieving for people? Does it respond to the particular conditions of our scenario?",
+    produces:
+      "Give us a short aspirational statement that responds to the challenges of the scenario.",
   },
 ];
