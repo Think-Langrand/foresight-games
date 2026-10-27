@@ -237,7 +237,7 @@ function Panel({
                           className="mt-[2px] h-3.5 w-3.5 shrink-0 accent-[var(--blue)]"
                         />
                         <span className="font-bold uppercase tracking-[0.06em]">
-                          We did not agree on this
+                          Add note or disagreement context
                         </span>
                       </label>
                     )}
