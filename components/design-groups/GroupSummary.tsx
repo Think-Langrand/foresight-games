@@ -305,7 +305,7 @@ function KeyChangeRow({ kc, n }: { kc: SummaryKeyChange; n: number }) {
 // lime, each deeper the higher the number, with the product after them. The tint is the
 // same trick the matrix uses to warm its top-right corner, so a chip and the cell it sits
 // in read as one scale. Nothing prints for an unscored row; "not scored" is the caller's.
-function ScoreChips({ plausibility, impact, rank }: { plausibility: number | null; impact: number | null; rank: number | null }) {
+function ScoreChips({ plausibility, impact }: { plausibility: number | null; impact: number | null }) {
   if (plausibility === null || impact === null) return null;
   const chip = (label: string, v: number, colour: string) => (
     <span
@@ -320,10 +320,58 @@ function ScoreChips({ plausibility, impact, rank }: { plausibility: number | nul
     <span className="inline-flex flex-wrap items-center gap-1.5">
       {chip(HANDOFF_AXIS_LABELS.plausibility, plausibility, "var(--blue)")}
       {chip(HANDOFF_AXIS_LABELS.impact, impact, "var(--lime-deep)")}
-      {rank !== null && (
-        <span className="font-mono text-[10px] tabular-nums text-muted">= {rank}</span>
-      )}
     </span>
+  );
+}
+
+// The same two scores as COLUMNS, for the front slide: one big tinted number per axis to
+// the right of each priority, under a header that names the axis and its range. The tint
+// deepens with the score, so the column reads at a glance before the digits do.
+const SCORE_AXES_W4 = [
+  { key: "plausibility", colour: "var(--blue)" },
+  { key: "impact", colour: "var(--lime-deep)" },
+] as const;
+
+function ScoreHead() {
+  return (
+    <>
+      {SCORE_AXES_W4.map((a) => (
+        <div key={a.key} className="text-center">
+          <p className="m-0 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em]">
+            {HANDOFF_AXIS_LABELS[a.key]}
+          </p>
+          <p className="m-0 mt-0.5 text-[10px] leading-[1.3] text-muted">
+            1 {HANDOFF_AXIS_ENDS[a.key].low.toLowerCase()}
+            <br />5 {HANDOFF_AXIS_ENDS[a.key].high.toLowerCase()}
+          </p>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function ScoreCells({ plausibility, impact }: { plausibility: number | null; impact: number | null }) {
+  const values = { plausibility, impact };
+  return (
+    <>
+      {SCORE_AXES_W4.map((a) => {
+        const v = values[a.key];
+        return (
+          <div
+            key={a.key}
+            className="flex h-14 w-full items-center justify-center rounded-[3px] border border-black/10 font-mono text-[26px] font-bold tabular-nums"
+            style={{
+              background:
+                v === null
+                  ? "var(--paper)"
+                  : `color-mix(in srgb, ${a.colour} ${12 + v * 13}%, var(--paper))`,
+            }}
+          >
+            {v ?? <span className="text-[14px] font-normal text-muted">·</span>}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -334,13 +382,24 @@ function ScoreChips({ plausibility, impact, rank }: { plausibility: number | nul
 // invent a symmetry it never claimed — and a group whose three are all risks would face a
 // column headed "Opportunities" saying it ranked nothing, which reads as a gap rather than
 // as the finding it is. The wall each one came from rides on the row instead.
+// THE SCORES ARE COLUMNS TO THE RIGHT, with the axis and its range named once at the top:
+// a reader meets "Likelihood, 1 very unlikely to 5 very likely" before the first number,
+// and then the numbers line up down the page so the three can be compared by eye.
+const PRIORITY_GRID = "grid grid-cols-[auto_minmax(0,1fr)_4.25rem_4.25rem] items-start gap-x-4";
+
 function PriorityList({ rows }: { rows: SummaryPlacement[] }) {
   return (
-    <ol className="m-0 flex list-none flex-col gap-6 p-0">
+    <div>
+      <div className={PRIORITY_GRID + " border-b-[1.5px] border-ink pb-2"}>
+        <span />
+        <span />
+        <ScoreHead />
+      </div>
+    <ol className="m-0 flex list-none flex-col p-0">
       {rows.map((p, i) => {
         const colour = p.kind === "risk" ? "var(--coral)" : "#3f5209";
         return (
-          <li key={p.id} className="grid grid-cols-[auto_1fr] items-start gap-x-4">
+          <li key={p.id} className={PRIORITY_GRID + " border-b border-[var(--hairline)] py-4 last:border-b-0"}>
             {/* A NUMBER HERE CLAIMS A RANK, and now it can always make the claim: a
                 priority IS the top of the ranking, so an unscored one cannot reach this
                 list. The dot branch below is the type being honest rather than a state
@@ -368,11 +427,6 @@ function PriorityList({ rows }: { rows: SummaryPlacement[] }) {
                   {p.note}
                 </p>
               )}
-              {/* THE SCORES, ON THE FRONT SLIDE. They used to live only in the appendix,
-                  which made a reader page back to learn why these three and not others. */}
-              <p className="m-0 mt-2.5">
-                <ScoreChips plausibility={p.plausibility} impact={p.impact} rank={p.rank} />
-              </p>
               <p
                 className="m-0 mt-2 flex flex-wrap gap-x-3 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em]"
                 style={{ color: colour }}
@@ -384,10 +438,14 @@ function PriorityList({ rows }: { rows: SummaryPlacement[] }) {
                 {!p.confirmed && <span className="text-muted">Suggested by the scores</span>}
               </p>
             </div>
+            {/* THE SCORES, ON THE FRONT SLIDE. They used to live only in the appendix,
+                which made a reader page back to learn why these three and not others. */}
+            <ScoreCells plausibility={p.plausibility} impact={p.impact} />
           </li>
         );
       })}
     </ol>
+    </div>
   );
 }
 
@@ -570,7 +628,7 @@ function StakeColumn({ rows, tone }: { rows: SummaryPlacement[]; tone: "risk" | 
                       not scored
                     </span>
                   ) : (
-                    <ScoreChips plausibility={p.plausibility} impact={p.impact} rank={p.rank} />
+                    <ScoreChips plausibility={p.plausibility} impact={p.impact} />
                   )}
                 </span>
               </span>
