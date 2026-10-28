@@ -359,12 +359,14 @@ function ScoreCells({ plausibility, impact }: { plausibility: number | null; imp
         return (
           <div
             key={a.key}
-            className="flex h-14 w-full items-center justify-center rounded-[3px] border border-black/10 font-mono text-[26px] font-bold tabular-nums"
+            className="flex h-12 w-full items-center justify-center rounded-[3px] border border-black/10 font-mono text-[21px] font-semibold tabular-nums text-ink/85"
             style={{
+              // Lighter than the matrix's own heat: these sit beside the words, and the
+              // words are the point. Deepest at 5 is still well short of the chip colour.
               background:
                 v === null
                   ? "var(--paper)"
-                  : `color-mix(in srgb, ${a.colour} ${12 + v * 13}%, var(--paper))`,
+                  : `color-mix(in srgb, ${a.colour} ${6 + v * 9}%, var(--paper))`,
             }}
           >
             {v ?? <span className="text-[14px] font-normal text-muted">·</span>}
