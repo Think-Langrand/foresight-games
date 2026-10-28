@@ -301,6 +301,32 @@ function KeyChangeRow({ kc, n }: { kc: SummaryKeyChange; n: number }) {
 }
 
 
+// Session 4's two scores on one issue, as two tinted chips: likelihood in blue, impact in
+// lime, each deeper the higher the number, with the product after them. The tint is the
+// same trick the matrix uses to warm its top-right corner, so a chip and the cell it sits
+// in read as one scale. Nothing prints for an unscored row; "not scored" is the caller's.
+function ScoreChips({ plausibility, impact, rank }: { plausibility: number | null; impact: number | null; rank: number | null }) {
+  if (plausibility === null || impact === null) return null;
+  const chip = (label: string, v: number, colour: string) => (
+    <span
+      className="inline-flex items-baseline gap-1 rounded-[2px] border border-black/10 px-[7px] py-[3px] font-mono text-[10px] tracking-[0.06em]"
+      style={{ background: `color-mix(in srgb, ${colour} ${12 + v * 13}%, var(--paper))` }}
+    >
+      <span className="uppercase text-ink/70">{label}</span>
+      <span className="text-[12px] font-bold tabular-nums text-ink">{v}</span>
+    </span>
+  );
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {chip(HANDOFF_AXIS_LABELS.plausibility, plausibility, "var(--blue)")}
+      {chip(HANDOFF_AXIS_LABELS.impact, impact, "var(--lime-deep)")}
+      {rank !== null && (
+        <span className="font-mono text-[10px] tabular-nums text-muted">= {rank}</span>
+      )}
+    </span>
+  );
+}
+
 // Act 2's chosen priorities, risks and opportunities in ONE list.
 //
 // ONE LIST, NOT TWO COLUMNS. The group was asked for three issues across both walls, not
@@ -342,6 +368,11 @@ function PriorityList({ rows }: { rows: SummaryPlacement[] }) {
                   {p.note}
                 </p>
               )}
+              {/* THE SCORES, ON THE FRONT SLIDE. They used to live only in the appendix,
+                  which made a reader page back to learn why these three and not others. */}
+              <p className="m-0 mt-2.5">
+                <ScoreChips plausibility={p.plausibility} impact={p.impact} rank={p.rank} />
+              </p>
               <p
                 className="m-0 mt-2 flex flex-wrap gap-x-3 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em]"
                 style={{ color: colour }}
@@ -533,8 +564,14 @@ function StakeColumn({ rows, tone }: { rows: SummaryPlacement[]; tone: "risk" | 
               </span>
               <span className="min-w-0">
                 <span className="block max-w-[52ch] text-[14.5px] leading-[1.45]">{p.text}</span>
-                <span className="mt-[3px] block font-mono text-[9.5px] uppercase tracking-[0.1em] tabular-nums text-muted">
-                  {p.rank === null ? "not scored" : `P ${p.plausibility} · I ${p.impact}`}
+                <span className="mt-[5px] block">
+                  {p.rank === null ? (
+                    <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
+                      not scored
+                    </span>
+                  ) : (
+                    <ScoreChips plausibility={p.plausibility} impact={p.impact} rank={p.rank} />
+                  )}
                 </span>
               </span>
             </li>
@@ -1295,6 +1332,7 @@ export default function GroupSummaryView({
                 </div>
                 <SummaryMatrix
                   noun="risk or opportunity"
+                  axisLabels={{ x: HANDOFF_AXIS_LABELS.plausibility, y: HANDOFF_AXIS_LABELS.impact }}
                   rows={s.placements.map((p) => ({
                     id: p.id,
                     text: p.text,
