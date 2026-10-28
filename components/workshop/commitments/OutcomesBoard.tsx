@@ -75,7 +75,12 @@ function OutcomeField({
             onSave(next);
             return;
           }
-          if (next) onSave(next);
+          if (!next) return;
+          // A BLANK EMPTIES ITSELF AS IT SAVES. The new card renders in its own keyed box
+          // and this blank slides down to be the next empty one, still the same DOM node.
+          // Left alone, the words just typed would show up again in the box below.
+          e.target.value = "";
+          onSave(next);
         }}
         className="w-full resize-y rounded-[3px] border border-[var(--hairline)] bg-paper px-3 py-2 text-[14px] leading-[1.5] outline-none focus:border-ink"
       />
