@@ -320,12 +320,25 @@ describe("placementError", () => {
   // Both the add-a-card and the reparent routes check placementError, so these are what
   // keep the two from drifting apart on Session 4's kinds.
 
-  it("lets a strategic response be a root and nothing else", () => {
+  it("puts a desired outcome on a priority and nowhere else", () => {
+    // Week 4 act 2.1. An outcome is written FOR one of the three, so it hangs off the pick.
+    ok("outcome", "pick");
+    no("outcome", undefined);
+    no("outcome", null);
+    no("outcome", "theme");
+    no("outcome", "response");
+  });
+
+  it("lets a strategic response sit under an outcome, or be a legacy root", () => {
+    // Act 2.2 writes responses under the outcome they advance. A root is still legal for
+    // boards worked before that, when the wall was untagged.
+    ok("response", "outcome");
     ok("response", undefined);
     no("response", null); // under an implication
     no("response", "theme");
     no("response", "response"); // a response does not answer another response
     no("response", "milestone");
+    no("response", "pick");
   });
 
   it("lets a milestone hang off a bold move and nowhere else", () => {

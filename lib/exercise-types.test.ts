@@ -18,8 +18,10 @@ import {
   COMMITMENTS_STEP_CHANGES,
   COMMITMENTS_STEP_MOVES,
   COMMITMENTS_STEP_RECONNECT,
+  COMMITMENTS_STEP_PRIORITIZE,
   COMMITMENTS_STEP_OUTCOMES,
   COMMITMENTS_STEP_VISION,
+  COMMITMENTS_STEP_DIRECTIONS,
   COMMITMENTS_KEY_VISION,
   COMMITMENTS_KEY_ROLE,
 } from "./exercise-types";
@@ -272,33 +274,37 @@ describe("commitments exercise type", () => {
     expect(supportsSections("commitments")).toBe(true);
   });
 
-  it("splits its written fields across the three activities that ask for writing", () => {
+  it("carries one prose box per step that asks for prose, in tab order", () => {
     const sections = EXERCISE_TYPES.commitments.sections!;
     expect(sections.map((s) => s.key)).toEqual([
-      "w4-attention",
-      "w4-keep-in-mind",
-      "w4-outcomes",
+      "w4-notes",
+      "w4-overlook",
       "w4-role",
+      "w4-together",
     ]);
-    // `question`, not `brainstorm`: three people in a breakout have three readings and each
-    // answer is its own card. Migration 0027 is the record of what forcing one cost.
+    // `question`, not `brainstorm`: each box is a list of answer cards underneath, and the
+    // three single-statement boxes edit the first card in place.
     for (const s of sections) expect(s.kind).toBe("question");
     for (const s of sections) expect(s.label.length).toBeGreaterThan(0);
-    // THREE steps, in board order. Acts 2, 4 and 6 are boards: their prompts are guidance
-    // in a Directions fold, so they own no sections and must not appear here.
+    // FOUR steps, in board order. 2.1 and 2.2 are cards under cards (outcomes under picks,
+    // responses under outcomes) and own no sections.
     expect(worksheetSteps(sections)).toEqual([
       COMMITMENTS_STEP_RECONNECT,
-      COMMITMENTS_STEP_OUTCOMES,
+      COMMITMENTS_STEP_PRIORITIZE,
       COMMITMENTS_STEP_VISION,
+      COMMITMENTS_STEP_DIRECTIONS,
     ]);
-    expect(commitmentsSectionsFor(sections, "reconnect").map((s) => s.key)).toEqual([
-      "w4-attention",
-      "w4-keep-in-mind",
-    ]);
-    expect(commitmentsSectionsFor(sections, "outcomes").map((s) => s.key)).toEqual([
-      "w4-outcomes",
-    ]);
+    expect(commitmentsSectionsFor(sections, "reconnect").map((s) => s.key)).toEqual(["w4-notes"]);
+    expect(commitmentsSectionsFor(sections, "prioritize").map((s) => s.key)).toEqual(["w4-overlook"]);
+    expect(commitmentsSectionsFor(sections, "outcomes")).toEqual([]);
     expect(commitmentsSectionsFor(sections, "vision").map((s) => s.key)).toEqual(["w4-role"]);
+    expect(commitmentsSectionsFor(sections, "directions").map((s) => s.key)).toEqual(["w4-together"]);
+  });
+
+  it("routes the two board tabs' stored step strings onto their tabs", () => {
+    expect(commitmentsStepOf({ step: COMMITMENTS_STEP_PRIORITIZE })).toBe("prioritize");
+    expect(commitmentsStepOf({ step: COMMITMENTS_STEP_DIRECTIONS })).toBe("directions");
+    expect(commitmentsStepOf({ step: COMMITMENTS_STEP_OUTCOMES })).toBe("outcomes");
   });
 
   it("routes pre-rebuild step strings onto a tab rather than dropping them", () => {
@@ -330,6 +336,9 @@ describe("commitments exercise type", () => {
       "w4-summary",
       "w4-assumptions",
       "w4-bold-moves",
+      "w4-attention",
+      "w4-keep-in-mind",
+      "w4-outcomes",
     ]) {
       expect(keys).not.toContain(retired);
     }
@@ -369,10 +378,18 @@ describe("commitments exercise type", () => {
     // The canonical week carries the EFFECTIVE keyset, so a group that never customizes
     // still gets step 1.
     expect(defaultProgramWeeks()[3].sections.map((s) => s.key)).toEqual([
-      "w4-attention",
-      "w4-keep-in-mind",
-      "w4-outcomes",
+      "w4-notes",
+      "w4-overlook",
       "w4-role",
+      "w4-together",
     ]);
+  });
+
+  it("titles Session 4 Synthesis and Session 3 Themes and Implications", () => {
+    // The screenshot design calls the fourth session the synthesis, and the third had
+    // that word. Stored per group and only re-fanned by the admin editor, so this is the
+    // default for NEW projects; see the admin program editor for a running cohort.
+    expect(DEFAULT_PROGRAM[2].title).toBe("Session 3 · Themes and Implications");
+    expect(DEFAULT_PROGRAM[3].title).toBe("Session 4 · Synthesis");
   });
 });

@@ -26,6 +26,8 @@ export function WorksheetSections({
   onDelete,
   onEdit,
   onReorder,
+  addLabel,
+  placeholder,
 }: {
   sections: WorksheetSection[];
   cards: RippleCard[];
@@ -37,6 +39,10 @@ export function WorksheetSections({
   onDelete: (card: RippleCard) => void;
   onEdit: (cardId: string, text: string) => void;
   onReorder: (cardId: string, sort: number) => void;
+  // The composer's button and placeholder on every question block, when a host wants
+  // them to say what is being added ("+ Add note") rather than the generic "Add".
+  addLabel?: string;
+  placeholder?: string;
 }) {
   // Sections may be grouped into `step`s, rendered as jump-anywhere tabs. When no step is
   // declared, `steps` is empty and we fall back to one flat stack.
@@ -131,6 +137,8 @@ export function WorksheetSections({
                   onAdd={(text) => onAdd(s.key, text)}
                   onDelete={onDelete}
                   onEdit={onEdit}
+                  addLabel={addLabel}
+                  placeholder={placeholder}
                 />
               )}
             </div>
@@ -186,12 +194,16 @@ function QuestionSection({
   onAdd,
   onDelete,
   onEdit,
+  addLabel = "Add",
+  placeholder = "Add your answer…",
 }: {
   label: string;
   help?: string;
   test?: string;
   produces?: string;
   answers: RippleCard[];
+  addLabel?: string;
+  placeholder?: string;
   // Author attribution is available but the per-answer byline is intentionally not shown.
   authorName: (c: RippleCard) => string;
   canEdit: (c: RippleCard) => boolean;
@@ -347,7 +359,7 @@ function QuestionSection({
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
               }}
               rows={3}
-              placeholder="Add your answer…"
+              placeholder={placeholder}
               className="w-full resize-y rounded-[2px] border border-[var(--hairline)] bg-paper p-2 text-[13px] outline-none focus:border-ink"
             />
             <span className={"mt-1 block text-[10px] " + (over ? "font-bold text-coral" : "text-muted")}>
@@ -359,7 +371,7 @@ function QuestionSection({
             disabled={busy || !text.trim() || over}
             className="rounded-[2px] border border-ink bg-lime px-4 py-2 text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-lime-deep disabled:opacity-40"
           >
-            Add
+            {addLabel}
           </button>
         </div>
       )}

@@ -252,7 +252,7 @@ const wmark = (
   sourceId: string,
   p: number | null = null,
   i: number | null = null,
-  over: { priority?: boolean; disputed?: boolean; note?: string | null } = {}
+  over: { priority?: boolean; confirmed?: boolean; disputed?: boolean; note?: string | null } = {}
 ) => ({
   ...wrow(id, text),
   sourceId,
@@ -260,6 +260,7 @@ const wmark = (
   impact: i,
   rank: p !== null && i !== null ? p * i : null,
   priority: over.priority ?? false,
+  confirmed: over.confirmed ?? false,
   disputed: over.disputed ?? false,
   note: over.note ?? null,
 });
@@ -387,7 +388,7 @@ describe("exerciseCsvRows", () => {
       .toHaveLength(1);
     expect(exerciseCsvRows(iex({ cards: [icard("r", "FIRST")] }))).toHaveLength(1);
     expect(exerciseCsvRows(ex({ themes: [theme()] }))).toHaveLength(1);
-    expect(exerciseCsvRows(cex({ responses: [stake("r", "fund it")] }))).toHaveLength(1);
+    expect(exerciseCsvRows(cex({ looseResponses: [stake("r", "fund it")] }))).toHaveLength(1);
   });
 
   it("emits nothing for a placeholder week rather than throwing", () => {
@@ -425,6 +426,9 @@ const cex = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
   title: "Session 4",
   cards: [],
   responses: [],
+  prioritySlots: [],
+  strayOutcomes: [],
+  looseResponses: [],
   boldMoves: [],
   directions: [],
   lanes: [],
@@ -440,20 +444,63 @@ const cex = (over: Partial<CommitmentsExercise> = {}): CommitmentsExercise => ({
 
 describe("commitmentsCsvRows", () => {
   it("emits six cells per row, in header order", () => {
-    const rows = commitmentsCsvRows(cex({ responses: [stake("r1", "fund joint posts")] }));
+    const rows = commitmentsCsvRows(cex({ looseResponses: [stake("r1", "fund joint posts")] }));
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveLength(GROUP_ANSWERS_CSV_HEADER.length);
-    expect(rows[0]).toEqual(["Session 4", "Strategic responses", "response", "fund joint posts", "Ana", "2026-01-01"]);
+    expect(rows[0]).toEqual([
+      "Session 4",
+      "Strategic responses · not linked to an outcome",
+      "response",
+      "fund joint posts",
+      "Ana",
+      "2026-01-01",
+    ]);
   });
 
-  it("does not star the response wall, because act 6 no longer picks from it", () => {
-    // `shortlisted` on a response is retired data from the down-select act 6 replaced. A
-    // star here would mark a choice this week no longer asks anyone to make, and on a
-    // board worked under the old shape it would light cards at random. The directions get
-    // rows of their own below.
+  it("nests outcomes under their priority and ideas under their outcome", () => {
+    // Acts 2.1 and 2.2 added one structure to the week, and the sheet keeps it: the label
+    // numbers the outcome, the text carries the thing above it. The response pool
+    // (`responses`) is NOT emitted again, or every idea would be counted twice.
     const rows = commitmentsCsvRows(
       cex({
-        responses: [stake("r1", "old pick", { shortlisted: true }), stake("r2", "not picked")],
+        responses: [stake("i1", "pool budgets"), stake("i2", "share staff")],
+        prioritySlots: [
+          {
+            pick: wmark("p1", "Funding is fragile", "r1", 4, 5, { priority: true, confirmed: true }),
+            status: "confirmed",
+            outcomes: [
+              {
+                outcome: row("o1", "Stable prevention money"),
+                responses: [row("i1", "pool budgets"), row("i2", "share staff")],
+              },
+              { outcome: row("o2", "Fewer gaps"), responses: [] },
+            ],
+          },
+        ],
+        strayOutcomes: [
+          {
+            pick: wmark("p9", "Dropped issue", "r9", 1, 1),
+            outcomes: [{ outcome: row("o9", "old outcome"), responses: [row("i9", "old idea")] }],
+          },
+        ],
+      })
+    );
+    expect(rows.map((r) => [r[1], r[2], r[3]])).toEqual([
+      ["Desired outcomes · Priority 1", "outcome", "Funding is fragile — Stable prevention money"],
+      ["Response ideas · Outcome 1.1", "response", "Stable prevention money — pool budgets"],
+      ["Response ideas · Outcome 1.1", "response", "Stable prevention money — share staff"],
+      ["Desired outcomes · Priority 1", "outcome", "Funding is fragile — Fewer gaps"],
+      ["Desired outcomes · no longer a priority", "outcome", "Dropped issue — old outcome"],
+      ["Response ideas · no longer a priority", "response", "old outcome — old idea"],
+    ]);
+  });
+
+  it("does not star the loose wall, because the bold moves are not picked from it", () => {
+    // `shortlisted` on a response is retired data from the down-select the bold moves
+    // replaced. A star here would mark a choice this week no longer asks anyone to make.
+    const rows = commitmentsCsvRows(
+      cex({
+        looseResponses: [stake("r1", "old pick", { shortlisted: true }), stake("r2", "not picked")],
       })
     );
     expect(rows.map((r) => [r[2], r[3]])).toEqual([
@@ -479,33 +526,36 @@ describe("commitmentsCsvRows", () => {
       })
     );
     expect(rows.map((r) => [r[1], r[2], r[3]])).toEqual([
-      ["Three directions", "direction", "Fund partners permanently"],
+      ["Three bold moves", "bold move", "Fund partners permanently"],
       [
-        "Three directions · The purpose",
-        "direction field",
+        "Three bold moves · The purpose",
+        "bold move field",
         "Fund partners permanently — The trust priority.",
       ],
     ]);
   });
 
-  it("carries a priority star, a dispute and its note off the matrix", () => {
-    // Act 2's actual output. The markers were invisible in this export and the dispute
-    // note — the only prose act 2 asks for — appeared nowhere at all.
+  it("carries a priority's status, its why, and a legacy dispute off the matrix", () => {
+    // Act 1.2's actual output. Whether the group confirmed a priority or the scores only
+    // suggested it is part of the finding; the why is the only prose the matrix asks for.
     const rows = commitmentsCsvRows(
       cex({
         picks: [
           wmark("p1", "Funding is fragile", "r1", 4, 5, {
             priority: true,
+            confirmed: true,
             disputed: true,
             note: "Half the room thinks this is the whole game.",
           }),
-          wmark("p2", "Quietly fine", "r2", 2, 2),
+          wmark("p2", "Only suggested", "r3", 3, 3, { priority: true }),
+          wmark("p3", "Quietly fine", "r2", 2, 2),
         ],
       })
     );
     expect(rows.map((r) => [r[2], r[3]])).toEqual([
-      ["pick P4 I5 ★ priority ⚡ disputed", "Funding is fragile"],
-      ["dispute note", "Half the room thinks this is the whole game."],
+      ["pick P4 I5 ★ priority (confirmed) ⚡ disputed", "Funding is fragile"],
+      ["why", "Half the room thinks this is the whole game."],
+      ["pick P3 I3 ★ priority (suggested)", "Only suggested"],
       ["pick P2 I2", "Quietly fine"],
     ]);
   });

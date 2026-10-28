@@ -23,13 +23,18 @@ import type {
 } from "@/components/design-groups/AnswerPanels";
 import type { RippleCard } from "@/lib/ripples-types";
 import { orderLabelForDepth, TREE_ORDERS } from "@/lib/ripples-types";
-import { sortRootsByRank, topScoredWithTies } from "@/lib/ripples-scoring";
+import { sortRootsByRank } from "@/lib/ripples-scoring";
 import { READING_FIELDS } from "@/lib/synthesis-shape";
 import {
   commitmentsStepOf,
   type CommitmentsSectionStep,
 } from "@/lib/exercise-types";
-import { MAX_PRIORITIES } from "@/lib/commitments-shape";
+import { PRIORITY_AXIS_ENDS, PRIORITY_AXIS_LABELS } from "@/lib/commitments-shape";
+
+// How the handoff names the two scales Session 4 scored on. Re-exported here so the deck,
+// which already imports this module, does not also reach into the board's shape file.
+export const HANDOFF_AXIS_LABELS = PRIORITY_AXIS_LABELS;
+export const HANDOFF_AXIS_ENDS = PRIORITY_AXIS_ENDS;
 
 // A key change, split so the page can lead with the label the group typed. Three groups
 // prefixed theirs ("POWER: …"), one numbered them ("1. …"), one wrote plain sentences — so
@@ -149,21 +154,31 @@ export interface GroupSummary {
   // group's words on the wrong slide rather than a crash. `commitmentsStepOf` also decides
   // where pre-rebuild step strings land, which is why this file must not second-guess it.
   //
-  // Act 1 — what needs attention, and what to keep in mind. Grounding, not a finding.
+  // 1.1 — discussion notes (and, on pre-rebuild boards, what needed attention). Grounding,
+  // not a finding.
   grounding: { key: string; label: string; answers: string[] }[];
-  // Act 3 — what the group wants public health to make possible.
+  // 1.2 — "anything else we should not overlook", the optional note beside the priorities.
+  overlook: { key: string; label: string; answers: string[] }[];
+  // LEGACY 2.1 — flat outcomes from the retired `w4-outcomes` prompt. Empty on a board
+  // worked under the current shape, where outcomes are under their priority.
   outcomes: { key: string; label: string; answers: string[] }[];
-  // Act 5 — the aspiration statement. A list because the prompt takes one answer per
-  // person and a breakout of three writes three; the slide reads them as one claim.
+  // 2.1 and 2.2 — each priority's desired outcomes, each with its response ideas. Slot
+  // order, which is the same order `priorities` is in.
+  outcomesByPriority: SummaryPriorityOutcomes[];
+  // 3.1 — the vision statement. A list because the section can hold more than one card;
+  // the slide reads them as one claim.
   vision: { key: string; label: string; answers: string[] }[];
-  // Act 2's matrix, strongest first. The order IS the finding: it is the one place in four
+  // 3.2 — how the three moves work together.
+  together: { key: string; label: string; answers: string[] }[];
+  // 1.2's matrix, strongest first. The order IS the finding: it is the one place in four
   // sessions where the group ranked its own stakes against each other.
   placements: SummaryPlacement[];
-  // Act 2's chosen three, and anything it flagged as still disputed. Both are drawn from
-  // `placements`' own rows, so a priority carries its scores with it.
+  // 1.2's three, in slot order (confirmed first), and anything a pre-rebuild board flagged
+  // as still disputed. Both are drawn from `placements`' own rows, so a priority carries
+  // its scores with it.
   priorities: SummaryPlacement[];
   disputed: SummaryPlacement[];
-  // Act 6 — the three directions, each with the three answers that sharpen it.
+  // 3.2 — the three bold moves, each with the three answers that explain it.
   directions: SummaryDirection[];
   // Parked with the backcasting step, not removed: when the timeline returns for the next
   // workshop its lanes fill and the slide behind SHOW_BACKCASTING draws again.
@@ -180,10 +195,20 @@ export interface SummaryPlacement {
   plausibility: number | null;
   impact: number | null;
   rank: number | null; // plausibility x impact, or null while either axis is unset
-  // Why the room could not agree, when the group said. SURVIVES UN-FLAGGING, so a
-  // non-null note does not mean a live dispute — `disputed` is the list for that. Carried
-  // on the placement rather than beside it so the note cannot drift from its words.
+  // Why this needs attention, when the group wrote one. On a pre-rebuild board the same
+  // column held the dispute note, and those words still read here.
   note: string | null;
+  // Whether the group confirmed this as a priority or the scores only suggested it. Only
+  // meaningful on a row in `priorities`.
+  confirmed: boolean;
+}
+
+// One priority's desired outcomes, each with the response ideas written toward it.
+export interface SummaryPriorityOutcomes {
+  id: string; // the Session 3 card, as on SummaryPlacement
+  text: string;
+  kind: "risk" | "opportunity";
+  outcomes: { text: string; responses: string[] }[];
 }
 
 // One of act 6's three directions: the move itself, and the three answers that sharpen it.
@@ -486,8 +511,10 @@ export function buildGroupSummary(
   const forTab = (tab: CommitmentsSectionStep) =>
     w4Blocks.filter((b) => b.tab === tab).map(strip);
   const grounding = forTab("reconnect");
+  const overlook = forTab("prioritize");
   const outcomes = forTab("outcomes");
   const vision = forTab("vision");
+  const together = forTab("directions");
 
   // Step 2's placements. Which wall each came from is derived from Week 3's own rows, the
   // one thing this builder can do that no single-week shape can: a pick carries its
@@ -522,6 +549,7 @@ export function buildGroupSummary(
               impact: p.impact,
               rank: p.rank,
               note: p.note,
+              confirmed: p.confirmed,
             },
           ];
         })
@@ -535,27 +563,45 @@ export function buildGroupSummary(
         .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1) || (b.impact ?? -1) - (a.impact ?? -1))
       : [];
 
-  // Act 2's two outputs, drawn from the SAME rows as `placements` so a priority carries its
+  // 1.2's two outputs, drawn from the SAME rows as `placements` so a priority carries its
   // scores with it and the two can never disagree about an issue's words or its wall.
   //
-  // THE PRIORITIES ARE THE TOP OF THE RANKING, not a stored flag. They were a manual star
-  // (`pick.priority`), which could and did disagree with the scores on the very same row.
-  // `placements` is already sorted strongest-first, so the three fall off the front of it
-  // — and taking them from `placements` rather than from the picks means a priority whose
-  // Session 3 card was deleted, dropped above, cannot reappear here.
-  const priorityIds = new Set(
-    topScoredWithTies(placements, MAX_PRIORITIES, (p) => ({
-      value: p.rank,
-      impact: p.impact,
-    })).map((p) => p.id)
-  );
+  // THE PRIORITIES ARE THE SLOTS, in slot order: the shape's `prioritySlots` (confirmed
+  // first, then the ranking's suggestions) already decided which three, and this builder
+  // only looks them up among the placements. Taking them from `placements` rather than
+  // from the picks means a priority whose Session 3 card was deleted, dropped above,
+  // cannot reappear here.
+  const byId = new Map(placements.map((p) => [p.id, p]));
+  const slotRows =
+    commitments?.kind === "commitments" ? commitments.prioritySlots : [];
+  const priorities = slotRows.flatMap((s) => {
+    const row = byId.get(s.pick.sourceId);
+    return row ? [row] : [];
+  });
   const disputedIds = new Set(
     commitments?.kind === "commitments"
       ? commitments.picks.filter((p) => p.disputed).map((p) => p.sourceId)
       : []
   );
-  const priorities = placements.filter((p) => priorityIds.has(p.id));
   const disputed = placements.filter((p) => disputedIds.has(p.id));
+
+  // 2.1 and 2.2, under each priority. Same drop rule as the priorities: a slot whose
+  // Session 3 card is gone has no wall to be coloured by and is left out.
+  const outcomesByPriority: SummaryPriorityOutcomes[] = slotRows.flatMap((s) => {
+    const row = byId.get(s.pick.sourceId);
+    if (!row) return [];
+    return [
+      {
+        id: row.id,
+        text: row.text,
+        kind: row.kind,
+        outcomes: s.outcomes.map((o) => ({
+          text: o.outcome.text,
+          responses: o.responses.map((r) => r.text),
+        })),
+      },
+    ];
+  });
 
   // Act 6. Every field on every direction, answered or not — see SummaryDirection.
   const directions: SummaryDirection[] =
@@ -616,8 +662,11 @@ export function buildGroupSummary(
     settledCount,
     worldReading,
     grounding,
+    overlook,
     outcomes,
+    outcomesByPriority,
     vision,
+    together,
     placements,
     priorities,
     disputed,

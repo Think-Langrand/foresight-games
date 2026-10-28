@@ -29,7 +29,7 @@ import {
   type ReparentRefusal,
 } from "@/lib/ripples-types";
 import { placementError } from "@/lib/synthesis-shape";
-import { isCommitmentPeriod, DISPUTED_SECTION } from "@/lib/commitments-shape";
+import { isCommitmentPeriod, LEGACY_DISPUTED_SECTION } from "@/lib/commitments-shape";
 
 // One human sentence per refusal planReparent can return — the reasons exist so the
 // message can name the real cause, like the POST route's three distinct parent refusals.
@@ -319,7 +319,7 @@ export async function PATCH(
     // (code, source_card_id) permits exactly one card per Session 3 source, so a separate
     // "disputed" card pointing at a risk that already has a pick could not be written.
     // Safe alongside the worksheet use of `section` because every reader of those filters
-    // on `order === "STICKY"` first and a pick is never a sticky — see DISPUTED_SECTION.
+    // on `order === "STICKY"` first and a pick is never a sticky — see LEGACY_DISPUTED_SECTION.
     if (body.action === "dispute") {
       if (!config.sharedTeam && card.authorPlayerId !== player.id) {
         return NextResponse.json({ error: "You can only change your own card." }, { status: 403 });
@@ -333,7 +333,7 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      await setCardSection(session.code, cardId, body.disputed ? DISPUTED_SECTION : null);
+      await setCardSection(session.code, cardId, body.disputed ? LEGACY_DISPUTED_SECTION : null);
       return NextResponse.json({ ok: true, disputed: body.disputed });
     }
 

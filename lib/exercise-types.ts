@@ -156,14 +156,14 @@ const IMPLICATIONS_SECTIONS: WorksheetSection[] = [
 // "removed block" heading rather than vanishing.
 const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 
-// --- Commitments (Week 4), the six-activity shape -----------------------------
-// SIX ACTIVITIES, AND ONLY THREE OF THEM ASK FOR WRITING. Acts 1, 3 and 5 ride the
-// ordinary section substrate, the same hybrid Week 2 uses for its Sandbox, and for the
-// same reason: a facilitator can reword these prompts, add one or drop one, in the program
-// editor with no deploy. Acts 2, 4 and 6 are boards — the group's answer there is what it
-// stars, writes on a card, or sharpens, NOT a paragraph it types. Their discussion prompts
-// are guidance and live in each board's `Directions` fold, which is why they appear
-// nowhere in this file.
+// --- Commitments (Week 4, "Session 4 · Synthesis"), the six-activity shape -----------
+// SIX ACTIVITIES, AND THE FREE TEXT RIDES THE SECTION SUBSTRATE. Four prose fields are
+// authored sections, the same hybrid Week 2 uses for its Sandbox, and for the same reason:
+// a facilitator can reword them in the program editor with no deploy, and every reader
+// (the admin viewer, the CSV, the handoff deck) picks them up through `commitmentsStepOf`
+// without being taught about each one. Everything else on the week is a card of a kind:
+// scored picks, outcomes under picks, responses under outcomes, bold moves with their
+// three fields. See lib/commitments-shape for that side.
 //
 // `step` buckets a section onto a tab. Sections sharing a step render as one flat stack,
 // and anything an admin adds with no step falls to act 1, which is where a stray extra
@@ -171,16 +171,17 @@ const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 //
 // KEYS ARE PERMANENT ids written onto every answer card's `section` — never rename one.
 // The LABEL is the editable part. `aspiration-statement`, `aspiration-serves`,
-// `aspiration-holds`, `handoff-committee-line`, `w4-summary`, `w4-assumptions` and
-// `w4-bold-moves` are RETIRED, not reused. The last three retired when the week moved to
-// the six-activity agenda: act 1 now asks what needs attention rather than restating
-// Week 2's key changes, and the bold moves became act 6's structured directions, which are
-// cards rather than prose. Any card still carrying a retired key surfaces in the admin
-// viewer under a "removed block" heading rather than vanishing.
+// `aspiration-holds`, `handoff-committee-line`, `w4-summary`, `w4-assumptions`,
+// `w4-bold-moves`, `w4-attention`, `w4-keep-in-mind` and `w4-outcomes` are RETIRED, not
+// reused. The last three retired when the week was realigned to the screenshot design:
+// act 1's two required prompts became one optional notes box, and desired outcomes became
+// cards under the priority they are written for. Any card still carrying a retired key
+// surfaces in the admin viewer under a "removed block" heading rather than vanishing.
 //
 // `question` rather than `brainstorm` because each prompt accumulates short answers, one
-// card each: three people in a breakout have three readings and all three belong on the
-// sheet. Migration 0027 is the record of what forcing one answer per question cost.
+// card each. The three single-statement fields (the overlook note, the vision, how the
+// moves work together) are rendered by the board as ONE box editing the first answer, and
+// any extra answer an admin adds by hand is shown under it rather than hidden.
 
 // THESE STRINGS ARE STORED DATA, not labels. A section's `step` is persisted in
 // design_group_exercises.sections (jsonb) the moment an admin edits a week or stamps a
@@ -199,8 +200,10 @@ const SYNTHESIS_SECTIONS: WorksheetSection[] = [];
 export const COMMITMENTS_STEP_CHANGES = "Key changes";
 export const COMMITMENTS_STEP_MOVES = "Bold moves";
 export const COMMITMENTS_STEP_RECONNECT = "Reconnect";
+export const COMMITMENTS_STEP_PRIORITIZE = "Prioritize";
 export const COMMITMENTS_STEP_OUTCOMES = "Desired outcomes";
 export const COMMITMENTS_STEP_VISION = "Set the vision";
+export const COMMITMENTS_STEP_DIRECTIONS = "Three bold moves";
 // The vision's section key. Exported because a key is the stable thing to match on when
 // anything needs THIS prompt rather than whatever happens to sit on its tab — the deck
 // buckets by `commitmentsStepOf` now, but the stamper and the tests still name it, and the
@@ -212,41 +215,40 @@ export const COMMITMENTS_STEP_VISION = "Set the vision";
 export const COMMITMENTS_KEY_VISION = "w4-role";
 /** @deprecated Use {@link COMMITMENTS_KEY_VISION}; same key, current name. */
 export const COMMITMENTS_KEY_ROLE = COMMITMENTS_KEY_VISION;
-export const COMMITMENTS_KEY_OUTCOMES = "w4-outcomes";
+// The other three, matched by identity wherever a board needs THIS box rather than
+// whatever sits on its tab.
+export const COMMITMENTS_KEY_NOTES = "w4-notes";
+export const COMMITMENTS_KEY_OVERLOOK = "w4-overlook";
+export const COMMITMENTS_KEY_TOGETHER = "w4-together";
 
 const COMMITMENTS_SECTIONS: WorksheetSection[] = [
   {
-    key: "w4-attention",
+    key: COMMITMENTS_KEY_NOTES,
     kind: "question",
     step: COMMITMENTS_STEP_RECONNECT,
-    label: "What most needs our attention in this future?",
-    help: "We aren't looking for how the world has changed, but instead looking for what has changed about the world that public health needs to prioritize and act on.",
+    label: "Discussion notes",
+    help: "Capture anything the group wants to carry into today's discussion. Optional: a brief discussion is enough.",
   },
   {
-    key: "w4-keep-in-mind",
+    key: COMMITMENTS_KEY_OVERLOOK,
     kind: "question",
-    step: COMMITMENTS_STEP_RECONNECT,
-    label: "What is happening in this world that we need to keep in mind today?",
-    help: "What has already started happening in this world faster than expected? What is happening now that we are missing?",
-  },
-  {
-    key: COMMITMENTS_KEY_OUTCOMES,
-    kind: "question",
-    step: COMMITMENTS_STEP_OUTCOMES,
-    label:
-      "Looking at your priorities and hopes, what do you want public health to make possible for communities in this future?",
-    help: "Write what would be different for communities if public health did its job well here.",
-    produces: "One or two desired outcomes for each of your top priorities.",
+    step: COMMITMENTS_STEP_PRIORITIZE,
+    label: "Anything else we should not overlook?",
+    help: "Note an important disputed issue and the different views. Optional.",
   },
   {
     key: COMMITMENTS_KEY_VISION,
     kind: "question",
     step: COMMITMENTS_STEP_VISION,
-    label: "What future do you want to work toward?",
-    help: "Looking across our desired outcomes and response ideas, what future do we want to work toward? What would be different for communities because public health acted; what is public health making possible?",
-    test: "Pressure test: Is this worth achieving for people? Does it respond to the particular conditions of our scenario?",
-    produces:
-      "Give us a short aspirational statement that responds to the challenges of the scenario.",
+    label: "Our vision",
+    help: "Describe what public health becomes and what that makes possible for communities. Two to three sentences the whole group agrees on.",
+  },
+  {
+    key: COMMITMENTS_KEY_TOGETHER,
+    kind: "question",
+    step: COMMITMENTS_STEP_DIRECTIONS,
+    label: "How do the three moves work together?",
+    help: "Explain how they support one another and make the vision possible.",
   },
 ];
 
@@ -267,13 +269,21 @@ const COMMITMENTS_SECTIONS: WorksheetSection[] = [
 //
 // UNKNOWN AND ABSENT STEPS FALL TO ACT 1. An admin typing a new tab name in the program
 // editor gets a question on the first tab rather than a question that renders nowhere.
-export const COMMITMENTS_SECTION_STEPS = ["reconnect", "outcomes", "vision"] as const;
+export const COMMITMENTS_SECTION_STEPS = [
+  "reconnect",
+  "prioritize",
+  "outcomes",
+  "vision",
+  "directions",
+] as const;
 export type CommitmentsSectionStep = (typeof COMMITMENTS_SECTION_STEPS)[number];
 
 const COMMITMENTS_STEP_BY_STORED: Record<string, CommitmentsSectionStep> = {
   [COMMITMENTS_STEP_RECONNECT]: "reconnect",
+  [COMMITMENTS_STEP_PRIORITIZE]: "prioritize",
   [COMMITMENTS_STEP_OUTCOMES]: "outcomes",
   [COMMITMENTS_STEP_VISION]: "vision",
+  [COMMITMENTS_STEP_DIRECTIONS]: "directions",
   // Pre-rebuild data. See the header above for why these two still resolve.
   [COMMITMENTS_STEP_CHANGES]: "reconnect",
   [COMMITMENTS_STEP_MOVES]: "vision",
@@ -322,7 +332,7 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   // Four code-driven steps on one board.
   synthesis: {
     id: "synthesis",
-    label: "Synthesis (Cluster, Exploration, Hopes & Fears, Flip)",
+    label: "Themes and Implications (Cluster, Exploration, Hopes & Fears, Flip)",
     render: "synthesis",
     boardBacked: true,
     sections: SYNTHESIS_SECTIONS,
@@ -333,7 +343,7 @@ export const EXERCISE_TYPES: Record<string, ExerciseType> = {
   // steps 2, 3 and 5 are code, all on one board.
   commitments: {
     id: "commitments",
-    label: "Commitments (Structure & assumptions, Matrix, Responses, Identity & direction)",
+    label: "Synthesis (Priorities, Outcomes, Responses, Vision, Bold moves)",
     render: "commitments",
     boardBacked: true,
     sections: COMMITMENTS_SECTIONS,
@@ -486,8 +496,8 @@ export interface ProgramWeek {
 export const DEFAULT_PROGRAM: ProgramWeek[] = [
   { sort: 0, type: "scenario-assessment", title: "Session 1 · Scenario Assessment" },
   { sort: 1, type: "implications", title: "Session 2 · Implication Mapping" },
-  { sort: 2, type: "synthesis", title: "Session 3 · Synthesis" },
-  { sort: 3, type: "commitments", title: "Session 4 · Commitments" },
+  { sort: 2, type: "synthesis", title: "Session 3 · Themes and Implications" },
+  { sort: 3, type: "commitments", title: "Session 4 · Synthesis" },
 ];
 
 // A CanonicalWeek is the group-AGNOSTIC content of one program week — the single thing

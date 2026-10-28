@@ -1,60 +1,58 @@
-// Client-safe types + pure helpers for Session 4, the COMMITMENTS board.
+// Client-safe types + pure helpers for Session 4, the SYNTHESIS board (internally still
+// "commitments": the render key, the card kinds and this module keep that name because it is
+// stored data and a rename would touch every row).
 // No server imports — safe in client components, route handlers, and tests.
 //
-// The week, in six activities: the group reconnects with the scenario, picks three
-// PRIORITIES off Session 3's risk and opportunity walls, says what outcomes it wants,
-// opens a wall of strategic responses, sets a VISION, then WRITES three DIRECTIONS and
-// sharpens each with three further answers.
+// The week, in six activities over three steps:
+//
+//   1.1 Reconnect              optional discussion notes against the scenario and Session 3
+//   1.2 Prioritize             Session 3's risks and opportunities scored on impact and
+//                              likelihood; the scores SUGGEST three, the group CONFIRMS them
+//   2.1 Desired outcomes       one or two outcomes written under each priority
+//   2.2 Strategic responses    response ideas written under each outcome
+//   3.1 Vision                 one statement the group agrees on
+//   3.2 Three bold moves       three recommendations, each explained by three questions
 //
 // Where each activity's work actually lives:
 //
-//   act 1 — authored worksheet sections ("what most needs our attention", "what to keep in
-//           mind"), so their answers are ordinary STICKY cards carrying a section key.
-//   act 2 — `pick` cards, ROOTS carrying a `source_card_id` pointing at the Session 3 risk
-//           or opportunity they bring onto this board. WHICH ONES ARE PRIORITIES IS NOT
-//           STORED: it is the top of the ranking, read back by `priorities()`. The one
-//           marker that IS stored rides on the pick rather than being a card of its own,
-//           because 0018's unique (code, source_card_id) allows exactly one card per
-//           source:
-//             · `section === DISPUTED_SECTION`  → still disputed; why is in `description`
-//           It is independent of the ranking: a priority may also be disputed, and the
-//           issue a room cannot agree on is often the one it scored low.
-//           (`shortlisted` was the priority marker, set by a star on the matrix. The star
-//           is gone — see `priorities()` — and the column means nothing on a pick now.)
-//   act 3 — an authored section (`w4-outcomes`). Flat, with the priorities shown as
-//           context rather than nested under them.
-//   act 4 — `response` cards, tree roots, one per strategic response.
-//   act 5 — an authored section (`w4-role`, labelled "Set the vision").
-//   act 6 — a `direction` ROOT card per recommendation, its `text` the move itself, with
-//           three `sharpen` children carrying the further questions, the field in
-//           `section` (DIRECTION_FIELDS).
-//
-//           WRITTEN, NOT PICKED. An earlier shape made a direction a `response` carrying
-//           `shortlisted`, so act 4's wall was the menu act 6 chose from. On a finished
-//           board that left no way to tell where the three had come from or why those
-//           three — the thing the activity exists to make explicit. The wall is context in
-//           the rail now, which is what it always was.
+//   1.1 — an authored worksheet section (`w4-notes`), so its answers are ordinary STICKY
+//         cards carrying the section key.
+//   1.2 — `pick` cards, ROOTS carrying a `source_card_id` pointing at the Session 3 risk or
+//         opportunity they bring onto this board. 0018's unique (code, source_card_id)
+//         allows exactly one card per source, so everything act 2 says about an issue rides
+//         on its pick:
+//           · `plausibility` / `impact`  → the two scores (likelihood is stored as
+//                                          plausibility; only the label differs from Week 2)
+//           · `shortlisted`              → CONFIRMED as one of the three priorities
+//           · `description`              → why it needs attention
+//         Which three are the priorities is `prioritySlots()`: confirmed picks first, then
+//         the highest-scoring unconfirmed picks fill the remaining slots as SUGGESTIONS.
+//         The optional "anything else we should not overlook" is an authored section
+//         (`w4-overlook`) on the same tab.
+//   2.1 — `outcome` cards, SECOND under the pick they are written for. Many per pick.
+//   2.2 — `response` cards, TERMINAL under the outcome they advance. A ROOT response is
+//         legacy data from the untagged wall and still reads (`looseResponses`).
+//   3.1 — an authored section (`w4-role`, labelled "Our vision"), rendered as ONE statement.
+//   3.2 — a `direction` ROOT card per bold move, its `text` the move itself, with three
+//         `sharpen` children carrying the further questions, the field in `section`
+//         (DIRECTION_FIELDS). "How the three moves work together" is an authored section
+//         (`w4-together`) on the same tab.
 //
 // THE AUTHORED SECTIONS ARE DELIBERATELY ABSENT FROM THIS MODULE. Their wording lives in
 // the exercise's `sections` column and is editable in the admin block editor with no
 // deploy; the answers are read by buildQuestions / WorksheetSections' own bySection.
-// Teaching this module about them would pull that wording into code and undo the point.
 //
-// NOTHING ON AN EARLIER BOARD IS MUTATED. A star on a Session 3 risk is derived from a
+// NOTHING ON AN EARLIER BOARD IS MUTATED. A priority on a Session 3 risk is derived from a
 // pick here, not stored there — which is why the handoff deck can render one without
 // Session 4 ever touching Session 3's cards.
 //
-// `milestone` and `settled` belong to retired steps (the backcast timeline, the old
-// handoff). Their shaping stays so a board worked under the old structure still reads; the
-// deck gates them behind SHOW_BACKCASTING / SHOW_UNSETTLED.
+// RETIRED, STILL READ. `w4-disputed` in a pick's `section` was act 2's "still disputed"
+// flag before the overlook field replaced it; `milestone` and `settled` belong to the
+// backcast timeline and the old handoff step. Their shaping stays so a board worked under
+// an older shape still reads; the deck gates them behind SHOW_BACKCASTING / SHOW_UNSETTLED.
 
 import { isTreeRoot, type RippleCard } from "@/lib/ripples-types";
-import {
-  cardScores,
-  compareByRank,
-  rankValue,
-  topScoredWithTies,
-} from "@/lib/ripples-scoring";
+import { compareByRank, rankValue } from "@/lib/ripples-scoring";
 
 // ---------------------------------------------------------------------------
 // The timeline's periods
@@ -113,24 +111,30 @@ export function isCommitmentPeriod(v: unknown): v is PeriodKey {
 // it is nothing. Here so the composer and the step header ask it in the same words.
 export const DIRECTION_MOVE = {
   label: "The move",
-  prompt: "What should change?",
+  prompt: "What strategic direction, initiative, or action do you recommend?",
+  placeholder: "Write your recommendation…",
 } as const;
+
+// One placeholder for the three explaining fields; the prompts differ, the box does not.
+export const DIRECTION_FIELD_PLACEHOLDER = "Add a brief explanation…";
 
 export const DIRECTION_FIELDS = [
   {
     key: "w4-dir-purpose",
     label: "The purpose",
-    prompt: "Which priority and desired outcome does it address?",
+    prompt: "Which part of the vision does it advance?",
   },
   {
     key: "w4-dir-rationale",
     label: "The rationale",
-    prompt: "Why does it make sense under these scenario conditions?",
+    prompt:
+      "If successful, how would this change how public health works or what it makes possible in this scenario?",
   },
   {
     key: "w4-dir-requirements",
     label: "The requirements",
-    prompt: "What would need to change from today, or be in place, for it to work?",
+    prompt:
+      "What roles, capabilities, relationships, or other conditions would need to change or be in place for it to work?",
   },
 ] as const;
 
@@ -147,16 +151,53 @@ export function isDirectionField(v: unknown): v is DirectionFieldKey {
 }
 
 // ---------------------------------------------------------------------------
-// Act 2 — the disputed marker
+// Act 2 — the retired disputed marker
 // ---------------------------------------------------------------------------
-// "Note any consequential issue where disagreement remains." A dispute is not a card of
-// its own: 0018's unique (code, source_card_id) permits exactly ONE card per Session 3
-// source, and that card is the pick. So the mark rides on the pick, in `section`.
+// Before the "anything else we should not overlook" field, act 2 let a group flag a pick as
+// still disputed by writing this into its `section`. Nothing writes it any more. It is kept
+// so a board worked under that shape still reads: `disputed()` below and the admin viewer
+// print a legacy flag rather than losing it.
 //
 // A THIRD code-owned use of `ripple_cards.section`, alongside PERIODS and DIRECTION_FIELDS.
 // Safe for the same reason they are: every reader of worksheet sections filters on
 // `order === "STICKY"` first, and a pick is never a sticky.
-export const DISPUTED_SECTION = "w4-disputed";
+export const LEGACY_DISPUTED_SECTION = "w4-disputed";
+
+// ---------------------------------------------------------------------------
+// Act 2 — the two scales, as this week names them
+// ---------------------------------------------------------------------------
+// THE STORED AXIS IS STILL `plausibility`. Week 2 scored its key changes on plausibility and
+// impact and the column, the score route and ImpactMatrix all say so. Session 4 asks the
+// same two questions in different words — "likelihood" reads better for a risk than
+// "plausibility" does — so only the LABELS change, here, and Week 2's AXIS_LABELS /
+// AXIS_ENDS in lib/ripples-scoring stay as they are.
+export const PRIORITY_AXIS_LABELS = {
+  plausibility: "Likelihood",
+  impact: "Impact",
+} as const;
+
+export const PRIORITY_AXIS_ENDS = {
+  plausibility: { low: "Very unlikely", high: "Very likely" },
+  impact: { low: "Small", high: "Very large" },
+} as const;
+
+// What each scale asks, and the word for every point on it, for the definition boxes above
+// the walls. Ordered 1 to 5.
+export const PRIORITY_SCALES = [
+  {
+    axis: "impact",
+    label: "Impact",
+    question:
+      "How much would this affect communities, public health institutes, or public health's ability to act?",
+    words: ["Small", "Limited", "Moderate", "Large", "Very large"],
+  },
+  {
+    axis: "plausibility",
+    label: "Likelihood",
+    question: "If this scenario came to pass, how likely would this risk or opportunity be?",
+    words: ["Very unlikely", "Unlikely", "Neither likely nor unlikely", "Likely", "Very likely"],
+  },
+] as const;
 
 
 // ---------------------------------------------------------------------------
@@ -205,7 +246,15 @@ export const PLACED_FLOOR_PER_KIND = 5;
 // The board
 // ---------------------------------------------------------------------------
 export interface CommitmentsBoard {
-  responses: RippleCard[]; // kind 'response', tree roots, not parked — step 2's wall
+  // EVERY live response, nested or not, in board order: the legacy roots first, then each
+  // outcome's in outcome order. Counts, the rail and the CSV read the whole pool here.
+  responses: RippleCard[];
+  // Act 2.2's shape. A response is written under the outcome it advances; `looseResponses`
+  // are ROOT responses from boards worked before that, still shown rather than lost.
+  responsesByOutcome: Map<string, RippleCard[]>; // outcomeId → its responses
+  looseResponses: RippleCard[];
+  // Act 2.1. pickId → the desired outcomes written for that priority, in order.
+  outcomes: Map<string, RippleCard[]>;
   boldMoves: RippleCard[]; // the shortlisted responses, in wall order — step 3's picks
   // responseId → period → its milestones. Keyed by EVERY live response, not only the bold
   // moves: un-ticking a move must not strand its milestones, and re-ticking it must bring
@@ -242,15 +291,22 @@ const byOrder = (a: RippleCard, b: RippleCard) =>
 // That is the same contract indexSynthesisBoard's `orphans` carries, and it is why the write
 // routes refuse an unknown period with a 400 rather than storing null.
 export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
-  const responses: RippleCard[] = [];
+  const looseResponses: RippleCard[] = [];
   const directions: RippleCard[] = [];
   const parked: RippleCard[] = [];
   const orphans: RippleCard[] = [];
-  // Flat first, bucketed into periods only once we know which parents are live.
+  // Flat first, bucketed only once we know which parents are live.
   const byParent = new Map<string, RippleCard[]>();
   const sharpenByParent = new Map<string, RippleCard[]>();
+  const outcomesByParent = new Map<string, RippleCard[]>();
+  const responsesByParent = new Map<string, RippleCard[]>();
   const pickRows: RippleCard[] = [];
   const settledRows: RippleCard[] = [];
+  const push = (m: Map<string, RippleCard[]>, k: string, c: RippleCard) => {
+    const arr = m.get(k);
+    if (arr) arr.push(c);
+    else m.set(k, [c]);
+  };
 
   for (const c of cards) {
     // Step 1's answers live on the sections, not here. See the header.
@@ -260,9 +316,17 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
       continue;
     }
     if (c.cardKind === "response") {
-      // A response is the wall's own card; hung off something it is not a response to
-      // anything this board draws.
-      if (isTreeRoot(c)) responses.push(c);
+      // Under the outcome it advances, or a ROOT from the untagged wall this week used to
+      // have. Anything else is a response to nothing this board draws.
+      if (isTreeRoot(c)) looseResponses.push(c);
+      else if (c.parentId) push(responsesByParent, c.parentId, c);
+      else orphans.push(c);
+      continue;
+    }
+    if (c.cardKind === "outcome") {
+      // Written FOR a priority, so it has to hang off a pick. Whether that pick is live is
+      // settled below, once the picks are indexed.
+      if (c.parentId) push(outcomesByParent, c.parentId, c);
       else orphans.push(c);
       continue;
     }
@@ -307,12 +371,12 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
     orphans.push(c);
   }
 
-  responses.sort(byOrder);
+  looseResponses.sort(byOrder);
 
   // Reachability. Being in `byParent` is not the same as being reachable: a milestone under
   // a parked or deleted response, or under another milestone, sits under a parent no lane
   // ever walks to.
-  const live = new Set(responses.map((r) => r.id));
+  const live = new Set(looseResponses.map((r) => r.id));
   const milestones = new Map<string, Map<PeriodKey, RippleCard[]>>();
   for (const [parentId, arr] of byParent) {
     if (!live.has(parentId)) {
@@ -359,7 +423,7 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
   }
 
   // The picks, in the wall's own order, so a lane's position matches its card's.
-  const boldMoves = responses.filter((r) => r.shortlisted);
+  const boldMoves = looseResponses.filter((r) => r.shortlisted);
 
   // Newest wins if a source somehow carries two marks, and the LOSER GOES TO ORPHANS rather
   // than nowhere. 0018's unique (code, source_card_id) makes this unreachable from the UI,
@@ -378,10 +442,47 @@ export function indexCommitmentsBoard(cards: RippleCard[]): CommitmentsBoard {
   const picks = index(pickRows);
   const settled = index(settledRows);
 
+  // Act 2.1's outcomes, under a LIVE pick. A pick is live once it is in `picks`; an outcome
+  // under anything else — a deleted pick, a response, a direction — is filed nowhere a
+  // step walks to, so it is an orphan.
+  const livePicks = new Set([...picks.values()].map((p) => p.id));
+  const outcomes = new Map<string, RippleCard[]>();
+  for (const [parentId, arr] of outcomesByParent) {
+    if (!livePicks.has(parentId)) {
+      orphans.push(...arr);
+      continue;
+    }
+    outcomes.set(parentId, arr.sort(byOrder));
+  }
+
+  // Act 2.2's responses, under a live outcome, in the same contract.
+  const liveOutcomes = new Set([...outcomes.values()].flat().map((o) => o.id));
+  const responsesByOutcome = new Map<string, RippleCard[]>();
+  for (const [parentId, arr] of responsesByParent) {
+    if (!liveOutcomes.has(parentId)) {
+      orphans.push(...arr);
+      continue;
+    }
+    responsesByOutcome.set(parentId, arr.sort(byOrder));
+  }
+
+  // The whole pool, in a stable order: legacy roots first, then each priority's outcomes'
+  // responses in pick order. `priorities()` is not consulted here on purpose — the pool is
+  // every response the group wrote, whatever the ranking does afterwards.
+  const responses: RippleCard[] = [...looseResponses];
+  for (const pick of [...picks.values()].sort(byOrder)) {
+    for (const o of outcomes.get(pick.id) ?? []) {
+      responses.push(...(responsesByOutcome.get(o.id) ?? []));
+    }
+  }
+
   orphans.sort(byOrder);
 
   return {
     responses,
+    responsesByOutcome,
+    looseResponses,
+    outcomes,
     directions,
     boldMoves,
     milestones,
@@ -463,49 +564,111 @@ export function canAddDirection(board: CommitmentsBoard): boolean {
   return board.directions.length < MAX_DIRECTIONS;
 }
 
-// --- act 2: priorities, and what is still disputed --------------------------------------
+// --- act 2: priorities ---------------------------------------------------------------
 export function isPicked(board: CommitmentsBoard, sourceId: string): boolean {
   return board.picks.has(sourceId);
 }
 
+// One of the three slots on the "confirm your three priorities" panel.
+//
+// `confirmed` is the group's choice, stored as `shortlisted` on the pick. `suggested` is
+// the scores' choice, derived: the highest-ranked picks that are not confirmed, filling
+// whatever slots the confirmed ones leave. The panel shows both, labelled, and the group
+// keeps or replaces each suggestion until all three are its own.
+export type PrioritySlot = { card: RippleCard; status: "confirmed" | "suggested" };
+
 /**
- * The group's priorities: the highest-scoring issues on the matrix, strongest first.
+ * The three priorities, confirmed first and strongest first within each group.
  *
- * DERIVED, NOT CHOSEN. This was a manual star, and the star was a second mechanism that
- * could disagree with the scores — a group would score "shut out of the system" 5×5 and
- * still see a 3×4 in the rail because that was what somebody had clicked. The scoring step
- * IS the prioritising step, so there is nothing left to click: score the walls and the
- * three fall out. (`shortlisted` on a pick is now dead for priorities; it still carries
- * act 6's directions, which really are a choice.)
+ * SCORES SUGGEST, THE GROUP CONFIRMS. An earlier shape read the three straight off the
+ * ranking, which meant a group could never say "this 3x4 matters more to us than that 4x4"
+ * without re-scoring a card it had scored honestly. The shape before THAT was a bare star
+ * that could disagree with the scores on the same row. This is the middle: the ranking
+ * fills the slots so nobody starts from nothing, and confirming or replacing is one click.
  *
- * MORE THAN THREE WHEN THE SCORES TIE, and FEWER THAN THREE before the walls are scored —
- * see topScoredWithTies. A half-scored issue has no defensible place on the matrix and so
- * none at the top of it either.
+ * FEWER THAN THREE before anything is scored (an unscored pick is never suggested), and
+ * MORE THAN THREE only if more than three are confirmed, which the panel reports rather
+ * than hides. Ties are not extended: a suggestion is a suggestion, and the group settles
+ * a dead heat by confirming one of them.
  */
+export function prioritySlots(board: CommitmentsBoard): PrioritySlot[] {
+  const all = [...board.picks.values()];
+  const confirmed = all.filter((p) => p.shortlisted).sort(compareByRank);
+  const room = Math.max(0, MAX_PRIORITIES - confirmed.length);
+  const suggested = all
+    .filter((p) => !p.shortlisted && rankValue(p) !== null)
+    .sort(compareByRank)
+    .slice(0, room);
+  return [
+    ...confirmed.map((card) => ({ card, status: "confirmed" as const })),
+    ...suggested.map((card) => ({ card, status: "suggested" as const })),
+  ];
+}
+
+/** The priorities as cards, slot order. Every reader of "the three" goes through this. */
 export function priorities(board: CommitmentsBoard): RippleCard[] {
-  const ranked = [...board.picks.values()].sort(compareByRank);
-  return topScoredWithTies(ranked, MAX_PRIORITIES, (c) => ({
-    value: rankValue(c),
-    impact: cardScores(c).impact,
-  }));
+  return prioritySlots(board).map((s) => s.card);
 }
 
 export function isPriority(board: CommitmentsBoard, sourceId: string): boolean {
   return priorities(board).some((p) => p.sourceCardId === sourceId);
 }
 
+/** Scored picks not currently in a slot: what "Replace" offers. Strongest first. */
+export function replaceCandidates(board: CommitmentsBoard): RippleCard[] {
+  const slotted = new Set(priorities(board).map((p) => p.id));
+  return [...board.picks.values()]
+    .filter((p) => !slotted.has(p.id) && rankValue(p) !== null)
+    .sort(compareByRank);
+}
+
 /**
- * Picks the group flagged as still disputed. Independent of `priorities` — an issue can be
- * both, and the most interesting ones usually are.
+ * Picks flagged as still disputed under the RETIRED shape. Nothing writes this flag any
+ * more; it is read so a board worked before the overlook field still shows what it said.
  */
 export function disputed(board: CommitmentsBoard): RippleCard[] {
   return [...board.picks.values()]
-    .filter((p) => p.section === DISPUTED_SECTION)
+    .filter((p) => p.section === LEGACY_DISPUTED_SECTION)
     .sort(byOrder);
 }
 
 export function isDisputed(board: CommitmentsBoard, sourceId: string): boolean {
-  return board.picks.get(sourceId)?.section === DISPUTED_SECTION;
+  return board.picks.get(sourceId)?.section === LEGACY_DISPUTED_SECTION;
+}
+
+// --- act 2.1 and 2.2: outcomes under priorities, responses under outcomes ---------------
+export function outcomesFor(board: CommitmentsBoard, pickId: string): RippleCard[] {
+  return board.outcomes.get(pickId) ?? [];
+}
+
+export function responsesFor(board: CommitmentsBoard, outcomeId: string): RippleCard[] {
+  return board.responsesByOutcome.get(outcomeId) ?? [];
+}
+
+/** Every outcome under a current priority, in slot order then board order. */
+export function allOutcomes(board: CommitmentsBoard): RippleCard[] {
+  return priorities(board).flatMap((p) => outcomesFor(board, p.id));
+}
+
+/**
+ * Outcomes written under a pick that is no longer one of the three. Not orphans: the cards
+ * are intact and come back the moment that issue is a priority again. Reported so act 2.1
+ * can say "no longer a priority" rather than lose the group's writing silently.
+ */
+export function strayOutcomes(board: CommitmentsBoard): { pick: RippleCard; outcomes: RippleCard[] }[] {
+  const slotted = new Set(priorities(board).map((p) => p.id));
+  const out: { pick: RippleCard; outcomes: RippleCard[] }[] = [];
+  for (const pick of [...board.picks.values()].sort(byOrder)) {
+    if (slotted.has(pick.id)) continue;
+    const outcomes = outcomesFor(board, pick.id);
+    if (outcomes.length > 0) out.push({ pick, outcomes });
+  }
+  return out;
+}
+
+/** How many of the current priorities carry at least one outcome. */
+export function outcomeCoverage(board: CommitmentsBoard): number {
+  return priorities(board).filter((p) => outcomesFor(board, p.id).length > 0).length;
 }
 
 // An earlier uncertainty is STILL OPEN unless the group has said otherwise. The default

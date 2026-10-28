@@ -10,6 +10,8 @@ import {
 import {
   DIRECTION_FIELDS,
   indexCommitmentsBoard,
+  outcomeCoverage,
+  outcomesFor,
   priorities,
   sharpenFor,
 } from "@/lib/commitments-shape";
@@ -89,8 +91,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
     // Bucketed by the step registry, the same one the board uses, so this route and the
     // board can never disagree about which tab a prompt belongs to.
     const groundingSecs = commitmentsSectionsFor(sections, "reconnect");
-    const outcomeSecs = commitmentsSectionsFor(sections, "outcomes");
+    const overlookSecs = commitmentsSectionsFor(sections, "prioritize");
     const visionSecs = commitmentsSectionsFor(sections, "vision");
+    const togetherSecs = commitmentsSectionsFor(sections, "directions");
     const answered = (specs: typeof sections) =>
       specs.filter((sec) =>
         cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
@@ -98,17 +101,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
     const board = indexCommitmentsBoard(cards);
 
     // Re-checked server-side. The UI hides the button, but the button is not the rule.
+    // The same inputs the board feeds the gate, from the same selectors.
     const readiness = execSummaryReadiness({
-      grounding: answered(groundingSecs),
-      groundingTotal: groundingSecs.length,
       priorities: priorities(board).length,
-      outcomes: answered(outcomeSecs),
-      outcomesTotal: outcomeSecs.length,
+      prioritiesWithOutcomes: outcomeCoverage(board),
       responses: board.responses.length,
       vision: answered(visionSecs),
-      visionTotal: visionSecs.length,
       directions: board.directions.length,
-      });
+    });
     if (!readiness.ready) {
       return NextResponse.json(
         { error: `Finish these first: ${readiness.missing.join(", ")}.`, missing: readiness.missing },
@@ -130,12 +130,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
     // material and nothing else. It is all local work over cards already in hand.
     const material: ExecSummaryInput = {
       scenarioTitle: session.prompt ?? "",
-      // The model gets what the group WROTE: the grounding it set out with, the outcomes
-      // it wants and the vision it is working toward. The priorities arrive through
-      // `stakes` below, which carries the same picks; the directions have a field of their
-      // own, because nothing else on this board holds them.
-      changes: [...answersFor(groundingSecs), ...answersFor(outcomeSecs)],
-      role: answersFor(visionSecs),
+      // The model gets what the group WROTE: its notes, the overlook note, each priority's
+      // desired outcomes (as one block per priority), then the vision and how the moves
+      // work together. The priorities arrive through `stakes` below, which carries the
+      // same picks; the directions have a field of their own.
+      changes: [
+        ...answersFor(groundingSecs),
+        ...answersFor(overlookSecs),
+        ...priorities(board)
+          .map((p) => ({
+            label: `Desired outcomes: ${p.text.trim()}`,
+            answers: outcomesFor(board, p.id).map((o) => o.text.trim()).filter(Boolean),
+          }))
+          .filter((b) => b.answers.length > 0),
+      ],
+      role: [...answersFor(visionSecs), ...answersFor(togetherSecs)],
       // Session 2's key changes reach this board as seeded copies carrying sourceLabel.
       keyChanges: cards
         .filter((c) => isTreeRoot(c) && c.sourceLabel && c.text.trim())

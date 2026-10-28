@@ -11,10 +11,10 @@ import { makePrefStore } from "@/components/workshop/synthesis/prefStore";
 // Then a model-drafted lead with a shorter read-back beneath it. Both opened on something
 // other than what the group had decided.
 //
-// IT NOW OPENS ON THE CLAIM. Session 4's two closing answers — the role, and the moves that
-// get there — then one optional box for anything the four steps did not ask. The ranked
-// read-back is gone entirely: the deck is the place to read the week back, and the Preview
-// button a few inches down opens it.
+// IT IS NOW THE WAY OUT AND NOTHING ELSE: preview the deck, press Submit. The optional
+// note to the committee moved to the foot of act 3.2 with the realignment to the
+// screenshot design, and the ranked read-back is gone entirely: the deck is the place to
+// read the week back, and the Preview button opens it.
 //
 // SUBMIT LOCKS NOTHING. The board is as editable the moment after as the moment before, so
 // a group that spots a typo in its own handoff can fix it without asking anyone to unlock
@@ -160,7 +160,6 @@ function SubmitBar({
 
 export function ReviewBoard({
   summaryHref,
-  composer,
   submittedAt,
   submittedBy,
   editable,
@@ -169,9 +168,6 @@ export function ReviewBoard({
   onUndo,
 }: {
   summaryHref?: string;
-  // Built by CommitmentsTeamView, which is the only thing holding the board state the
-  // readiness check needs. Passed as a node so this panel stays a layout.
-  composer?: React.ReactNode;
   submittedAt: string | null;
   submittedBy: string | null;
   editable: boolean;
@@ -181,14 +177,12 @@ export function ReviewBoard({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      {/* STRAIGHT TO THE ONE THING LEFT TO WRITE. This step has been through four shapes:
-          a thirteen-row read-back under two action cards, a model-drafted lead, the week's
-          two closing answers, and then the vision beside the three directions. Every one
-          of them opened on a read-back of work the group had just done on the step before,
-          which is reading rather than deciding — and by act 6 the deck is one click away
-          and does it better. What is left is the optional box and the way out. */}
-      {composer}
-
+      {/* PREVIEW AND SUBMIT, nothing else. This step has been through five shapes: a
+          thirteen-row read-back under two action cards, a model-drafted lead, the week's
+          two closing answers, the vision beside the three directions, and then the
+          steering-committee note above the submit bar. The note now sits at the foot of
+          act 3.2, where the screenshot design puts it; by here the deck is one click away
+          and reads the week better than any panel on this step did. */}
       {/* ONE BOX, not two. Finishing and looking at the result are the same moment, and as
           separate cards at the top of the page they competed with each other and with the
           writing. */}

@@ -25,11 +25,23 @@ export default function ExecSummaryComposer({
   override,
   canEdit,
   onStored,
+  heading = "Additional thoughts for the steering committee",
+  intro = "Anything about this scenario the activities did not ask you: a caveat, a disagreement worth recording, something you would want read alongside the rest. Optional: leave it empty if the steps have said it all.",
+  placeholder,
+  plain = false,
 }: {
   sessionCode: string;
   participantId: string;
   override: ExecSummaryOverride | null;
   canEdit: boolean;
+  // The box's heading, blurb and placeholder. Act 3.2 asks it as "Anything the steering
+  // committee should know?" at the foot of the bold moves; the defaults are the handoff
+  // step's older wording.
+  heading?: string;
+  intro?: string;
+  placeholder?: string;
+  // `plain` drops the bordered card so the box sits in a column of other fields.
+  plain?: boolean;
   // Pull the board's own read of the session through after a write. Awaited, so "Saving…"
   // covers the round trip AND the re-read rather than ending while the prop is still the
   // old value.
@@ -104,26 +116,31 @@ export default function ExecSummaryComposer({
   }
 
   return (
-    <section className="rounded-[3px] border border-ink">
-      <header className="border-b border-ink px-5 py-3">
-        <h2 className="m-0 text-[15px] font-extrabold uppercase tracking-tight">
-          Additional thoughts for the steering committee
+    <section className={plain ? "" : "rounded-[3px] border border-ink"}>
+      <header className={plain ? "" : "border-b border-ink px-5 py-3"}>
+        <h2
+          className={
+            plain
+              ? "m-0 text-[18px] font-extrabold leading-[1.25]"
+              : "m-0 text-[15px] font-extrabold uppercase tracking-tight"
+          }
+        >
+          {heading}
         </h2>
-        <p className="m-0 mt-1 max-w-[68ch] text-[13px] leading-[1.45] text-muted">
-          Anything about this scenario the activities did not ask you &mdash; a caveat, a
-          disagreement worth recording, something you would want read alongside the rest.
-          Optional: leave it empty if the steps have said it all.
-        </p>
+        {intro && (
+          <p className="m-0 mt-1 max-w-[68ch] text-[13px] leading-[1.45] text-muted">{intro}</p>
+        )}
       </header>
 
-      <div className="px-5 py-4">
+      <div className={plain ? "mt-3" : "px-5 py-4"}>
         <label htmlFor="exec-composer" className="sr-only">
-          Additional thoughts for the steering committee
+          {heading}
         </label>
         <textarea
           id="exec-composer"
           value={text}
           maxLength={EXEC_SUMMARY_LIMITS.text}
+          placeholder={placeholder}
           readOnly={!canEdit}
           onChange={(e) => {
             setText(e.target.value);
@@ -133,7 +150,7 @@ export default function ExecSummaryComposer({
             // so losing this line loses the whole box, silently and without a type error.
             setDirty(true);
           }}
-          rows={8}
+          rows={plain ? 4 : 8}
           className="w-full resize-y rounded-[2px] border border-[var(--hairline)] bg-paper px-4 py-3 text-[15px] leading-[1.6] outline-none focus:border-ink"
         />
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">

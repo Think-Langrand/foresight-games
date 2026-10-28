@@ -107,14 +107,10 @@ describe("execSummaryDefaultText", () => {
 // not on the group: every step stays editable whatever this returns.
 describe("execSummaryReadiness", () => {
   const full = {
-    grounding: 2,
-    groundingTotal: 2,
     priorities: 3,
-    outcomes: 1,
-    outcomesTotal: 1,
+    prioritiesWithOutcomes: 3,
     responses: 4,
     vision: 1,
-    visionTotal: 1,
     directions: 3,
   };
 
@@ -132,56 +128,55 @@ describe("execSummaryReadiness", () => {
       { label: "Prioritize", done: true },
       { label: "Desired outcomes", done: true },
       { label: "Strategic responses", done: false },
-      { label: "Set the vision", done: true },
-      { label: "Three directions", done: true },
+      { label: "Vision", done: true },
+      { label: "Three bold moves", done: true },
     ]);
   });
 
-  it("marks a step with no prompts done rather than leaving it unticked forever", () => {
-    const r = execSummaryReadiness({ ...full, grounding: 0, groundingTotal: 0 });
+  it("never holds the handoff on Reconnect, whose notes are optional", () => {
+    const r = execSummaryReadiness({ ...full, priorities: 0, prioritiesWithOutcomes: 0 });
     expect(r.steps[0]).toEqual({ label: "Reconnect", done: true });
   });
 
   it("names every step still empty, in step order, so the list reads as the tabs do", () => {
     expect(
       execSummaryReadiness({
-        ...full,
-        grounding: 1,
         priorities: 0,
-        outcomes: 0,
+        prioritiesWithOutcomes: 0,
         responses: 0,
         vision: 0,
         directions: 0,
       }).missing
     ).toEqual([
-      "Reconnect",
       "Prioritize",
       "Desired outcomes",
       "Strategic responses",
-      "Set the vision",
-      "Three directions",
+      "Vision",
+      "Three bold moves",
     ]);
   });
 
-  it("counts a partly answered written step as missing, not as done", () => {
-    expect(execSummaryReadiness({ ...full, grounding: 1 }).missing).toEqual(["Reconnect"]);
+  it("asks for three priorities, not one", () => {
+    expect(execSummaryReadiness({ ...full, priorities: 2, prioritiesWithOutcomes: 2 }).missing).toEqual([
+      "Prioritize",
+    ]);
   });
 
-  it("asks that directions be WRITTEN, not that they be sharpened", () => {
-    // The gate asks whether there is enough on the board to write about, and three named
-    // directions are that even before their nine fields are filled. Holding the handoff
-    // shut until every field is answered would make the last tab unreachable for a group
-    // that ran out of time with its recommendations already made — so there is no
-    // `sharpened` input at all, rather than one the gate quietly ignores.
-    const r = execSummaryReadiness({ ...full, directions: 1 });
-    expect(r.ready).toBe(true);
-    expect(r.missing).toEqual([]);
+  it("asks for an outcome under EVERY priority, because 2.2 nests responses under them", () => {
+    expect(execSummaryReadiness({ ...full, prioritiesWithOutcomes: 2 }).missing).toEqual([
+      "Desired outcomes",
+    ]);
+    // No priorities at all is a Prioritize gap AND an outcomes gap, not a vacuous pass.
+    const none = execSummaryReadiness({ ...full, priorities: 0, prioritiesWithOutcomes: 0 });
+    expect(none.missing).toEqual(["Prioritize", "Desired outcomes"]);
   });
 
-  it("treats a step with no prompts at all as satisfied rather than permanently blocking", () => {
-    // A facilitator can edit the program and remove a step's prompts. Nobody could ever
-    // answer them, so holding the button hostage to them would be a dead end.
-    expect(execSummaryReadiness({ ...full, grounding: 0, groundingTotal: 0 }).ready).toBe(true);
+  it("asks that three bold moves be WRITTEN, not that they be sharpened", () => {
+    // The gate asks whether there is enough on the board to hand over, and three named
+    // moves are that even before their nine fields are filled. There is no `sharpened`
+    // input at all, rather than one the gate quietly ignores.
+    expect(execSummaryReadiness({ ...full, directions: 2 }).missing).toEqual(["Three bold moves"]);
+    expect(execSummaryReadiness({ ...full, directions: 3 }).ready).toBe(true);
   });
 });
 
