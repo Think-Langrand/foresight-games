@@ -521,6 +521,15 @@ export function CommitmentsTeamView({
             impact: null,
           });
           settleScoreLocal(pick.id);
+          // AND IT GIVES UP THE SLOT. A confirmed priority is the group's choice and
+          // outranks the ranking by design — prioritySlots keeps it whatever it scored,
+          // which is why un-scoring alone cannot release it. Nothing else un-confirms:
+          // Keep only renders on a suggestion, so a cleared priority with no control to
+          // remove it sat in the three forever, scoreless, and reached the handoff deck
+          // with empty score cells. Clearing a card the group confirmed is the group
+          // saying it is not one of the three, so the confirmation goes with the scores.
+          // The "why" and any outcomes under it stay: those are writing, not a choice.
+          if (pick.shortlisted) await confirmPick(pick, false);
         } catch (e) {
           dropScoreLocal(pick.id, [...axes]);
           throw e;
