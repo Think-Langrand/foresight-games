@@ -14,6 +14,7 @@ export function ScoreScale({
   disabled = false,
   lowLabel,
   highLabel,
+  label,
 }: {
   axis: ScoreAxis;
   value: Score | null;
@@ -21,8 +22,13 @@ export function ScoreScale({
   disabled?: boolean;
   lowLabel: string;
   highLabel: string;
+  // What to CALL the axis. The stored axis is still `plausibility`; Session 4 asks the same
+  // question as "likelihood" (see PRIORITY_AXIS_LABELS) and passes it here. Defaults to
+  // Week 2's label, so Week 2 passes nothing and is unchanged.
+  label?: string;
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
+  const name = label ?? AXIS_LABELS[axis];
 
   // Arrow keys walk the row (the radiogroup convention) — only the selected button is in
   // the tab order, so Tab skips the scale and lands on the next key change.
@@ -40,9 +46,9 @@ export function ScoreScale({
   return (
     <div className="grid grid-cols-[100px_auto] items-center gap-x-4 gap-y-1 xl:grid-cols-[100px_auto_1fr]">
       <span className="text-[11px] font-bold uppercase tracking-[0.07em] text-muted">
-        {AXIS_LABELS[axis]}
+        {name}
       </span>
-      <div ref={groupRef} role="radiogroup" aria-label={AXIS_LABELS[axis]} className="flex items-center gap-1.5">
+      <div ref={groupRef} role="radiogroup" aria-label={name} className="flex items-center gap-1.5">
         {SCORE_VALUES.map((v) => {
           const active = value === v;
           return (
@@ -52,7 +58,7 @@ export function ScoreScale({
               role="radio"
               data-score={v}
               aria-checked={active}
-              aria-label={`${AXIS_LABELS[axis]} ${v} of ${SCORE_VALUES.length}`}
+              aria-label={`${name} ${v} of ${SCORE_VALUES.length}`}
               disabled={disabled}
               tabIndex={active || (value === null && v === 1) ? 0 : -1}
               onKeyDown={(e) => onKeyDown(e, v)}

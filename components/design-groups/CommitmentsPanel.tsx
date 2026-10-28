@@ -9,16 +9,19 @@ import {
   type HandoffMark,
   type DirectionRow,
   type PanelOpts,
+  type PrioritySlotRow,
 } from "@/components/design-groups/AnswerPanels";
 import { commitmentsSectionsFor } from "@/lib/exercise-types";
 import { SCORE_MAX } from "@/lib/ripples-scoring";
 
-// Read-only rendering of a Week 4 (commitments) week, in the order the week is worked:
+// Read-only rendering of a Week 4 (Synthesis) week, in the order the week is worked:
 //
-//   1  the key changes, and the assumptions they break   (authored sections)
-//   2  Session 3's risks and opportunities on the matrix (placements, with their scores)
-//   3  the wall of strategic responses
-//   4  the role, and three bold moves                    (authored sections)
+//   1.1  discussion notes                                   (authored section)
+//   1.2  the matrix, the three priorities with their why, the overlook note
+//   2.1  each priority's desired outcomes
+//   2.2  each outcome's response ideas
+//   3.1  the vision                                         (authored section)
+//   3.2  the three bold moves with their fields, how they work together
 //
 // THREE consumers, deliberately one component: the admin answers viewer, the member session
 // page's earlier-week tabs, and the live board's own step 5. Unlike Week 3, a locked
@@ -154,6 +157,8 @@ function Priorities({
   const chosen = picks.filter((p) => p.priority);
   const disputed = picks.filter((p) => p.disputed);
   const kindOf = (p: HandoffMark) => stakeKind?.(p.sourceId);
+  // Confirmed first, as the board shows them. `picks` arrives in rank order.
+  const ordered = [...chosen].sort((a, b) => Number(b.confirmed) - Number(a.confirmed));
 
   return (
     <div>
@@ -162,31 +167,43 @@ function Priorities({
           Priorities <span className="tabular-nums text-muted">{chosen.length}</span>
         </span>
       </p>
-      {chosen.length === 0 ? (
-        <p className="m-0 py-2 text-[13px] italic text-muted">
-          The group recorded a disagreement but never starred its three.
-        </p>
+      {ordered.length === 0 ? (
+        <p className="m-0 py-2 text-[13px] italic text-muted">Nothing scored yet.</p>
       ) : (
-        <ul className="m-0 list-none p-0">
-          {chosen.map((p) => (
+        <ol className="m-0 list-none p-0">
+          {ordered.map((p, i) => (
             <li
               key={p.id}
               className="border-b border-[var(--hairline)] py-[9px] last:border-b-0"
             >
-              <span className="mr-1.5 text-amber">★</span>
+              <span className="mr-2 font-mono text-[11px] tabular-nums text-blue">
+                {String(i + 1).padStart(2, "0")}
+              </span>
               <span className="text-[14px] leading-[1.45]">{p.text}</span>
               {kindOf(p) && (
                 <span className="ml-2 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
                   {kindOf(p)}
                 </span>
               )}
+              <span
+                className={
+                  "ml-2 rounded-[2px] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] " +
+                  (p.confirmed ? "bg-lime text-ink" : "bg-[var(--board)] text-muted")
+                }
+              >
+                {p.confirmed ? "Confirmed" : "Suggested"}
+              </span>
+              {p.note && (
+                <span className="mt-[2px] block pl-7 text-[13px] italic text-muted">{p.note}</span>
+              )}
             </li>
           ))}
-        </ul>
+        </ol>
       )}
 
-      {/* A dispute is a finding about the ROOM, so it is shown even when it sits on an
-          issue that did not make the three. */}
+      {/* LEGACY. The "still disputed" flag from the shape before the overlook note; only a
+          board worked under it has any. A dispute is a finding about the ROOM, so it is
+          shown even when it sits on an issue that did not make the three. */}
       {disputed.length > 0 && (
         <div className="mt-4">
           <p className="m-0 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-blue">
@@ -219,7 +236,7 @@ function Directions({ rows }: { rows: DirectionRow[] }) {
     <div>
       <p className="m-0 flex items-baseline gap-2 border-b border-ink pb-2">
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-          Three directions <span className="tabular-nums text-muted">{rows.length}</span>
+          Three bold moves <span className="tabular-nums text-muted">{rows.length}</span>
         </span>
       </p>
       <ol className="m-0 list-none p-0">
@@ -254,6 +271,91 @@ function Directions({ rows }: { rows: DirectionRow[] }) {
   );
 }
 
+// Acts 2.1 and 2.2: each priority's outcomes, each with its ideas. Printed under the
+// priority because that is the structure the two activities added; a flat list of ideas
+// would lose which outcome each served.
+function OutcomesAndIdeas({ slots, stray, ...opts }: { slots: PrioritySlotRow[]; stray: CommitmentsExercise["strayOutcomes"] } & PanelOpts) {
+  const total = slots.reduce((n, s) => n + s.outcomes.length, 0) + stray.reduce((n, s) => n + s.outcomes.length, 0);
+  if (total === 0) return null;
+  return (
+    <div>
+      <p className="m-0 flex items-baseline gap-2 border-b border-ink pb-2">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+          Desired outcomes and response ideas <span className="tabular-nums text-muted">{total}</span>
+        </span>
+      </p>
+      <ol className="m-0 list-none p-0">
+        {slots.map((s, i) => (
+          <li key={s.pick.id} className="border-b border-[var(--hairline)] py-3 last:border-b-0">
+            <p className="m-0 text-[14px] font-bold leading-[1.4]">
+              <span className="mr-2 font-mono text-[11px] tabular-nums text-blue">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              {s.pick.text}
+            </p>
+            {s.outcomes.length === 0 ? (
+              <p className="m-0 mt-1 pl-7 text-[13px] italic text-muted">No outcome written.</p>
+            ) : (
+              <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0 pl-7">
+                {s.outcomes.map(({ outcome, responses }, k) => (
+                  <li key={outcome.id}>
+                    <div className="flex items-start gap-3">
+                      <span className="min-w-0 flex-1 text-[13.5px] leading-[1.45]">
+                        <span className="mr-1.5 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
+                          {i + 1}.{k + 1}
+                        </span>
+                        {outcome.text}
+                      </span>
+                      {opts.onDelete && (
+                        <button
+                          type="button"
+                          onClick={() => opts.onDelete?.(outcome)}
+                          className="shrink-0 text-[11px] text-muted underline hover:text-coral"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                    {responses.length > 0 && (
+                      <div className="mt-1 pl-4">
+                        <AnswerList answers={responses} {...opts} />
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ol>
+      {stray.length > 0 && (
+        <div className="mt-3">
+          <Eyebrow>No longer a priority</Eyebrow>
+          <ul className="m-0 mt-1 flex list-none flex-col gap-1.5 p-0">
+            {stray.map(({ pick, outcomes }) => (
+              <li key={pick.id} className="text-[13px] leading-[1.45]">
+                <span className="font-bold">{pick.text}</span>
+                <ul className="m-0 mt-1 flex list-none flex-col gap-1.5 p-0 pl-3">
+                  {outcomes.map(({ outcome, responses }) => (
+                    <li key={outcome.id}>
+                      <AnswerList answers={[outcome]} {...opts} />
+                      {responses.length > 0 && (
+                        <div className="mt-1 pl-4">
+                          <AnswerList answers={responses} {...opts} />
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Placements({
   picks,
   stakeKind,
@@ -279,8 +381,8 @@ function Placements({
         </span>
       </div>
       <p className="m-0 mt-1 text-[12px] italic leading-[1.4] text-muted">
-        The Session 3 risks and opportunities your group placed, strongest first. The score
-        is plausibility multiplied by impact, each on a 1 to {SCORE_MAX} scale.
+        The Session 3 risks and opportunities your group scored, strongest first. The score
+        is likelihood multiplied by impact, each on a 1 to {SCORE_MAX} scale.
       </p>
 
       <ol className="m-0 mt-2 list-none p-0">
@@ -317,7 +419,7 @@ function Placements({
                     </span>
                   ) : (
                     <span className="tabular-nums">
-                      P {p.plausibility} · I {p.impact} · {p.rank}
+                      L {p.plausibility} · I {p.impact} · {p.rank}
                     </span>
                   )}
                 </span>
@@ -354,6 +456,8 @@ export function CommitmentsPanel({
     ex.picks.length === 0 &&
     ex.settledMarks.length === 0 &&
     ex.responses.length === 0 &&
+    ex.prioritySlots.every((s) => s.outcomes.length === 0) &&
+    ex.strayOutcomes.length === 0 &&
     ex.directions.length === 0 &&
     ex.lanes.length === 0 &&
     ex.stranded.length === 0 &&
@@ -366,8 +470,10 @@ export function CommitmentsPanel({
   // stays with act 1 rather than being dropped, which is where the editor puts it anyway.
   const answered = ex.questions.filter((q) => q.answers.length > 0);
   const groundingBlocks = commitmentsSectionsFor(answered, "reconnect");
-  const outcomeBlocks = commitmentsSectionsFor(answered, "outcomes");
+  const overlookBlocks = commitmentsSectionsFor(answered, "prioritize");
+  const outcomeBlocks = commitmentsSectionsFor(answered, "outcomes"); // legacy flat outcomes
   const visionBlocks = commitmentsSectionsFor(answered, "vision");
+  const togetherBlocks = commitmentsSectionsFor(answered, "directions");
 
   return (
     <div className="flex flex-col gap-6">
@@ -393,30 +499,32 @@ export function CommitmentsPanel({
       {/* Act 1. The prompts are the facilitator's, so their headings come from the data. */}
       {groundingBlocks.length > 0 && <QuestionBlocks questions={groundingBlocks} {...opts} />}
 
-      {/* Act 2. The matrix, then the three the group actually chose off it. */}
+      {/* 1.2. The matrix, then the three the group confirmed off it, then the overlook note. */}
       {ex.picks.length > 0 && <Placements picks={ex.picks} stakeKind={stakeKind} {...opts} />}
       {ex.picks.some((p) => p.priority || p.disputed) && (
         <Priorities picks={ex.picks} stakeKind={stakeKind} />
       )}
+      {overlookBlocks.length > 0 && <QuestionBlocks questions={overlookBlocks} {...opts} />}
 
-      {/* Act 3. */}
+      {/* 2.1 and 2.2, nested. */}
+      <OutcomesAndIdeas slots={ex.prioritySlots} stray={ex.strayOutcomes} {...opts} />
+      {/* LEGACY: flat outcomes from the retired prompt. */}
       {outcomeBlocks.length > 0 && <QuestionBlocks questions={outcomeBlocks} {...opts} />}
 
-      {/* Act 4. No star on the wall itself: `shortlisted` here is retired data from the
-          down-select act 6 replaced, and act 6's directions are cards of their own, shown
-          below with what the group wrote about each. */}
-      {ex.responses.length > 0 && (
+      {/* LEGACY: root responses from the untagged wall. `shortlisted` here is retired data
+          from the down-select the bold moves replaced. */}
+      {ex.looseResponses.length > 0 && (
         <div>
           <div className="flex items-baseline justify-between gap-3 border-b border-ink pb-2">
             <h3 className="m-0 text-[14px] font-bold">
-              Strategic responses{" "}
+              Strategic responses, not linked to an outcome{" "}
               <span className="font-mono text-[10px] font-normal tabular-nums text-muted">
-                {ex.responses.length}
+                {ex.looseResponses.length}
               </span>
             </h3>
           </div>
           <ul className="m-0 list-none p-0">
-            {ex.responses.map((r) => (
+            {ex.looseResponses.map((r) => (
               <li
                 key={r.id}
                 className="flex gap-3 border-b border-[var(--hairline)] py-[9px] last:border-b-0"
@@ -444,11 +552,12 @@ export function CommitmentsPanel({
         </div>
       )}
 
-      {/* Act 5. Authored sections again, so again no heading of ours. */}
+      {/* 3.1. Authored section again, so again no heading of ours. */}
       {visionBlocks.length > 0 && <QuestionBlocks questions={visionBlocks} {...opts} />}
 
-      {/* Act 6. */}
+      {/* 3.2. */}
       {ex.directions.length > 0 && <Directions rows={ex.directions} />}
+      {togetherBlocks.length > 0 && <QuestionBlocks questions={togetherBlocks} {...opts} />}
 
       {/* Parked. See SHOW_BACKCASTING. */}
       {SHOW_BACKCASTING && ex.settledMarks.length > 0 && (

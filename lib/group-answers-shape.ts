@@ -4,6 +4,7 @@ import type {
   AnswerRow,
   ChainRow,
   ExerciseAnswers,
+  HandoffMark,
   StakeRow,
   QuestionBlock,
   SynthesisTheme,
@@ -27,11 +28,14 @@ import { rankValue } from "@/lib/ripples-scoring";
 import {
   PERIODS,
   DIRECTION_FIELDS,
-  DISPUTED_SECTION,
+  LEGACY_DISPUTED_SECTION,
   indexCommitmentsBoard,
   milestonesFor,
-  priorities,
+  outcomesFor,
+  prioritySlots,
+  responsesFor,
   strandedMilestones,
+  strayOutcomes,
   sharpenFor,
 } from "@/lib/commitments-shape";
 
@@ -255,12 +259,47 @@ export function shapeFromView(
       shortlisted: c.shortlisted,
     });
 
+    // Act 1.2's slots, read once and shared by the picks list and the nested outcomes.
+    const slots = prioritySlots(board);
+    const slotStatus = new Map(slots.map((s) => [s.card.id, s.status]));
+    const toMark = (c: RippleCard, sourceId: string): HandoffMark => ({
+      ...toRow(c),
+      sourceId,
+      plausibility: c.plausibility,
+      impact: c.impact,
+      rank: rankValue(c),
+      // In a slot (confirmed or suggested) is what every reader calls a priority, so the
+      // admin viewer, the CSV and the deck name the same three as the worksheet.
+      priority: slotStatus.has(c.id),
+      confirmed: c.shortlisted,
+      disputed: c.section === LEGACY_DISPUTED_SECTION,
+      note: c.description,
+    });
+    const outcomesUnder = (pickId: string) =>
+      outcomesFor(board, pickId).map((o) => ({
+        outcome: toRow(o),
+        responses: responsesFor(board, o.id).map(toRow),
+      }));
+
     return {
       kind: "commitments",
       exerciseId: ex.id,
       title: ex.title,
       cards: view.cards,
       responses: board.responses.map(toStake),
+      prioritySlots: slots.map((s) => ({
+        pick: toMark(s.card, s.card.sourceCardId ?? ""),
+        status: s.status,
+        outcomes: outcomesUnder(s.card.id),
+      })),
+      // Same nested shape as a slot's outcomes, so an idea written under a priority the
+      // group later replaced is still printed, exported and deletable rather than counted
+      // but invisible.
+      strayOutcomes: strayOutcomes(board).map(({ pick }) => ({
+        pick: toMark(pick, pick.sourceCardId ?? ""),
+        outcomes: outcomesUnder(pick.id),
+      })),
+      looseResponses: board.looseResponses.map(toStake),
       boldMoves: board.boldMoves.map(toRow),
       // Every period on every lane, empty cells included: where a group clustered its work
       // and where it left a gap is part of the finding, and dropping empties would hide it.
@@ -289,32 +328,9 @@ export function shapeFromView(
       // group said matters most without each re-deriving the order. Unscored placements sort
       // last (rank null) rather than being dropped: "placed but not yet scored" is a real
       // state of the step and hiding it would make a half-finished matrix look empty.
-      picks: (() => {
-        // WHICH ONES ARE PRIORITIES IS DERIVED, not stored. It used to be `c.shortlisted`,
-        // set by a star on the matrix — and that star is gone, so reading the column here
-        // would show every reader of this shape the OLD stars on a board that has them and
-        // nothing at all on a board that does not. `priorities()` is the one definition;
-        // this calls the same cut over the same order so the admin viewer, the CSV and the
-        // deck cannot name a different three from the worksheet.
-        const priorityIds = new Set(
-          priorities(board).flatMap((c) => (c.sourceCardId ? [c.sourceCardId] : []))
-        );
-        return [...board.picks]
-          .map(([sourceId, c]) => ({
-            ...toRow(c),
-            sourceId,
-            plausibility: c.plausibility,
-            impact: c.impact,
-            rank: rankValue(c),
-            // Act 2's two markers. The dispute still rides on the pick — see
-            // DISPUTED_SECTION — so it is read off the row; the priority is read off the
-            // ranking.
-            priority: priorityIds.has(sourceId),
-            disputed: c.section === DISPUTED_SECTION,
-            note: c.description,
-          }))
-          .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1) || (b.impact ?? -1) - (a.impact ?? -1));
-      })(),
+      picks: [...board.picks]
+        .map(([sourceId, c]) => toMark(c, sourceId))
+        .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1) || (b.impact ?? -1) - (a.impact ?? -1)),
       settledMarks: [...board.settled].map(([sourceId, c]) => ({
         ...toRow(c),
         sourceId,
@@ -324,6 +340,7 @@ export function shapeFromView(
         impact: null,
         rank: null,
         priority: false,
+        confirmed: false,
         disputed: false,
         note: null,
       })),

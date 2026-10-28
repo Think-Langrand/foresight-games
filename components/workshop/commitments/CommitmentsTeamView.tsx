@@ -7,13 +7,24 @@ import { ScenarioToggle } from "@/components/workshop/ScenarioToggle";
 import { SessionHeaderActions, useInSessionTabs } from "@/components/design-groups/SessionHeader";
 import { WorksheetSections } from "@/components/workshop/WorksheetSections";
 import { Centered, Flash, Panel, PhaseHeader, Shell } from "@/components/workshop/BoardShell";
-import { Week3Reference } from "@/components/workshop/commitments/Week3Reference";
+import { ReferenceRail } from "@/components/workshop/commitments/ReferenceRail";
 import { ResponseBoard } from "@/components/workshop/commitments/ResponseBoard";
+import { OutcomesBoard } from "@/components/workshop/commitments/OutcomesBoard";
 import { Week4Reference } from "@/components/workshop/commitments/Week4Reference";
-import { StepIntro } from "@/components/workshop/commitments/StepIntro";
-import { MovesBoard } from "@/components/workshop/commitments/MovesBoard";
+import { MovesBoard, type AddMoveResult, type PendingFields } from "@/components/workshop/commitments/MovesBoard";
 import { MatrixBoard } from "@/components/workshop/commitments/MatrixBoard";
-import { StepProgress } from "@/components/workshop/commitments/StepProgress";
+import { StepTracker } from "@/components/workshop/commitments/StepTracker";
+import { ActivityHeader } from "@/components/workshop/commitments/ActivityHeader";
+import { StarterQuestions } from "@/components/workshop/commitments/StarterQuestions";
+import { Checklist } from "@/components/workshop/commitments/Checklist";
+import { Callout } from "@/components/workshop/commitments/Callout";
+import { ContinueButton } from "@/components/workshop/commitments/ContinueButton";
+import { SingleAnswer } from "@/components/workshop/commitments/SingleAnswer";
+import {
+  ACTIVITY_META,
+  type ActivityStep,
+  type CommitStep,
+} from "@/components/workshop/commitments/activityMeta";
 import ExecSummaryComposer from "@/components/design-groups/ExecSummaryComposer";
 import HandoffGuideLocked from "@/components/design-groups/HandoffGuideLocked";
 import { coerceExecSummary, execSummaryReadiness } from "@/lib/exec-summary-shape";
@@ -23,11 +34,11 @@ import {
   useOptimisticCards,
   deleteRippleCard,
   describeRippleCard,
-  disputeRippleCard,
   editRippleCard,
   postRippleCard,
   scoreRippleCard,
   reorderRippleCard,
+  shortlistRippleCard,
   submitRippleBoard,
   unsubmitRippleBoard,
 } from "@/components/workshop/hooks";
@@ -36,54 +47,59 @@ import type { PublicDriverCard, Scenario } from "@/lib/foresight/types";
 import type { RippleCard, RipplePhase } from "@/lib/ripples-types";
 import type { ScorePatchInput } from "@/lib/ripples-scoring";
 import { cardScores } from "@/lib/ripples-scoring";
-import { SORT_STEP } from "@/lib/synthesis-shape";
+import { SORT_STEP, indexSynthesisBoard, isUnnamedTheme, themeLabel } from "@/lib/synthesis-shape";
 import {
-  DISPUTED_SECTION,
   indexCommitmentsBoard,
+  outcomeCoverage,
+  outcomesFor,
+  prioritySlots,
   priorities,
   sharpenFor,
   type DirectionFieldKey,
+  type PrioritySlot,
 } from "@/lib/commitments-shape";
 import {
+  COMMITMENTS_KEY_OVERLOOK,
+  COMMITMENTS_KEY_TOGETHER,
+  COMMITMENTS_KEY_VISION,
   commitmentsSectionsFor,
   type CommitmentsSectionStep,
   type WorksheetSection,
 } from "@/lib/exercise-types";
 import { RailWidth } from "@/components/workshop/synthesis/boardGutters";
 
-// Session 4, the COMMITMENTS board. Six activities and a handoff on one shared board, and
-// the whole week builds that handoff rather than curating it in a step of its own:
+// Session 4, "Synthesis" (internally still the COMMITMENTS board, which is what the render
+// key and the card kinds say). Six activities in three steps, and a handoff the whole week
+// builds rather than curating in a step of its own:
 //
-//   1. Reconnect             what needs attention here, and what to carry into today
-//   2. Prioritize            Session 3's stakes scored, then three named as priorities
-//   3. Desired outcomes      what public health should make possible
-//   4. Strategic responses   a wall of options
-//   5. Vision               one aspiration statement the group agrees on
-//   6. Three directions      three recommendations, each sharpened by three questions
-//   7. Handoff               the note to the committee, then submit
+//   1.1 Reconnect             four starter questions, optional discussion notes
+//   1.2 Prioritize            Session 3's stakes scored, three suggested, three confirmed
+//   2.1 Desired outcomes      one or two outcomes under each priority
+//   2.2 Strategic responses   response ideas under each outcome
+//   3.1 Vision                one statement the group agrees on
+//   3.2 Three bold moves      three moves, each explained by three questions, plus how
+//                             they work together and a note to the committee
+//   Handoff                   preview, then submit
 //
-// THREE ASK FOR WRITING AND THREE ARE BOARDS. Acts 1, 3 and 5 ride the section substrate,
-// so their prompts are the facilitator's and are edited in the program editor rather than
-// here. On acts 2, 4 and 6 the group's answer is what it stars, writes on a card or
-// sharpens, so their prompts are guidance in each board's own Directions fold. See
-// lib/commitments-shape's header for where each activity's work lives.
+// THE CHROME IS ONE REGISTRY. Every activity's eyebrow, minutes, headline, intro, starter
+// questions, checklist and continue button come from ACTIVITY_META, and the tracker reads
+// the same table, so the pill a group is on, the heading above it and the button under it
+// cannot name three different things.
 //
-// THE STEP NAMES ABOVE ARE DISPLAY ONLY. Underneath, a section carries the `step` STRING it
-// was stored with, and that is not always one of today's: a board stamped before the
-// six-activity rebuild still says "Key changes" or "Bold moves". Nothing compares those
-// strings by hand any more — `commitmentsStepOf` owns the mapping, including for the old
-// values, which is what lets a pre-rebuild board keep rendering.
+// FOUR BOXES RIDE THE SECTION SUBSTRATE (notes, overlook, vision, together), so a
+// facilitator can reword them in the program editor and every reader picks them up through
+// `commitmentsStepOf`. Everything else is a card of a kind; see lib/commitments-shape's
+// header for where each activity's work lives.
+//
+// THE STORED STEP STRINGS ARE NOT THE TAB NAMES. A section carries the `step` STRING it was
+// stored with, and `commitmentsStepOf` owns the mapping, including for pre-rebuild values.
 //
 // PARKED, NOT DELETED. The backcasting timeline is wanted for a future workshop, so
 // `BacktrackTimeline` stays in the tree with its card kinds and write paths, simply not in
-// COMMIT_STEPS. `MovesBoard` was the three-move down-select and is NOT parked — act 6
-// rewrote it into the direction composer, because a recommendation picked off act 4's wall
-// recorded no reason for having been picked.
+// the steps.
 
 const NO_CARDS: RippleCard[] = [];
 
-// Steps 1 and 4 both render sections, so both can be empty, and both said this in their own
-// copy of the markup. One component, used twice.
 function NoPrompts() {
   return (
     <p className="text-[13px] italic text-muted">
@@ -93,38 +109,7 @@ function NoPrompts() {
   );
 }
 
-// The six activities, plus the handoff. Local to this file, the way Week 3 keeps its own:
-// these are the TABS, and which authored sections land on one is the separate question
-// COMMITMENTS_SECTION_STEPS answers in lib/exercise-types. Three tabs render sections,
-// three are boards, and the last is the review.
-type CommitStep =
-  | "reconnect"
-  | "prioritize"
-  | "outcomes"
-  | "responses"
-  | "vision"
-  | "directions"
-  | "review";
-const COMMIT_STEPS: readonly CommitStep[] = [
-  "reconnect",
-  "prioritize",
-  "outcomes",
-  "responses",
-  "vision",
-  "directions",
-  "review",
-];
-// Short on purpose: seven tabs share one row, and the number is what a facilitator calls
-// out in the room ("everyone on 4"). The full activity name is the slide's heading.
-const STEP_LABELS: Record<CommitStep, string> = {
-  reconnect: "1 \u00b7 Reconnect",
-  prioritize: "2 \u00b7 Prioritize",
-  outcomes: "3 \u00b7 Desired outcomes",
-  responses: "4 \u00b7 Strategic responses",
-  vision: "5 \u00b7 Vision",
-  directions: "6 \u00b7 Three directions",
-  review: "7 \u00b7 Handoff",
-};
+type Kind = "risk" | "opportunity";
 
 export function CommitmentsTeamView({
   code,
@@ -149,13 +134,10 @@ export function CommitmentsTeamView({
   // Session 3's whole board, read-only, so the week can show the group its own hopes,
   // flips, risks and opportunities beside the steps that build on them. Shaped
   // server-side from the earlier-week answers the page already loads; nothing from it is
-  // copied onto this board. See Week3Reference.
+  // copied onto this board. See ReferenceRail.
   week3Cards?: RippleCard[];
-  // Session 2's board, for the key changes in the rail. Roots only are used; see
-  // Week3Reference. Shaped server-side on the page like week3Cards, and never copied here.
+  // Session 2's board, for the key changes in the rail. Roots only are used.
   week2Cards?: RippleCard[];
-  // Session 1's three uncertainty questions, shaped on the page: a worksheet week arrives
-  // as question blocks rather than cards, so there is nothing to index here.
   // Where the group's handoff deck lives. Built on the page, which knows the project slug
   // and the group id; the board should not have to rebuild a route.
   summaryHref?: string;
@@ -176,7 +158,7 @@ export function CommitmentsTeamView({
     reorderLocal,
     editLocal,
     describeLocal,
-    sectionLocal,
+    shortlistLocal,
     scoreLocal,
     settleScoreLocal,
     dropScoreLocal,
@@ -187,31 +169,21 @@ export function CommitmentsTeamView({
   // Declared up here with the other state, NOT inside the build branch below — several
   // early returns sit between the two, and a hook after one of them would break the order.
   const [step, setStep] = useState<CommitStep>("reconnect");
-  // Step 5's marks, keyed `<kind>:<sourceCardId>`, while their write is in flight. A mark
-  // has no id until the server mints one, so it cannot ride the card overlay the way every
-  // other write on this board does; without this the board showed nothing at all for the
-  // length of a round trip, the cap read stale, and a group ticking four risks quickly got
-  // all four.
+  // A pick's create, while in flight, keyed by SOURCE id. A mark has no id until the server
+  // mints one, so it cannot ride the card overlay the way every other write does.
   const [markPending, setMarkPending] = useState<Set<string>>(() => new Set());
-  // Step 2's bridge: scores clicked on a Session 3 card whose pick does not exist yet,
+  // Step 1.2's bridge: scores clicked on a Session 3 card whose pick does not exist yet,
   // keyed by SOURCE id. It lives for one round trip and is dropped the moment the pick is
-  // in the optimistic cards, so there is never a stale entry waiting to be un-shadowed if
-  // that pick is later deleted — by this viewer or by a teammate. Dropped on the mint
-  // failing too, since then no pick is coming. See scoreStake.
+  // in the optimistic cards. See scoreStake.
   const [pendingScores, setPendingScores] = useState<Map<string, ScorePatchInput>>(
     () => new Map()
   );
   // The in-flight create per source id, so two fast score clicks on one card mint one pick
-  // rather than racing. A ref, not state: nothing renders from it and a re-render between
-  // the two clicks must not lose it.
+  // rather than racing. A ref, not state: nothing renders from it.
   const mintingPick = useRef<Map<string, Promise<string>>>(new Map());
-  // Source ids whose in-flight mint has been cancelled by Clear. A create cannot be
-  // recalled, so clearStake takes ownership of deleting whatever it mints and every
-  // scoreStake still awaiting that promise bails on this set rather than scoring it.
+  // Source ids whose in-flight mint has been cancelled by Clear.
   const cancelledMints = useRef<Set<string>>(new Set());
-  // Step 5's submit stamp. Seeded from the server and then owned here, because the press
-  // and its Undo both resolve to a value the response carries. See ReviewBoard's header for
-  // why this is not realtime.
+  // The submit stamp. Seeded from the server and then owned here.
   const [submitted, setSubmitted] = useState<{ at: string | null; by: string | null }>({
     at: submittedAtProp,
     by: submittedByProp,
@@ -220,8 +192,7 @@ export function CommitmentsTeamView({
   const inTabs = useInSessionTabs();
 
   // Runs one board action, showing a failure as the flash. Resolves to whether it
-  // succeeded, so a composer can keep its draft when the write did not land (AddCardForm)
-  // instead of clearing the text and leaving only the toast.
+  // succeeded, so a composer can keep its draft when the write did not land.
   const run = useCallback(async (fn: () => Promise<void>): Promise<boolean> => {
     setBusy(true);
     setFlash(null);
@@ -239,12 +210,34 @@ export function CommitmentsTeamView({
   // One index for the whole week; every Session 4 selector reads it.
   const board = useMemo(() => indexCommitmentsBoard(cards), [cards]);
 
+  // Session 3's index, built ONCE here and handed to the matrix and the rail, for the
+  // things a pick cannot say about itself: whether its source was a risk or an
+  // opportunity, what that card says NOW, and which theme it sat under. Memoised above
+  // the early returns, so the hook count is stable.
+  const w3 = useMemo(() => indexSynthesisBoard(week3Cards), [week3Cards]);
+  const stakeIndex = useMemo(() => {
+    const kind = new Map<string, Kind>();
+    const text = new Map<string, string>();
+    const theme = new Map<string, string>();
+    const label = (t: RippleCard) => (isUnnamedTheme(t) ? themeLabel(w3, t) : t.text);
+    for (const t of w3.themes) {
+      for (const c of w3.risks.get(t.id) ?? []) {
+        kind.set(c.id, "risk");
+        text.set(c.id, c.text);
+        theme.set(c.id, label(t));
+      }
+      for (const c of w3.opportunities.get(t.id) ?? []) {
+        kind.set(c.id, "opportunity");
+        text.set(c.id, c.text);
+        theme.set(c.id, label(t));
+      }
+    }
+    return { kind, text, theme };
+  }, [w3]);
+
   // A resolved `mintingPick` entry is kept on purpose (see ensurePick) to bridge the window
   // between addLocal and React committing. Once the pick is actually in `board.picks` that
-  // bridge is done and ensurePick's first branch answers every later call, so the promise
-  // is pruned here. Keeping it past this point is what let a DELETED pick hand the next
-  // score click a dead card id: `board.picks` empties again, the retained promise is
-  // consulted, and the score is sent for a row the server no longer has.
+  // bridge is done, so the promise is pruned here.
   useEffect(() => {
     for (const sourceId of [...mintingPick.current.keys()]) {
       if (board.picks.has(sourceId)) mintingPick.current.delete(sourceId);
@@ -277,17 +270,14 @@ export function CommitmentsTeamView({
   const playerNames = new Map(players.map((p) => [p.id, p.displayName]));
   const building = phase === "BUILD";
   const editable = building && Boolean(myPlayer);
-  // The group co-owns every card on a shared board, matching the server rule exactly — so
-  // the UI never offers a control the route will refuse. Seeded cards have no author at
-  // all, so an author-only rule would make them uneditable by everyone.
+  // The group co-owns every card on a shared board, matching the server rule exactly.
   const canEditCard = config.sharedTeam ? () => true : (c: RippleCard) => c.authorPlayerId === myPlayer?.id;
-
 
   if (!myPlayer) {
     return (
       <Shell wide>
         {!inTabs && (
-          <PhaseHeader phase={phase} title={title || config.scenarioTitle} kindLabel="Commitments" />
+          <PhaseHeader phase={phase} title={title || config.scenarioTitle} kindLabel="Synthesis" />
         )}
         <Panel>
           <p className="text-[14px] text-muted">Joining your group&rsquo;s board…</p>
@@ -326,9 +316,6 @@ export function CommitmentsTeamView({
     });
   };
 
-  // Keyed by id, because WorksheetSections edits by id; `editCard` below adapts it for
-  // CardWall, which hands whole cards around, rather than keeping a second copy of the
-  // revert logic.
   const editCardById = (cardId: string, text: string) => {
     const prev = cards.find((c) => c.id === cardId)?.text;
     editLocal(cardId, text);
@@ -355,90 +342,50 @@ export function CommitmentsTeamView({
     });
   };
 
-  // The board sorts by (sort, createdTime), so anything created at sort 0 would sit ahead
-  // of every card that has ever been dragged. A new response gets a sort past the end of
-  // the wall, so it appends — and because the wall's order IS the lane order on step 4,
-  // this is also what keeps the timeline's lanes in the order the group sees them.
+  // A new card appends after its siblings. Counted among SIBLINGS under the same parent,
+  // because an outcome's order is within its priority and an idea's within its outcome.
   const endSort = (list: RippleCard[]) => (list.length + 1) * SORT_STEP;
 
-  const addResponse = (text: string) =>
-    run(async () => {
-      const res = await postRippleCard(code, {
-        participantId: pid,
-        cardOrder: "FIRST",
-        cardKind: "response",
-        text,
-        sort: endSort(board.responses),
-      });
-      if (res?.card) addLocal(res.card as RippleCard);
-    });
+  // ---- the four prose boxes --------------------------------------------------
+  // One statement each, so the board edits the section's first card in place. Add if none,
+  // edit otherwise; clearing deletes (SingleAnswer confirms first).
+  const answersOn = (key: string) =>
+    cards
+      .filter((c) => c.order === "STICKY" && c.section === key && c.text.trim())
+      .sort((a, b) => a.createdTime.localeCompare(b.createdTime));
+  const setSingleAnswer = (key: string, text: string) => {
+    const first = answersOn(key)[0];
+    if (first) editCardById(first.id, text);
+    else void addSectionCard(key, text);
+  };
 
-
-
-
-  // A handoff mark: a card on THIS board pointing at an earlier week's card. Nothing on
-  // Session 1's or Session 3's board is touched, so the star the handoff deck draws is
-  // derived rather than stored. `on` false deletes the mark that already exists.
-  const markKey = (kind: "pick" | "settled", sourceId: string) => `${kind}:${sourceId}`;
-
-  // What the board should SHOW, with an in-flight write folded in. XOR: a mark that exists
-  // with a write pending is being deleted, so it reads as gone; one that does not exist with
-  // a write pending is being created, so it reads as present.
+  // ---- 1.2: scoring is placing -----------------------------------------------
+  const markKey = (sourceId: string) => `pick:${sourceId}`;
   const isStarred = (sourceId: string) =>
-    board.picks.has(sourceId) !== markPending.has(markKey("pick", sourceId));
+    board.picks.has(sourceId) !== markPending.has(markKey(sourceId));
 
-  const toggleMark = (
-    kind: "pick" | "settled",
-    source: { id: string; text: string },
-    on: boolean
-  ) => {
-    const key = markKey(kind, source.id);
-    // One write per mark at a time. Without this a double-click sends two creates for one
-    // source, the second trips 0018's unique index, and the group is told someone else
-    // answered when nobody did.
+  const deletePick = (existing: RippleCard, sourceId: string) => {
+    const key = markKey(sourceId);
     if (markPending.has(key)) return;
-    const existing = (kind === "pick" ? board.picks : board.settled).get(source.id);
-    if (on === Boolean(existing)) return;
-    const hold = () => setMarkPending((p) => new Set(p).add(key));
-    const release = () =>
+    setMarkPending((p) => new Set(p).add(key));
+    removeLocal(existing.id);
+    run(async () => {
+      try {
+        await deleteRippleCard(code, existing.id, { participantId: pid });
+      } catch (e) {
+        unremoveLocal(existing.id);
+        throw e;
+      }
+    }).finally(() =>
       setMarkPending((p) => {
         if (!p.has(key)) return p;
         const next = new Set(p);
         next.delete(key);
         return next;
-      });
-    if (existing) {
-      hold();
-      removeLocal(existing.id);
-      run(async () => {
-        try {
-          await deleteRippleCard(code, existing.id, { participantId: pid });
-        } catch (e) {
-          unremoveLocal(existing.id);
-          throw e;
-        }
-      }).finally(release);
-      return;
-    }
-    hold();
-    run(async () => {
-      const res = await postRippleCard(code, {
-        participantId: pid,
-        cardOrder: "FIRST",
-        cardKind: kind,
-        sourceCardId: source.id,
-        // The source's own words ride along, so the handoff reads without a join back to
-        // a board the deck may not have loaded.
-        text: source.text,
-      });
-      if (res?.card) addLocal(res.card as RippleCard);
-    }).finally(release);
+      })
+    );
   };
 
-  // Score a pick that already exists. The same shape as Week 2's scoreKeyChange, including
-  // the three-part overlay: `scoreLocal` merges so the two axis rows do not wipe each
-  // other, and the overlay's `inflight` counter is what stops this viewer being pinned to a
-  // number a teammate has since overwritten.
   const scorePick = (pickId: string, patch: ScorePatchInput) => {
     const axes = Object.keys(patch) as (keyof ScorePatchInput)[];
     scoreLocal(pickId, patch);
@@ -453,22 +400,13 @@ export function CommitmentsTeamView({
     });
   };
 
-  // The pick standing for a Session 3 card, with a create still in flight already counted
-  // so the counters do not lag a round trip behind the click.
   const pickFor = (sourceId: string) =>
     isStarred(sourceId) ? board.picks.get(sourceId) : undefined;
 
-  // ---- step 2: scoring is placing --------------------------------------------
-  //
-  // Step 2 shows both scales on every Session 3 card, so the FIRST click on a card has to
-  // paint before the pick that will hold the score exists. These two pieces bridge that
-  // gap, and only that gap: once the pick is on the board the ordinary `scores` overlay
-  // takes over and `pendingScores` drops the entry.
-  //
-  // `mintingPick` is keyed by source id and holds the in-flight create itself, not a
-  // boolean. Both scales clicked in quick succession must not send two creates, and 0018's
-  // unique (code, source_card_id) would turn the second into a 409 the group would read as
-  // someone else's edit. The second click awaits the same promise the first started.
+  // The first click on a card has to paint before the pick that will hold the score
+  // exists. `mintingPick` holds the in-flight create itself: both scales clicked in quick
+  // succession must not send two creates, and 0018's unique (code, source_card_id) would
+  // turn the second into a 409.
   const ensurePick = (source: { id: string; text: string }): Promise<string> => {
     const existing = board.picks.get(source.id);
     if (existing) return Promise.resolve(existing.id);
@@ -489,14 +427,9 @@ export function CommitmentsTeamView({
         addLocal(card);
         return card.id;
       })
-      // KEPT ON SUCCESS, deliberately. Clearing it in a `finally` released the guard a
-      // microtask after addLocal and before React had committed, so a click landing in
-      // that gap saw neither the pick nor the guard and posted a SECOND pick — the exact
-      // 409 the guard exists to prevent. A settled promise is a perfectly good guard: a
-      // later caller awaits it and gets the id the first call minted.
-      //
-      // Dropped only on failure, so a retry can mint, and in clearStake, where the pick it
-      // names is deleted and the resolved id would be dead.
+      // KEPT ON SUCCESS, deliberately: a settled promise is a good guard, and a later
+      // caller awaits it and gets the id the first call minted. Dropped only on failure,
+      // and in clearStake.
       .catch((e) => {
         mintingPick.current.delete(source.id);
         throw e;
@@ -520,19 +453,11 @@ export function CommitmentsTeamView({
       scorePick(existing.id, patch);
       return;
     }
-    // No pick yet: paint against the SOURCE id, mint, then hand off to the real overlay.
     setPendingScores((m) => new Map(m).set(card.id, { ...m.get(card.id), ...patch }));
     run(async () => {
       const pickId = await ensurePick({ id: card.id, text: card.text });
-      // Clear was pressed while this mint was in flight. The pick exists now, but the group
-      // has already said it does not want it: clearStake owns deleting it, and scoring it
-      // here is what used to leave a scored placement on a row the group had cleared,
-      // visible in the review pane, the CSV and the handoff deck.
+      // Clear was pressed while this mint was in flight: clearStake owns deleting it.
       if (cancelledMints.current.has(card.id)) return;
-      // `ensurePick` has already called addLocal, so the pick is in the optimistic cards
-      // and `scoresFor` will read it rather than the bridge from the very next render.
-      // Both of these are state updates in one tick, so there is no frame where the scale
-      // has neither and blinks back to empty.
       scoreLocal(pickId, patch);
       dropPending(card.id);
       try {
@@ -543,29 +468,17 @@ export function CommitmentsTeamView({
         throw e;
       }
     }).then((ok) => {
-      // The mint itself failed, so there is no pick to shadow the bridge entry and it has
-      // to go or the scale shows a score the board never took.
       if (!ok) dropPending(card.id);
     });
   };
 
-  // Take a scored card back off the matrix. There is no placement act to undo any more, but
-  // a mis-click still has to be reversible, and deleting the pick is what clears both axes
-  // at once: the score route has no "unset" and writing nulls through it is not a thing it
-  // offers.
+  // Take a scored card back off the matrix.
   const clearStake = (card: RippleCard) => {
-    // Both caches name a pick that is about to stop existing. The bridge entry is normally
-    // shadowed by the pick, but deleting the pick un-shadows it and the score comes
-    // straight back on screen; the minted promise would hand the next click a dead id.
     dropPending(card.id);
     const inFlight = mintingPick.current.get(card.id);
     mintingPick.current.delete(card.id);
 
-    // MID-MINT. `toggleMark` deletes by looking the pick up in `board.picks`, and during a
-    // mint there is nothing there yet, so it returned without doing anything and the create
-    // landed and got scored regardless. Clear is reachable in exactly this window: the
-    // scales are not gated on `busy`, and the bridge entry makes the row read as touched.
-    // So wait for the create this viewer already started and delete what it minted.
+    // MID-MINT: wait for the create this viewer already started and delete what it minted.
     if (inFlight && !board.picks.has(card.id)) {
       cancelledMints.current.add(card.id);
       run(async () => {
@@ -573,8 +486,6 @@ export function CommitmentsTeamView({
         try {
           pickId = await inFlight;
         } catch {
-          // The mint itself failed, so there is no pick to delete and scoreStake's own
-          // run() has already shown the group why.
           cancelledMints.current.delete(card.id);
           return;
         }
@@ -591,21 +502,14 @@ export function CommitmentsTeamView({
       return;
     }
 
-    // THE PICK IS NOT ONLY A SCORE. It also carries act 2's other output — `section` for a
-    // dispute, and the note explaining it in `description`. Deleting it to clear two
-    // numbers would take that with it, silently, from a link whose label says "Clear".
-    //
-    // So: unset the scores in place and keep the card. The score route takes an explicit
-    // null per axis ("explicit clear (un-score)"), which an older comment here claimed it
-    // did not — that claim is what made deleting the row look like the only way.
-    //
-    // `shortlisted` USED TO BE IN THIS TEST, for the star that named a priority. The star
-    // is gone and priorities are read off the ranking, so the column means nothing on an
-    // act-2 pick now — testing it would only keep a card alive to carry a flag no reader
-    // looks at. Old boards still have it set; letting those rows go when nothing else is
-    // on them is the cleanup, not a loss.
+    // THE PICK IS NOT ONLY A SCORE. It may be a confirmed priority, carry the group's "why",
+    // or have desired outcomes (and their response ideas) hanging under it; 0007's cascade
+    // would take all of that with a delete. So when it carries more, un-score it in place
+    // and keep the card. Only a bare scored pick is deleted outright.
     const pick = board.picks.get(card.id);
-    const carriesMore = pick && (pick.section === DISPUTED_SECTION || pick.description);
+    const carriesMore =
+      pick &&
+      (pick.shortlisted || pick.description || outcomesFor(board, pick.id).length > 0);
     if (pick && carriesMore) {
       const axes = ["plausibility", "impact"] as const;
       run(async () => {
@@ -624,63 +528,99 @@ export function CommitmentsTeamView({
       });
       return;
     }
-
-    // Nothing else on it, so the mark itself goes.
-    toggleMark("pick", { id: card.id, text: card.text }, false);
+    if (pick) deletePick(pick, card.id);
   };
 
-  // --- act 2: flagging a dispute --------------------------------------------------------
-  //
-  // THERE IS NO WRITE FOR A PRIORITY. There was: a star, stored as `shortlisted` on the
-  // pick. It was a second way of saying what the two scores already said, and the two
-  // disagreed in practice — a group would score "some people will be shut out" 5×5 and
-  // still find a 3×4 in its priorities, because that was the row somebody had clicked.
-  // `priorities()` now reads the top of the ranking, so re-scoring re-prioritises with no
-  // second write and nothing to keep in sync.
-  //
-  // THE DISPUTE MARK IS STILL A CHOICE and still rides on the pick, which is forced rather
-  // than chosen: 0018's unique (code, source_card_id) permits exactly one Week 4 card per
-  // Session 3 source, so a separate "disputed" card pointing at a risk that already has a
-  // pick could not be written. `ensurePick` is the same mint the matrix uses, so flagging
-  // a row nobody scored brings the pick into being exactly as a first score click would.
-  const toggleDisputed = (card: RippleCard, on: boolean) =>
+  // ---- 1.2: confirming the three ---------------------------------------------
+  // `shortlisted` on a pick means CONFIRMED as a priority. The optimistic overlay shows it
+  // at once; the server's answer settles it.
+  const confirmPick = async (pick: RippleCard, on: boolean) => {
+    if (pick.shortlisted === on) return;
+    shortlistLocal(pick.id, on);
+    try {
+      await shortlistRippleCard(code, pick.id, { participantId: pid, shortlisted: on });
+    } catch (e) {
+      shortlistLocal(pick.id, !on);
+      throw e;
+    }
+  };
+  const keepPriority = (pick: RippleCard) => run(() => confirmPick(pick, true));
+
+  // Replace slot i's occupant with `next`. THE CLICKED ITEM MUST BE THE ONE THAT LEAVES,
+  // and the only way to guarantee that is to confirm every other slot as it stands:
+  // anything left as a suggestion is re-derived from the ranking the moment the slots
+  // change, so confirming `next` alone evicts the lowest suggestion rather than the one
+  // the group pointed at, and un-confirming a high-scoring occupant puts it straight back
+  // as a suggestion. Confirmed slots are already confirmed, so this is at most three
+  // writes, run together.
+  const replacePriority = (slotIndex: number, next: RippleCard) =>
     run(async () => {
-      const pickId = await ensurePick({ id: card.id, text: card.text });
-      if (cancelledMints.current.has(card.id)) return;
-      const before = board.picks.get(card.id)?.section ?? null;
-      sectionLocal(pickId, on ? DISPUTED_SECTION : null);
+      const slots = prioritySlots(board);
+      const prev = slots[slotIndex] ?? null;
+      await Promise.all([
+        confirmPick(next, true),
+        ...(prev?.status === "confirmed" ? [confirmPick(prev.card, false)] : []),
+        ...slots
+          .filter((s) => s.status === "suggested" && s.card.id !== prev?.card.id)
+          .map((s) => confirmPick(s.card, true)),
+      ]);
+    });
+
+  // Why a priority needs attention. Writing a why on a suggestion confirms it: explaining
+  // a priority is choosing it. The text survives un-confirming (it is the group's writing).
+  const setWhy = (pick: RippleCard, why: string) =>
+    run(async () => {
+      if (!pick.shortlisted && why.trim()) await confirmPick(pick, true);
+      const before = pick.description ?? null;
+      describeLocal(pick.id, why);
       try {
-        await disputeRippleCard(code, pickId, { participantId: pid, disputed: on });
+        await describeRippleCard(code, pick.id, { participantId: pid, description: why });
       } catch (e) {
-        sectionLocal(pickId, before);
+        describeLocal(pick.id, before);
         throw e;
       }
     });
 
-  // Why the room could not agree. SEPARATE FROM THE FLAG so it survives being un-flagged
-  // and comes back if the group changes its mind — the note is the group's writing and the
-  // flag is a state, and losing the first to toggle the second would be the worse bug.
-  const setDisputeNote = (card: RippleCard, note: string) =>
+  // ---- 2.1 and 2.2: outcomes under picks, ideas under outcomes ---------------
+  const addOutcome = (pick: RippleCard, text: string) =>
     run(async () => {
-      const pickId = await ensurePick({ id: card.id, text: card.text });
-      if (cancelledMints.current.has(card.id)) return;
-      const before = board.picks.get(card.id)?.description ?? null;
-      describeLocal(pickId, note);
-      try {
-        await describeRippleCard(code, pickId, { participantId: pid, description: note });
-      } catch (e) {
-        describeLocal(pickId, before);
-        throw e;
-      }
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "SECOND",
+        cardKind: "outcome",
+        parentCardId: pick.id,
+        text,
+        sort: endSort(outcomesFor(board, pick.id)),
+      });
+      if (res?.card) addLocal(res.card as RippleCard);
     });
 
-  // --- act 6: choosing three directions, and sharpening each ---------------------------
-  //
-  // A DIRECTION IS ITS OWN CARD, written rather than picked off act 4's wall — see
-  // lib/commitments-shape for why that changed. Its text is the move; the three questions
-  // about it are children.
-  const addDirection = (move: string) =>
+  const addResponseFor = (outcome: RippleCard, text: string) =>
     run(async () => {
+      const res = await postRippleCard(code, {
+        participantId: pid,
+        cardOrder: "TERMINAL",
+        cardKind: "response",
+        parentCardId: outcome.id,
+        text,
+        sort: endSort(board.responsesByOutcome.get(outcome.id) ?? []),
+      });
+      if (res?.card) addLocal(res.card as RippleCard);
+    });
+
+  // ---- 3.2: the three bold moves ---------------------------------------------
+  // One click creates the move and every field the group filled. The move goes first,
+  // because the fields hang off it; the fields then go TOGETHER, because they are
+  // independent and three round trips in a row was most of the wait. A field whose write
+  // fails after the move landed is reported back rather than thrown: the move is real, and
+  // MovesBoard keeps the failed text in that field's box for a click away to retry. Only
+  // the move itself failing is an error (null), and then the draft stays where it was.
+  const addDirectionWithFields = async (
+    move: string,
+    fields: PendingFields
+  ): Promise<AddMoveResult> => {
+    let created: RippleCard | undefined;
+    const ok = await run(async () => {
       const res = await postRippleCard(code, {
         participantId: pid,
         cardOrder: "FIRST",
@@ -688,9 +628,41 @@ export function CommitmentsTeamView({
         text: move,
         sort: endSort(board.directions),
       });
-      const created = res?.card as RippleCard | undefined;
-      if (created) addLocal(created);
+      created = res?.card as RippleCard | undefined;
+      if (!created) throw new Error("The board did not accept that.");
+      addLocal(created);
     });
+    if (!ok || !created) return null;
+    const parent = created;
+    const entries = (Object.entries(fields) as [DirectionFieldKey, string | undefined][])
+      .map(([key, value]) => [key, value?.trim() ?? ""] as const)
+      .filter(([, t]) => t);
+    const results = await Promise.allSettled(
+      entries.map(([key, t]) =>
+        postRippleCard(code, {
+          participantId: pid,
+          cardOrder: "SECOND",
+          cardKind: "sharpen",
+          parentCardId: parent.id,
+          section: key,
+          text: t,
+        })
+      )
+    );
+    const failed: PendingFields = {};
+    results.forEach((r, i) => {
+      const [key, t] = entries[i];
+      if (r.status === "fulfilled" && r.value?.card) addLocal(r.value.card as RippleCard);
+      else failed[key] = t;
+    });
+    const n = Object.keys(failed).length;
+    if (n > 0) {
+      setFlash(
+        `The move saved, but ${n} ${n === 1 ? "explanation" : "explanations"} did not. ${n === 1 ? "It is" : "They are"} still in the box: click away from it to try again.`
+      );
+    }
+    return { card: parent, failed };
+  };
 
   const editDirection = (card: RippleCard, move: string) =>
     run(async () => {
@@ -704,9 +676,7 @@ export function CommitmentsTeamView({
       }
     });
 
-  // Deleting a direction takes its answers with it — 0007's `on delete cascade`, not
-  // 0026, which only locks the row and refuses a theme holding children. One call rather
-  // than four, and the confirm says what goes.
+  // Deleting a move takes its answers with it: 0007's `on delete cascade`.
   const removeDirection = (card: RippleCard) =>
     run(async () => {
       removeLocal(card.id);
@@ -718,14 +688,9 @@ export function CommitmentsTeamView({
       }
     });
 
-  // One of a direction's three fields. Creates on first answer, edits in place after, and
-  // DELETES when the text is cleared — an empty card would read as answered to every
-  // counter on the board while showing nothing.
-  const setSharpen = (
-    direction: RippleCard,
-    field: DirectionFieldKey,
-    text: string
-  ) =>
+  // One of a move's three fields. Creates on first answer, edits in place after, and
+  // DELETES when the text is cleared.
+  const setSharpen = (direction: RippleCard, field: DirectionFieldKey, text: string) =>
     run(async () => {
       const existing = sharpenFor(board, direction.id, field)[0];
       const next = text.trim();
@@ -763,7 +728,7 @@ export function CommitmentsTeamView({
       if (created) addLocal(created);
     });
 
-  // What step 2 SHOWS for a Session 3 card: the pick's scores once it exists, and the
+  // What 1.2 SHOWS for a Session 3 card: the pick's scores once it exists, and the
   // optimistic patch before it does.
   const scoresFor = (sourceId: string) => {
     const pick = board.picks.get(sourceId);
@@ -775,11 +740,7 @@ export function CommitmentsTeamView({
     };
   };
 
-  // ---- step 5 ----------------------------------------------------------------
-
-
-  // The server's stamp is the authority on both of these: on a shared board two people can
-  // press Submit seconds apart, and the response says whose press counted.
+  // ---- the handoff -----------------------------------------------------------
   const submitWeek = () =>
     run(async () => {
       const r = await submitRippleBoard(code, { participantId: pid });
@@ -792,109 +753,41 @@ export function CommitmentsTeamView({
       setSubmitted({ at: null, by: null });
     });
 
-  // The priorities as the RAILS should show them: the Session 3 card's current words, not
-  // the snapshot the pick copied when it was minted. MatrixBoard's own panel already reads
-  // the live rows and says why; every other surface was reading the copy, so editing a
-  // risk's wording on Session 3 changed step 2 and nothing else.
-  //
-  // The pick's own text stays the fallback — it is what a reader with only this board in
-  // hand has, and it is why the copy is stored at all.
-  // NOT a useMemo: this file returns early four times above (loading, error, no view, not
-  // joined), so a hook here renders a different number of hooks on the first pass than on
-  // the second and React tears the tree down. Three items, or four on a dead heat — there
-  // is nothing here worth memoising.
-  const livePriorityText = new Map(week3Cards.map((c) => [c.id, c.text]));
-  const railPriorities = priorities(board).map((p) =>
-    p.sourceCardId && livePriorityText.has(p.sourceCardId)
-      ? { ...p, text: livePriorityText.get(p.sourceCardId)! }
-      : p
-  );
+  // ---- shared readouts -------------------------------------------------------
+  // A pick's source as it reads NOW on Session 3, and which wall it came from.
+  const textOf = (pick: RippleCard) =>
+    (pick.sourceCardId && stakeIndex.text.get(pick.sourceCardId)) || pick.text;
+  const kindOf = (pick: RippleCard) =>
+    pick.sourceCardId ? stakeIndex.kind.get(pick.sourceCardId) : undefined;
+  const themeOf = (pick: RippleCard) =>
+    pick.sourceCardId ? stakeIndex.theme.get(pick.sourceCardId) : undefined;
+  const slots: PrioritySlot[] = prioritySlots(board);
+  const outcomesByPriority = priorities(board).map((p) => ({
+    priority: textOf(p),
+    items: outcomesFor(board, p.id),
+  }));
+  const hopes = w3.hopesFears.filter((c) => c.cardKind === "hope");
+  const visionCard = answersOn(COMMITMENTS_KEY_VISION)[0];
 
-  // ---- the steps -------------------------------------------------------------
+  const sectionsFor = (s: CommitmentsSectionStep) => commitmentsSectionsFor(sections, s);
 
-  // THREE tabs carry written fields, and which sections land on one is the step registry's
-  // call, not this file's — so a pre-rebuild board and an admin's hand-typed tab name are
-  // handled in one place rather than re-guessed here. The buckets are disjoint, so no
-  // section can render on two tabs at once.
-  const sectionsFor = (step: CommitmentsSectionStep) =>
-    commitmentsSectionsFor(sections, step);
-
-  // How many of a step's prompts have been answered at all. The unit is the PROMPT, not the
-  // answer: each takes as many answers as the group has, so counting answers would give a
-  // number with no denominator and nothing to draw a bar against.
-  const answeredCount = (spec: typeof sections) =>
-    spec.filter((sec) =>
-      cards.some((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
-    ).length;
-
-  // The handoff's composer. Built here because this is the only place holding the signals
-  // the readiness gate reads, and the stored override, which lives on the session config
-  // rather than on a card.
-  //
-  // RAW config, not resolveConfig(): execSummary is deliberately outside that whitelist so
-  // a group's draft never ships in the payload every member's board fetches. On this board
-  // it is already in hand, because this component holds the session row.
   const execReady = execSummaryReadiness({
-    grounding: answeredCount(sectionsFor("reconnect")),
-    groundingTotal: sectionsFor("reconnect").length,
-    priorities: priorities(board).length,
-    outcomes: answeredCount(sectionsFor("outcomes")),
-    outcomesTotal: sectionsFor("outcomes").length,
+    priorities: slots.length,
+    prioritiesWithOutcomes: outcomeCoverage(board),
     responses: board.responses.length,
-    vision: answeredCount(sectionsFor("vision")),
-    visionTotal: sectionsFor("vision").length,
+    vision: answersOn(COMMITMENTS_KEY_VISION).length,
     directions: board.directions.length,
   });
   const execOverride = coerceExecSummary(
     (view?.session.config as Record<string, unknown> | undefined)?.execSummary
   );
-
-  // THE STEP IS LOCKED until the six activities before it are done.
-  //
-  // IT RE-LOCKS IF A STEP IS UNDONE, unless the group has written its own lead. The gate
-  // exists to stop a summary being built out of nothing, so a group that deletes an answer
-  // should see the checklist again — the first version kept the step open for ANY stored
-  // draft, which meant undoing a step changed nothing and looked broken.
-  //
-  // An EDITED lead is different: that is the group's own writing, and hiding it behind a
-  // checklist because they went back to fix a typo in step 4 would be taking their work
-  // away. An untouched machine draft is not their work and costs nothing to rebuild.
-  // THE SIX ACTIVITIES, AND NOTHING ELSE. This used to read `!execReady.ready && !execEdited`,
-  // so a stored note held the step open on a board that was not finished — and deleting
-  // that note slammed it shut with no way back, because the only thing that had been
-  // unlocking it was the thing just deleted. A group could write a note, delete it, and
-  // never reach the box again short of finishing every activity.
-  //
-  // The `execEdited` escape dates from when this override was the handoff's LEAD and the
-  // rule was that a group's own writing must never be hidden behind a checklist. It is a
-  // note alongside the deck now, not the deck's opening, and it is not lost when the step
-  // closes: it stays stored, it still renders on the handoff, and it is there to edit again
-  // the moment the activities are done.
+  // THE HANDOFF IS LOCKED until the six activities before it are done, and re-locks if one
+  // is undone. The committee note is stored regardless and comes back the moment the
+  // activities are finished again.
   const reviewLocked = !execReady.ready;
   const stepsDone = execReady.steps.length - execReady.missing.length;
 
-  // The answers to one tab's prompts, flattened in board order. Used by the review step,
-  // which reads the week back rather than editing it.
-  const answersOn = (step: CommitmentsSectionStep) =>
-    sectionsFor(step).flatMap((sec) =>
-      cards
-        .filter((c) => c.order === "STICKY" && c.section === sec.key && c.text.trim())
-        .sort((a, b) => a.sort - b.sort)
-        .map((c) => c.text.trim())
-    );
-
-
-  const execComposer = (
-    <ExecSummaryComposer
-      sessionCode={code}
-      participantId={pid}
-      override={execOverride}
-      canEdit={editable}
-      onStored={refresh}
-    />
-  );
-
-  const worksheetFor = (spec: typeof sections) => (
+  const worksheetFor = (spec: WorksheetSection[], addLabel?: string, placeholder?: string) => (
     <WorksheetSections
       sections={spec}
       cards={cards}
@@ -906,272 +799,265 @@ export function CommitmentsTeamView({
       onDelete={removeCard}
       onEdit={editCardById}
       onReorder={reorderSectionCard}
+      addLabel={addLabel}
+      placeholder={placeholder}
     />
+  );
+
+  // One of the single-statement boxes, by section key. The label and help are the
+  // facilitator's (the authored section); the placeholder and button are the activity's.
+  const singleBox = (key: string, placeholder: string, saveLabel?: string, rows?: number) => {
+    const sec = sections.find((s) => s.key === key);
+    const [first, ...extras] = answersOn(key);
+    return (
+      <SingleAnswer
+        label={sec?.label ?? key}
+        help={sec?.help}
+        placeholder={placeholder}
+        card={first}
+        extras={extras}
+        editable={editable}
+        busy={busy}
+        rows={rows}
+        saveLabel={saveLabel}
+        onSave={(text) => setSingleAnswer(key, text)}
+        onDelete={removeCard}
+      />
+    );
+  };
+
+  const rail = (
+    <ReferenceRail
+      board={w3}
+      week2Cards={week2Cards}
+      scenario={scenario}
+      onOpenScenario={() => setShowScenario(true)}
+    />
+  );
+
+  // The chrome every activity shares: header above, checklist and continue below. The
+  // matrix tab owns its own two columns (its right column is the matrix, not the rail), so
+  // it takes these as nodes instead.
+  const footerFor = (s: ActivityStep) => (
+    <>
+      <Checklist
+        storeKey={s}
+        title={ACTIVITY_META[s].checklistTitle}
+        items={ACTIVITY_META[s].checklist}
+      />
+      <ContinueButton label={ACTIVITY_META[s].nextLabel} onClick={() => setStep(ACTIVITY_META[s].next)} />
+    </>
+  );
+  const activity = (s: ActivityStep, body: React.ReactNode, aside: React.ReactNode = rail) => (
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
+      <div className="flex min-w-0 flex-col gap-6">
+        <ActivityHeader step={s} />
+        {body}
+        {footerFor(s)}
+      </div>
+      {aside}
+    </div>
   );
 
   const stepBody = (
     <div className="flex flex-col gap-8">
-      {/* Same markup as RipplesTeamView's step tabs, SynthesisTeamView's and
-          WorksheetSections' — the four read as one pattern. The aria-label is what
-          distinguishes this from the outer past-weeks bar, which is styled identically.
-          Steps are open from the start: a shared board is worked asynchronously, so
-          gating one behind another strands people. */}
-      <div
-        role="tablist"
-        aria-label="Commitments steps"
-        className="flex flex-wrap gap-1 border-b border-[var(--rule)]"
-      >
-        {COMMIT_STEPS.map((sp) => {
-          // The handoff is the only one that can be shut. It is built FROM the six before
-          // it, so
-          // opening it early shows a locked box and a model call made out of nothing.
-          const locked = sp === "review" && reviewLocked;
-          return (
-            <button
-              key={sp}
-              role="tab"
-              aria-selected={step === sp}
-              // CLICKABLE EVEN WHEN LOCKED. A padlock that does nothing on click tells a
-              // group only that the page is broken; clicking it opens the list of what is
-              // left, which is the question they clicked to ask.
-              title={locked ? `Finish these first: ${execReady.missing.join(", ")}` : undefined}
-              onClick={() => setStep(sp)}
-              className={
-                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors " +
-                (locked
-                  ? "rounded-t-[2px] bg-[var(--rule)] text-muted " +
-                    (step === sp ? "border-ink" : "border-transparent hover:text-ink")
-                  : step === sp
-                    ? "border-ink text-ink"
-                    : "border-transparent text-muted hover:text-ink")
-              }
-            >
-              {locked && (
-                // A padlock, inline rather than an icon font: two paths, and it has to sit
-                // on the baseline of 12px uppercase text.
-                <svg
-                  aria-hidden
-                  viewBox="0 0 10 12"
-                  className="h-[11px] w-[9px] shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <rect x="0.7" y="5" width="8.6" height="6.3" rx="1" />
-                  <path d="M2.6 5V3.3a2.4 2.4 0 0 1 4.8 0V5" />
-                </svg>
-              )}
-              {STEP_LABELS[sp]}
-              {locked && (
-                <span className="font-mono text-[10px] font-bold tabular-nums">
-                  {stepsDone}/{execReady.steps.length}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <StepTracker
+        step={step}
+        onSelect={setStep}
+        reviewLocked={reviewLocked}
+        stepsDone={stepsDone}
+        stepsTotal={execReady.steps.length}
+        missing={execReady.missing}
+      />
 
-      {/* Act 1. What needs attention, and what to keep in view — with the whole of the
-          last three sessions in the rail, because "reconnect" is what the activity is. */}
-      {step === "reconnect" && (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div className="flex min-w-0 flex-col gap-5">
-            {/* ABOVE THE QUESTIONS, NOT FOLDED UNDER THEM. This is how to run the ten
-                minutes, and the talking is most of it — a group that opens two answer
-                boxes and starts typing has skipped the activity. It is hardcoded rather
-                than a section because it is not a prompt: nothing is written under it, and
-                giving it an answer box is the exact misreading it exists to prevent.
-
-                THE COUNT IS DERIVED. A facilitator can add a third prompt in the program
-                editor, and "the two questions below" would then be quietly wrong. */}
-            {sectionsFor("reconnect").length > 0 && (
-              <StepIntro n="01" title="Reconnect with the scenario">
-                <p className="m-0">
-                  Take a few minutes to reconnect with your group&rsquo;s scenario. Think and
-                  talk about the role of public health in this world and how it&rsquo;s
-                  changed. Then answer the{" "}
-                  {sectionsFor("reconnect").length === 2 ? "two " : ""}questions below.
-                </p>
-              </StepIntro>
-            )}
+      {/* 1.1. Four questions to talk through, and an optional notes box under them. */}
+      {step === "reconnect" &&
+        activity(
+          "reconnect",
+          <>
+            <StarterQuestions starters={ACTIVITY_META.reconnect.starters} />
             {sectionsFor("reconnect").length > 0 ? (
-              worksheetFor(sectionsFor("reconnect"))
+              worksheetFor(
+                sectionsFor("reconnect"),
+                "+ Add note",
+                "Capture anything the group wants to carry into today’s discussion…"
+              )
             ) : (
               <NoPrompts />
             )}
-            {/* Counts PROMPTS with at least one answer, not answers: the prompts take as
-                many as the group has, so a tally of answers would have no denominator and
-                could not be a bar. */}
-            <StepProgress
-              done={answeredCount(sectionsFor("reconnect"))}
-              total={sectionsFor("reconnect").length}
-              noun="answered"
-            />
-          </div>
-          <Week3Reference cards={week3Cards} week2Cards={week2Cards} scenario={scenario} />
-        </div>
-      )}
+          </>
+        )}
 
-      {/* Act 2. Weigh the walls, then name three. The discussion prompts are guidance and
-          live in the board's own Directions fold — the group's answer here is what it
-          stars, not a paragraph it types. */}
+      {/* 1.2. The matrix board owns its columns; the shell hands it the chrome. */}
       {step === "prioritize" && (
         <MatrixBoard
-          week3Cards={week3Cards}
+          w3={w3}
           board={board}
+          textOf={textOf}
+          kindOf={kindOf}
+          themeOf={themeOf}
           pickFor={pickFor}
           scoresFor={scoresFor}
           editable={editable}
           busy={busy}
           onScore={scoreStake}
           onClear={clearStake}
-          onToggleDisputed={toggleDisputed}
-          onNote={setDisputeNote}
+          onKeep={keepPriority}
+          onReplace={replacePriority}
+          onWhy={setWhy}
+          header={<ActivityHeader step="prioritize" />}
+          // GATED ON THE SECTION EXISTING, like the vision and together boxes. On a board
+          // stamped before this section, a box here would label itself with the raw key
+          // and nothing it stored would reach the deck or the admin viewer.
+          overlook={
+            sectionsFor("prioritize").length > 0
+              ? singleBox(
+                  COMMITMENTS_KEY_OVERLOOK,
+                  "Note an important disputed issue and the different views…",
+                  "Save",
+                  3
+                )
+              : null
+          }
+          footer={footerFor("prioritize")}
         />
       )}
 
-      {/* Act 3. The priorities ride above as context rather than as headings to write
-          under: the group was asked for outcomes for its top three, not one outcome per
-          row, and nesting the boxes would have made the looser answer impossible. */}
-      {step === "outcomes" && (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div className="flex min-w-0 flex-col gap-5">
-            {sectionsFor("outcomes").length > 0 && (
-              <StepIntro n="03" title="Describe desired outcomes">
-                <p className="m-0">
-                  Your three priorities are in the rail, with what the room was afraid of and
-                  what it hoped for underneath them. Write what you want public health to make
-                  possible, not what it would do to get there.
-                </p>
-              </StepIntro>
-            )}
-            {sectionsFor("outcomes").length > 0 ? (
-              worksheetFor(sectionsFor("outcomes"))
-            ) : (
-              <NoPrompts />
-            )}
-            <StepProgress
-              done={answeredCount(sectionsFor("outcomes"))}
-              total={sectionsFor("outcomes").length}
-              noun="answered"
-            />
-          </div>
-          {/* TWO BLOCKS, THIS WEEK'S WORK ABOVE THE EARLIER SESSIONS'. The priorities are
-              what the group is writing outcomes FOR, so they sit at the top of the rail;
-              Week 3's walls are the material underneath them.
-
-              RISKS AND FEARS FIRST, THEN HOPES, inside that second block — the order the
-              activity asks for. A group writing what it wants public health to make
-              possible should meet what it is afraid of before what it hopes for, or the
-              outcomes come out as the hopes again in other words. */}
-          <div className="flex flex-col gap-4">
-            <Week4Reference priorities={railPriorities} />
-            <Week3Reference
-              cards={week3Cards}
-              week2Cards={week2Cards}
-              scenario={scenario}
-              variant="stakes-first"
-            />
-          </div>
-        </div>
-      )}
-
-      {step === "responses" && (
-        <ResponseBoard
-          board={board}
-          outcomes={answersOn("outcomes")}
-          priorities={railPriorities}
-          week3Cards={week3Cards}
-          week2Cards={week2Cards}
-          scenario={scenario}
-          editable={editable}
-          busy={busy}
-          onAdd={addResponse}
-          onEdit={editCard}
-          onDelete={removeCard}
-        />
-      )}
-
-      {/* Act 5. One short statement, with the outcomes and the response wall under it as
-          the raw material it is drawn from. */}
-      {/* Act 5. The outcomes and the response wall go in the RAIL rather than in a panel
-          under the question. This step asks the group to look across both and say what it
-          all adds up to, and material stacked below the writing meant scrolling away from
-          the box you are meant to be writing in. What the step produces is on the question
-          itself now, last, where it is read when it matters. */}
-      {step === "vision" && (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div className="flex min-w-0 flex-col gap-5">
-            {sectionsFor("vision").length > 0 && (
-              <StepIntro n="05" title="Vision">
-                {/* Deliberately NOT a restatement of the question below it. That already
-                    carries the prompt, the pressure test and what it has to produce; this
-                    says the two things the question cannot — that the answer is one the
-                    whole group agrees on, and where the material it is drawn from is. */}
-                <p className="m-0">
-                  One short statement your group agrees on. What you are drawing on, your
-                  desired outcomes and your response wall, is in the rail.
-                </p>
-              </StepIntro>
-            )}
-            {sectionsFor("vision").length > 0 ? (
-              worksheetFor(sectionsFor("vision"))
-            ) : (
-              <NoPrompts />
-            )}
-            <StepProgress
-              done={answeredCount(sectionsFor("vision"))}
-              total={sectionsFor("vision").length}
-              noun="answered"
-            />
-          </div>
-          <Week4Reference outcomes={answersOn("outcomes")} responses={board.responses} />
-        </div>
-      )}
-
-      {/* Act 6. Write three, and sharpen each. */}
-      {step === "directions" && (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div className="min-w-0">
-            <MovesBoard
+      {/* 2.1. Outcomes under each priority. Flat outcomes from the retired prompt, on a
+          board that has any, render under the cards as legacy. */}
+      {step === "outcomes" &&
+        activity(
+          "outcomes",
+          <>
+            <StarterQuestions starters={ACTIVITY_META.outcomes.starters} />
+            <OutcomesBoard
               board={board}
+              slots={slots}
+              textOf={textOf}
+              kindOf={kindOf}
               editable={editable}
               busy={busy}
-              onAdd={addDirection}
+              onAdd={addOutcome}
+              onEdit={editCard}
+              onDelete={removeCard}
+              legacy={
+                sectionsFor("outcomes").some((sec) => answersOn(sec.key).length > 0)
+                  ? worksheetFor(sectionsFor("outcomes"))
+                  : undefined
+              }
+            />
+          </>
+        )}
+
+      {/* 2.2. Ideas under each outcome. */}
+      {step === "responses" &&
+        activity(
+          "responses",
+          <>
+            <Callout>
+              This is a brainstorming exercise. There are no bad ideas at this stage; aim for
+              quantity over quality.
+            </Callout>
+            <StarterQuestions starters={ACTIVITY_META.responses.starters} />
+            <ResponseBoard
+              board={board}
+              slots={slots}
+              textOf={textOf}
+              kindOf={kindOf}
+              editable={editable}
+              busy={busy}
+              onAdd={addResponseFor}
+              onEdit={editCard}
+              onDelete={removeCard}
+              onGoToOutcomes={() => setStep("outcomes")}
+            />
+          </>
+        )}
+
+      {/* 3.1. One statement, with everything it is drawn from in a panel above it. */}
+      {step === "vision" &&
+        activity(
+          "vision",
+          <>
+            <StarterQuestions starters={ACTIVITY_META.vision.starters} />
+            <Week4Reference
+              slots={slots}
+              textOf={textOf}
+              hopes={hopes}
+              outcomes={outcomesByPriority}
+              responses={board.responses}
+            />
+            <Callout label="Optional sentence starter">
+              <p className="m-0">
+                In this future, public health is _____. It works by _____, so people and
+                communities can _____.
+              </p>
+              <p className="m-0 mt-1 text-[13px] text-muted">
+                Use this to get started, or write in your own words.
+              </p>
+            </Callout>
+            {sectionsFor("vision").length > 0 ? (
+              singleBox(
+                COMMITMENTS_KEY_VISION,
+                "Describe what public health becomes and what that makes possible for communities…",
+                "Save vision",
+                6
+              )
+            ) : (
+              <NoPrompts />
+            )}
+          </>
+        )}
+
+      {/* 3.2. Three moves, how they work together, and the note to the committee. */}
+      {step === "directions" &&
+        activity(
+          "directions",
+          <>
+            <StarterQuestions starters={ACTIVITY_META.directions.starters} />
+            <MovesBoard
+              board={board}
+              vision={visionCard?.text ?? null}
+              editable={editable}
+              busy={busy}
+              onAdd={addDirectionWithFields}
               onEditMove={editDirection}
               onDelete={removeDirection}
               onSharpen={setSharpen}
+              onGoToVision={() => setStep("vision")}
             />
-          </div>
-          {/* The material a direction is composed FROM: the wall it draws on, the
-              priorities and outcomes its purpose field has to name, and the vision its
-              test is against. Week 3 below, closed. */}
+            {sectionsFor("directions").length > 0 &&
+              singleBox(COMMITMENTS_KEY_TOGETHER, "Together, these moves…", "Save", 4)}
+            <ExecSummaryComposer
+              sessionCode={code}
+              participantId={pid}
+              override={execOverride}
+              canEdit={editable}
+              onStored={refresh}
+              plain
+              heading="Anything the steering committee should know? · Optional"
+              intro=""
+              placeholder="Note an unresolved choice, disagreement, or important alternative…"
+            />
+          </>,
           <div className="flex flex-col gap-4">
             <Week4Reference
-              outcomes={answersOn("outcomes")}
-              priorities={railPriorities}
+              title="What you have said so far"
+              intro="The pool your three moves are built from."
+              slots={slots}
+              textOf={textOf}
+              outcomes={outcomesByPriority}
               responses={board.responses}
             />
-            <Week3Reference
-              cards={week3Cards}
-              week2Cards={week2Cards}
-              scenario={scenario}
-              variant="collapsed"
-            />
+            {rail}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Act 7, the handoff. No read-back: by here the group has just written its three
-          directions, and the deck is one click away and reads the whole week better than a
-          panel on this step ever did. What is left is the optional note and the way out. */}
+      {/* The handoff: locked until the six are done, then preview and submit. */}
       {step === "review" && reviewLocked && <HandoffGuideLocked steps={execReady.steps} />}
-
       {step === "review" && !reviewLocked && (
         <ReviewBoard
           summaryHref={summaryHref}
-          composer={execComposer}
           submittedAt={submitted.at}
           submittedBy={submitted.by}
           editable={editable}
@@ -1186,7 +1072,7 @@ export function CommitmentsTeamView({
   const toggle = (
     <ScenarioToggle
       showingScenario={showScenario}
-      exerciseLabel="Worksheet"
+      exerciseLabel="Back to activities"
       onToggle={() => setShowScenario((v) => !v)}
       disabled={busy}
     />
@@ -1200,7 +1086,7 @@ export function CommitmentsTeamView({
         <PhaseHeader
           phase={phase}
           title={title || config.scenarioTitle}
-          kindLabel="Commitments"
+          kindLabel="Synthesis"
           right={toggle}
         />
       )}

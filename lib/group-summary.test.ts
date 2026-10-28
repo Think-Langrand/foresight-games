@@ -355,6 +355,9 @@ describe("buildGroupSummary", () => {
     // rather than going quietly shorter.
     expect(bare.grounding).toEqual([]);
     expect(bare.outcomes).toEqual([]);
+    expect(bare.outcomesByPriority).toEqual([]);
+    expect(bare.overlook).toEqual([]);
+    expect(bare.together).toEqual([]);
     expect(bare.vision).toEqual([]);
     expect(bare.placements).toEqual([]);
     expect(bare.priorities).toEqual([]);
@@ -374,6 +377,9 @@ describe("buildGroupSummary · Session 4", () => {
     title: "Session 4",
     cards: [],
     responses: [],
+    prioritySlots: [],
+    strayOutcomes: [],
+    looseResponses: [],
     boldMoves: [],
     directions: [],
     lanes: [],
@@ -547,7 +553,7 @@ describe("buildGroupSummary · the curated handoff", () => {
     sourceId: string,
     p: number | null = null,
     i: number | null = null,
-    over: { priority?: boolean; disputed?: boolean; note?: string | null } = {}
+    over: { priority?: boolean; confirmed?: boolean; disputed?: boolean; note?: string | null } = {}
   ) => ({
     ...row(id, text),
     sourceId,
@@ -555,13 +561,31 @@ describe("buildGroupSummary · the curated handoff", () => {
     impact: i,
     rank: p !== null && i !== null ? p * i : null,
     priority: over.priority ?? false,
+    confirmed: over.confirmed ?? false,
     disputed: over.disputed ?? false,
     note: over.note ?? null,
   });
+  // The slots as the admin shape hands them over: every pick marked `priority` becomes a
+  // slot, in the order given, carrying no outcomes unless a test says otherwise.
+  const slotsOf = (
+    picks: ReturnType<typeof mark>[],
+    outcomes: Record<string, { text: string; responses?: string[] }[]> = {}
+  ) =>
+    picks
+      .filter((p) => p.priority)
+      .map((p) => ({
+        pick: p,
+        status: (p.confirmed ? "confirmed" : "suggested") as "confirmed" | "suggested",
+        outcomes: (outcomes[p.sourceId] ?? []).map((o, k) => ({
+          outcome: row(`${p.id}-o${k}`, o.text),
+          responses: (o.responses ?? []).map((r, j) => row(`${p.id}-o${k}-r${j}`, r)),
+        })),
+      }));
   const stake = (id: string, text: string) => ({ ...row(id, text), mechanism: null, shortlisted: false });
   const w4 = (over: Partial<CommitmentsExercise>): CommitmentsExercise => ({
     kind: "commitments", exerciseId: "EX4", title: "Session 4", cards: [{ id: "c" } as never],
-    responses: [], boldMoves: [], directions: [], lanes: [], stranded: [],
+    responses: [], prioritySlots: [], strayOutcomes: [], looseResponses: [],
+    boldMoves: [], directions: [], lanes: [], stranded: [],
     picks: [], settledMarks: [], orphans: [], questions: [],
     submittedAt: null, submittedBy: null,
     ...over,
@@ -605,9 +629,9 @@ describe("buildGroupSummary · the curated handoff", () => {
     );
     // Strongest first, regardless of the order the picks arrived in, and the unscored last.
     expect(s.placements).toEqual([
-      { id: "o1", text: "starred opp", kind: "opportunity", plausibility: 5, impact: 4, rank: 20, note: null },
-      { id: "r2", text: "plain risk", kind: "risk", plausibility: 2, impact: 5, rank: 10, note: null },
-      { id: "r1", text: "starred risk", kind: "risk", plausibility: null, impact: null, rank: null, note: null },
+      { id: "o1", text: "starred opp", kind: "opportunity", plausibility: 5, impact: 4, rank: 20, note: null, confirmed: false },
+      { id: "r2", text: "plain risk", kind: "risk", plausibility: 2, impact: 5, rank: 10, note: null, confirmed: false },
+      { id: "r1", text: "starred risk", kind: "risk", plausibility: null, impact: null, rank: null, note: null, confirmed: false },
     ]);
   });
 
@@ -692,104 +716,102 @@ describe("buildGroupSummary · the curated handoff", () => {
     ]);
   });
 
-  it("takes act 2's priorities off the top of the ranking, strongest first", () => {
-    // NOT off a stored flag. `priority: true` sits on the two LOWEST-scoring picks here on
-    // purpose: it was a manual star, it could disagree with the scores on the very same
-    // row, and that disagreement is what this replaced. The scores decide.
+  it("takes act 1.2's priorities from the slots, confirmed first, with the why on each", () => {
+    // NOT re-derived from the scores here. The shape's `prioritySlots` already decided
+    // which three and in what order (confirmed first, then the ranking's suggestions);
+    // this builder looks them up among the placements so each carries its wall and its
+    // scores. A confirmed 2x3 therefore stands ahead of a suggested 4x5.
+    const picks = [
+      mark("p1", "Funding comes from one source", "r1", 4, 5, { priority: true }),
+      mark("p2", "Upstream prevention", "o1", 2, 3, {
+        priority: true,
+        confirmed: true,
+        note: "Half the room thinks this is the whole game.",
+      }),
+      mark("p3", "Something else", "r2", 1, 1),
+    ];
     const s = buildGroupSummary(
       [
         w3(),
         w4({
           cards: [{ id: "c" } as never],
-          picks: [
-            mark("p1", "Funding comes from one source", "r1", 4, 5, { priority: false }),
-            mark("p2", "Upstream prevention", "o1", 2, 3, { priority: true, disputed: true, note: "Half the room thinks this is the whole game." }),
-            mark("p3", "Something else", "r2", 1, 1, { priority: true }),
-          ],
+          picks,
+          prioritySlots: slotsOf([picks[1], picks[0]]),
         }),
       ],
       { name: "G" }
     );
-    // 20, then 6, then 1. The WORDS come off Session 3, not off the pick, even though the
-    // pick stores a copy: these fixtures give the two deliberately different text so the
-    // source of the words is not ambiguous. A facilitator who fixes a typo on Session 3
-    // gets the fix in the handoff.
-    expect(s.priorities.map((p) => p.text)).toEqual(["starred risk", "starred opp", "plain risk"]);
-    // A priority keeps its wall and its scores, so the slide can mark it risk or
-    // opportunity without re-deriving anything.
-    expect(s.priorities[0]).toMatchObject({ kind: "risk", plausibility: 4, impact: 5, rank: 20 });
-    expect(s.priorities[1].kind).toBe("opportunity");
-    // The dispute flag IS still a choice, and an independent one: an issue can be both,
-    // and the interesting ones usually are.
-    expect(s.disputed.map((p) => p.text)).toEqual(["starred opp"]);
+    // The WORDS come off Session 3, not off the pick, even though the pick stores a copy:
+    // these fixtures give the two deliberately different text so the source of the words
+    // is not ambiguous.
+    expect(s.priorities.map((p) => p.text)).toEqual(["starred opp", "starred risk"]);
+    expect(s.priorities[0]).toMatchObject({
+      kind: "opportunity",
+      confirmed: true,
+      note: "Half the room thinks this is the whole game.",
+    });
+    expect(s.priorities[1]).toMatchObject({ kind: "risk", plausibility: 4, impact: 5, rank: 20, confirmed: false });
+    expect(s.disputed).toEqual([]);
   });
 
-  it("cuts the priorities at three, and runs long only on a dead heat", () => {
-    const four = (scores: [number, number][]) =>
-      buildGroupSummary(
-        [
-          w3(),
-          w4({
-            cards: [{ id: "c" } as never],
-            picks: [
-              mark("p1", "a", "r1", ...scores[0]),
-              mark("p2", "b", "o1", ...scores[1]),
-              mark("p3", "c", "r2", ...scores[2]),
-              mark("p4", "d", "o2", ...scores[3]),
-            ],
+  it("groups each priority's outcomes and ideas under it, in slot order", () => {
+    const picks = [
+      mark("p1", "a", "r1", 5, 5, { priority: true, confirmed: true }),
+      mark("p2", "b", "o1", 4, 4, { priority: true }),
+    ];
+    const s = buildGroupSummary(
+      [
+        w3(),
+        w4({
+          cards: [{ id: "c" } as never],
+          picks,
+          prioritySlots: slotsOf(picks, {
+            r1: [{ text: "Money holds", responses: ["pool budgets", "share staff"] }, { text: "Fewer gaps" }],
           }),
-        ],
-        { name: "G" }
-      ).priorities;
-
-    // Four scored, no tie at the cut: three.
-    expect(four([[5, 5], [4, 5], [3, 5], [2, 2]])).toHaveLength(3);
-    // The fourth ties the third on BOTH axes — nothing in the scores prefers one, so both
-    // stand rather than one being dropped on an accident of board order.
-    expect(four([[5, 5], [4, 5], [3, 5], [3, 5]])).toHaveLength(4);
-    // Same product, different impact: 5x3 outranks 3x5, so this is not a tie and the cut
-    // holds at three.
-    expect(four([[5, 5], [4, 5], [5, 3], [3, 5]])).toHaveLength(3);
-  });
-
-  it("will not make an unscored issue a priority to fill the three", () => {
-    // Half-scored and unscored stakes have no defensible place on the matrix, so they have
-    // none at the top of it either. Two scored and two not gives two priorities.
-    const s = buildGroupSummary(
-      [
-        w3(),
-        w4({
-          cards: [{ id: "c" } as never],
-          picks: [
-            mark("p1", "a", "r1", 5, 5),
-            mark("p2", "b", "o1", 4, 4),
-            mark("p3", "c", "r2", 3, null),
-            mark("p4", "d", "o2"),
-          ],
         }),
       ],
       { name: "G" }
     );
-    expect(s.priorities.map((p) => p.rank)).toEqual([25, 16]);
+    expect(s.outcomesByPriority).toEqual([
+      {
+        id: "r1",
+        text: "starred risk",
+        kind: "risk",
+        outcomes: [
+          { text: "Money holds", responses: ["pool budgets", "share staff"] },
+          { text: "Fewer gaps", responses: [] },
+        ],
+      },
+      { id: "o1", text: "starred opp", kind: "opportunity", outcomes: [] },
+    ]);
+  });
+
+  it("keeps the legacy dispute flag readable on a board that still carries it", () => {
+    const picks = [
+      mark("p1", "a", "r1", 5, 5, { priority: true, confirmed: true }),
+      mark("p2", "b", "o1", 2, 3, { disputed: true, note: "We never agreed." }),
+    ];
+    const s = buildGroupSummary(
+      [w3(), w4({ cards: [{ id: "c" } as never], picks, prioritySlots: slotsOf(picks) })],
+      { name: "G" }
+    );
+    expect(s.disputed.map((p) => p.text)).toEqual(["starred opp"]);
+    expect(s.disputed[0].note).toBe("We never agreed.");
   });
 
   it("drops a priority whose Session 3 card is gone, rather than guessing its wall", () => {
     // Same rule `placements` follows: a coral chip that is really an opportunity is worse
-    // than a missing one. A star must not survive the row it was a star on.
+    // than a missing one. A slot must not survive the row it was a slot for.
+    const picks = [
+      mark("p1", "Deleted after it was chosen", "gone", 4, 5, { priority: true, confirmed: true, disputed: true }),
+    ];
     const s = buildGroupSummary(
-      [
-        w3(),
-        w4({
-          cards: [{ id: "c" } as never],
-          picks: [
-            mark("p1", "Deleted after it was starred", "gone", 4, 5, { priority: true, disputed: true }),
-          ],
-        }),
-      ],
+      [w3(), w4({ cards: [{ id: "c" } as never], picks, prioritySlots: slotsOf(picks) })],
       { name: "G" }
     );
     expect(s.placements).toEqual([]);
     expect(s.priorities).toEqual([]);
+    expect(s.outcomesByPriority).toEqual([]);
     expect(s.disputed).toEqual([]);
   });
 });

@@ -131,15 +131,24 @@ export interface HandoffMark extends AnswerRow {
   // rankValue = plausibility x impact, or null while either axis is unset. The ORDER, not
   // the score: the handoff deck and the review step both lead with the highest.
   rank: number | null;
-  // Act 2's two markers, both carried ON the pick because 0018's unique
-  // (code, source_card_id) allows exactly one card per source. Independent of each other:
-  // the issues a group argues hardest about are often the ones it also prioritises.
-  priority: boolean; // one of the three the group named
-  disputed: boolean; // flagged as a consequential issue where disagreement remains
-  // Why the room could not agree, when the group said. SURVIVES UN-FLAGGING — see
-  // setDisputeNote — so a non-null note is not evidence of a live dispute; read `disputed`
-  // for that. Null only where nobody ever wrote one.
+  // Act 1.2's markers, all carried ON the pick because 0018's unique
+  // (code, source_card_id) allows exactly one card per source.
+  priority: boolean; // in one of the three slots, confirmed or suggested (prioritySlots)
+  confirmed: boolean; // the group confirmed it (pick.shortlisted); false = suggested by the scores
+  // LEGACY: flagged "still disputed" under the shape before the overlook field. Nothing
+  // writes it any more; a board that has it still reports it.
+  disputed: boolean;
+  // Why this needs attention (pick.description). Under the retired shape this was the
+  // dispute note; same column, and the old words still read. Null where nobody wrote one.
   note: string | null;
+}
+
+// One of act 1.2's three slots with everything written under it: 2.1's outcomes, each
+// with 2.2's response ideas.
+export interface PrioritySlotRow {
+  pick: HandoffMark;
+  status: "confirmed" | "suggested";
+  outcomes: { outcome: AnswerRow; responses: AnswerRow[] }[];
 }
 
 // One of act 6's three directions, as the admin viewer and the handoff deck read it.
@@ -166,9 +175,17 @@ export interface CommitmentsExercise {
   // Acts 1, 3 and 5 live entirely in `questions`: their prompts are authored worksheet
   // sections, so their answers arrive as ordinary question blocks. There is no `vision` or
   // `outcomes` field on purpose — that wording is the facilitator's, not code's.
-  responses: StakeRow[]; // act 4's wall; `shortlisted` marks a chosen direction
-  boldMoves: AnswerRow[]; // act 6's chosen three, in wall order
-  // Act 6 proper: each chosen direction with the three answers that sharpen it.
+  // EVERY response idea on the board, nested or loose. `shortlisted` is retired data.
+  responses: StakeRow[];
+  // Act 1.2's slots, each carrying act 2.1's outcomes and act 2.2's ideas under them.
+  prioritySlots: PrioritySlotRow[];
+  // Outcomes (and their ideas) under a pick that is no longer in a slot. Not lost; see
+  // strayOutcomes.
+  strayOutcomes: { pick: HandoffMark; outcomes: PrioritySlotRow["outcomes"] }[];
+  // ROOT responses from the untagged wall this week used to have.
+  looseResponses: StakeRow[];
+  boldMoves: AnswerRow[]; // the parked backcast's picks, in wall order
+  // Act 3.2: each bold move with the three answers that explain it.
   directions: DirectionRow[];
   lanes: BoldMoveLane[]; // the parked backcast timeline, one lane per chosen direction
   // Milestones under a response the group has since un-ticked. Not lost and not orphaned:

@@ -14,6 +14,7 @@ function card(
     author?: string | null;
     parentId?: string;
     cardKind?: RippleCard["cardKind"];
+    text?: string;
     parked?: boolean;
     description?: string | null;
     shortlisted?: boolean;
@@ -28,7 +29,7 @@ function card(
     authorPlayerId: opts.author === undefined ? "P1" : opts.author,
     order,
     parentId: opts.parentId ?? null,
-    text: `${id}-text`,
+    text: opts.text ?? `${id}-text`,
     lensId: null,
     flagged: false,
     greyed: false,
@@ -444,28 +445,71 @@ describe("shapeFromView — commitments weeks (Week 4)", () => {
     expect(shaped.responses[0].author).toBe("Ana");
   });
 
-  // Act 2's priorities. DERIVED from the scores, so every reader of this shape — the admin
-  // answers viewer, the CSV, the review step — names the same three as the worksheet and
-  // the deck. It used to be the `shortlisted` column, set by a star that no longer exists.
+  // Act 1.2's priorities: the slots, which the scores suggest and the group confirms.
   const pick = (id: string, sourceId: string, p: number | null, i: number | null, opts: { shortlisted?: boolean; seq?: number } = {}) =>
     card(id, "FIRST", { cardKind: "pick", sourceCardId: sourceId, plausibility: p, impact: i, seq: opts.seq ?? 1, shortlisted: opts.shortlisted });
 
-  it("names the three highest-scoring picks as priorities, whatever the old star says", () => {
+  it("names the confirmed picks first, then fills the three from the ranking", () => {
     const shaped = shapeFromView(
       ex("commitments"),
       view([
-        // `shortlisted` is set on the two WEAKEST on purpose: that is what a board carried
-        // over from the star era looks like, and reading the column would show those.
         pick("p1", "s1", 5, 5, { seq: 1 }),
         pick("p2", "s2", 4, 4, { seq: 2 }),
         pick("p3", "s3", 3, 3, { seq: 3 }),
+        // Confirmed by the group although it scored lowest: it is a priority, and the
+        // two strongest suggestions fill the other slots.
         pick("p4", "s4", 1, 1, { seq: 4, shortlisted: true }),
-        pick("p5", "s5", 1, 2, { seq: 5, shortlisted: true }),
+        pick("p5", "s5", 1, 2, { seq: 5 }),
       ])
     );
     if (shaped.kind !== "commitments") throw new Error("expected commitments");
 
-    expect(shaped.picks.filter((p) => p.priority).map((p) => p.sourceId)).toEqual(["s1", "s2", "s3"]);
+    expect(shaped.prioritySlots.map((s) => [s.pick.sourceId, s.status])).toEqual([
+      ["s4", "confirmed"],
+      ["s1", "suggested"],
+      ["s2", "suggested"],
+    ]);
+    // The flat pick list agrees, and says which were confirmed.
+    expect(shaped.picks.filter((p) => p.priority).map((p) => [p.sourceId, p.confirmed])).toEqual([
+      ["s1", false],
+      ["s2", false],
+      ["s4", true],
+    ]);
+  });
+
+  it("nests each priority's outcomes and ideas under its slot, and reports stray outcomes", () => {
+    const shaped = shapeFromView(
+      ex("commitments"),
+      view([
+        pick("p1", "s1", 5, 5, { seq: 1, shortlisted: true }),
+        pick("p2", "s2", 1, 1, { seq: 2 }),
+        pick("p3", "s3", 2, 2, { seq: 3 }),
+        pick("p4", "s4", 3, 3, { seq: 4 }),
+        card("o1", "SECOND", { cardKind: "outcome", parentId: "p1", text: "Money holds", seq: 5 }),
+        card("i1", "TERMINAL", { cardKind: "response", parentId: "o1", text: "pool budgets", seq: 6 }),
+        // p2 is the weakest of four and so not in a slot; its outcome AND the idea under it
+        // are stray, not lost.
+        card("o2", "SECOND", { cardKind: "outcome", parentId: "p2", text: "orphaned hope", seq: 7 }),
+        card("i2", "TERMINAL", { cardKind: "response", parentId: "o2", text: "orphaned idea", seq: 9 }),
+        // A root response from the old wall.
+        card("r0", "FIRST", { cardKind: "response", text: "loose idea", seq: 8 }),
+      ])
+    );
+    if (shaped.kind !== "commitments") throw new Error("expected commitments");
+
+    expect(shaped.prioritySlots[0].outcomes).toMatchObject([
+      { outcome: { text: "Money holds" }, responses: [{ text: "pool budgets" }] },
+    ]);
+    expect(
+      shaped.strayOutcomes.map((s) => [
+        s.pick.sourceId,
+        s.outcomes.map((o) => [o.outcome.text, o.responses.map((r) => r.text)]),
+      ])
+    ).toEqual([["s2", [["orphaned hope", ["orphaned idea"]]]]]);
+    expect(shaped.looseResponses.map((r) => r.text)).toEqual(["loose idea"]);
+    // The pool holds all three.
+    expect(shaped.responses.map((r) => r.text).sort()).toEqual(["loose idea", "orphaned idea", "pool budgets"]);
+    expect(shaped.orphans).toEqual([]);
   });
 
   it("does not make an unscored pick a priority to fill the three", () => {
@@ -519,13 +563,13 @@ describe("shapeFromView — commitments weeks (Week 4)", () => {
     // would make act 1 — everything the group wrote — invisible in the admin viewer.
     const shaped = shapeFromView(
       ex("commitments", []),
-      view([card("a1", "STICKY", { section: "w4-attention", seq: 1 })])
+      view([card("a1", "STICKY", { section: "w4-notes", seq: 1 })])
     );
     if (shaped.kind !== "commitments") throw new Error("expected commitments");
 
     const template = EXERCISE_TYPES.commitments.sections ?? [];
     expect(shaped.questions.map((q) => q.key)).toEqual(template.map((s) => s.key));
-    const first = shaped.questions.find((q) => q.key === "w4-attention");
+    const first = shaped.questions.find((q) => q.key === "w4-notes");
     expect(first?.answers.map((a) => a.text)).toEqual(["a1-text"]);
     expect(first?.label).toBe(template[0].label);
   });
