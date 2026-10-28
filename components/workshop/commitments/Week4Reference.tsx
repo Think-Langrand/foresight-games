@@ -40,7 +40,10 @@ export function Week4Reference({
   return (
     <section className="rounded-[3px] border border-[var(--hairline)] bg-card px-5 py-4">
       <Eyebrow>{title}</Eyebrow>
-      <p className="m-0 mt-1 text-[13px] leading-[1.5] text-muted">{intro}</p>
+      <p className="m-0 mt-1 text-[13px] leading-[1.5] text-muted">
+        {intro}{" "}
+        <span className="italic">Click a heading to open it.</span>
+      </p>
       <div className="mt-3 grid gap-x-4 sm:grid-cols-2">
         <div>
           <Fold label="Priorities" count={slots.length}>
