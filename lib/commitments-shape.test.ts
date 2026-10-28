@@ -3,8 +3,17 @@ import type { CardOrder, RippleCard } from "./ripples-types";
 import {
   MAX_BOLD_MOVES,
   MAX_PICKS_PER_KIND,
+  allOutcomes,
   isPicked,
+  isPriority,
   isStillOpen,
+  outcomeCoverage,
+  outcomesFor,
+  prioritySlots,
+  priorities,
+  replaceCandidates,
+  responsesFor,
+  strayOutcomes,
   MILESTONES_PER_MOVE,
   PERIODS,
   PERIOD_KEYS,
@@ -297,10 +306,17 @@ describe("an empty board", () => {
   it("reads as empty everywhere rather than throwing", () => {
     const board = indexCommitmentsBoard([]);
     expect(board.responses).toEqual([]);
+    expect(board.looseResponses).toEqual([]);
+    expect(board.outcomes.size).toBe(0);
+    expect(board.responsesByOutcome.size).toBe(0);
     expect(board.boldMoves).toEqual([]);
     expect(board.parked).toEqual([]);
     expect(board.orphans).toEqual([]);
     expect(board.milestones.size).toBe(0);
+    expect(prioritySlots(board)).toEqual([]);
+    expect(allOutcomes(board)).toEqual([]);
+    expect(strayOutcomes(board)).toEqual([]);
+    expect(outcomeCoverage(board)).toBe(0);
     expect(milestoneCount(board, "anything")).toBe(0);
     expect(strandedMilestones(board)).toEqual([]);
   });
@@ -367,5 +383,186 @@ describe("step 5, the handoff marks", () => {
     // 0018's unique index makes this impossible on one board, but the shape stays total.
     expect(isPicked(board, "shared")).toBe(true);
     expect(isStillOpen(board, "shared")).toBe(false);
+  });
+});
+
+// Act 1.2: the scores suggest three, the group confirms.
+describe("prioritySlots", () => {
+  const pick = (
+    id: string,
+    seq: number,
+    p: number | null,
+    i: number | null,
+    extra?: Partial<RippleCard>
+  ) =>
+    card(id, "FIRST", null, seq, {
+      cardKind: "pick",
+      sourceCardId: `src-${id}`,
+      plausibility: p,
+      impact: i,
+      ...extra,
+    });
+
+  it("suggests the three highest-scoring picks when nothing is confirmed", () => {
+    const board = indexCommitmentsBoard([
+      pick("a", 1, 5, 5),
+      pick("b", 2, 4, 4),
+      pick("c", 3, 3, 3),
+      pick("d", 4, 2, 2),
+    ]);
+    expect(prioritySlots(board)).toEqual([
+      { card: board.picks.get("src-a"), status: "suggested" },
+      { card: board.picks.get("src-b"), status: "suggested" },
+      { card: board.picks.get("src-c"), status: "suggested" },
+    ]);
+    expect(isPriority(board, "src-c")).toBe(true);
+    expect(isPriority(board, "src-d")).toBe(false);
+    expect(replaceCandidates(board).map((c) => c.id)).toEqual(["d"]);
+  });
+
+  it("never suggests an unscored pick, so there can be fewer than three", () => {
+    const board = indexCommitmentsBoard([
+      pick("a", 1, 5, 5),
+      pick("half", 2, 3, null),
+      pick("none", 3, null, null),
+    ]);
+    expect(prioritySlots(board).map((s) => s.card.id)).toEqual(["a"]);
+    expect(replaceCandidates(board)).toEqual([]);
+  });
+
+  it("puts confirmed picks first, whatever they scored, and fills the rest from the ranking", () => {
+    // A 1x1 the group confirmed outranks a 5x5 it did not: that is the whole point of
+    // confirming. The suggestions fill what is left, strongest first.
+    const board = indexCommitmentsBoard([
+      pick("big", 1, 5, 5),
+      pick("mid", 2, 4, 4),
+      pick("small", 3, 1, 1, { shortlisted: true }),
+      pick("low", 4, 2, 2),
+    ]);
+    expect(prioritySlots(board)).toEqual([
+      { card: board.picks.get("src-small"), status: "confirmed" },
+      { card: board.picks.get("src-big"), status: "suggested" },
+      { card: board.picks.get("src-mid"), status: "suggested" },
+    ]);
+    expect(priorities(board).map((c) => c.id)).toEqual(["small", "big", "mid"]);
+  });
+
+  it("keeps a confirmed pick in its slot even after its scores are cleared", () => {
+    const board = indexCommitmentsBoard([
+      pick("kept", 1, null, null, { shortlisted: true }),
+      pick("a", 2, 5, 5),
+    ]);
+    expect(prioritySlots(board).map((s) => [s.card.id, s.status])).toEqual([
+      ["kept", "confirmed"],
+      ["a", "suggested"],
+    ]);
+  });
+
+  it("stops suggesting once three are confirmed, and reports a fourth rather than hiding it", () => {
+    const three = indexCommitmentsBoard([
+      pick("a", 1, 1, 1, { shortlisted: true }),
+      pick("b", 2, 1, 2, { shortlisted: true }),
+      pick("c", 3, 2, 1, { shortlisted: true }),
+      pick("best", 4, 5, 5),
+    ]);
+    expect(prioritySlots(three).every((s) => s.status === "confirmed")).toBe(true);
+    expect(prioritySlots(three)).toHaveLength(3);
+    expect(replaceCandidates(three).map((c) => c.id)).toEqual(["best"]);
+
+    const four = indexCommitmentsBoard([
+      pick("a", 1, 1, 1, { shortlisted: true }),
+      pick("b", 2, 1, 2, { shortlisted: true }),
+      pick("c", 3, 2, 1, { shortlisted: true }),
+      pick("d", 4, 5, 5, { shortlisted: true }),
+    ]);
+    expect(prioritySlots(four)).toHaveLength(4);
+  });
+
+  it("does not extend the cut on a tie: a suggestion is a suggestion", () => {
+    const board = indexCommitmentsBoard([
+      pick("a", 1, 5, 5),
+      pick("b", 2, 4, 5),
+      pick("c", 3, 3, 5),
+      pick("d", 4, 3, 5),
+    ]);
+    expect(prioritySlots(board)).toHaveLength(3);
+  });
+});
+
+// Acts 2.1 and 2.2: outcomes under a priority, responses under an outcome.
+describe("outcomes and nested responses", () => {
+  const pick = (id: string, seq: number, p: number, i: number, extra?: Partial<RippleCard>) =>
+    card(id, "FIRST", null, seq, {
+      cardKind: "pick",
+      sourceCardId: `src-${id}`,
+      plausibility: p,
+      impact: i,
+      ...extra,
+    });
+  const outcome = (id: string, parentId: string, seq: number, extra?: Partial<RippleCard>) =>
+    card(id, "SECOND", parentId, seq, { cardKind: "outcome", ...extra });
+  const nested = (id: string, parentId: string, seq: number, extra?: Partial<RippleCard>) =>
+    card(id, "TERMINAL", parentId, seq, { cardKind: "response", ...extra });
+
+  it("files outcomes under their pick and responses under their outcome, in order", () => {
+    const board = indexCommitmentsBoard([
+      pick("p1", 1, 5, 5),
+      outcome("o2", "p1", 3, { sort: 2000 }),
+      outcome("o1", "p1", 2, { sort: 1000 }),
+      nested("r2", "o1", 5, { sort: 2000 }),
+      nested("r1", "o1", 4, { sort: 1000 }),
+      nested("r3", "o2", 6),
+    ]);
+    expect(outcomesFor(board, "p1").map((c) => c.id)).toEqual(["o1", "o2"]);
+    expect(responsesFor(board, "o1").map((c) => c.id)).toEqual(["r1", "r2"]);
+    expect(responsesFor(board, "o2").map((c) => c.id)).toEqual(["r3"]);
+    // The pool is every response, so counts and the rail see all three.
+    expect(board.responses.map((c) => c.id)).toEqual(["r1", "r2", "r3"]);
+    expect(board.looseResponses).toEqual([]);
+    expect(board.orphans).toEqual([]);
+  });
+
+  it("keeps a legacy root response on the loose wall, ahead of the nested ones", () => {
+    const board = indexCommitmentsBoard([
+      pick("p1", 1, 5, 5),
+      outcome("o1", "p1", 2),
+      nested("r1", "o1", 3),
+      response("loose", 4),
+    ]);
+    expect(board.looseResponses.map((c) => c.id)).toEqual(["loose"]);
+    expect(board.responses.map((c) => c.id)).toEqual(["loose", "r1"]);
+  });
+
+  it("orphans an outcome under something that is not a live pick, and its responses with it", () => {
+    const board = indexCommitmentsBoard([
+      response("r0", 1),
+      outcome("o-under-response", "r0", 2),
+      outcome("o-under-nothing", "ghost", 3),
+      nested("r-under-ghost", "o-under-nothing", 4),
+    ]);
+    expect(board.outcomes.size).toBe(0);
+    expect(board.orphans.map((c) => c.id).sort()).toEqual([
+      "o-under-nothing",
+      "o-under-response",
+      "r-under-ghost",
+    ]);
+  });
+
+  it("reads outcomes in slot order, and reports the ones under a de-prioritised pick", () => {
+    const board = indexCommitmentsBoard([
+      pick("low", 1, 1, 1),
+      pick("a", 2, 5, 5),
+      pick("b", 3, 4, 4),
+      pick("c", 4, 3, 3),
+      outcome("o-low", "low", 5),
+      outcome("o-a", "a", 6),
+      outcome("o-c", "c", 7),
+    ]);
+    expect(allOutcomes(board).map((c) => c.id)).toEqual(["o-a", "o-c"]);
+    expect(strayOutcomes(board).map((s) => [s.pick.id, s.outcomes.map((o) => o.id)])).toEqual([
+      ["low", ["o-low"]],
+    ]);
+    // Two of three priorities carry an outcome.
+    expect(outcomeCoverage(board)).toBe(2);
   });
 });

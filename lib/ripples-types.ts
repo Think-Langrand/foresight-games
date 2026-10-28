@@ -174,7 +174,12 @@ export const CARD_DESCRIPTION_MAX = 1000;
 //           and "still disputed" are both properties OF the pick rather than cards of
 //           their own: a second card pointing at the same source cannot be written. See
 //           lib/commitments-shape for the two markers.
-//   act 4 — `response` as ROOT cards, the wall of strategic responses
+//   act 3 — an `outcome` SECOND card under a pick: a desired outcome written FOR that
+//           priority. Many per pick. Safe under 0018 because a child carries no
+//           `source_card_id`.
+//   act 4 — `response` as TERMINAL cards under an outcome, one idea per card. A response
+//           with no parent is a ROOT, which is how boards worked before responses were
+//           written per outcome still read; nothing writes a root response any more.
 //   act 6 — a `direction` ROOT card, one per recommendation, whose `text` is the move
 //           itself. The three further questions about it are `sharpen` children, each
 //           keyed by `section` (DIRECTION_FIELDS) — the same parent-plus-section shape
@@ -222,6 +227,7 @@ export const CARD_KINDS = [
   "settled",
   "direction",
   "sharpen",
+  "outcome",
 ] as const;
 export type CardKind = (typeof CARD_KINDS)[number];
 

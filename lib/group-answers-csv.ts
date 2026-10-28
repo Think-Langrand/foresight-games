@@ -164,17 +164,13 @@ export function implicationsCsvRows(ex: ImplicationsExercise): string[][] {
   return rows;
 }
 
-// A commitments week: the aspiration prompts, the response wall with its bold moves
-// starred, then each move's timeline a period at a time.
+// A commitments week, in the order it is worked: the prose boxes, the matrix with its
+// priorities and the why on each, each priority's outcomes and each outcome's ideas, the
+// bold moves with their fields, then the parked and unplaced work.
 //
-// A bold move is NOT given a row of its own. It is a response carrying `shortlisted`, and
-// emitting it twice would double every picked move in a count. The star in the Kind cell
-// is how the sheet says which three were chosen, the same way synthesisCsvRows marks a
-// shortlisted risk.
-//
-// Empty period cells emit nothing, because a CSV row per empty cell is noise — but the
-// period's label rides every milestone row, so where a lane clustered and where it left a
-// gap is still readable from the sheet alone.
+// A response idea gets ONE row, under its outcome; the loose wall is for roots from the
+// shape before responses were nested. Empty period cells emit nothing, because a CSV row
+// per empty cell is noise.
 export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
   const rows: string[][] = [];
   // First, because it is a fact about the WEEK rather than about any card on it, and a
@@ -195,10 +191,57 @@ export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
       rows.push([ex.title, q.label || q.key, q.kind, a.text, a.author, a.createdAt]);
     }
   }
-  for (const r of ex.responses) {
+  // Acts 2.1 and 2.2, nested: one row per outcome under its priority, then one row per
+  // idea under its outcome. The outcome's number rides the label so a row read alone says
+  // where it sits; the priority's words ride the outcome row for the same reason.
+  ex.prioritySlots.forEach((slot, i) => {
+    slot.outcomes.forEach(({ outcome, responses }, k) => {
+      rows.push([
+        ex.title,
+        `Desired outcomes · Priority ${i + 1}`,
+        "outcome",
+        `${slot.pick.text} — ${outcome.text}`,
+        outcome.author,
+        outcome.createdAt,
+      ]);
+      for (const r of responses) {
+        rows.push([
+          ex.title,
+          `Response ideas · Outcome ${i + 1}.${k + 1}`,
+          "response",
+          `${outcome.text} — ${r.text}`,
+          r.author,
+          r.createdAt,
+        ]);
+      }
+    });
+  });
+  for (const { pick, outcomes } of ex.strayOutcomes) {
+    for (const { outcome: o, responses } of outcomes) {
+      rows.push([
+        ex.title,
+        "Desired outcomes · no longer a priority",
+        "outcome",
+        `${pick.text} — ${o.text}`,
+        o.author,
+        o.createdAt,
+      ]);
+      for (const r of responses) {
+        rows.push([
+          ex.title,
+          "Response ideas · no longer a priority",
+          "response",
+          `${o.text} — ${r.text}`,
+          r.author,
+          r.createdAt,
+        ]);
+      }
+    }
+  }
+  for (const r of ex.looseResponses) {
     rows.push([
       ex.title,
-      "Strategic responses",
+      "Strategic responses · not linked to an outcome",
       "response",
       r.text,
       r.author,
@@ -234,12 +277,14 @@ export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
       m.plausibility !== null && m.impact !== null
         ? `pick P${m.plausibility} I${m.impact}`
         : "pick (unscored)";
-    // The two markers ride the kind column beside the scores, for the same reason the
-    // scores do: every other row in this file would otherwise carry three empty cells.
-    // Both are act 2's actual output and were invisible here. `priority` is derived from
-    // the scores upstream in shapeFromView, not read off a column, so these stars cannot
-    // disagree with the ones on the worksheet or in the deck.
-    const marks = [m.priority ? "★ priority" : "", m.disputed ? "⚡ disputed" : ""]
+    // The markers ride the kind column beside the scores, for the same reason the scores
+    // do: every other row in this file would otherwise carry three empty cells. A priority
+    // says whether the group confirmed it or the scores only suggested it; `disputed` is
+    // the retired flag, printed only where a board still has it.
+    const marks = [
+      m.priority ? `★ priority (${m.confirmed ? "confirmed" : "suggested"})` : "",
+      m.disputed ? "⚡ disputed" : "",
+    ]
       .filter(Boolean)
       .join(" ");
     rows.push([
@@ -250,23 +295,23 @@ export function commitmentsCsvRows(ex: CommitmentsExercise): string[][] {
       m.author,
       m.createdAt,
     ]);
-    // The note is its own row rather than appended to the text: it is prose the group
-    // wrote, it is the only prose act 2 asks for, and a facilitator reading the sheet
-    // should find it as a thing somebody said rather than as a suffix.
+    // The why is its own row rather than appended to the text: it is prose the group
+    // wrote, and a facilitator reading the sheet should find it as a thing somebody said
+    // rather than as a suffix.
     if (m.note) {
-      rows.push([ex.title, "On the matrix", "dispute note", m.note, m.author, m.createdAt]);
+      rows.push([ex.title, "On the matrix", "why", m.note, m.author, m.createdAt]);
     }
   }
-  // Act 6, the week's headline output. One row for the move, then one per answered field,
+  // Act 3.2, the week's headline output. One row for the move, then one per answered field,
   // each carrying the move's text so a row read on its own says what it is about.
   for (const d of ex.directions) {
-    rows.push([ex.title, "Three directions", "direction", d.move.text, d.move.author, d.move.createdAt]);
+    rows.push([ex.title, "Three bold moves", "bold move", d.move.text, d.move.author, d.move.createdAt]);
     for (const f of d.fields) {
       for (const a of f.answers) {
         rows.push([
           ex.title,
-          `Three directions · ${f.label}`,
-          "direction field",
+          `Three bold moves · ${f.label}`,
+          "bold move field",
           `${d.move.text} — ${a.text}`,
           a.author,
           a.createdAt,

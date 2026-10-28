@@ -44,7 +44,7 @@ export function classifyCard(
   synthesis = false
 ): CardKind {
   if (card.cardKind === "theme") return "themes";
-  // ALL FOUR of Week 4's kinds get their own bucket. `pick` and `settled` were missed when
+  // ALL SEVEN of Week 4's kinds get their own bucket. `pick` and `settled` were missed when
   // step 5 added them and were tallied as Session 3 work, so when a kind is added to
   // CARD_KINDS check this line rather than trusting the comment to have kept up. No `commitments` flag is needed the way
   // `synthesis` is one: `response` and `milestone` exist on no other week, so the card
@@ -54,7 +54,10 @@ export function classifyCard(
     card.cardKind === "response" ||
     card.cardKind === "milestone" ||
     card.cardKind === "pick" ||
-    card.cardKind === "settled"
+    card.cardKind === "settled" ||
+    card.cardKind === "outcome" ||
+    card.cardKind === "direction" ||
+    card.cardKind === "sharpen"
   )
     return "commitments";
   if (card.cardKind) return "synthesis";

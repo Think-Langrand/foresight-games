@@ -111,8 +111,8 @@ function canonicalWeeks() {
   return [
     { sort: 0, type: "scenario-assessment", title: "Session 1 - Scenario Assessment", sections: week1Sections() },
     { sort: 1, type: "implications", title: "Session 2 · Implication Mapping", sections: [] },
-    { sort: 2, type: "synthesis", title: "Session 3 · Opportunities, Risks & Challenges", sections: [] },
-    { sort: 3, type: "commitments", title: "Session 4 · Commitments", sections: COMMITMENTS_SECTIONS },
+    { sort: 2, type: "synthesis", title: "Session 3 · Themes and Implications", sections: [] },
+    { sort: 3, type: "commitments", title: "Session 4 · Synthesis", sections: COMMITMENTS_SECTIONS },
   ];
 }
 

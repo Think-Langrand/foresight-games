@@ -22,6 +22,8 @@ export function ImpactMatrix({
   onHover,
   chipClassFor,
   noun = "key change",
+  axisLabels,
+  captions,
 }: {
   cards: RippleCard[];
   hoveredId?: string | null;
@@ -34,7 +36,15 @@ export function ImpactMatrix({
   // plots Session 3's risks and opportunities, and a grid that calls both "key changes" is
   // telling one of them something untrue. Defaulted, so Week 2 passes nothing.
   noun?: string;
+  // What to CALL the two axes. The stored x axis is `plausibility`; Session 4 calls it
+  // likelihood. Defaults to Week 2's names, so Week 2 passes nothing.
+  axisLabels?: { x: string; y: string };
+  // A fuller caption for each axis, printed under the grid when given ("Impact: 1 small →
+  // 5 very large"). Week 2 has none.
+  captions?: { x: string; y: string };
 }) {
+  const xName = axisLabels?.x ?? "Plausibility";
+  const yName = axisLabels?.y ?? "Impact";
   const cells = matrixCells(cards);
   const ranks = rankByCardId(cards);
   const placed = cells.flatMap((c) => c.cards);
@@ -50,7 +60,7 @@ export function ImpactMatrix({
             className="whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.12em] text-muted"
             style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
           >
-            Impact
+            {yName}
           </span>
           <span className="text-[10px] font-bold tabular-nums text-muted">{SCORE_MIN}</span>
         </div>
@@ -86,7 +96,7 @@ export function ImpactMatrix({
                         <button
                           key={c.id}
                           type="button"
-                          title={`${c.text}\n\nPlausibility ${c.plausibility} × Impact ${c.impact} = ${rankValue(c)}`}
+                          title={`${c.text}\n\n${xName} ${c.plausibility} × ${yName} ${c.impact} = ${rankValue(c)}`}
                           onMouseEnter={() => onHover?.(c.id)}
                           onMouseLeave={() => onHover?.(null)}
                           onFocus={() => onHover?.(c.id)}
@@ -123,11 +133,18 @@ export function ImpactMatrix({
           {/* Plausibility runs along the bottom. */}
           <div className="mt-1 flex items-center justify-between" style={{ maxWidth: 460 }}>
             <span className="text-[10px] font-bold tabular-nums text-muted">{SCORE_MIN}</span>
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">Plausibility</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">{xName}</span>
             <span className="text-[10px] font-bold tabular-nums text-muted">{SCORE_MAX}</span>
           </div>
         </div>
       </div>
+
+      {captions && (
+        <p className="m-0 mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-muted">
+          <span>{captions.y}</span>
+          <span>{captions.x}</span>
+        </p>
+      )}
 
       {/* Names whatever is hovered — in the matrix or in the list — so a numbered chip is
           never a number you have to go and look up. */}
@@ -135,7 +152,7 @@ export function ImpactMatrix({
         {hovered ? (
           <>
             <div className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
-              #{ranks.get(hovered.id)} · plausibility {hovered.plausibility} × impact {hovered.impact} ={" "}
+              #{ranks.get(hovered.id)} · {xName.toLowerCase()} {hovered.plausibility} × {yName.toLowerCase()} {hovered.impact} ={" "}
               {rankValue(hovered)}
             </div>
             <div className="mt-0.5 text-[12.5px] leading-[1.35]">{hovered.text}</div>

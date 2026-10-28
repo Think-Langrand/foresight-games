@@ -172,10 +172,18 @@ export function placementError(
         ? null
         : `A ${parentKind} chains to a ${flipOf(parentKind as HopeFear)}.`;
 
+    case "outcome":
+      // Week 4 act 3. A desired outcome is written FOR one of the group's priorities, so
+      // it hangs off the pick that names it. There is no board-level outcome.
+      return parentKind === "pick" ? null : "A desired outcome belongs on a priority.";
+
     case "response":
-      // Week 4's wall. A response answers the aspiration, which is not a card, so it is a
-      // root; hung off something it is not a response to anything the board draws.
-      return root ? null : "A strategic response is a top-level card.";
+      // Week 4's wall. A response idea is written toward one desired outcome, so it hangs
+      // off that outcome. A ROOT is still legal, because boards worked before responses
+      // were nested wrote them at the top level and those cards have to stay readable.
+      return root || parentKind === "outcome"
+        ? null
+        : "A response belongs on a desired outcome.";
 
     case "milestone":
       // Week 4's timeline. A milestone backcasts ONE move, and its period lives in
@@ -346,6 +354,7 @@ export function indexSynthesisBoard(cards: RippleCard[]): SynthesisBoard {
       case "settled":
       case "direction":
       case "sharpen":
+      case "outcome":
         // Week 4's kinds. A Session 3 board should never hold one, so this is not a bucket
         // but a statement that there is no bucket: it shows up rather than vanishing.
         orphans.push(c);

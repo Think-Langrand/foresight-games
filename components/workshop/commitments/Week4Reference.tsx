@@ -1,154 +1,113 @@
 "use client";
 
-import { useState } from "react";
 import type { RippleCard } from "@/lib/ripples-types";
-import { DISPUTED_SECTION } from "@/lib/commitments-shape";
+import type { PrioritySlot } from "@/lib/commitments-shape";
 import { Dot } from "@/components/workshop/synthesis/ThemeRail";
+import { Fold } from "@/components/workshop/commitments/ReferenceRail";
+import { Eyebrow } from "@/components/workshop/commitments/StarterQuestions";
 
-// THIS WEEK'S OWN WORK, in the rail — the counterpart to Week3Reference, which carries the
-// earlier sessions.
+// "Look across the whole picture": THIS WEEK'S OWN WORK read back on act 3.1, where the
+// vision is what it all adds up to. Four folds, one per thing the activity says to look
+// across. Every section is optional, so the same panel can sit beside 3.2 with only what
+// that step draws on.
 //
-// EVERY SECTION IS OPTIONAL, so one component serves several steps: act 3 wants the
-// priorities beside it, act 5 wants the outcomes and the response wall. Pass what the step
-// is working from and nothing else renders.
-//
-// WHY A RAIL AND NOT A PANEL ABOVE OR BELOW. Both of these steps work FROM earlier answers
-// while writing new ones, and both were first built with that material stacked around the
-// question — which meant scrolling away from the box you are meant to be writing in to
-// read the thing you are meant to be writing about. Beside it, the two stay in view
-// together. That is the arrangement acts 1 and 3 already use for Week 3.
-//
-// READ-ONLY, and no affordances. Editing a priority happens on act 2, an outcome on act 3,
-// a response on act 4 — each where it was written. A tick or a drag here would be a second
-// place to change the same card, and the one on the step that owns it would stop being the
-// obvious one.
-function Fold({
-  label,
-  count,
-  defaultOpen = false,
-  children,
-}: {
-  label: string;
-  count: number;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  // Nothing to open is not a fold, it is a line saying so — a disclosure that reveals an
-  // empty box reads as broken.
-  if (count === 0) {
-    return (
-      <p className="m-0 text-[12px] italic text-muted">
-        {label}: nothing yet.
-      </p>
-    );
-  }
-  return (
-    <div className="border-t border-[var(--rule)] pt-2 first:border-t-0 first:pt-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-baseline gap-2 text-left"
-      >
-        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.1em]">
-          {label}
-        </span>
-        <span className="font-mono text-[10px] tabular-nums text-muted">{count}</span>
-        <span aria-hidden className="ml-auto text-[11px] text-muted">
-          {open ? "−" : "+"}
-        </span>
-      </button>
-      {open && <div className="mt-2">{children}</div>}
-    </div>
-  );
-}
-
+// READ-ONLY, and no affordances. Editing a priority happens on 1.2, an outcome on 2.1, a
+// response on 2.2, each where it was written.
 export function Week4Reference({
-  priorities = [],
+  title = "Look across the whole picture",
+  intro = "What do these aspirations require public health to become?",
+  slots = [],
+  textOf = (pick) => pick.text,
+  hopes = [],
   outcomes = [],
   responses = [],
 }: {
-  // Act 2's starred picks. Cards rather than strings because a priority carries the note
-  // explaining a disagreement the room never settled, and a group writing outcomes for an
-  // issue it never settled should be reminded that it never settled it.
-  priorities?: RippleCard[];
-  // Act 3's answers, already flattened to text by the view: they are worksheet stickies
-  // rather than cards of a kind, so there is nothing here that needs the card.
-  outcomes?: string[];
+  title?: string;
+  intro?: string;
+  // 1.2's three, with their status and the group's "why" on each.
+  slots?: PrioritySlot[];
+  // The Session 3 card's CURRENT words for a pick. A pick stores a copy of its source's
+  // text when it is minted; a typo fixed on Session 3 afterwards must show here too.
+  textOf?: (pick: RippleCard) => string;
+  // Session 3's hopes, including the flips.
+  hopes?: RippleCard[];
+  // 2.1's outcomes, grouped under the priority they were written for.
+  outcomes?: { priority: string; items: RippleCard[] }[];
+  // 2.2's response pool.
   responses?: RippleCard[];
 }) {
+  const outcomeCount = outcomes.reduce((n, o) => n + o.items.length, 0);
   return (
-    <aside className="flex flex-col gap-3 rounded-[4px] border-2 border-ink bg-card px-4 py-3">
-      <div>
-        <h3 className="m-0 text-[13px] font-bold">What you have said so far</h3>
-        <p className="m-0 mt-0.5 text-[12px] italic leading-[1.45] text-muted">
-          Your own work from the earlier steps. To change any of it, go back to the step it
-          was written on.
-        </p>
-      </div>
-
-      {/* FIRST WHERE THEY APPEAR, AND OPEN. On act 4 the responses are written toward
-          these; on act 5 the vision is what they add up to. Either way they lead. */}
-      {outcomes.length > 0 && (
-      <Fold label="Desired outcomes" count={outcomes.length} defaultOpen>
-        <ul className="m-0 flex list-none flex-col p-0">
-          {outcomes.map((o, i) => (
-            <li
-              key={i}
-              className="border-b border-black/10 py-2 text-[13px] leading-[1.45] last:border-b-0"
-            >
-              {o}
-            </li>
-          ))}
-        </ul>
-      </Fold>
-      )}
-
-      {/* ALWAYS OPEN. Act 3 writes outcomes FOR these and act 4 writes responses linked to
-          them, so on both steps they are what the question is about rather than background
-          to it. */}
-      {priorities.length > 0 && (
-        <Fold label="Your priorities" count={priorities.length} defaultOpen>
-          <ul className="m-0 flex list-none flex-col p-0">
-            {priorities.map((c) => (
-              <li
-                key={c.id}
-                className="border-b border-black/10 py-2 text-[13px] leading-[1.45] last:border-b-0"
-              >
-                <span className="mr-1 text-amber">★</span>
-                {c.text}
-                {/* THE FLAG, NOT THE NOTE. `description` deliberately survives un-ticking
-                    "we did not agree" so a group that changes its mind twice keeps its
-                    words — which means a surviving note is not evidence of a live dispute.
-                    Keying off it told groups they disagreed about things they had just
-                    agreed on. */}
-                {c.section === DISPUTED_SECTION && (
-                  <span className="mt-0.5 block text-[12px] italic text-muted">
-                    You did not agree on this{c.description ? `: ${c.description}` : "."}
+    <section className="rounded-[3px] border border-[var(--hairline)] bg-card px-5 py-4">
+      <Eyebrow>{title}</Eyebrow>
+      <p className="m-0 mt-1 text-[13px] leading-[1.5] text-muted">{intro}</p>
+      <div className="mt-3 grid gap-x-4 sm:grid-cols-2">
+        <div>
+          <Fold label="Priorities" count={slots.length}>
+            <ol className="m-0 flex list-none flex-col p-0">
+              {slots.map((s, i) => (
+                <li
+                  key={s.card.id}
+                  className="border-b border-black/10 py-2 text-[13px] leading-[1.45] last:border-b-0"
+                >
+                  <span className="mr-1.5 font-mono text-[10px] font-bold text-blue">
+                    {i + 1}
                   </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Fold>
-      )}
-
-      {responses.length > 0 && (
-      <Fold label="Strategic responses" count={responses.length}>
-        <ul className="m-0 flex list-none flex-col p-0">
-          {responses.map((c) => (
-            <li
-              key={c.id}
-              className="flex items-start gap-2 border-b border-black/10 py-2 text-[13px] leading-[1.45] last:border-b-0"
-            >
-              <Dot />
-              <span className="min-w-0">{c.text}</span>
-            </li>
-          ))}
-        </ul>
-      </Fold>
-      )}
-    </aside>
+                  {textOf(s.card)}
+                  {s.card.description && (
+                    <span className="mt-0.5 block text-[12px] italic text-muted">
+                      {s.card.description}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </Fold>
+          <Fold label="Desired outcomes" count={outcomeCount}>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {outcomes.map((o) =>
+                o.items.length === 0 ? null : (
+                  <li key={o.priority} className="text-[13px] leading-[1.45]">
+                    <span className="block font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-muted">
+                      {o.priority}
+                    </span>
+                    <ul className="m-0 mt-1 flex list-none flex-col gap-1 p-0">
+                      {o.items.map((c) => (
+                        <li key={c.id} className="flex items-start gap-2">
+                          <Dot />
+                          <span className="min-w-0">{c.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                )
+              )}
+            </ul>
+          </Fold>
+        </div>
+        <div>
+          <Fold label="Hopes" count={hopes.length}>
+            <ul className="m-0 flex list-none flex-col gap-1 p-0">
+              {hopes.map((c) => (
+                <li key={c.id} className="flex items-start gap-2 text-[13px] leading-[1.45]">
+                  <Dot />
+                  <span className="min-w-0">{c.text}</span>
+                </li>
+              ))}
+            </ul>
+          </Fold>
+          <Fold label="Response ideas" count={responses.length}>
+            <ul className="m-0 flex list-none flex-col gap-1 p-0">
+              {responses.map((c) => (
+                <li key={c.id} className="flex items-start gap-2 text-[13px] leading-[1.45]">
+                  <Dot />
+                  <span className="min-w-0">{c.text}</span>
+                </li>
+              ))}
+            </ul>
+          </Fold>
+        </div>
+      </div>
+    </section>
   );
 }

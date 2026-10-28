@@ -18,11 +18,14 @@
 // the group's work, not an audit of which fields they left empty.
 
 import {
+  HANDOFF_AXIS_ENDS,
+  HANDOFF_AXIS_LABELS,
   themesByStakes,
   type GroupSummary,
   type SummaryDirection,
   type SummaryKeyChange,
   type SummaryPlacement,
+  type SummaryPriorityOutcomes,
 } from "@/lib/group-summary";
 import type { ImplicationsExercise, StakeRow } from "@/components/design-groups/AnswerPanels";
 import { AXIS_ENDS, AXIS_LABELS, SCORE_AXES } from "@/lib/ripples-scoring";
@@ -331,11 +334,23 @@ function PriorityList({ rows }: { rows: SummaryPlacement[] }) {
               <p className="m-0 max-w-[44ch] text-[clamp(16px,1.7vw,21px)] font-light leading-[1.4]">
                 {p.text}
               </p>
+              {/* WHY IT NEEDS ATTENTION, in the group's words, under the issue. This is
+                  the one line act 1.2 asks the group to write, so it prints at reading
+                  size rather than as a caption. */}
+              {p.note && (
+                <p className="m-0 mt-2 max-w-[60ch] text-[14.5px] italic leading-[1.45] text-muted">
+                  {p.note}
+                </p>
+              )}
               <p
-                className="m-0 mt-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em]"
+                className="m-0 mt-2 flex flex-wrap gap-x-3 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em]"
                 style={{ color: colour }}
               >
-                {p.kind === "risk" ? "Risk" : "Opportunity"}
+                <span>{p.kind === "risk" ? "Risk" : "Opportunity"}</span>
+                {/* A suggestion the group never confirmed is still a priority on this
+                    deck, because the scores put it there, but the committee should know
+                    nobody pressed Keep. */}
+                {!p.confirmed && <span className="text-muted">Suggested by the scores</span>}
               </p>
             </div>
           </li>
@@ -345,12 +360,30 @@ function PriorityList({ rows }: { rows: SummaryPlacement[] }) {
   );
 }
 
-// "Note any consequential issue where disagreement remains."
+// "Anything else we should not overlook?" The optional note beside the priorities: an
+// issue the group wants carried even though it disagreed about its likelihood.
 //
-// IT GOES ON THE SAME SLIDE AS THE PRIORITIES, under a rule of its own. A dispute the room
-// could not settle is a finding about the room, and a committee reading three tidy
-// priorities with no sign of the argument behind them is reading a smoother story than the
-// group actually told. Its own slide would overstate it; a footnote would bury it.
+// IT GOES ON THE SAME SLIDE AS THE PRIORITIES, under a rule of its own. A committee reading
+// three tidy priorities with no sign of the argument behind them is reading a smoother
+// story than the group actually told. Its own slide would overstate it; a footnote would
+// bury it.
+function OverlookNote({ blocks }: { blocks: { key: string; answers: string[] }[] }) {
+  return (
+    <div className="mt-9 border-t-[1.5px] border-ink pt-5">
+      <p className="m-0 mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-blue">
+        Not to overlook
+      </p>
+      {blocks.flatMap((b) => b.answers).map((a, i) => (
+        <p key={i} className="m-0 max-w-[72ch] text-[15px] leading-[1.45] [&:not(:first-of-type)]:mt-3">
+          {a}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+// LEGACY: the "still disputed" flag from the shape before the overlook note. Draws only on
+// a board that still carries it.
 function DisputedList({ rows }: { rows: SummaryPlacement[] }) {
   return (
     <div className="mt-9 border-t-[1.5px] border-ink pt-5">
@@ -377,7 +410,56 @@ function DisputedList({ rows }: { rows: SummaryPlacement[] }) {
   );
 }
 
-// One of act 6's three directions: the move, then the three answers that sharpen it.
+// Each priority's desired outcomes, with the response ideas written toward each one.
+//
+// GROUPED UNDER THE PRIORITY, because that is how the group wrote them: 2.1 asked for
+// outcomes per priority and 2.2 for ideas per outcome, so a flat list would throw away the
+// one structure the two activities added. Ideas print small and after the outcome, as the
+// pool the bold moves were built from rather than as findings in their own right.
+function OutcomesByPriority({ rows }: { rows: SummaryPriorityOutcomes[] }) {
+  return (
+    <ol className="m-0 flex list-none flex-col gap-7 p-0">
+      {rows.map((p, i) => {
+        const colour = p.kind === "risk" ? "var(--coral)" : "#3f5209";
+        return (
+          <li key={p.id} className="grid grid-cols-[auto_1fr] items-start gap-x-4">
+            <span className="pt-[4px] font-mono text-[12px] font-bold tabular-nums" style={{ color: colour }}>
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <div>
+              <p className="m-0 font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-muted">
+                Priority · {p.kind === "risk" ? "Risk" : "Opportunity"}
+              </p>
+              <p className="m-0 mt-1 max-w-[60ch] text-[15px] font-bold leading-[1.4]">{p.text}</p>
+              {p.outcomes.length === 0 ? (
+                <p className="m-0 mt-2 text-[13px] italic text-muted">No desired outcome written.</p>
+              ) : (
+                <ul className="m-0 mt-3 flex list-none flex-col gap-4 p-0">
+                  {p.outcomes.map((o, k) => (
+                    <li key={k} className="border-l-[3px] border-blue pl-4">
+                      <p className="m-0 max-w-[56ch] text-[clamp(15px,1.5vw,18px)] font-light leading-[1.4]">
+                        {o.text}
+                      </p>
+                      {o.responses.length > 0 && (
+                        <ul className="m-0 mt-2 flex list-disc flex-col gap-1 pl-5 text-[13.5px] leading-[1.45] text-muted">
+                          {o.responses.map((r, j) => (
+                            <li key={j}>{r}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// One of act 3.2's three bold moves: the move, then the three answers that explain it.
 //
 // EVERY FIELD PRINTS, ANSWERED OR NOT. A direction with no rationale has not been
 // sharpened, and an empty field says so where a dropped field would quietly present three
@@ -599,7 +681,10 @@ export default function GroupSummaryView({
   // a shorter deck rather than three headings over empty space.
 
   // ---- 02 · what we're facing -------------------------------------------------------
-  if (s.has.commitments && (s.priorities.length > 0 || s.disputed.length > 0)) {
+  if (
+    s.has.commitments &&
+    (s.priorities.length > 0 || s.disputed.length > 0 || s.overlook.length > 0)
+  ) {
     const scoredCount = s.placements.filter((p) => p.rank !== null).length;
     slides.push({
       id: "facing",
@@ -646,9 +731,10 @@ export default function GroupSummaryView({
               <PriorityList rows={s.priorities} />
             ) : (
               <p className="m-0 text-[14px] text-muted">
-                Your group recorded a disagreement here but never chose its priorities.
+                Your group left a note here but never confirmed its priorities.
               </p>
             )}
+            {s.overlook.length > 0 && <OverlookNote blocks={s.overlook} />}
             {s.disputed.length > 0 && <DisputedList rows={s.disputed} />}
           </WithFigure>
         </Slide>
@@ -661,7 +747,12 @@ export default function GroupSummaryView({
   // altitudes: the vision is the future the group is working toward and the outcomes are
   // what that future means for communities. A reader who met them a slide apart would
   // take the outcomes for a second, competing list.
-  if (s.has.commitments && (s.vision.length > 0 || s.outcomes.length > 0)) {
+  if (
+    s.has.commitments &&
+    (s.vision.length > 0 ||
+      s.outcomes.length > 0 ||
+      s.outcomesByPriority.some((p) => p.outcomes.length > 0))
+  ) {
     slides.push({
       id: "achieve",
       label: "What we want to achieve",
@@ -699,8 +790,18 @@ export default function GroupSummaryView({
               ))}
             </div>
           )}
-          {s.outcomes.length > 0 && (
+          {s.outcomesByPriority.some((p) => p.outcomes.length > 0) && (
             <div className={s.vision.length > 0 ? "border-t-[1.5px] border-ink pt-6" : ""}>
+              <p className="m-0 mb-5 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+                Desired outcomes, and the ideas behind them
+              </p>
+              <OutcomesByPriority rows={s.outcomesByPriority} />
+            </div>
+          )}
+          {/* LEGACY: flat outcomes from the prompt the week used before outcomes were
+              written per priority. Only a board stamped under that shape has any. */}
+          {s.outcomes.length > 0 && (
+            <div className="mt-6 border-t-[1.5px] border-ink pt-6">
               <Blocks blocks={s.outcomes} />
             </div>
           )}
@@ -722,9 +823,9 @@ export default function GroupSummaryView({
           intro={
             <>
               {s.directions.length}{" "}
-              {s.directions.length === 1 ? "move" : "moves"} your group would recommend, and
-              what each one is for. This is the only part of the program that says what it
-              would actually do.
+              {s.directions.length === 1 ? "bold move" : "bold moves"} your group would
+              recommend, and what each one is for. This is the only part of the program that
+              says what it would actually do.
             </>
           }
         >
@@ -733,6 +834,22 @@ export default function GroupSummaryView({
               <DirectionCard key={d.id} d={d} n={i + 1} />
             ))}
           </ol>
+          {/* How the three work together, in the group's words, under the three. */}
+          {s.together.some((b) => b.answers.length > 0) && (
+            <div className="mt-8 border-t-[1.5px] border-ink pt-5">
+              <p className="m-0 mb-3 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-blue">
+                How the moves work together
+              </p>
+              {s.together.flatMap((b) => b.answers).map((a, i) => (
+                <p
+                  key={i}
+                  className="m-0 max-w-[66ch] text-[clamp(15px,1.4vw,18px)] leading-[1.45] [&:not(:first-of-type)]:mt-3"
+                >
+                  {a}
+                </p>
+              ))}
+            </div>
+          )}
         </Slide>
       ),
     });
@@ -1201,7 +1318,12 @@ export default function GroupSummaryView({
                   Opportunity
                 </span>
                 <span className="normal-case tracking-normal">
-                  Ranked by plausibility multiplied by impact, each 1 to 5.
+                  Ranked by {HANDOFF_AXIS_LABELS.plausibility.toLowerCase()} multiplied by{" "}
+                  {HANDOFF_AXIS_LABELS.impact.toLowerCase()}, each 1 to 5 (
+                  {HANDOFF_AXIS_ENDS.plausibility.low.toLowerCase()} to{" "}
+                  {HANDOFF_AXIS_ENDS.plausibility.high.toLowerCase()};{" "}
+                  {HANDOFF_AXIS_ENDS.impact.low.toLowerCase()} to{" "}
+                  {HANDOFF_AXIS_ENDS.impact.high.toLowerCase()}).
                   {scored.length < s.placements.length &&
                     ` ${s.placements.length - scored.length} placed but not scored, listed last.`}
                 </span>

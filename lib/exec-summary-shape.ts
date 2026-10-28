@@ -114,23 +114,24 @@ export function execSummaryDefaultText(changes: Block[], role: Block[]): string 
 
 // Whether the handoff step can offer to draft the lead, and what is still missing if not.
 //
-// A GATE ON THE MODEL, NOT ON THE GROUP. StepProgress is explicit that nothing on this week
-// is enforced, and that stays true: every step remains editable whatever this returns. What
+// A GATE ON THE MODEL, NOT ON THE GROUP. Nothing on this week is enforced, and that stays
+// true: every step remains editable whatever this returns. What
 // it guards is a model call, which costs money and produces a thin, confident summary when
 // run against three answers and a blank matrix.
 //
-// A step with no prompts counts as satisfied. Facilitators can edit the program, and a step
-// whose prompts were removed can never be answered — holding the button hostage to it would
-// be a dead end with no way out from inside the board.
+// The numbers come from the board's own selectors (prioritySlots, outcomeCoverage, the
+// response pool, the vision section, the directions), so the gate and the tabs it names
+// cannot count differently.
 export interface ExecSummarySteps {
-  grounding: number;
-  groundingTotal: number;
+  // 1.2: how many priorities are in a slot, confirmed or suggested (prioritySlots).
   priorities: number;
-  outcomes: number;
-  outcomesTotal: number;
+  // 2.1: how many of those priorities carry at least one desired outcome.
+  prioritiesWithOutcomes: number;
+  // 2.2: every response idea on the board, nested or loose.
   responses: number;
+  // 3.1: answers on the vision section. One is the statement; more is tolerated.
   vision: number;
-  visionTotal: number;
+  // 3.2: bold moves written, sharpened or not.
   directions: number;
 }
 
@@ -145,19 +146,24 @@ export function execSummaryReadiness(s: ExecSummarySteps): {
   // In tab order, so the panel reads down the page the way the steps do rather than in
   // whatever order the checks happen to run.
   const steps = [
-    // A step with no prompts counts as done. Facilitators can edit the program, and a step
-    // whose prompts were removed can never be answered — leaving it unticked forever would
-    // be a dead end with no way out from inside the board.
-    { label: "Reconnect", done: s.groundingTotal === 0 || s.grounding >= s.groundingTotal },
-    { label: "Prioritize", done: s.priorities >= 1 },
-    { label: "Desired outcomes", done: s.outcomesTotal === 0 || s.outcomes >= s.outcomesTotal },
-    { label: "Strategic responses", done: s.responses >= 1 },
-    { label: "Set the vision", done: s.visionTotal === 0 || s.vision >= s.visionTotal },
-    // CHOSEN, NOT SHARPENED. The gate asks whether there is enough on the board to write
-    // about, and three named directions are that even before their fields are filled;
-    // holding the handoff shut until nine more boxes are answered would make the last tab
+    // ALWAYS DONE. 1.1 is a discussion with an optional notes box; the activity's own copy
+    // says written notes are optional, so nothing on it can hold the handoff shut.
+    { label: "Reconnect", done: true },
+    { label: "Prioritize", done: s.priorities >= 3 },
+    // PER PRIORITY, not one overall. The activity asks for an outcome under EACH priority
+    // and 2.2 nests responses under outcomes, so a priority with none is a dead branch on
+    // the next tab, not a thin answer.
+    {
+      label: "Desired outcomes",
+      done: s.priorities > 0 && s.prioritiesWithOutcomes >= s.priorities,
+    },
+    { label: "Strategic responses", done: s.responses >= 3 },
+    { label: "Vision", done: s.vision >= 1 },
+    // WRITTEN, NOT SHARPENED. The gate asks whether there is enough on the board to hand
+    // over, and three named moves are that even before their fields are filled; holding
+    // the handoff shut until nine more boxes are answered would make the last tab
     // unreachable for a group that ran out of time with its recommendations already made.
-    { label: "Three directions", done: s.directions >= 1 },
+    { label: "Three bold moves", done: s.directions >= 3 },
   ];
   const missing = steps.filter((x) => !x.done).map((x) => x.label);
   return { ready: missing.length === 0, missing, steps };
