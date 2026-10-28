@@ -61,9 +61,13 @@ function toCard(r: MatrixRow, i: number): RippleCard {
 export default function SummaryMatrix({
   rows,
   noun = "key change",
+  axisLabels,
 }: {
   rows: MatrixRow[];
   noun?: string;
+  // What to call the two axes. Week 2 keeps Plausibility / Impact; Session 4 scored the
+  // same stored axis as Likelihood. Passed straight through to ImpactMatrix.
+  axisLabels?: { x: string; y: string };
 }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const cards = rows.map(toCard);
@@ -76,6 +80,7 @@ export default function SummaryMatrix({
     <ImpactMatrix
       cards={cards}
       noun={noun}
+      axisLabels={axisLabels}
       hoveredId={hovered}
       onHover={setHovered}
       // PAPER FILL, COLOURED RING. The grid tints its own high/high quadrant lime, and a
