@@ -152,7 +152,7 @@ export const ACTIVITY_META: Record<ActivityStep, ActivityMeta> = {
     pill: "Strategic responses",
     eyebrow: "Step 2 · Part 2 of 2 · Strategic responses",
     minutes: 30,
-    headline: "What could NNPHI and institutes do to achieve these outcomes?",
+    headline: "What could public health do to achieve these outcomes?",
     intro:
       "Start with a few minutes of individual thinking, then share and build on one another's ideas. Use the outcomes to get started. Explore several ways to achieve them, including ideas that support more than one outcome. Write one idea per card: what could we do?",
     starters: {
