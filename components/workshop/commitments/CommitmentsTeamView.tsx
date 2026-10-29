@@ -521,19 +521,28 @@ export function CommitmentsTeamView({
             impact: null,
           });
           settleScoreLocal(pick.id);
-          // AND IT GIVES UP THE SLOT. A confirmed priority is the group's choice and
-          // outranks the ranking by design — prioritySlots keeps it whatever it scored,
-          // which is why un-scoring alone cannot release it. Nothing else un-confirms:
-          // Keep only renders on a suggestion, so a cleared priority with no control to
-          // remove it sat in the three forever, scoreless, and reached the handoff deck
-          // with empty score cells. Clearing a card the group confirmed is the group
-          // saying it is not one of the three, so the confirmation goes with the scores.
-          // The "why" and any outcomes under it stay: those are writing, not a choice.
-          if (pick.shortlisted) await confirmPick(pick, false);
         } catch (e) {
           dropScoreLocal(pick.id, [...axes]);
           throw e;
         }
+        // AND IT GIVES UP THE SLOT. A confirmed priority is the group's choice and
+        // outranks the ranking by design: prioritySlots keeps it whatever it scored,
+        // which is why un-scoring alone cannot release it. Nothing else un-confirms:
+        // Keep only renders on a suggestion, so a cleared priority with no control to
+        // remove it sat in the three forever, scoreless, and reached the handoff deck
+        // with empty score cells. Clearing a card the group confirmed is the group
+        // saying it is not one of the three, so the confirmation goes with the scores.
+        // The "why" and any outcomes under it stay: those are writing, not a choice.
+        //
+        // OUTSIDE THE SCORE WRITE'S try, DELIBERATELY. Two independent writes cannot
+        // share one catch: that catch calls dropScoreLocal, which exists to undo an
+        // optimistic score the server REFUSED. By here the score PATCH has returned and
+        // settled, so rolling it back on an un-confirm failure would revert the one
+        // write that worked and leave the row showing its old scores against a nulled
+        // row. It also double-counts `inflight`, which hooks.ts pairs one-to-one with
+        // scoreLocal. confirmPick rolls back its own flag and rethrows, so each write
+        // now undoes only itself.
+        if (pick.shortlisted) await confirmPick(pick, false);
       });
       return;
     }
