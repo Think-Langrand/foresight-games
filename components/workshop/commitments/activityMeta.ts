@@ -159,7 +159,7 @@ export const ACTIVITY_META: Record<ActivityStep, ActivityMeta> = {
       title: "Starter questions",
       items: [
         "What different approaches could achieve the outcome?",
-        "What could NNPHI, institutes, communities, or partners each contribute?",
+        "What could different parts of public health, communities, or partners each contribute?",
         "What could we do differently, and what bigger possibilities have we not considered?",
       ],
     },
@@ -202,7 +202,7 @@ export const ACTIVITY_META: Record<ActivityStep, ActivityMeta> = {
     minutes: 30,
     headline: "What three major changes would establish the public health described in our vision?",
     intro:
-      "Draw from the full pool of response ideas. Combine and extend them into three bold strategic recommendations for NNPHI and institutes. Each move should establish an essential part of the public health described in your vision. Explain what would change, why it matters, and how the three moves work together. This is your recommendation for an overarching strategy. Detailed planning comes later.",
+      "Draw from the full pool of response ideas. Combine and extend them into three bold strategic recommendations for the field. Each move should establish an essential part of the public health described in your vision. Explain what would change, why it matters, and how the three moves work together. This is your recommendation for an overarching strategy. Detailed planning comes later.",
     starters: {
       title: "Starter questions",
       items: [
