@@ -124,18 +124,54 @@ describe("execSummaryReadiness", () => {
     // The panel shows the whole list, not just the gaps: a group wants to see how close it
     // is, and six names with five ticks says that where a list of one gap does not.
     expect(execSummaryReadiness({ ...full, responses: 0 }).steps).toEqual([
-      { label: "Reconnect", done: true },
-      { label: "Prioritize", done: true },
-      { label: "Desired outcomes", done: true },
-      { label: "Strategic responses", done: false },
-      { label: "Vision", done: true },
-      { label: "Three bold moves", done: true },
+      { label: "Reconnect", done: true, have: 0, need: null },
+      { label: "Prioritize", done: true, have: 3, need: 3 },
+      { label: "Desired outcomes", done: true, have: 3, need: 3 },
+      { label: "Strategic responses", done: false, have: 0, need: 3 },
+      { label: "Vision", done: true, have: 1, need: 1 },
+      { label: "Three bold moves", done: true, have: 3, need: 3 },
     ]);
   });
 
   it("never holds the handoff on Reconnect, whose notes are optional", () => {
     const r = execSummaryReadiness({ ...full, priorities: 0, prioritiesWithOutcomes: 0 });
-    expect(r.steps[0]).toEqual({ label: "Reconnect", done: true });
+    // No target either: a "1 of 1" here would invent a requirement 1.1 does not make.
+    expect(r.steps[0]).toEqual({ label: "Reconnect", done: true, have: 0, need: null });
+  });
+
+  it("counts the outcomes step against the priorities there actually are", () => {
+    // THE MOVING TARGET, and the reason the panel shows a ratio at all. A group carrying a
+    // fourth priority needs a fourth outcome; "3 of 4" says so where "to do" did not.
+    const four = execSummaryReadiness({ ...full, priorities: 4, prioritiesWithOutcomes: 3 });
+    const outcomes = four.steps.find((s) => s.label === "Desired outcomes");
+    expect(outcomes).toEqual({ label: "Desired outcomes", done: false, have: 3, need: 4 });
+    expect(four.missing).toEqual(["Desired outcomes"]);
+
+    // Covered, and it opens: carrying four is allowed, it just costs a fourth outcome.
+    const covered = execSummaryReadiness({ ...full, priorities: 4, prioritiesWithOutcomes: 4 });
+    expect(covered.ready).toBe(true);
+
+    // Nothing prioritised yet: there is no real target, so it reads against the three the
+    // week asks for rather than against zero, which would render as "0 of 0".
+    const empty = execSummaryReadiness({ ...full, priorities: 0, prioritiesWithOutcomes: 0 });
+    expect(empty.steps.find((s) => s.label === "Desired outcomes")).toEqual({
+      label: "Desired outcomes",
+      done: false,
+      have: 0,
+      need: 3,
+    });
+  });
+
+  it("reports the count a step is actually at, including past its target", () => {
+    // The shape reports what is true; clamping "4 of 3" down to "3 of 3" is the panel's
+    // display choice, made where there is room to explain it.
+    const over = execSummaryReadiness({ ...full, priorities: 4, prioritiesWithOutcomes: 4 });
+    expect(over.steps.find((s) => s.label === "Prioritize")).toEqual({
+      label: "Prioritize",
+      done: true,
+      have: 4,
+      need: 3,
+    });
   });
 
   it("names every step still empty, in step order, so the list reads as the tabs do", () => {

@@ -10,7 +10,7 @@
 export default function HandoffGuideLocked({
   steps,
 }: {
-  steps: { label: string; done: boolean }[];
+  steps: { label: string; done: boolean; have: number; need: number | null }[];
 }) {
   const done = steps.filter((s) => s.done).length;
   return (
@@ -60,8 +60,21 @@ export default function HandoffGuideLocked({
               >
                 {s.label}
               </span>
-              <span className="ml-auto font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">
-                {s.done ? "done" : "to do"}
+              {/* THE COUNT, NOT "TO DO". A step named with no number leaves the group
+                  guessing whether it is one box away or four, which is the one thing this
+                  panel exists to answer. The tick already says done, so the right-hand
+                  column spends itself on how far along instead.
+
+                  CLAMPED AT THE TARGET. A step can overshoot — four priorities against a
+                  target of three — and "4 of 3" reads as an error rather than as work in
+                  hand. Going over is reported where it is actionable, on 1.2's own panel,
+                  which can offer the Undo. Here it is simply done. */}
+              <span className="ml-auto shrink-0 font-mono text-[9.5px] uppercase tracking-[0.1em] tabular-nums text-muted">
+                {s.need === null
+                  ? s.done
+                    ? "done"
+                    : "to do"
+                  : `${Math.min(s.have, s.need)} of ${s.need}`}
               </span>
             </li>
           ))}

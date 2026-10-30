@@ -135,35 +135,63 @@ export interface ExecSummarySteps {
   directions: number;
 }
 
+// How many of a thing the handoff wants before a step counts as done. Three is the shape
+// of the whole week: three priorities, three responses to draw from, three bold moves.
+const WANTED = 3;
+
+// One step of the gate, and how far along it is.
+//
+// `have` and `need` ARE THE SAME NUMBERS `done` IS DECIDED FROM, derived here rather than
+// recomputed by the panel. A list that says "to do" next to a step and leaves the group to
+// guess whether that means one box or four is the thing this replaces, and the only way the
+// count can disagree with the tick is if someone computes it twice.
+//
+// `need` IS NULL WHEN THERE IS NOTHING TO COUNT. Reconnect is a discussion whose notes box
+// is optional, so it has no target and shows no ratio; a "1 of 1" there would invent a
+// requirement the activity does not make.
+export interface ReadinessStep {
+  label: string;
+  done: boolean;
+  have: number;
+  need: number | null;
+}
+
 export function execSummaryReadiness(s: ExecSummarySteps): {
   ready: boolean;
   missing: string[];
   // Every step with its state, not just the gaps. The locked panel shows the whole list so
   // a group can see how close it is — six names with five ticks says that, and a list of
   // the one thing left does not.
-  steps: { label: string; done: boolean }[];
+  steps: ReadinessStep[];
 } {
   // In tab order, so the panel reads down the page the way the steps do rather than in
   // whatever order the checks happen to run.
-  const steps = [
+  const steps: ReadinessStep[] = [
     // ALWAYS DONE. 1.1 is a discussion with an optional notes box; the activity's own copy
     // says written notes are optional, so nothing on it can hold the handoff shut.
-    { label: "Reconnect", done: true },
-    { label: "Prioritize", done: s.priorities >= 3 },
+    { label: "Reconnect", done: true, have: 0, need: null },
+    { label: "Prioritize", done: s.priorities >= WANTED, have: s.priorities, need: WANTED },
     // PER PRIORITY, not one overall. The activity asks for an outcome under EACH priority
     // and 2.2 nests responses under outcomes, so a priority with none is a dead branch on
     // the next tab, not a thin answer.
+    //
+    // ITS TARGET MOVES, which is exactly what the count is here to show: a group carrying a
+    // fourth priority needs a fourth outcome, and "3 of 4" says so where "to do" did not.
+    // Before anything is prioritised there is no real target yet, so it reads against the
+    // three the week asks for rather than against zero.
     {
       label: "Desired outcomes",
       done: s.priorities > 0 && s.prioritiesWithOutcomes >= s.priorities,
+      have: s.prioritiesWithOutcomes,
+      need: s.priorities || WANTED,
     },
-    { label: "Strategic responses", done: s.responses >= 3 },
-    { label: "Vision", done: s.vision >= 1 },
+    { label: "Strategic responses", done: s.responses >= WANTED, have: s.responses, need: WANTED },
+    { label: "Vision", done: s.vision >= 1, have: s.vision, need: 1 },
     // WRITTEN, NOT SHARPENED. The gate asks whether there is enough on the board to hand
     // over, and three named moves are that even before their fields are filled; holding
     // the handoff shut until nine more boxes are answered would make the last tab
     // unreachable for a group that ran out of time with its recommendations already made.
-    { label: "Three bold moves", done: s.directions >= 3 },
+    { label: "Three bold moves", done: s.directions >= WANTED, have: s.directions, need: WANTED },
   ];
   const missing = steps.filter((x) => !x.done).map((x) => x.label);
   return { ready: missing.length === 0, missing, steps };
