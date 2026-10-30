@@ -109,7 +109,12 @@ function Panel({
         <span className="text-[15px] font-bold">{label}</span>
         <span className="ml-auto text-[12px] font-bold tabular-nums">{scored} scored</span>
         <span className="text-[11px] italic text-muted">
-          {scored >= floor ? "past the floor · keep going if they matter" : `at least ${floor}`}
+          {/* NOT "keep going if they matter". Everything on this wall matters: the group
+              wrote it in Session 3. The floor is about having enough scored to rank
+              against, and what is left is ordering, not triage. */}
+          {scored >= floor
+            ? "past the floor · keep ranking the ones that matter most if you have time"
+            : `at least ${floor}`}
         </span>
       </button>
 
@@ -212,6 +217,7 @@ export function MatrixBoard({
   onScore,
   onClear,
   onKeep,
+  onUndo,
   onReplace,
   onWhy,
   header,
@@ -238,6 +244,7 @@ export function MatrixBoard({
   onScore: (card: RippleCard, patch: ScorePatchInput) => void;
   onClear: (card: RippleCard) => void;
   onKeep: (pick: RippleCard) => void;
+  onUndo: (pick: RippleCard) => void;
   onReplace: (slotIndex: number, next: RippleCard) => void;
   onWhy: (pick: RippleCard, why: string) => void;
   // The activity header, the overlook box and the checklist-plus-continue, built by the
@@ -327,6 +334,7 @@ export function MatrixBoard({
           editable={editable}
           busy={busy}
           onKeep={onKeep}
+          onUndo={onUndo}
           onReplace={onReplace}
           onWhy={onWhy}
         />

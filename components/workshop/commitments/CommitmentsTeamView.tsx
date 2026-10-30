@@ -521,19 +521,28 @@ export function CommitmentsTeamView({
             impact: null,
           });
           settleScoreLocal(pick.id);
-          // AND IT GIVES UP THE SLOT. A confirmed priority is the group's choice and
-          // outranks the ranking by design — prioritySlots keeps it whatever it scored,
-          // which is why un-scoring alone cannot release it. Nothing else un-confirms:
-          // Keep only renders on a suggestion, so a cleared priority with no control to
-          // remove it sat in the three forever, scoreless, and reached the handoff deck
-          // with empty score cells. Clearing a card the group confirmed is the group
-          // saying it is not one of the three, so the confirmation goes with the scores.
-          // The "why" and any outcomes under it stay: those are writing, not a choice.
-          if (pick.shortlisted) await confirmPick(pick, false);
         } catch (e) {
           dropScoreLocal(pick.id, [...axes]);
           throw e;
         }
+        // AND IT GIVES UP THE SLOT. A confirmed priority is the group's choice and
+        // outranks the ranking by design: prioritySlots keeps it whatever it scored,
+        // which is why un-scoring alone cannot release it. Nothing else un-confirms:
+        // Keep only renders on a suggestion, so a cleared priority with no control to
+        // remove it sat in the three forever, scoreless, and reached the handoff deck
+        // with empty score cells. Clearing a card the group confirmed is the group
+        // saying it is not one of the three, so the confirmation goes with the scores.
+        // The "why" and any outcomes under it stay: those are writing, not a choice.
+        //
+        // OUTSIDE THE SCORE WRITE'S try, DELIBERATELY. Two independent writes cannot
+        // share one catch: that catch calls dropScoreLocal, which exists to undo an
+        // optimistic score the server REFUSED. By here the score PATCH has returned and
+        // settled, so rolling it back on an un-confirm failure would revert the one
+        // write that worked and leave the row showing its old scores against a nulled
+        // row. It also double-counts `inflight`, which hooks.ts pairs one-to-one with
+        // scoreLocal. confirmPick rolls back its own flag and rethrows, so each write
+        // now undoes only itself.
+        if (pick.shortlisted) await confirmPick(pick, false);
       });
       return;
     }
@@ -554,6 +563,20 @@ export function CommitmentsTeamView({
     }
   };
   const keepPriority = (pick: RippleCard) => run(() => confirmPick(pick, true));
+  // The way back out of a Keep. Un-confirming is all it does: the scores stay, so the card
+  // drops to a suggestion and the ranking decides whether it still sits in the three. The
+  // "why" and any outcomes under it stay too, which is what makes this safe to try.
+  //
+  // IT UNDOES A REPLACE AS WELL. replacePriority confirms every other slot so the clicked
+  // one is the one that leaves; those side-effect confirmations are ordinary confirmations,
+  // so undoing them one at a time walks the panel back. That is the whole reason this is
+  // offered on any confirmed slot rather than only on one the group pressed Keep on: there
+  // is no record of HOW a pick came to be confirmed, and the Replace case is the one people
+  // actually get stuck in.
+  //
+  // To take a card out of the three ENTIRELY rather than hand it back to the ranking, Clear
+  // on its matrix row un-scores and un-confirms together.
+  const undoPriority = (pick: RippleCard) => run(() => confirmPick(pick, false));
 
   // Replace slot i's occupant with `next`. THE CLICKED ITEM MUST BE THE ONE THAT LEAVES,
   // and the only way to guarantee that is to confirm every other slot as it stands:
@@ -912,6 +935,7 @@ export function CommitmentsTeamView({
           onScore={scoreStake}
           onClear={clearStake}
           onKeep={keepPriority}
+          onUndo={undoPriority}
           onReplace={replacePriority}
           onWhy={setWhy}
           header={<ActivityHeader step="prioritize" />}

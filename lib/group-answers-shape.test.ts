@@ -449,7 +449,7 @@ describe("shapeFromView — commitments weeks (Week 4)", () => {
   const pick = (id: string, sourceId: string, p: number | null, i: number | null, opts: { shortlisted?: boolean; seq?: number } = {}) =>
     card(id, "FIRST", { cardKind: "pick", sourceCardId: sourceId, plausibility: p, impact: i, seq: opts.seq ?? 1, shortlisted: opts.shortlisted });
 
-  it("names the confirmed picks first, then fills the three from the ranking", () => {
+  it("gives a confirmed pick a slot whatever it scored, and names the three in rank order", () => {
     const shaped = shapeFromView(
       ex("commitments"),
       view([
@@ -464,10 +464,13 @@ describe("shapeFromView — commitments weeks (Week 4)", () => {
     );
     if (shaped.kind !== "commitments") throw new Error("expected commitments");
 
+    // Confirming decided that s4 is IN and s5 is out. It does not decide where s4 reads:
+    // the admin viewer lists the three strongest first, same as the board, and the status
+    // is what marks s4 as the group's own choice.
     expect(shaped.prioritySlots.map((s) => [s.pick.sourceId, s.status])).toEqual([
-      ["s4", "confirmed"],
       ["s1", "suggested"],
       ["s2", "suggested"],
+      ["s4", "confirmed"],
     ]);
     // The flat pick list agrees, and says which were confirmed.
     expect(shaped.picks.filter((p) => p.priority).map((p) => [p.sourceId, p.confirmed])).toEqual([

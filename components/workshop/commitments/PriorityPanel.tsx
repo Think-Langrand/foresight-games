@@ -129,6 +129,7 @@ export function PriorityPanel({
   editable,
   busy,
   onKeep,
+  onUndo,
   onReplace,
   onWhy,
 }: {
@@ -142,6 +143,9 @@ export function PriorityPanel({
   editable: boolean;
   busy: boolean;
   onKeep: (pick: RippleCard) => void;
+  // The way back out of a Keep, offered on a CONFIRMED slot where Keep is offered on a
+  // suggested one. Never both on one row: the pair is the badge, as a control.
+  onUndo: (pick: RippleCard) => void;
   onReplace: (slotIndex: number, next: RippleCard) => void;
   onWhy: (pick: RippleCard, why: string) => void;
 }) {
@@ -163,10 +167,18 @@ export function PriorityPanel({
         each matters.
         {editable && candidates.length > 0 && " Replacing one keeps the other two."}
       </p>
+      {/* A REPORT, NOT A DEMAND. Carrying a fourth works: every step after this reads the
+          slots as they are, so the fourth gets its own outcome box on 2.1, its ideas on
+          2.2 and its own row in the handoff. The one thing it changes is the bar, because
+          the handoff asks for an outcome under EVERY priority, so a fourth is a fourth
+          outcome to write. That is a real cost and a group should know it, but it is the
+          group's call, so this says what is true and where the way back is rather than
+          telling them to undo. */}
       {over && (
         <p className="m-0 mt-2 text-[12.5px] font-bold text-coral">
-          {slots.length - MAX_PRIORITIES} more than {MAX_PRIORITIES} confirmed. Replace one to
-          get back to three.
+          {slots.length} confirmed, {slots.length - MAX_PRIORITIES} more than the{" "}
+          {MAX_PRIORITIES} this step asks for. That is fine if the group means it: each one
+          needs its own desired outcome. Undo any to drop it back to a suggestion.
         </p>
       )}
 
@@ -198,7 +210,11 @@ export function PriorityPanel({
                   </div>
                   {editable && (
                     <span className="flex shrink-0 gap-1.5">
-                      {slot.status === "suggested" && (
+                      {/* ONE OF THE PAIR, NEVER BOTH. A row is suggested or confirmed, so
+                          Keep and Undo swap in the same place: the control says what the
+                          next press would do. Undo is the quiet variant because it takes
+                          something away, where Keep is the step's affirmative act. */}
+                      {slot.status === "suggested" ? (
                         <button
                           type="button"
                           disabled={busy}
@@ -206,6 +222,16 @@ export function PriorityPanel({
                           className="rounded-[2px] border border-ink bg-lime px-2.5 py-1 text-[12px] font-bold hover:bg-lime-deep disabled:opacity-40"
                         >
                           Keep
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onUndo(slot.card)}
+                          title="Back to a suggestion. Scores and notes are kept."
+                          className="rounded-[2px] border border-[var(--hairline)] bg-paper px-2.5 py-1 text-[12px] font-bold hover:border-ink disabled:opacity-40"
+                        >
+                          Undo
                         </button>
                       )}
                       <button
