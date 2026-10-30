@@ -563,6 +563,20 @@ export function CommitmentsTeamView({
     }
   };
   const keepPriority = (pick: RippleCard) => run(() => confirmPick(pick, true));
+  // The way back out of a Keep. Un-confirming is all it does: the scores stay, so the card
+  // drops to a suggestion and the ranking decides whether it still sits in the three. The
+  // "why" and any outcomes under it stay too, which is what makes this safe to try.
+  //
+  // IT UNDOES A REPLACE AS WELL. replacePriority confirms every other slot so the clicked
+  // one is the one that leaves; those side-effect confirmations are ordinary confirmations,
+  // so undoing them one at a time walks the panel back. That is the whole reason this is
+  // offered on any confirmed slot rather than only on one the group pressed Keep on: there
+  // is no record of HOW a pick came to be confirmed, and the Replace case is the one people
+  // actually get stuck in.
+  //
+  // To take a card out of the three ENTIRELY rather than hand it back to the ranking, Clear
+  // on its matrix row un-scores and un-confirms together.
+  const undoPriority = (pick: RippleCard) => run(() => confirmPick(pick, false));
 
   // Replace slot i's occupant with `next`. THE CLICKED ITEM MUST BE THE ONE THAT LEAVES,
   // and the only way to guarantee that is to confirm every other slot as it stands:
@@ -921,6 +935,7 @@ export function CommitmentsTeamView({
           onScore={scoreStake}
           onClear={clearStake}
           onKeep={keepPriority}
+          onUndo={undoPriority}
           onReplace={replacePriority}
           onWhy={setWhy}
           header={<ActivityHeader step="prioritize" />}
