@@ -167,10 +167,18 @@ export function PriorityPanel({
         each matters.
         {editable && candidates.length > 0 && " Replacing one keeps the other two."}
       </p>
+      {/* A REPORT, NOT A DEMAND. Carrying a fourth works: every step after this reads the
+          slots as they are, so the fourth gets its own outcome box on 2.1, its ideas on
+          2.2 and its own row in the handoff. The one thing it changes is the bar, because
+          the handoff asks for an outcome under EVERY priority, so a fourth is a fourth
+          outcome to write. That is a real cost and a group should know it, but it is the
+          group's call, so this says what is true and where the way back is rather than
+          telling them to undo. */}
       {over && (
         <p className="m-0 mt-2 text-[12.5px] font-bold text-coral">
-          {slots.length - MAX_PRIORITIES} more than {MAX_PRIORITIES} confirmed. Undo one to
-          get back to three.
+          {slots.length} confirmed, {slots.length - MAX_PRIORITIES} more than the{" "}
+          {MAX_PRIORITIES} this step asks for. That is fine if the group means it: each one
+          needs its own desired outcome. Undo any to drop it back to a suggestion.
         </p>
       )}
 

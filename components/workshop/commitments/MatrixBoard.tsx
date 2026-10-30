@@ -109,7 +109,12 @@ function Panel({
         <span className="text-[15px] font-bold">{label}</span>
         <span className="ml-auto text-[12px] font-bold tabular-nums">{scored} scored</span>
         <span className="text-[11px] italic text-muted">
-          {scored >= floor ? "past the floor · keep going if they matter" : `at least ${floor}`}
+          {/* NOT "keep going if they matter". Everything on this wall matters: the group
+              wrote it in Session 3. The floor is about having enough scored to rank
+              against, and what is left is ordering, not triage. */}
+          {scored >= floor
+            ? "past the floor · keep ranking the ones that matter most if you have time"
+            : `at least ${floor}`}
         </span>
       </button>
 
