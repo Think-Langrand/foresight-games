@@ -430,9 +430,11 @@ describe("prioritySlots", () => {
     expect(replaceCandidates(board)).toEqual([]);
   });
 
-  it("puts confirmed picks first, whatever they scored, and fills the rest from the ranking", () => {
-    // A 1x1 the group confirmed outranks a 5x5 it did not: that is the whole point of
-    // confirming. The suggestions fill what is left, strongest first.
+  it("gives a confirmed pick a slot whatever it scored, but orders every slot by rank", () => {
+    // CONFIRMING WINS SELECTION, NOT POSITION. `small` is a 1x1 the group confirmed: it
+    // takes a slot over `low`, a 2x2 it did not, which is the whole point of confirming.
+    // What it does not do is float above the suggestions — the rows read strongest first
+    // and the badge is the only thing saying which slot is the group's own.
     const board = indexCommitmentsBoard([
       pick("big", 1, 5, 5),
       pick("mid", 2, 4, 4),
@@ -440,21 +442,54 @@ describe("prioritySlots", () => {
       pick("low", 4, 2, 2),
     ]);
     expect(prioritySlots(board)).toEqual([
-      { card: board.picks.get("src-small"), status: "confirmed" },
       { card: board.picks.get("src-big"), status: "suggested" },
       { card: board.picks.get("src-mid"), status: "suggested" },
+      { card: board.picks.get("src-small"), status: "confirmed" },
     ]);
-    expect(priorities(board).map((c) => c.id)).toEqual(["small", "big", "mid"]);
+    expect(priorities(board).map((c) => c.id)).toEqual(["big", "mid", "small"]);
+    // The 2x2 it did not confirm stays out, outscoring the 1x1 or not.
+    expect(isPriority(board, "src-low")).toBe(false);
   });
 
-  it("keeps a confirmed pick in its slot even after its scores are cleared", () => {
+  it("does not move a pick the group did not touch when another is confirmed", () => {
+    // The reason the rows order on rank alone. Status used to be said by position as well
+    // as by the chip, so confirming ANY pick re-sorted it into a block above the
+    // suggestions and shoved its neighbours down a row for reasons nobody could see. Undo
+    // made it worse: walking back a Replace moves three cards between the blocks one at a
+    // time. Rank does not change when a pick is confirmed, so neither does the order.
+    const scores = [
+      ["a", 5, 5],
+      ["b", 4, 4],
+      ["c", 3, 3],
+    ] as const;
+    const order = (confirmedId?: string) =>
+      prioritySlots(
+        indexCommitmentsBoard(
+          scores.map(([id, p, i], n) =>
+            pick(id, n + 1, p, i, id === confirmedId ? { shortlisted: true } : undefined)
+          )
+        )
+      ).map((s) => s.card.id);
+
+    expect(order()).toEqual(["a", "b", "c"]);
+    // Confirming the middle one, the weakest one, or the strongest one: same rows, same
+    // order, every time. Only the status changes.
+    expect(order("b")).toEqual(["a", "b", "c"]);
+    expect(order("c")).toEqual(["a", "b", "c"]);
+    expect(order("a")).toEqual(["a", "b", "c"]);
+  });
+
+  it("keeps a confirmed pick in its slot even after its scores are cleared, sunk to the end", () => {
     const board = indexCommitmentsBoard([
       pick("kept", 1, null, null, { shortlisted: true }),
       pick("a", 2, 5, 5),
     ]);
+    // Still holds a slot: clearing the scores does not evict what the group confirmed.
+    // But an unscored card has no rank, so it reads last rather than at a position that
+    // would imply a score it does not have.
     expect(prioritySlots(board).map((s) => [s.card.id, s.status])).toEqual([
-      ["kept", "confirmed"],
       ["a", "suggested"],
+      ["kept", "confirmed"],
     ]);
   });
 
