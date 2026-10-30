@@ -129,6 +129,7 @@ export function PriorityPanel({
   editable,
   busy,
   onKeep,
+  onUndo,
   onReplace,
   onWhy,
 }: {
@@ -142,6 +143,9 @@ export function PriorityPanel({
   editable: boolean;
   busy: boolean;
   onKeep: (pick: RippleCard) => void;
+  // The way back out of a Keep, offered on a CONFIRMED slot where Keep is offered on a
+  // suggested one. Never both on one row: the pair is the badge, as a control.
+  onUndo: (pick: RippleCard) => void;
   onReplace: (slotIndex: number, next: RippleCard) => void;
   onWhy: (pick: RippleCard, why: string) => void;
 }) {
@@ -165,7 +169,7 @@ export function PriorityPanel({
       </p>
       {over && (
         <p className="m-0 mt-2 text-[12.5px] font-bold text-coral">
-          {slots.length - MAX_PRIORITIES} more than {MAX_PRIORITIES} confirmed. Replace one to
+          {slots.length - MAX_PRIORITIES} more than {MAX_PRIORITIES} confirmed. Undo one to
           get back to three.
         </p>
       )}
@@ -198,7 +202,11 @@ export function PriorityPanel({
                   </div>
                   {editable && (
                     <span className="flex shrink-0 gap-1.5">
-                      {slot.status === "suggested" && (
+                      {/* ONE OF THE PAIR, NEVER BOTH. A row is suggested or confirmed, so
+                          Keep and Undo swap in the same place: the control says what the
+                          next press would do. Undo is the quiet variant because it takes
+                          something away, where Keep is the step's affirmative act. */}
+                      {slot.status === "suggested" ? (
                         <button
                           type="button"
                           disabled={busy}
@@ -206,6 +214,16 @@ export function PriorityPanel({
                           className="rounded-[2px] border border-ink bg-lime px-2.5 py-1 text-[12px] font-bold hover:bg-lime-deep disabled:opacity-40"
                         >
                           Keep
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onUndo(slot.card)}
+                          title="Back to a suggestion. Scores and notes are kept."
+                          className="rounded-[2px] border border-[var(--hairline)] bg-paper px-2.5 py-1 text-[12px] font-bold hover:border-ink disabled:opacity-40"
+                        >
+                          Undo
                         </button>
                       )}
                       <button

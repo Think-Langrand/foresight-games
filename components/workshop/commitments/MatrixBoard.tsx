@@ -212,6 +212,7 @@ export function MatrixBoard({
   onScore,
   onClear,
   onKeep,
+  onUndo,
   onReplace,
   onWhy,
   header,
@@ -238,6 +239,7 @@ export function MatrixBoard({
   onScore: (card: RippleCard, patch: ScorePatchInput) => void;
   onClear: (card: RippleCard) => void;
   onKeep: (pick: RippleCard) => void;
+  onUndo: (pick: RippleCard) => void;
   onReplace: (slotIndex: number, next: RippleCard) => void;
   onWhy: (pick: RippleCard, why: string) => void;
   // The activity header, the overlook box and the checklist-plus-continue, built by the
@@ -327,6 +329,7 @@ export function MatrixBoard({
           editable={editable}
           busy={busy}
           onKeep={onKeep}
+          onUndo={onUndo}
           onReplace={onReplace}
           onWhy={onWhy}
         />
