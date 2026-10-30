@@ -578,13 +578,26 @@ export function isPicked(board: CommitmentsBoard, sourceId: string): boolean {
 export type PrioritySlot = { card: RippleCard; status: "confirmed" | "suggested" };
 
 /**
- * The three priorities, confirmed first and strongest first within each group.
+ * The three priorities, strongest first, each labelled with how it got there.
  *
  * SCORES SUGGEST, THE GROUP CONFIRMS. An earlier shape read the three straight off the
  * ranking, which meant a group could never say "this 3x4 matters more to us than that 4x4"
  * without re-scoring a card it had scored honestly. The shape before THAT was a bare star
  * that could disagree with the scores on the same row. This is the middle: the ranking
  * fills the slots so nobody starts from nothing, and confirming or replacing is one click.
+ *
+ * CONFIRMING WINS SELECTION, NOT POSITION. A confirmed pick holds a slot whatever it
+ * scored, so a 1x1 the group chose keeps its place over a 5x5 it did not: that is the
+ * point of confirming, and it is decided below when the slots are filled. What it no
+ * longer does is float to the top. The rows are then sorted by rank alone, and the badge
+ * is the only thing that says which are the group's and which are the ranking's.
+ *
+ * WHY THE BADGE CARRIES IT ALONE. Status used to be said twice, by the chip and by the
+ * position, and the second one moved cards nobody touched: confirming any pick re-sorted
+ * it into a block above the suggestions, so a neighbouring row jumped a place for reasons
+ * the group could not see. Undo made it worse, because walking back a Replace moves three
+ * cards between the blocks one at a time. Rank is stable under confirming, so ordering on
+ * rank alone means a Keep or an Undo changes one chip and nothing else.
  *
  * FEWER THAN THREE before anything is scored (an unscored pick is never suggested), and
  * MORE THAN THREE only if more than three are confirmed, which the panel reports rather
@@ -593,16 +606,21 @@ export type PrioritySlot = { card: RippleCard; status: "confirmed" | "suggested"
  */
 export function prioritySlots(board: CommitmentsBoard): PrioritySlot[] {
   const all = [...board.picks.values()];
+  // SELECTION FIRST, and here confirming still outranks the ranking: the confirmed picks
+  // take their slots, and the suggestions fill only what is left over.
   const confirmed = all.filter((p) => p.shortlisted).sort(compareByRank);
   const room = Math.max(0, MAX_PRIORITIES - confirmed.length);
   const suggested = all
     .filter((p) => !p.shortlisted && rankValue(p) !== null)
     .sort(compareByRank)
     .slice(0, room);
+  // THEN ORDER, on rank alone, across both. compareByRank is a total order and sinks an
+  // unscored card to the end, so a confirmed pick whose scores were cleared mid-flight
+  // shows last rather than at a position that implies a score it does not have.
   return [
     ...confirmed.map((card) => ({ card, status: "confirmed" as const })),
     ...suggested.map((card) => ({ card, status: "suggested" as const })),
-  ];
+  ].sort((a, b) => compareByRank(a.card, b.card));
 }
 
 /** The priorities as cards, slot order. Every reader of "the three" goes through this. */
