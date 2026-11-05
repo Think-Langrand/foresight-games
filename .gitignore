@@ -62,3 +62,9 @@ next-env.d.ts
 # that happens to be sitting in the repo, and data/ is one `git add .` from taking a
 # megabyte of them along with a real change.
 /data/week*/
+
+# Deck scenario art, re-downloaded from Carmelita by scripts/build-deck-reference.mjs
+# --images. ~33 MB of JPEGs that are reproducible from the snapshot, so they are built
+# rather than committed. The STATIC renderers need them (a presigned URL dies in an hour);
+# the live route re-resolves from the platform and does not.
+public/deck/img/
