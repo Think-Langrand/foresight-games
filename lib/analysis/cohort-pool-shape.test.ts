@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   POOL_SOURCES,
   PURPOSE_FIELD,
+  poolSourceScoreAxis,
   itemsFromBoard,
   poolSourceLabel,
   poolSourceRender,
@@ -103,6 +104,25 @@ describe("pool sources", () => {
 
   it("gives every source a label a facilitator can read", () => {
     for (const s of POOL_SOURCES) expect(poolSourceLabel(s)).toMatch(/\S/);
+  });
+
+  // The weight view names its axis and counts its roots in prose. Session 2 scores key
+  // changes, a Session 3 theme inherits through them, and Session 4 scores priorities and
+  // calls the same stored column "Likelihood" — so a hardcoded word is wrong for two of
+  // the three. Every source must name something that is actually on its board.
+  it("names the score axis and the thing that was scored, per session", () => {
+    expect(poolSourceScoreAxis("implications")).toMatchObject({
+      x: "Plausibility",
+      root: "key change",
+    });
+    expect(poolSourceScoreAxis("risks")).toMatchObject({ x: "Plausibility", root: "theme" });
+    expect(poolSourceScoreAxis("moves")).toMatchObject({ x: "Likelihood", root: "priority" });
+    for (const s of POOL_SOURCES) {
+      const axis = poolSourceScoreAxis(s);
+      expect(axis.x).toMatch(/\S/);
+      expect(axis.basis).toMatch(/\S/);
+      expect(axis.root).toMatch(/\S/);
+    }
   });
 });
 
