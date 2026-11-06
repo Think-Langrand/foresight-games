@@ -28,6 +28,7 @@ import { ScenarioFlow } from "./ScenarioFlow";
 import { WeightMap } from "./WeightMap";
 import { FlipLedger } from "./FlipLedger";
 import { CohortAnalysisTable } from "./CohortAnalysisTable";
+import { UnifiedVisionPanel } from "./UnifiedVisionPanel";
 import { shortName } from "./chrome";
 
 // The cohort analysis page. Pick what to pool, run it once, then read the same run four
@@ -315,6 +316,22 @@ export function CohortAnalysisWorkbench({
         ) : null}
         {error ? <p className="text-[11.5px] font-semibold text-coral">{error}</p> : null}
       </section>
+
+      {/* --- the vision statements get their own pass --------------------------------
+          Shown only for this source, and ABOVE the clustering run rather than as a fifth
+          tab on it: the other views all render one CohortAnalysis, and this reads no
+          clustering at all. Four groups produce four paragraphs, which is the wrong shape
+          for a convergence grid — see lib/analysis/unified-vision-shape.ts. The ordinary
+          run below still works on this source for anyone who wants it. */}
+      {source === "aspirations" ? (
+        <UnifiedVisionPanel
+          projectId={projectId}
+          groups={preview.groups}
+          colors={colors}
+          weekSort={preview.week?.sort}
+          groupIds={groupIds}
+        />
+      ) : null}
 
       {/* --- the run, four ways ------------------------------------------------ */}
       {analysis ? (
