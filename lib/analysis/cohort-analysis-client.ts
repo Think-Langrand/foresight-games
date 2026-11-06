@@ -5,6 +5,7 @@ import type { ClusterMethod } from "./implication-cluster-shape";
 import type { CohortGroupInfo, ContextMode, WeekChoice } from "./cohort-cluster-shape";
 import type { CohortAnalysis } from "./cohort-analysis";
 import type { PoolSource } from "./cohort-pool-shape";
+import { readKeepaliveJson } from "@/lib/keepalive-stream";
 
 export interface AnalysisPreview {
   projectName: string;
@@ -49,11 +50,14 @@ export async function fetchAnalysisPreview(
   );
 }
 
+// Read through the keepalive reader, because the route STREAMS: it pings every ten seconds
+// so Render cannot close the connection as idle, then sends the payload as the last line.
+// A plain res.json() would see newline-delimited frames and throw.
 export async function runAnalysis(
   projectId: string,
   body: AnalysisRunRequest
 ): Promise<CohortAnalysis> {
-  return json(
+  return readKeepaliveJson(
     await fetch(`/api/admin/projects/${projectId}/cohort-analysis`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

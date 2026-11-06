@@ -11,6 +11,7 @@ import type {
 } from "./implication-cluster-shape";
 import type { SynthesisSummary } from "@/lib/synthesis-summary-shape";
 import type { ThemeIdea } from "@/lib/theme-ideas-shape";
+import { readKeepaliveJson } from "@/lib/keepalive-stream";
 
 export interface ClusterRequest {
   sourceExerciseId: string;
@@ -25,15 +26,17 @@ export interface SimilarRequest {
   candidateIds: string[]; // Week 2 card ids of what could join
 }
 
+// Read through the keepalive reader. Two of these routes STREAM — the clustering and the
+// summary both run a model call that can pass 60 seconds, which Render would otherwise cut
+// as an idle connection — and the reader passes an ordinary JSON response straight through,
+// so the short routes here are unaffected.
 async function post<T>(url: string, body: unknown, fallback: string): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new Error(data.error || `${fallback} (${res.status}).`);
-  return data as T;
+  return readKeepaliveJson<T>(res, fallback);
 }
 
 export function requestClustering(

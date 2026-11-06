@@ -7,8 +7,11 @@ import { isClusterMethod } from "@/lib/analysis/implication-cluster-shape";
 import { isContextMode } from "@/lib/analysis/cohort-cluster-shape";
 import { isPoolSource, poolSourceLabel } from "@/lib/analysis/cohort-pool-shape";
 import { poolCohortItems } from "@/lib/analysis/cohort-pool";
+import { keepaliveJsonResponse } from "@/lib/keepalive-stream";
 
 export const dynamic = "force-dynamic";
+// Inert on Render (a Vercel directive), kept so the intent travels if this ever moves to a
+// serverless host. What actually keeps a long run alive here is the keepalive stream below.
 export const maxDuration = 300;
 
 // Admin-only: one cohort analysis — the clustering run plus the grid, the weights and the
@@ -91,32 +94,42 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   if (!isClusterMethod(body.method))
     return NextResponse.json({ error: "method must be 'llm' or 'embedding'." }, { status: 400 });
+  // Captured here, not read off `body` inside the job: the guard narrows `body.method` in
+  // this scope only, and the job below is a closure.
+  const method = body.method;
 
   const minSimilarity =
     typeof body.minSimilarity === "number" && body.minSimilarity >= -1 && body.minSimilarity <= 1
       ? body.minSimilarity
       : undefined;
 
-  try {
-    const result = await runCohortAnalysis({
-      projectId: got.project.id,
-      projectName: got.project.name,
-      source: isPoolSource(body.source) ? body.source : "implications",
-      method: body.method,
-      context: isContextMode(body.context) ? body.context : "blind",
-      criteria: trimmed(body.criteria, CRITERIA_MAX),
-      promptOverride: trimmed(body.promptOverride, PROMPT_MAX),
-      narrative: body.narrative === true,
-      weekSort: typeof body.weekSort === "number" ? body.weekSort : undefined,
-      groupIds: stringList(body.groupIds),
-      minSimilarity,
-      bridging: body.bridging === true,
-    });
-
-    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
-    return NextResponse.json(result.analysis);
-  } catch (err) {
-    console.error("[POST cohort analysis]", err);
-    return NextResponse.json({ error: "Failed to analyse the cohort." }, { status: 500 });
-  }
+  // STREAMED, and not because the payload is big. A cohort run is slow and, until this,
+  // completely silent — and Render closes a connection idle for 60 seconds, which killed
+  // every run that took longer than that while letting a 42-second one through. See
+  // lib/keepalive-stream.ts for the log that proved it.
+  //
+  // Everything above this line is an up-front guard and still answers with a real status
+  // code. Only the long part moves into the body.
+  return keepaliveJsonResponse(
+    async () => {
+      const result = await runCohortAnalysis({
+        projectId: got.project.id,
+        projectName: got.project.name,
+        source: isPoolSource(body.source) ? body.source : "implications",
+        method,
+        context: isContextMode(body.context) ? body.context : "blind",
+        criteria: trimmed(body.criteria, CRITERIA_MAX),
+        promptOverride: trimmed(body.promptOverride, PROMPT_MAX),
+        narrative: body.narrative === true,
+        weekSort: typeof body.weekSort === "number" ? body.weekSort : undefined,
+        groupIds: stringList(body.groupIds),
+        minSimilarity,
+        bridging: body.bridging === true,
+      });
+      return result.ok
+        ? { ok: true as const, data: result.analysis }
+        : { ok: false as const, status: result.status, error: result.error };
+    },
+    { label: "POST cohort analysis", fallback: "Failed to analyse the cohort." }
+  );
 }
