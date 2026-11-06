@@ -12,6 +12,7 @@ import {
   isClusterMethod,
   type ImplicationItem,
 } from "@/lib/analysis/implication-cluster-shape";
+import { keepaliveJsonResponse } from "@/lib/keepalive-stream";
 
 export const dynamic = "force-dynamic";
 // Measured on a real 43-implication board: the single LLM grouping call took 25s with no
@@ -19,6 +20,11 @@ export const dynamic = "force-dynamic";
 // with the group. 60 (what /api/analysis/cluster uses) left too little headroom; a bigger
 // group would have timed out in front of a facilitator. The embedding path is far cheaper
 // (1.4s to embed all 43) but shares the route.
+//
+// AND IT IS INERT ON RENDER ANYWAY — a Vercel directive on a long-lived Node server. The
+// real cliff is 60 SECONDS OF SILENCE, which Render's router enforces by closing an idle
+// connection, and the 41s measured above says a group only somewhat bigger than 43 would
+// hit it. Hence the keepalive stream below.
 export const maxDuration = 120;
 
 // Admin-only: propose how a design group's Week 2 implications could be clustered into
@@ -74,44 +80,49 @@ export async function POST(
       ? body.minSimilarity
       : undefined;
 
-  try {
-    const exercises = await listExercises(groupId);
-    const source = exercises.find((e) => e.id === sourceExerciseId);
-    if (!source || !source.sessionCode)
-      return NextResponse.json({ error: "Exercise not found." }, { status: 404 });
-    if (getExerciseType(source.type)?.render !== "implications")
-      return NextResponse.json(
-        { error: "Only an implications week can be clustered." },
-        { status: 400 }
-      );
+  // The guards ABOVE answer with real status codes, because they are decided before any
+  // work. The ones below now ride the stream's `err` frame, which carries the same status
+  // and the same sentence — the client shows the sentence either way.
+  return keepaliveJsonResponse(
+    async () => {
+      const exercises = await listExercises(groupId);
+      const source = exercises.find((e) => e.id === sourceExerciseId);
+      if (!source || !source.sessionCode)
+        return { ok: false as const, status: 404, error: "Exercise not found." };
+      if (getExerciseType(source.type)?.render !== "implications")
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Only an implications week can be clustered.",
+        };
 
-    // Same candidate list the seed picker offers, so what gets clustered is exactly what
-    // could be put on the Week 3 board — roots, stickies and challenged-out cards excluded.
-    const cards = await listBoardCards(source.sessionCode);
-    const items: ImplicationItem[] = implicationSeedCandidates(cards).map((c) => ({
-      id: c.id,
-      text: c.text,
-      keyChange: c.keyChange,
-    }));
-    if (items.length < 2)
-      return NextResponse.json(
-        { error: "This week has fewer than two implications to cluster." },
-        { status: 400 }
-      );
+      // Same candidate list the seed picker offers, so what gets clustered is exactly what
+      // could be put on the Week 3 board — roots, stickies and challenged-out cards excluded.
+      const cards = await listBoardCards(source.sessionCode);
+      const items: ImplicationItem[] = implicationSeedCandidates(cards).map((c) => ({
+        id: c.id,
+        text: c.text,
+        keyChange: c.keyChange,
+      }));
+      if (items.length < 2)
+        return {
+          ok: false as const,
+          status: 400,
+          error: "This week has fewer than two implications to cluster.",
+        };
 
-    const result =
-      method === "llm"
-        ? await clusterByLlm(items, criteria)
-        : await clusterByEmbedding(items, { minSimilarity, criteria });
+      const result =
+        method === "llm"
+          ? await clusterByLlm(items, criteria)
+          : await clusterByEmbedding(items, { minSimilarity, criteria });
 
-    // The helpers swallow their own errors and return null so a failure never takes the
-    // request down with a stack trace; translate that into the upstream status.
-    if (!result)
-      return NextResponse.json({ error: "The model did not return a grouping." }, { status: 502 });
+      // The helpers swallow their own errors and return null so a failure never takes the
+      // request down with a stack trace; translate that into the upstream status.
+      if (!result)
+        return { ok: false as const, status: 502, error: "The model did not return a grouping." };
 
-    return NextResponse.json(result);
-  } catch (err) {
-    console.error("[POST group cluster]", err);
-    return NextResponse.json({ error: "Failed to cluster implications." }, { status: 500 });
-  }
+      return { ok: true as const, data: result };
+    },
+    { label: "POST group cluster", fallback: "Failed to cluster implications." }
+  );
 }
