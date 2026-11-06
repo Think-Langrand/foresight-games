@@ -298,3 +298,85 @@ describe("flipsForBoard marks whether there was a board at all", () => {
     expect(flipsForBoard([], "g1").hasBoard).toBe(true);
   });
 });
+
+// Session 4: two scored priorities and one unscored pick; outcomes under each; a response
+// under an outcome and a legacy root response; a bold move.
+const week4 = () => [
+  card("p1", { cardKind: "pick", sourceCardId: "w3a", plausibility: 5, impact: 5, shortlisted: true }),
+  card("p2", { cardKind: "pick", sourceCardId: "w3b", plausibility: 2, impact: 4, shortlisted: true }),
+  card("p3", { cardKind: "pick", sourceCardId: "w3c" }), // never scored
+  card("oc1", { order: "SECOND", parentId: "p1", cardKind: "outcome" }),
+  card("oc2", { order: "SECOND", parentId: "p1", cardKind: "outcome" }),
+  card("oc3", { order: "SECOND", parentId: "p3", cardKind: "outcome" }),
+  card("rs1", { order: "TERMINAL", parentId: "oc1", cardKind: "response" }),
+  card("rs2", { order: "FIRST", cardKind: "response" }), // legacy root, under nothing
+  card("d1", { order: "FIRST", cardKind: "direction" }),
+];
+
+describe("scoresForItems — Session 4", () => {
+  const score = (ids: string[], source: Parameters<typeof scoresForItems>[0]["source"]) =>
+    scoresForItems({ source, week2Cards: [], week3Cards: [], week4Cards: week4(), itemIds: ids });
+
+  it("reads a priority's score off the pick itself, with no earlier week present", () => {
+    const got = score(["p1", "p2"], "priorities");
+    // Week 2 and Week 3 are deliberately empty here: Session 4 scores itself.
+    expect(got.get("p1")).toEqual({ plausibility: 5, impact: 5, rootId: "p1" });
+    expect(got.get("p2")).toEqual({ plausibility: 2, impact: 4, rootId: "p2" });
+  });
+
+  it("omits an unscored pick rather than positioning it at a number it never had", () => {
+    expect(score(["p3"], "priorities").has("p3")).toBe(false);
+  });
+
+  it("lets an outcome inherit the priority it was written for", () => {
+    const got = score(["oc1", "oc2"], "outcomes");
+    expect(got.get("oc1")?.plausibility).toBe(5);
+    expect(got.get("oc2")?.impact).toBe(5);
+  });
+
+  // The headline invariant, and the reason Score carries rootId: a room that wrote four
+  // outcomes for one priority must not outvote a room that wrote one.
+  it("gives both outcomes of one priority the SAME rootId, so they weigh it once", () => {
+    const got = score(["oc1", "oc2"], "outcomes");
+    expect(got.get("oc1")?.rootId).toBe("p1");
+    expect(got.get("oc2")?.rootId).toBe("p1");
+    const theme: CohortTheme[] = [
+      {
+        label: "t",
+        summary: "",
+        memberIds: ["oc1", "oc2"],
+        byGroup: [{ groupId: "g1", count: 2 }],
+        groupCount: 1,
+        cohesion: null,
+      },
+    ];
+    expect(weightsForThemes(theme, got)[0].roots).toBe(1);
+    expect(weightsForThemes(theme, got)[0].n).toBe(2);
+  });
+
+  it("omits an outcome written for a pick nobody scored", () => {
+    expect(score(["oc3"], "outcomes").has("oc3")).toBe(false);
+  });
+
+  it("lets a response inherit through its outcome, but not a legacy root response", () => {
+    const got = score(["rs1", "rs2"], "responses");
+    expect(got.get("rs1")?.rootId).toBe("p1");
+    expect(got.has("rs2")).toBe(false);
+  });
+
+  it("scores no bold move and no vision, because nothing scores them", () => {
+    expect(score(["d1"], "moves").size).toBe(0);
+    expect(score(["v1"], "aspirations").size).toBe(0);
+  });
+
+  it("returns nothing, rather than throwing, when the Session 4 board is missing", () => {
+    expect(
+      scoresForItems({
+        source: "priorities",
+        week2Cards: week2(),
+        week3Cards: [],
+        itemIds: ["p1"],
+      }).size
+    ).toBe(0);
+  });
+});

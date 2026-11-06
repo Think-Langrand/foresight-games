@@ -51,10 +51,14 @@ export type AnalysisResult =
 interface GroupBoards {
   week2: RippleCard[];
   week3: RippleCard[];
+  // Session 4, for a commitments run: its scores are on the board itself, not inherited.
+  week4: RippleCard[];
 }
 
-// Each group's Session 2 and Session 3 boards. Both are needed even for a risks run: the
-// scores live on Session 2's roots and the path to them runs through Session 3's themes.
+// Each group's Session 2, Session 3 and Session 4 boards. The first two are needed even for
+// a risks run: the scores live on Session 2's roots and the path to them runs through
+// Session 3's themes. Session 4 is needed for a commitments run, where the scores are on
+// the `pick` cards themselves and no earlier week is involved at all.
 //
 // Reads the LAST week of each render rather than the first. A project that re-ran a session
 // has two implications weeks, and the scores a facilitator means are the ones on the week
@@ -74,12 +78,17 @@ async function loadGroupBoards(projectId: string, groupIds?: string[]): Promise<
           .filter((e) => getExerciseType(e.type)?.render === render && e.sessionCode)
           .sort((a, b) => b.sort - a.sort)[0]?.sessionCode ?? null;
 
-      const [w2, w3] = [codeFor("implications"), codeFor("synthesis")];
-      const [week2, week3] = await Promise.all([
+      const [w2, w3, w4] = [
+        codeFor("implications"),
+        codeFor("synthesis"),
+        codeFor("commitments"),
+      ];
+      const [week2, week3, week4] = await Promise.all([
         w2 ? listBoardCards(w2) : Promise.resolve([]),
         w3 ? listBoardCards(w3) : Promise.resolve([]),
+        w4 ? listBoardCards(w4) : Promise.resolve([]),
       ]);
-      out.set(g.id, { week2, week3 });
+      out.set(g.id, { week2, week3, week4 });
     })
   );
   return out;
@@ -102,6 +111,7 @@ export async function runCohortAnalysis(args: RunArgs): Promise<AnalysisResult> 
       source: run.source,
       week2Cards: b.week2,
       week3Cards: b.week3,
+      week4Cards: b.week4,
       itemIds,
     })) {
       scores.set(id, score);

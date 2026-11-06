@@ -25,9 +25,10 @@ import {
   indexSynthesisBoard,
   lineageByCardId,
 } from "@/lib/synthesis-shape";
+import { indexCommitmentsBoard } from "@/lib/commitments-shape";
 import type { RippleCard } from "@/lib/ripples-types";
 import type { CohortTheme } from "./cohort-cluster-shape";
-import type { PoolSource } from "./cohort-pool-shape";
+import { poolSourceRender, type PoolSource } from "./cohort-pool-shape";
 
 export interface Score {
   plausibility: number | null;
@@ -85,10 +86,67 @@ export function scoresForItems(args: {
   source: PoolSource;
   week2Cards: RippleCard[];
   week3Cards: RippleCard[];
+  // Session 4. Only the commitments sources need it, and they need ONLY it.
+  week4Cards?: RippleCard[];
   itemIds: string[];
 }): Map<string, Score> {
   const { source, week2Cards, week3Cards, itemIds } = args;
   const out = new Map<string, Score>();
+
+  // SESSION 4 SCORES ITSELF, so this path walks no lineage and needs no earlier week.
+  //
+  // Week 2's numbers are on key-change roots and have to be inherited forward through two
+  // hops. Week 4's are on the `pick` itself: act 1.2 scores each risk and opportunity on
+  // the impact x likelihood matrix, and the pick IS the scored card. (Likelihood is stored
+  // in `plausibility` — Week 4 only relabels the axis, which is why the column is reused.)
+  //
+  // Placed before the week2 guard below on purpose: a Session 4 run on a project whose
+  // Week 2 boards are empty still has real scores.
+  if (poolSourceRender(source) === "commitments") {
+    const week4Cards = args.week4Cards ?? [];
+    if (week4Cards.length === 0) return out;
+    const board = indexCommitmentsBoard(week4Cards);
+    const want = new Set(itemIds);
+
+    const pickScore = new Map<string, Score | null>();
+    for (const pick of board.picks.values()) {
+      pickScore.set(pick.id, scoreOfRoots([pick], pick.id));
+    }
+
+    // outcomeId -> the pick it was written for.
+    const pickOfOutcome = new Map<string, string>();
+    for (const [pickId, list] of board.outcomes) {
+      for (const o of list) pickOfOutcome.set(o.id, pickId);
+    }
+
+    // A priority IS the scored card.
+    for (const pick of board.picks.values()) {
+      const score = pickScore.get(pick.id);
+      if (want.has(pick.id) && score) out.set(pick.id, score);
+    }
+    // An outcome inherits the priority it serves. Several outcomes under one priority are
+    // ONE piece of evidence, which `rootId` already carries: weightsForThemes dedupes on
+    // it, so a room that wrote four outcomes for one priority does not outvote a room that
+    // wrote one.
+    for (const [outcomeId, pickId] of pickOfOutcome) {
+      const score = pickScore.get(pickId);
+      if (want.has(outcomeId) && score) out.set(outcomeId, score);
+    }
+    // A response inherits through the outcome above it. A legacy ROOT response hangs under
+    // nothing and so carries no score, which is correct rather than unfortunate.
+    for (const r of board.responses) {
+      if (!want.has(r.id) || !r.parentId) continue;
+      const pickId = pickOfOutcome.get(r.parentId);
+      const score = pickId ? pickScore.get(pickId) : null;
+      if (score) out.set(r.id, score);
+    }
+    // BOLD MOVES AND THE VISION ARE NOT SCORED, by anything, anywhere. They are written
+    // from the whole week rather than for one priority, so there is no honest number to
+    // inherit and they stay ABSENT from the map — which the weight view reports as "0 of N
+    // pooled items carried a score" instead of drawing them at a position they never had.
+    return out;
+  }
+
   if (week2Cards.length === 0) return out;
 
   const lineage = lineageByCardId(week2Cards);
