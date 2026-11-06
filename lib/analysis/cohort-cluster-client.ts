@@ -3,6 +3,7 @@
 // server-side; these helpers only carry the request.
 
 import type { ClusterMethod } from "./implication-cluster-shape";
+import { readKeepaliveJson } from "@/lib/keepalive-stream";
 import type {
   CohortClusterResponse,
   CohortGroupInfo,
@@ -49,11 +50,12 @@ export async function fetchCohortPreview(
   );
 }
 
+// Streamed, like runAnalysis — see the note there.
 export async function runCohortCluster(
   projectId: string,
   body: CohortRunRequest
 ): Promise<CohortClusterResponse> {
-  return json(
+  return readKeepaliveJson(
     await fetch(`/api/admin/projects/${projectId}/implications/cluster`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

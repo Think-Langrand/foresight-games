@@ -4,6 +4,7 @@ import { useState } from "react";
 import { csvCell, download } from "@/components/admin/exportUtils";
 import { CROSS_GROUP_CSV_HEADER, crossGroupCsvRows } from "@/lib/cohort-export-shape";
 import type { ProjectExport } from "@/lib/cohort-export-shape";
+import { readKeepaliveJson } from "@/lib/keepalive-stream";
 
 // Export every design group's every week for one project, as one JSON file or one sheet.
 //
@@ -29,12 +30,12 @@ export function ProjectExportButtons({ projectId, slug }: { projectId: string; s
     setBusy(kind);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/projects/${projectId}/export`);
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || `Export failed (${res.status}).`);
-      }
-      const payload = (await res.json()) as ProjectExport;
+      // The route streams (it pings so Render cannot close the connection as idle), and the
+      // reader also keeps the old behaviour for an up-front guard's plain JSON error.
+      const payload = await readKeepaliveJson<ProjectExport>(
+        await fetch(`/api/admin/projects/${projectId}/export`),
+        "Export failed"
+      );
       const base = `all-groups-${slugify(slug)}-${new Date().toISOString().slice(0, 10)}`;
       if (kind === "json") {
         download(JSON.stringify(payload, null, 2), `${base}.json`, "application/json");

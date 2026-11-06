@@ -3,11 +3,17 @@ import { supabaseConfigured } from "@/lib/supabase";
 import { getSessionUser } from "@/lib/supabase-auth";
 import { getProjectById } from "@/lib/projects";
 import { buildProjectExport } from "@/lib/cohort-export";
+import { keepaliveJsonResponse } from "@/lib/keepalive-stream";
 
 export const dynamic = "force-dynamic";
 // The app runs on Render as a long-lived Node server, so this export is inert here — kept
 // to match the sibling routes. A whole-project export is a dozen or so board reads, which
 // is well inside any limit, but a project with many groups and weeks grows linearly.
+//
+// THE REAL LIMIT HERE IS 60 SECONDS OF SILENCE, not the time this takes: Render closes an
+// idle connection, and this route reads every board before writing a byte. Today's exports
+// land well inside that, but "grows linearly" is exactly how a route arrives at the cliff,
+// so it streams like its slow siblings rather than waiting to be the next one to break.
 export const maxDuration = 300;
 
 // Admin-only: the whole project — every design group, every week — in one payload.
@@ -31,10 +37,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const project = await getProjectById(id);
   if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
 
-  const payload = await buildProjectExport({
-    id: project.id,
-    slug: project.slug,
-    name: project.name,
-  });
-  return NextResponse.json(payload);
+  return keepaliveJsonResponse(
+    async () => ({
+      ok: true as const,
+      data: await buildProjectExport({
+        id: project.id,
+        slug: project.slug,
+        name: project.name,
+      }),
+    }),
+    { label: "GET project export", fallback: "Failed to build the project export." }
+  );
 }

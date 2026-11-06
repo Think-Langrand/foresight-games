@@ -5,12 +5,14 @@ import { getProjectById } from "@/lib/projects";
 import { runCohortClustering } from "@/lib/analysis/cohort-cluster";
 import { isClusterMethod } from "@/lib/analysis/implication-cluster-shape";
 import { isContextMode } from "@/lib/analysis/cohort-cluster-shape";
+import { keepaliveJsonResponse } from "@/lib/keepalive-stream";
 
 export const dynamic = "force-dynamic";
 // The app runs on Render as a long-lived Node server, so this export is inert here — it
 // is kept to match the sibling routes and to describe the intent if this ever moves to a
 // serverless host. A cohort LLM run over a few hundred implications can take minutes; the
-// page shows elapsed time so a slow run reads as slow rather than broken.
+// page shows elapsed time so a slow run reads as slow rather than broken. What keeps such
+// a run alive on Render is the keepalive stream below, not this.
 export const maxDuration = 300;
 
 // Admin-only: pool every design group's implications for this project and propose how the
@@ -65,6 +67,9 @@ export async function POST(
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   if (!isClusterMethod(body.method))
     return NextResponse.json({ error: "method must be 'llm' or 'embedding'." }, { status: 400 });
+  // Captured here, not read off `body` inside the job: the guard narrows `body.method` in
+  // this scope only, and the job below is a closure.
+  const method = body.method;
 
   const minSimilarity =
     typeof body.minSimilarity === "number" &&
@@ -73,30 +78,33 @@ export async function POST(
       ? body.minSimilarity
       : undefined;
 
-  try {
-    const result = await runCohortClustering({
-      projectId: project.id,
-      projectName: project.name,
-      method: body.method,
-      context: isContextMode(body.context) ? body.context : "blind",
-      criteria: trimmed(body.criteria, CRITERIA_MAX),
-      promptOverride: trimmed(body.promptOverride, PROMPT_MAX),
-      narrative: body.narrative === true,
-      weekSort: typeof body.weekSort === "number" ? body.weekSort : undefined,
-      overrides: overrideMap(body.overrides),
-      groupIds: stringList(body.groupIds),
-      minSimilarity,
-      bridging: body.bridging === true,
-    });
-
-    if (!result.ok)
-      return NextResponse.json({ error: result.error }, { status: result.status });
-    return NextResponse.json(result.response);
-  } catch (err) {
-    console.error("[POST cohort cluster]", err);
-    return NextResponse.json(
-      { error: "Failed to cluster the cohort's implications." },
-      { status: 500 }
-    );
-  }
+  // STREAMED for the same reason as the cohort-analysis route beside it: a run over a few
+  // hundred implications takes minutes and used to send nothing at all until it was done,
+  // and Render cuts a connection that has been idle for 60 seconds. The guards above still
+  // answer with real status codes; only the long part moves into the body.
+  return keepaliveJsonResponse(
+    async () => {
+      const result = await runCohortClustering({
+        projectId: project.id,
+        projectName: project.name,
+        method,
+        context: isContextMode(body.context) ? body.context : "blind",
+        criteria: trimmed(body.criteria, CRITERIA_MAX),
+        promptOverride: trimmed(body.promptOverride, PROMPT_MAX),
+        narrative: body.narrative === true,
+        weekSort: typeof body.weekSort === "number" ? body.weekSort : undefined,
+        overrides: overrideMap(body.overrides),
+        groupIds: stringList(body.groupIds),
+        minSimilarity,
+        bridging: body.bridging === true,
+      });
+      return result.ok
+        ? { ok: true as const, data: result.response }
+        : { ok: false as const, status: result.status, error: result.error };
+    },
+    {
+      label: "POST cohort cluster",
+      fallback: "Failed to cluster the cohort's implications.",
+    }
+  );
 }
