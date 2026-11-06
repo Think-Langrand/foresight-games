@@ -9,7 +9,12 @@ import {
   DEFAULT_COHORT_PRESET,
   type ContextMode,
 } from "@/lib/analysis/cohort-cluster-shape";
-import { POOL_SOURCES, poolSourceLabel, type PoolSource } from "@/lib/analysis/cohort-pool-shape";
+import {
+  POOL_SOURCES,
+  poolSourceLabel,
+  poolSourceSession,
+  type PoolSource,
+} from "@/lib/analysis/cohort-pool-shape";
 import { cohortCsvRows, COHORT_CSV_HEADER } from "@/lib/analysis/cohort-csv";
 import { groupColors } from "@/lib/analysis/cohort-palette";
 import {
@@ -23,6 +28,7 @@ import { ScenarioFlow } from "./ScenarioFlow";
 import { WeightMap } from "./WeightMap";
 import { FlipLedger } from "./FlipLedger";
 import { CohortAnalysisTable } from "./CohortAnalysisTable";
+import { UnifiedVisionPanel } from "./UnifiedVisionPanel";
 import { shortName } from "./chrome";
 
 // The cohort analysis page. Pick what to pool, run it once, then read the same run four
@@ -186,10 +192,16 @@ export function CohortAnalysisWorkbench({
               }}
               disabled={busy}
             >
-              {POOL_SOURCES.map((s) => (
-                <option key={s} value={s}>
-                  {poolSourceLabel(s)}
-                </option>
+              {/* Grouped by session. Flat, eleven sources read as one long list and the
+                  Session 4 material looks like more of Session 3's. */}
+              {[...new Set(POOL_SOURCES.map(poolSourceSession))].map((session) => (
+                <optgroup key={session} label={session}>
+                  {POOL_SOURCES.filter((s) => poolSourceSession(s) === session).map((s) => (
+                    <option key={s} value={s}>
+                      {poolSourceLabel(s)}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>
@@ -304,6 +316,22 @@ export function CohortAnalysisWorkbench({
         ) : null}
         {error ? <p className="text-[11.5px] font-semibold text-coral">{error}</p> : null}
       </section>
+
+      {/* --- the vision statements get their own pass --------------------------------
+          Shown only for this source, and ABOVE the clustering run rather than as a fifth
+          tab on it: the other views all render one CohortAnalysis, and this reads no
+          clustering at all. Four groups produce four paragraphs, which is the wrong shape
+          for a convergence grid — see lib/analysis/unified-vision-shape.ts. The ordinary
+          run below still works on this source for anyone who wants it. */}
+      {source === "aspirations" ? (
+        <UnifiedVisionPanel
+          projectId={projectId}
+          groups={preview.groups}
+          colors={colors}
+          weekSort={preview.week?.sort}
+          groupIds={groupIds}
+        />
+      ) : null}
 
       {/* --- the run, four ways ------------------------------------------------ */}
       {analysis ? (

@@ -4,6 +4,7 @@ import { POLARITY_COLOR } from "@/lib/analysis/cohort-palette";
 import { axisSpan, axisTicks } from "@/lib/analysis/cohort-scatter-shape";
 import type { CohortAnalysis } from "@/lib/analysis/cohort-analysis";
 import { Figure, Swatch, Tooltip, useTip } from "./chrome";
+import { poolSourceScoreAxis } from "@/lib/analysis/cohort-pool-shape";
 
 // VIEW 3 — where the cohort put its weight.
 //
@@ -31,6 +32,12 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
   const { run, weights } = analysis;
   const { tip, show, hide } = useTip();
 
+  // Above the early return below, which names the axis too. Session 4 calls the same stored
+  // column "Likelihood" — see poolSourceScoreAxis.
+  const axis = poolSourceScoreAxis(run.source);
+  const axisLower = axis.x.toLowerCase();
+  const fromWeek4 = axis.x === "Likelihood";
+
   const total = run.groups.filter((g) => g.state === "ok").length;
   const itemById = new Map(run.items.map((i) => [i.id, i]));
 
@@ -45,12 +52,12 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
     return (
       <Figure
         title="Where the cohort put its weight"
-        lede="Nothing on this board carries a plausibility or impact score."
+        lede={`Nothing on this board carries a ${axisLower} or impact score.`}
       >
         <p className="max-w-[560px] text-[12px] leading-[1.5] text-muted">
-          These scores are assigned in Session 2, on each key change, and a theme inherits
-          them through the implications behind it. No theme in this run reached one, so there
-          is nothing to position. The other three views do not depend on them.
+          {fromWeek4
+            ? "These scores are assigned in Session 4, on the impact × likelihood matrix, and a theme inherits them through the priorities behind it. Bold moves and vision statements are not scored by anything — they are written from the whole week rather than for one priority — so a run on those will never position a theme here. The other three views do not depend on these scores."
+            : "These scores are assigned in Session 2, on each key change, and a theme inherits them through the implications behind it. No theme in this run reached one, so there is nothing to position. The other three views do not depend on them."}
         </p>
       </Figure>
     );
@@ -87,7 +94,7 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
   return (
     <Figure
       title="Where the cohort put its weight"
-      lede={`Each theme at the mean plausibility and impact the rooms gave the key changes behind it. Bigger dot = more rooms raised it. ${analysis.scoredItems} of ${run.items.length} pooled items carried a score.`}
+      lede={`Each theme at the mean ${axisLower} and impact the rooms gave ${axis.basis}. Bigger dot = more rooms raised it. ${analysis.scoredItems} of ${run.items.length} pooled items carried a score.`}
       legend={
         <>
           {hasPolarity ? (
@@ -106,7 +113,7 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
         </>
       }
       footnote={
-        `AXES ARE ZOOMED to the observed range (plausibility ${xs.lo.toFixed(1)}–${xs.hi.toFixed(1)}, ` +
+        `AXES ARE ZOOMED to the observed range (${axisLower} ${xs.lo.toFixed(1)}–${xs.hi.toFixed(1)}, ` +
         `impact ${ys.lo.toFixed(1)}–${ys.hi.toFixed(1)} of a 1–5 scale), not to the full scale. ` +
         `A theme's score is the mean of several key changes, so the real spread is narrow and a ` +
         `full-scale grid would put every dot in one corner. Read the positions as relative, not absolute.` +
@@ -118,7 +125,7 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
       <Tooltip tip={tip} />
       <div className="overflow-x-auto">
         <svg viewBox={`0 0 ${W} ${H}`} className="min-w-[640px] w-full max-w-[900px]" role="img"
-          aria-label="Themes positioned by mean plausibility and impact. The table view below carries the same numbers.">
+          aria-label={`Themes positioned by mean ${axisLower} and impact. The table view below carries the same numbers.`}>
           {/* Recessive grid. */}
           {axisTicks(xs).map((v) => (
             <g key={`x${v}`}>
@@ -139,7 +146,7 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
           <line x1={PAD.l} y1={H - PAD.b} x2={W - PAD.r} y2={H - PAD.b} stroke="var(--rule)" strokeOpacity={0.35} />
           <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={H - PAD.b} stroke="var(--rule)" strokeOpacity={0.35} />
           <text x={(PAD.l + W - PAD.r) / 2} y={H - 6} textAnchor="middle" className="fill-[var(--muted)] text-[10px] font-bold uppercase tracking-[0.08em]">
-            Plausibility →
+            {axis.x} →
           </text>
           <text x={14} y={(PAD.t + H - PAD.b) / 2} textAnchor="middle" transform={`rotate(-90 14 ${(PAD.t + H - PAD.b) / 2})`} className="fill-[var(--muted)] text-[10px] font-bold uppercase tracking-[0.08em]">
             Impact →
@@ -208,10 +215,10 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
                           <br />
                           {d.t.groupCount} of {total} rooms · {d.t.memberIds.length} items
                           <br />
-                          plausibility {d.w.plausibility} · impact {d.w.impact}
+                          {axisLower} {d.w.plausibility} · impact {d.w.impact}
                           <br />
                           <span className="text-[10px]">
-                            from {d.w.roots} scored {run.source === "implications" ? "key change" : "theme"}
+                            from {d.w.roots} scored {axis.root}
                             {d.w.roots === 1 ? "" : "s"} ({d.w.n} member{d.w.n === 1 ? "" : "s"}
                             {d.w.missing > 0 ? `, ${d.w.missing} unscored` : ""})
                           </span>
