@@ -84,10 +84,23 @@ export function poolSourceSession(source: PoolSource): string {
 // questions in different words — "likelihood" reads better for a risk — so the same stored
 // column is labelled differently (PRIORITY_AXIS_LABELS in lib/commitments-shape). The view
 // has to follow the source or it will label a Week 4 run with Week 2's word.
-export function poolSourceScoreAxis(source: PoolSource): { x: string; basis: string } {
-  return poolSourceRender(source) === "commitments"
-    ? { x: "Likelihood", basis: "the priorities behind it" }
-    : { x: "Plausibility", basis: "the key changes behind it" };
+// `root` is WHAT WAS SCORED, which differs again: Session 2 scores key changes, a Session 3
+// theme inherits through them, and Session 4 scores priorities. The weight view counts
+// roots in a tooltip ("from 2 scored …"), so this noun has to follow the source too —
+// labelling a Session 4 root a "theme" names something that is not on that board.
+export function poolSourceScoreAxis(source: PoolSource): {
+  x: string;
+  basis: string;
+  root: string;
+} {
+  const render = poolSourceRender(source);
+  if (render === "commitments")
+    return { x: "Likelihood", basis: "the priorities behind it", root: "priority" };
+  return {
+    x: "Plausibility",
+    basis: "the key changes behind it",
+    root: render === "implications" ? "key change" : "theme",
+  };
 }
 
 // How each source is described TO THE MODEL. The clustering prompts were written for

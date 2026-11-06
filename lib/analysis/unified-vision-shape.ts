@@ -18,6 +18,7 @@
 // tokens spent on nothing, and a hallucinated key is caught by a lookup instead of being
 // silently attributed to a real room.
 
+import { PLAIN_WORDS_PROSE } from "./theme-guidance";
 import type { CohortGroupInfo, CohortItem } from "./cohort-cluster-shape";
 
 /** One group's vision statement, as the pass reads it. */
@@ -61,6 +62,10 @@ export interface UnifiedVision {
   // "unified" vision for three, and nothing else on screen would say so.
   missing: { groupId: string; groupName: string; reason: "empty" | "missing" }[];
   model: string;
+  // The prompt the facilitator substituted, or null for the default. Recorded as it was
+  // ASKED, exactly as a cohort run records its own override: a reading that gets exported
+  // or pasted elsewhere must never misreport what produced it.
+  promptOverride: string | null;
   generatedAt: string;
 }
 
@@ -157,7 +162,12 @@ function groupIdsFrom(raw: unknown, toReal: Map<string, string>): string[] {
  */
 export function coerceUnifiedVision(
   raw: unknown,
-  args: { sources: VisionSource[]; missing: UnifiedVision["missing"]; model: string }
+  args: {
+    sources: VisionSource[];
+    missing: UnifiedVision["missing"];
+    model: string;
+    promptOverride?: string | null;
+  }
 ): UnifiedVision | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
@@ -193,6 +203,53 @@ export function coerceUnifiedVision(
     sources: args.sources,
     missing: args.missing,
     model: args.model,
+    promptOverride: args.promptOverride ?? null,
     generatedAt: new Date().toISOString(),
   };
+}
+
+
+// ---------------------------------------------------------------------------
+// The system prompt
+// ---------------------------------------------------------------------------
+// HERE, NOT IN unified-vision.ts, because the admin can edit it and therefore has to be
+// able to READ it: the editor's "Load the default" button needs the real string, and a
+// second copy written for the UI would drift from the one actually sent. Same arrangement
+// as composeClusterPrompt in theme-guidance.ts, which the clustering playground loads the
+// same way.
+//
+// WHAT THE PROMPT IS ACTUALLY FOR. Asked plainly to unify four vision statements, a model
+// returns their intersection — "trusted, equitable, community-centred public health" —
+// which is true of all four, commits to nothing, and is exactly the "generic aspirations"
+// failure the facilitator's own guidance warns about. The rooms worked DIFFERENT scenarios,
+// so where they differ is usually the finding rather than noise to average away. Every
+// paragraph below is holding that line, which is worth knowing before rewriting one.
+export const VISION_PROMPT_PARTS = [
+  "You are a foresight facilitator. Several design groups each explored a DIFFERENT " +
+    "scenario of the future and each wrote one vision statement for public health in the " +
+    "future they worked. You are helping the facilitator see what those visions share, " +
+    "where they genuinely differ, and what single vision the whole cohort could stand " +
+    "behind.",
+  "THE GROUPS WORKED DIFFERENT FUTURES. A difference between two visions is therefore " +
+    "evidence about which future each room was in, not a mistake to be averaged away. A " +
+    "commitment that survives all of them is robust to which future actually arrives, and " +
+    "that is the most valuable thing you can identify.",
+  "DO NOT RETREAT TO THE INTERSECTION. 'Healthy, equitable, trusted communities' is true " +
+    "of every vision ever written, commits to nothing, and is useless. Say what public " +
+    "health actually BECOMES and what that makes POSSIBLE. If a commitment is only in some " +
+    "of the visions, put it in the tensions rather than quietly dropping it or promoting " +
+    "it to shared.",
+  "A tension is a real difference in what public health becomes, who holds responsibility, " +
+    "or what it is for. Two rooms using different words for the same commitment is NOT a " +
+    "tension.",
+  "Attribute every point with the group keys (G1, G2, …) you read it from. Use only the " +
+    "keys you are given.",
+  PLAIN_WORDS_PROSE,
+] as const;
+
+export const VISION_PROMPT = VISION_PROMPT_PARTS.join("\n\n");
+
+/** The prompt to send: the facilitator's, or the default. Blank means the default. */
+export function composeVisionPrompt(override?: string | null): string {
+  return override?.trim() ? override.trim() : VISION_PROMPT;
 }

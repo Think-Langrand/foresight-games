@@ -21,6 +21,8 @@ export const maxDuration = 300;
 // question: four groups produce four paragraphs, and clustering four paragraphs answers
 // nothing. See the header of lib/analysis/unified-vision-shape.ts.
 const CRITERIA_MAX = 4000;
+// Same cap the clustering routes give their override.
+const PROMPT_MAX = 8000;
 
 function stringList(v: unknown): string[] | undefined {
   if (!Array.isArray(v)) return undefined;
@@ -43,10 +45,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const criteria =
-    typeof body.criteria === "string" && body.criteria.trim()
-      ? body.criteria.trim().slice(0, CRITERIA_MAX)
-      : null;
+  const trimmed = (v: unknown, max: number): string | null =>
+    typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
+  const criteria = trimmed(body.criteria, CRITERIA_MAX);
+  const promptOverride = trimmed(body.promptOverride, PROMPT_MAX);
 
   // Streamed: one gpt-5 call over several paragraphs can pass 60 seconds, and Render closes
   // a connection that has been idle that long. The guards above still carry real statuses.
@@ -55,6 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const result = await draftUnifiedVision({
         projectId: project.id,
         criteria,
+        promptOverride,
         weekSort: typeof body.weekSort === "number" ? body.weekSort : undefined,
         groupIds: stringList(body.groupIds),
       });

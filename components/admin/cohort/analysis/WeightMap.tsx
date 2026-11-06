@@ -218,7 +218,7 @@ export function WeightMap({ analysis }: { analysis: CohortAnalysis }) {
                           {axisLower} {d.w.plausibility} · impact {d.w.impact}
                           <br />
                           <span className="text-[10px]">
-                            from {d.w.roots} scored {run.source === "implications" ? "key change" : "theme"}
+                            from {d.w.roots} scored {axis.root}
                             {d.w.roots === 1 ? "" : "s"} ({d.w.n} member{d.w.n === 1 ? "" : "s"}
                             {d.w.missing > 0 ? `, ${d.w.missing} unscored` : ""})
                           </span>

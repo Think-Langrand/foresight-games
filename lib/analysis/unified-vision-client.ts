@@ -6,6 +6,8 @@ import type { UnifiedVision } from "./unified-vision-shape";
 
 export interface UnifiedVisionRequest {
   criteria?: string;
+  // Replaces the whole system prompt. Omitted means the default.
+  promptOverride?: string;
   weekSort?: number;
   groupIds?: string[];
 }

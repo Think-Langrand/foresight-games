@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  VISION_PROMPT,
+  composeVisionPrompt,
   MAX_CANDIDATES,
   MAX_SHARED,
   MAX_TENSIONS,
@@ -193,5 +195,45 @@ describe("coerceUnifiedVision", () => {
       args
     );
     expect(got?.shared[0].text).toBe("a b c");
+  });
+});
+
+
+describe("composeVisionPrompt", () => {
+  it("uses the default when no override is given", () => {
+    expect(composeVisionPrompt()).toBe(VISION_PROMPT);
+    expect(composeVisionPrompt(null)).toBe(VISION_PROMPT);
+    expect(composeVisionPrompt("")).toBe(VISION_PROMPT);
+    // Whitespace is not an edit. Without this, clearing the box to spaces would send a
+    // blank system prompt and the model would answer with no instructions at all.
+    expect(composeVisionPrompt("   \n  ")).toBe(VISION_PROMPT);
+  });
+
+  it("substitutes the facilitator's prompt whole, trimmed", () => {
+    expect(composeVisionPrompt("  group these by who acts  ")).toBe("group these by who acts");
+  });
+
+  // The editor's "Load the default" button puts this exact string in the textarea, so it
+  // has to be the string that is actually sent — a prompt written for display would drift.
+  it("exposes a default that carries the instructions the output depends on", () => {
+    expect(VISION_PROMPT).toContain("G1");
+    expect(VISION_PROMPT).toMatch(/DIFFERENT/);
+    expect(VISION_PROMPT.length).toBeGreaterThan(200);
+  });
+});
+
+describe("the override is recorded on the reading", () => {
+  const base = {
+    shared: [{ text: "something shared", group_keys: ["G1"] }],
+    tensions: [],
+    candidates: [{ text: "a draft", keeps: "x" }],
+  };
+
+  it("records null for a default run and the text for a custom one", () => {
+    const args = { sources: sources(2), missing: [], model: "gpt-5" };
+    expect(coerceUnifiedVision(base, args)?.promptOverride).toBeNull();
+    expect(
+      coerceUnifiedVision(base, { ...args, promptOverride: "my prompt" })?.promptOverride
+    ).toBe("my prompt");
   });
 });

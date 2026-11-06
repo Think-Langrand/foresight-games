@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { OTHER_GROUP_COLOR } from "@/lib/analysis/cohort-palette";
 import { draftVision } from "@/lib/analysis/unified-vision-client";
-import type { UnifiedVision } from "@/lib/analysis/unified-vision-shape";
+import { VISION_PROMPT, type UnifiedVision } from "@/lib/analysis/unified-vision-shape";
 import type { CohortGroupInfo } from "@/lib/analysis/cohort-cluster-shape";
 import { Figure, shortName } from "./chrome";
 
@@ -77,6 +77,10 @@ export function UnifiedVisionPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [criteria, setCriteria] = useState("");
+  // Empty means the default. Held as the facilitator's EDIT rather than seeded with the
+  // default text, so "have I changed anything?" is answerable by looking at it — seeding it
+  // would make every run look custom and send a copy of the default back as an override.
+  const [prompt, setPrompt] = useState("");
   const [vision, setVision] = useState<UnifiedVision | null>(null);
 
   const byId = new Map(groups.map((g) => [g.id, g]));
@@ -88,6 +92,7 @@ export function UnifiedVisionPanel({
       setVision(
         await draftVision(projectId, {
           criteria: criteria.trim() || undefined,
+          promptOverride: prompt.trim() || undefined,
           weekSort,
           groupIds,
         })
@@ -130,6 +135,45 @@ export function UnifiedVisionPanel({
           {busy ? "Reading…" : vision ? "Draft again" : "Draft a vision"}
         </button>
       </div>
+
+      {/* The same prompt editor the clustering playground offers, and for the same reason:
+          this prompt is the thing that decides whether a reading is useful, and a
+          facilitator who can see it can fix it without a deploy. */}
+      <details className="mt-3 rounded-[2px] border border-dashed border-black/25 p-2.5">
+        <summary className="cursor-pointer list-none text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+          ▸ Edit the prompt {prompt.trim() && <span className="text-blue">(custom)</span>}
+        </summary>
+        <p className="mt-1.5 max-w-[80ch] text-[11.5px] italic leading-[1.4] text-muted">
+          This replaces the whole system prompt. Load the default and edit it rather than
+          writing from scratch — most of it is holding one line, which is that the rooms
+          worked different futures, so the differences between their visions are the finding
+          and not noise to average away. A prompt that drops that gets you the intersection
+          of the four, which commits to nothing. Keep the instruction about group keys too,
+          or the attributions beside each point go away.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" onClick={() => setPrompt(VISION_PROMPT)} className={btn}>
+            Load the default
+          </button>
+          <button
+            type="button"
+            onClick={() => setPrompt("")}
+            disabled={!prompt}
+            className={btn}
+          >
+            Back to default
+          </button>
+        </div>
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={12}
+          maxLength={8000}
+          disabled={busy}
+          placeholder="Empty means the default prompt is used."
+          className="mt-2 w-full rounded-[2px] border border-ink bg-paper p-2 font-mono text-[12px] leading-[1.5]"
+        />
+      </details>
 
       {busy ? (
         <p className="mt-3 text-[11px] text-muted">
@@ -238,6 +282,7 @@ export function UnifiedVisionPanel({
 
           <p className="text-[11px] text-muted">
             {vision.model} · {new Date(vision.generatedAt).toLocaleString()}
+            {vision.promptOverride ? " · custom prompt" : null}
           </p>
         </div>
       ) : null}

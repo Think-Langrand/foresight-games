@@ -2,12 +2,12 @@ import "server-only";
 
 import OpenAI from "openai";
 import { poolCohortItems } from "./cohort-pool";
-import { PLAIN_WORDS_PROSE } from "./theme-guidance";
 import {
   MAX_CANDIDATES,
   MAX_SHARED,
   MAX_TENSIONS,
   coerceUnifiedVision,
+  composeVisionPrompt,
   visionKeys,
   visionSources,
   type UnifiedVision,
@@ -22,13 +22,11 @@ import {
 // key or a row. A facilitator can run it as many times as they like and nothing on any
 // board changes, which is what makes it safe to run on real group material mid-session.
 //
-// THE PROMPT'S WHOLE JOB IS TO STOP THE MODEL FLATTENING THE DIFFERENCES. Asked plainly to
-// unify four vision statements, a model returns the intersection: "Public health is trusted,
-// equitable and community-centred" — true of all four, committing to nothing, and exactly
-// the "generic aspirations" failure the facilitator's own guidance warns about. The rooms
-// worked DIFFERENT scenarios, so where they differ is often the real finding rather than
-// noise to average away. Hence the three asks are separate (shared / tensions / candidates),
-// every candidate must say what it did with the tensions, and the pitfall is named.
+// THE PROMPT LIVES IN unified-vision-shape.ts, not here, because a facilitator can replace
+// it from the panel and therefore has to be able to read it — see the note there on what
+// every paragraph of it is holding the line against. The SCHEMA stays here and is not
+// overridable: it is the response contract this module parses, and the clustering route
+// draws the same line.
 
 const MODEL = "gpt-5";
 
@@ -95,31 +93,6 @@ const SCHEMA = {
   required: ["shared", "tensions", "candidates"],
 } as const;
 
-function systemPrompt(): string {
-  return [
-    "You are a foresight facilitator. Several design groups each explored a DIFFERENT " +
-      "scenario of the future and each wrote one vision statement for public health in the " +
-      "future they worked. You are helping the facilitator see what those visions share, " +
-      "where they genuinely differ, and what single vision the whole cohort could stand " +
-      "behind.",
-    "THE GROUPS WORKED DIFFERENT FUTURES. A difference between two visions is therefore " +
-      "evidence about which future each room was in, not a mistake to be averaged away. A " +
-      "commitment that survives all of them is robust to which future actually arrives, " +
-      "and that is the most valuable thing you can identify.",
-    "DO NOT RETREAT TO THE INTERSECTION. 'Healthy, equitable, trusted communities' is true " +
-      "of every vision ever written, commits to nothing, and is useless. Say what public " +
-      "health actually BECOMES and what that makes POSSIBLE. If a commitment is only in " +
-      "some of the visions, put it in the tensions rather than quietly dropping it or " +
-      "promoting it to shared.",
-    "A tension is a real difference in what public health becomes, who holds " +
-      "responsibility, or what it is for. Two rooms using different words for the same " +
-      "commitment is NOT a tension.",
-    "Attribute every point with the group keys (G1, G2, …) you read it from. Use only the " +
-      "keys you are given.",
-    PLAIN_WORDS_PROSE,
-  ].join("\n\n");
-}
-
 function userPrompt(sources: VisionSource[], criteria: string | null): string {
   const { toShort } = visionKeys(sources);
   const digest = sources
@@ -141,6 +114,8 @@ function userPrompt(sources: VisionSource[], criteria: string | null): string {
 export interface UnifiedVisionArgs {
   projectId: string;
   criteria?: string | null;
+  // Replaces the whole system prompt. Blank or absent means the default.
+  promptOverride?: string | null;
   weekSort?: number;
   groupIds?: string[];
 }
@@ -190,7 +165,7 @@ export async function draftUnifiedVision(
     const completion = await client.chat.completions.create({
       model: MODEL,
       messages: [
-        { role: "system", content: systemPrompt() },
+        { role: "system", content: composeVisionPrompt(args.promptOverride) },
         { role: "user", content: userPrompt(sources, args.criteria ?? null) },
       ],
       response_format: {
@@ -204,7 +179,12 @@ export async function draftUnifiedVision(
     return { ok: false, status: 502, error: "The model did not return a reading." };
   }
 
-  const vision = coerceUnifiedVision(raw, { sources, missing, model: MODEL });
+  const vision = coerceUnifiedVision(raw, {
+    sources,
+    missing,
+    model: MODEL,
+    promptOverride: args.promptOverride?.trim() || null,
+  });
   if (!vision)
     return { ok: false, status: 502, error: "The model's reading could not be understood." };
   return { ok: true, vision };
