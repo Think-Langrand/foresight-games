@@ -9,7 +9,12 @@ import {
   DEFAULT_COHORT_PRESET,
   type ContextMode,
 } from "@/lib/analysis/cohort-cluster-shape";
-import { POOL_SOURCES, poolSourceLabel, type PoolSource } from "@/lib/analysis/cohort-pool-shape";
+import {
+  POOL_SOURCES,
+  poolSourceLabel,
+  poolSourceSession,
+  type PoolSource,
+} from "@/lib/analysis/cohort-pool-shape";
 import { cohortCsvRows, COHORT_CSV_HEADER } from "@/lib/analysis/cohort-csv";
 import { groupColors } from "@/lib/analysis/cohort-palette";
 import {
@@ -186,10 +191,16 @@ export function CohortAnalysisWorkbench({
               }}
               disabled={busy}
             >
-              {POOL_SOURCES.map((s) => (
-                <option key={s} value={s}>
-                  {poolSourceLabel(s)}
-                </option>
+              {/* Grouped by session. Flat, eleven sources read as one long list and the
+                  Session 4 material looks like more of Session 3's. */}
+              {[...new Set(POOL_SOURCES.map(poolSourceSession))].map((session) => (
+                <optgroup key={session} label={session}>
+                  {POOL_SOURCES.filter((s) => poolSourceSession(s) === session).map((s) => (
+                    <option key={s} value={s}>
+                      {poolSourceLabel(s)}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>
