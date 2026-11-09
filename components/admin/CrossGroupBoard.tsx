@@ -10,7 +10,12 @@ import {
   fieldCsvRows,
   uncertaintyCsvRows,
 } from "@/lib/cross-group-csv";
-import type { CrossGroupCell, CrossGroupColumn, CrossGroupField } from "@/lib/cross-group-shape";
+import type {
+  CrossGroupCell,
+  CrossGroupColumn,
+  CrossGroupField,
+  NotShownBucket,
+} from "@/lib/cross-group-shape";
 import type { UncertaintyGrid } from "@/lib/cross-group-uncertainties-shape";
 import { CrossGroupUncertainties } from "@/components/admin/CrossGroupUncertainties";
 
@@ -36,6 +41,7 @@ export interface CrossGroupBoardProps {
   grid: UncertaintyGrid | null;
   gridReason: string | null;
   warnings: string[];
+  notShown: Record<string, Record<NotShownBucket, number>>;
 }
 
 const CHIP =
@@ -46,6 +52,30 @@ const BTN =
 // Long answers truncate to roughly four lines; the whole text is one click away. A board
 // that clipped without saying so would be the quiet-omission failure in miniature.
 const CLAMP = 4;
+
+// Plain words for the buckets no chip reaches, so the note reads as a sentence rather than
+// as field names from a shape module. Singular and plural, because "1 outcomes" is the kind
+// of seam that makes a page look unfinished.
+const BUCKET_LABELS: Record<string, [one: string, many: string]> = {
+  parked: ["card parked", "cards parked"],
+  unclustered: ["unclustered implication", "unclustered implications"],
+  chain: ["hope or fear on a theme (older boards)", "hopes & fears on themes (older boards)"],
+  orphans: ["unplaceable card", "unplaceable cards"],
+  strayOutcomes: [
+    "outcome under a replaced priority",
+    "outcomes under a replaced priority",
+  ],
+  strandedMilestones: ["stranded milestone", "stranded milestones"],
+  looseResponses: [
+    "response from the old untagged wall",
+    "responses from the old untagged wall",
+  ],
+};
+
+const bucketLabel = (key: string, n: number): string => {
+  const pair = BUCKET_LABELS[key];
+  return pair ? (n === 1 ? pair[0] : pair[1]) : key;
+};
 
 function warningCopy(w: string): string {
   if (w === "programDivergent") {
@@ -110,7 +140,8 @@ function Column({ column }: { column: CrossGroupColumn }) {
 }
 
 export function CrossGroupBoard(props: CrossGroupBoardProps) {
-  const { slug, projectName, exportedAt, fields, columns, groups, grid, gridReason, warnings } = props;
+  const { slug, projectName, exportedAt, fields, columns, groups, grid, gridReason, warnings, notShown } =
+    props;
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -130,6 +161,24 @@ export function CrossGroupBoard(props: CrossGroupBoardProps) {
   const activeColumns = useMemo(
     () => (active && active.id !== UNCERTAINTIES_FIELD_ID ? columns[active.id] ?? [] : []),
     [active, columns]
+  );
+
+  // One line per group that has material outside every field, naming the buckets.
+  const notShownTotals = useMemo(
+    () =>
+      groups
+        .map((g) => {
+          const buckets = notShown[g.groupId] ?? {};
+          const present = Object.entries(buckets).filter(([, n]) => n > 0);
+          return {
+            groupId: g.groupId,
+            groupName: g.groupName,
+            total: present.reduce((a, [, n]) => a + n, 0),
+            detail: present.map(([k, n]) => `${n} ${bucketLabel(k, n)}`).join(", "),
+          };
+        })
+        .filter((g) => g.total > 0),
+    [groups, notShown]
   );
 
   // Rows come from lib/cross-group-csv, built out of the very columns on screen, so the
@@ -268,6 +317,36 @@ export function CrossGroupBoard(props: CrossGroupBoardProps) {
               </div>
             )}
           </div>
+
+          {/* The spec's first anti-goal applies to what this board does NOT show. These
+              cards are preserved by the week shapes precisely so nothing is lost; a board
+              that failed to mention them would re-commit the omission those lists exist to
+              prevent. Named here, with where to go for them. */}
+          {notShownTotals.length > 0 && (
+            <details className="mt-6 rounded-[3px] border border-[var(--rule)] bg-paper px-3 py-2">
+              <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-[0.05em] text-blue">
+                Not shown on this page ({notShownTotals.reduce((a, b) => a + b.total, 0)} cards)
+              </summary>
+              <p className="mt-2 text-[11.5px] text-muted">
+                These sit outside every field above — a group&rsquo;s parked tray, cards the
+                board could not place, work under a priority that was later replaced. They
+                are on each group&rsquo;s own answers page, not lost.
+              </p>
+              <ul className="mt-2 space-y-0.5">
+                {notShownTotals.map((g) => (
+                  <li key={g.groupId} className="text-[11px]">
+                    <Link
+                      href={`/admin/projects/${slug}/design-groups/${g.groupId}/answers`}
+                      className="font-bold text-blue hover:underline"
+                    >
+                      {g.groupName}
+                    </Link>
+                    <span className="text-muted"> — {g.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
 
           <p className="mt-8 border-t border-[var(--rule)] pt-3 text-[11px] text-muted">
             Read from the project&rsquo;s boards at {new Date(exportedAt).toLocaleString()}. Reload

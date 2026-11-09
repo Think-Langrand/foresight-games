@@ -157,6 +157,12 @@ export default async function ProjectAdminPage({
           <span className="eyebrow ink">Design groups</span>
           <span className="flex flex-wrap items-center gap-4">
             <Link
+              href={`/admin/projects/${slug}/cross-group`}
+              className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
+            >
+              Cross-group board →
+            </Link>
+            <Link
               href={`/admin/projects/${slug}/implications`}
               className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue underline hover:text-ink"
             >

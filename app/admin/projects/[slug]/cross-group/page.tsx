@@ -7,6 +7,7 @@ import {
   columnsFor,
   crossGroupWarnings,
   listCrossGroupFields,
+  notShownCounts,
   type CrossGroupColumn,
   type CrossGroupField,
 } from "@/lib/cross-group-shape";
@@ -130,6 +131,7 @@ export default async function CrossGroupPage({
         grid={grid}
         gridReason={gridReason}
         warnings={crossGroupWarnings(payload)}
+        notShown={notShownCounts(payload)}
       />
     </Suspense>
   );

@@ -447,3 +447,49 @@ export function crossGroupWarnings(payload: ProjectExport): string[] {
   for (const w of unknownWeeks(payload)) out.push(`unknownWeek:${w.weekSort}`);
   return out;
 }
+
+// Material the week shapes deliberately preserve but no chip on this board reaches. The
+// shapes keep these precisely so nothing is ever lost — see the orphan contract in
+// lib/commitments-shape.ts — and a board that simply did not mention them would be
+// re-committing the omission those lists exist to prevent. Counted here, named on screen.
+export const NOT_SHOWN_BUCKETS = [
+  "parked", // set aside by the group, kept for the record
+  "unclustered", // implications never sorted into a theme
+  "chain", // LEGACY: hopes and fears written on a theme by an older board
+  "orphans", // cards the board could not place
+  "strayOutcomes", // outcomes under a priority the group later replaced
+  "strandedMilestones", // milestones under a response since un-ticked
+  "looseResponses", // roots from the untagged wall Session 4 used to have
+] as const;
+
+export type NotShownBucket = (typeof NOT_SHOWN_BUCKETS)[number];
+
+/** groupId -> bucket -> how many cards sit there, summed across the group's weeks. */
+export function notShownCounts(
+  payload: ProjectExport
+): Record<string, Record<NotShownBucket, number>> {
+  const out: Record<string, Record<NotShownBucket, number>> = {};
+  for (const g of payload.groups) {
+    const counts = Object.fromEntries(NOT_SHOWN_BUCKETS.map((b) => [b, 0])) as Record<
+      NotShownBucket,
+      number
+    >;
+    for (const w of g.weeks) {
+      const a = w.answers;
+      if (!a) continue;
+      if (a.kind === "synthesis") {
+        counts.parked += a.parked.length;
+        counts.unclustered += a.unclustered.length;
+        counts.orphans += a.orphans.length;
+        for (const t of a.themes) counts.chain += t.chain.length;
+      } else if (a.kind === "commitments") {
+        counts.orphans += a.orphans.length;
+        counts.strayOutcomes += a.strayOutcomes.length;
+        counts.strandedMilestones += a.stranded.length;
+        counts.looseResponses += a.looseResponses.length;
+      }
+    }
+    out[g.groupId] = counts;
+  }
+  return out;
+}

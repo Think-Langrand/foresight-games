@@ -4,6 +4,7 @@ import {
   columnsFor,
   crossGroupWarnings,
   listCrossGroupFields,
+  notShownCounts,
   unknownWeeks,
 } from "@/lib/cross-group-shape";
 import { COMMITMENTS_KEY_VISION } from "@/lib/exercise-types";
@@ -11,6 +12,7 @@ import type { ProjectExport } from "@/lib/cohort-export-shape";
 import type {
   CommitmentsExercise,
   ImplicationsExercise,
+  SynthesisExercise,
 } from "@/components/design-groups/AnswerPanels";
 
 // The real four-group Public Health export, exactly as the admin "All groups · JSON" button
@@ -200,5 +202,41 @@ describe("a project the board cannot compare", () => {
     odd.programDivergent = true;
     odd.groups[0].weeks[0].type = "tarot-reading";
     expect(crossGroupWarnings(odd)).toEqual(["programDivergent", "unknownWeek:0"]);
+  });
+});
+
+describe("notShownCounts", () => {
+  // The spec's first anti-goal applies to what this board does NOT show as much as to what
+  // it does: material the shapes deliberately preserve but no chip reaches must be counted
+  // and named, never silently absent.
+  it("counts the material no chip reaches, per group", () => {
+    const counts = notShownCounts(FIXTURE);
+    const g1 = counts[FIXTURE.groups[0].groupId];
+    expect(Object.keys(g1).sort()).toEqual([
+      "chain",
+      "looseResponses",
+      "orphans",
+      "parked",
+      "strandedMilestones",
+      "strayOutcomes",
+      "unclustered",
+    ]);
+    expect(Object.values(g1).every((n) => Number.isInteger(n) && n >= 0)).toBe(true);
+  });
+
+  it("has an entry for every group", () => {
+    const counts = notShownCounts(FIXTURE);
+    expect(Object.keys(counts).sort()).toEqual(FIXTURE.groups.map((g) => g.groupId).sort());
+  });
+
+  it("actually counts a parked card rather than reporting zero", () => {
+    const parked = structuredClone(FIXTURE);
+    const synthesis = parked.groups[0].weeks[2].answers as SynthesisExercise;
+    synthesis.parked = [
+      ...synthesis.parked,
+      { id: "p1", text: "set aside", author: "", createdAt: "" },
+    ];
+    const before = notShownCounts(FIXTURE)[FIXTURE.groups[0].groupId].parked;
+    expect(notShownCounts(parked)[parked.groups[0].groupId].parked).toBe(before + 1);
   });
 });
