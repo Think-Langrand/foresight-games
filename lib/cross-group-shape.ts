@@ -1,0 +1,363 @@
+import { COMMITMENTS_KEY_VISION } from "@/lib/exercise-types";
+import type { ExportedWeek, ProjectExport } from "@/lib/cohort-export-shape";
+import type { ExerciseAnswers, QuestionBlock } from "@/components/design-groups/AnswerPanels";
+import type { RippleCard } from "@/lib/ripples-types";
+
+// Which fields the cross-group board can show, and the cells under each one per group.
+//
+// PURE, AND DELIBERATELY NOT server-only: vitest's include is lib/**/*.test.ts and
+// `server-only` is not aliased there, so every tested module in this directory has to stay
+// free of it. The page does the I/O and hands the payload in.
+//
+// IT READS `ProjectExport`, WHICH ALREADY EXISTS. buildProjectExport() returns every group,
+// every week, shaped `ExerciseAnswers`, plus each group's colour and sort order — exactly
+// this page's payload, and already covered by lib/cohort-export-shape.test.ts. Writing a
+// second loader beside it would be a second thing to keep true.
+//
+// A FIELD IS ADDRESSED BY (week index, field key), NEVER BY EXERCISE ID. Each group owns its
+// own exercise rows, so ids differ per group and a chip addressed by one could not travel
+// across the four columns. This is the same reason the per-group answers viewer deep-links
+// with `?week=<n>`.
+
+export type FieldTier = "primary" | "overflow";
+
+export interface CrossGroupField {
+  id: string; // `${weekSort}:${fieldKey}`
+  fieldKey: string;
+  label: string; // chip text, disambiguated by week title on collision
+  weekSort: number | null;
+  weekTitle: string | null;
+  tier: FieldTier;
+  counts: Record<string, number>; // groupId -> number of cells
+}
+
+export interface CrossGroupCell {
+  id: string;
+  text: string;
+  author: string;
+  createdAt: string;
+  // The parent this cell hangs off, in the parent's own words — a theme for a risk, a
+  // priority for an outcome, an outcome for a response, a card's parent on the map. The
+  // spec's decision: flat lists with a tag, never nesting.
+  tag: string | null;
+  // One extra word the cell carries in its own right: a priority's confirmed/suggested
+  // status, or whether a chain row is a hope or a fear.
+  note: string | null;
+}
+
+// --- the field catalogue ----------------------------------------------------------------
+
+// Every structural field, in the order its chips appear within a week. `extract` is the ONE
+// source of truth for what a field shows: a chip's count is `extract(...).length`, and the
+// column under it is `extract(...)`. They cannot disagree, which is the whole point —
+// a count that promised cards the column then failed to show would be the silent-omission
+// failure this board exists not to commit.
+interface FieldDef {
+  fieldKey: string;
+  label: string;
+  tier: FieldTier;
+  extract: (a: ExerciseAnswers) => CrossGroupCell[];
+}
+
+const cell = (
+  row: { id: string; text: string; author?: string; createdAt?: string },
+  tag: string | null = null,
+  note: string | null = null
+): CrossGroupCell => ({
+  id: row.id,
+  text: row.text,
+  author: row.author ?? "",
+  createdAt: row.createdAt ?? "",
+  tag,
+  note,
+});
+
+const questionAnswers = (questions: QuestionBlock[], key: string): CrossGroupCell[] =>
+  (questions.find((q) => q.key === key)?.answers ?? []).map((a) => cell(a));
+
+// A response's parent outcome, by response id. The response pool is flat on purpose (see
+// CommitmentsExercise.responses), so the nesting has to be read back from the slots.
+const outcomeByResponseId = (a: Extract<ExerciseAnswers, { kind: "commitments" }>) => {
+  const parents = new Map<string, string>();
+  for (const slot of a.prioritySlots) {
+    for (const o of slot.outcomes) {
+      for (const r of o.responses) parents.set(r.id, o.outcome.text);
+    }
+  }
+  return parents;
+};
+
+// Depth-first from the roots, parents before children, each card tagged with its parent's
+// words. Cards unreachable from any root are SKIPPED, matching lib/group-answers-shape.ts:
+// a card whose parent is gone is drawn by no view, so showing it here would put a card on
+// this board that exists on no other screen.
+const flattenTree = (cards: RippleCard[]): CrossGroupCell[] => {
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const kids = new Map<string, RippleCard[]>();
+  const roots: RippleCard[] = [];
+  for (const c of cards) {
+    if (c.parentId && byId.has(c.parentId)) {
+      const arr = kids.get(c.parentId);
+      if (arr) arr.push(c);
+      else kids.set(c.parentId, [c]);
+    } else if (!c.parentId) {
+      roots.push(c);
+    }
+  }
+  const bySort = (x: RippleCard, y: RippleCard) => x.sort - y.sort;
+  const out: CrossGroupCell[] = [];
+  const walk = (c: RippleCard, parent: RippleCard | null) => {
+    // `author` is empty because these are RAW cards: RippleCard carries authorPlayerId, an
+    // id, and the player-name map lives in the view this export shaped away. Every other
+    // field reads an already-shaped AnswerRow and does carry the name.
+    out.push(cell({ id: c.id, text: c.text, createdAt: c.createdTime }, parent?.text ?? null));
+    for (const k of (kids.get(c.id) ?? []).sort(bySort)) walk(k, c);
+  };
+  for (const r of roots.sort(bySort)) walk(r, null);
+  return out;
+};
+
+const COMMITMENTS_FIELDS: FieldDef[] = [
+  {
+    fieldKey: "vision",
+    label: "Our vision",
+    tier: "primary",
+    // By KEY, never by label: the label is an authored worksheet section an admin can
+    // rename, and `CommitmentsExercise` says outright that there is no `vision` field
+    // because that wording is the facilitator's, not code's.
+    extract: (a) =>
+      a.kind === "commitments" ? questionAnswers(a.questions, COMMITMENTS_KEY_VISION) : [],
+  },
+  {
+    fieldKey: "bold-moves",
+    label: "Bold moves",
+    tier: "primary",
+    // `directions[].move`, NOT `boldMoves`. The latter is looseResponses.filter(shortlisted)
+    // — a retired path that is structurally empty on every current board, so a chip built
+    // from it would report four groups having written nothing.
+    extract: (a) => (a.kind === "commitments" ? a.directions.map((d) => cell(d.move)) : []),
+  },
+  {
+    fieldKey: "priorities",
+    label: "The three priorities",
+    tier: "primary",
+    extract: (a) =>
+      a.kind === "commitments"
+        ? a.prioritySlots.map((s) => cell(s.pick, null, s.status))
+        : [],
+  },
+  {
+    fieldKey: "outcomes",
+    label: "Outcomes",
+    tier: "primary",
+    extract: (a) =>
+      a.kind === "commitments"
+        ? a.prioritySlots.flatMap((s) =>
+            s.outcomes.map((o) => cell(o.outcome, s.pick.text))
+          )
+        : [],
+  },
+  {
+    fieldKey: "responses",
+    label: "Responses",
+    tier: "primary",
+    extract: (a) => {
+      if (a.kind !== "commitments") return [];
+      const parents = outcomeByResponseId(a);
+      return a.responses.map((r) => cell(r, parents.get(r.id) ?? null));
+    },
+  },
+];
+
+const SYNTHESIS_FIELDS: FieldDef[] = [
+  {
+    fieldKey: "themes",
+    label: "Themes",
+    tier: "primary",
+    // A theme has no author or time of its own — it is the group's heading over other
+    // cards, and SynthesisTheme carries neither field. Empty rather than invented.
+    extract: (a) => (a.kind === "synthesis" ? a.themes.map((t) => cell(t)) : []),
+  },
+  {
+    fieldKey: "risks",
+    label: "Risks",
+    tier: "primary",
+    extract: (a) =>
+      a.kind === "synthesis"
+        ? a.themes.flatMap((t) => t.risks.map((r) => cell(r, t.text)))
+        : [],
+  },
+  {
+    fieldKey: "opportunities",
+    label: "Opportunities",
+    tier: "primary",
+    extract: (a) =>
+      a.kind === "synthesis"
+        ? a.themes.flatMap((t) => t.opportunities.map((o) => cell(o, t.text)))
+        : [],
+  },
+  {
+    fieldKey: "hopes-fears",
+    label: "Hopes & fears",
+    tier: "primary",
+    extract: (a) =>
+      a.kind === "synthesis" ? a.hopesFears.map((c) => cell(c, null, c.cardKind)) : [],
+  },
+  {
+    fieldKey: "implications",
+    label: "Implications (clustered)",
+    tier: "overflow",
+    extract: (a) =>
+      a.kind === "synthesis"
+        ? a.themes.flatMap((t) => t.implications.map((i) => cell(i, t.text)))
+        : [],
+  },
+];
+
+const IMPLICATIONS_FIELDS: FieldDef[] = [
+  {
+    fieldKey: "map",
+    label: "Implication map",
+    tier: "overflow",
+    extract: (a) => (a.kind === "implications" ? flattenTree(a.cards) : []),
+  },
+  {
+    fieldKey: "brainstorm",
+    label: "Brainstorm pad",
+    tier: "overflow",
+    extract: (a) => (a.kind === "implications" ? a.brainstorm.map((r) => cell(r)) : []),
+  },
+];
+
+// The structural fields a week offers, by the kind of its shaped answers. The `default`
+// branch is typed `never`, so a new member of the ExerciseAnswers union cannot be added
+// without this file failing to compile — the same guard, for the same reason, as
+// exerciseCsvRows in lib/group-answers-csv.ts, which exists because four card kinds once
+// went missing from an export in silence.
+function structuralFields(a: ExerciseAnswers): FieldDef[] {
+  switch (a.kind) {
+    case "commitments":
+      return COMMITMENTS_FIELDS;
+    case "synthesis":
+      return SYNTHESIS_FIELDS;
+    case "implications":
+      return IMPLICATIONS_FIELDS;
+    case "worksheet":
+      return []; // a worksheet is nothing but authored questions
+    case "placeholder":
+      return []; // not built yet, or its board failed to load
+    default: {
+      const never: never = a;
+      throw new Error(`cross-group board: unhandled exercise kind ${JSON.stringify(never)}`);
+    }
+  }
+}
+
+// The structural field keys that are ALSO authored sections, and so must not appear twice.
+const CLAIMED_SECTION_KEYS = new Set([COMMITMENTS_KEY_VISION]);
+
+// Authored question blocks a week carries, excluding the ones a structural field already
+// owns. Read across every group, because a question one group answered and another never
+// opened is still a question this project asked.
+function authoredFields(weeks: (ExerciseAnswers | null)[]): FieldDef[] {
+  const out = new Map<string, FieldDef>();
+  for (const a of weeks) {
+    if (!a || !("questions" in a)) continue;
+    for (const q of a.questions) {
+      if (CLAIMED_SECTION_KEYS.has(q.key) || out.has(q.key)) continue;
+      out.set(q.key, {
+        fieldKey: `q:${q.key}`,
+        // The label is the only human-readable name an authored section has — admin-added
+        // ones get generated keys like `sec_cf8bc585` — so it is what the chip shows, and
+        // never what the field id is built from.
+        label: q.label || q.key,
+        tier: "overflow",
+        extract: (x) => ("questions" in x ? questionAnswers(x.questions, q.key) : []),
+      });
+    }
+  }
+  return [...out.values()];
+}
+
+// The spec's primary chip order, project-wide. Fields not named here keep week order after
+// them. "uncertainties" leads but is not produced by this module — it comes from the
+// platform, not from a board — so the page prepends it.
+const PRIMARY_ORDER = [
+  "vision",
+  "bold-moves",
+  "priorities",
+  "risks",
+  "opportunities",
+  "outcomes",
+  "responses",
+  "themes",
+  "hopes-fears",
+];
+
+/** Every field the board can show, primary chips first, then overflow in week order. */
+export function listCrossGroupFields(payload: ProjectExport): CrossGroupField[] {
+  if (payload.groups.length === 0) return [];
+
+  const fields: CrossGroupField[] = [];
+  for (const week of payload.weeks) {
+    const rows = payload.groups.map((g) => ({
+      groupId: g.groupId,
+      answers: g.weeks.find((w) => w.weekSort === week.sort)?.answers ?? null,
+    }));
+    const answers = rows.map((r) => r.answers);
+    const first = answers.find((a): a is ExerciseAnswers => Boolean(a));
+    if (!first) continue; // no group has a board for this week: no chips to offer
+
+    const defs = [...structuralFields(first), ...authoredFields(answers)];
+    for (const def of defs) {
+      const counts: Record<string, number> = {};
+      for (const r of rows) counts[r.groupId] = r.answers ? def.extract(r.answers).length : 0;
+      fields.push({
+        id: `${week.sort}:${def.fieldKey}`,
+        fieldKey: def.fieldKey,
+        label: def.label,
+        weekSort: week.sort,
+        weekTitle: week.title,
+        tier: def.tier,
+        counts,
+      });
+    }
+  }
+
+  // A program with two weeks of the same kind offers the same field twice. Both chips stay
+  // — they are different sessions — so the week title disambiguates them.
+  const seen = new Map<string, number>();
+  for (const f of fields) seen.set(f.label, (seen.get(f.label) ?? 0) + 1);
+  for (const f of fields) {
+    if ((seen.get(f.label) ?? 0) > 1 && f.weekTitle) f.label = `${f.label} · ${f.weekTitle}`;
+  }
+
+  const rank = (f: CrossGroupField) => {
+    const i = PRIMARY_ORDER.indexOf(f.fieldKey);
+    return i === -1 ? PRIMARY_ORDER.length : i;
+  };
+  return fields.sort(
+    (a, b) =>
+      (a.tier === b.tier ? 0 : a.tier === "primary" ? -1 : 1) ||
+      rank(a) - rank(b) ||
+      (a.weekSort ?? 0) - (b.weekSort ?? 0)
+  );
+}
+
+/**
+ * Weeks whose `type` this module does not know, so a reader is told rather than left to
+ * infer it from a chip row that quietly lacks a session.
+ */
+export function unknownWeeks(payload: ProjectExport): { weekSort: number; type: string | null }[] {
+  const KNOWN = new Set(["worksheet", "implications", "synthesis", "commitments"]);
+  const out: { weekSort: number; type: string | null }[] = [];
+  const seen = new Set<number>();
+  for (const g of payload.groups) {
+    for (const w of g.weeks as ExportedWeek[]) {
+      if (!w.type || KNOWN.has(w.type) || seen.has(w.weekSort)) continue;
+      seen.add(w.weekSort);
+      out.push({ weekSort: w.weekSort, type: w.type });
+    }
+  }
+  return out.sort((a, b) => a.weekSort - b.weekSort);
+}
