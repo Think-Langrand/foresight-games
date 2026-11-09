@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { listCrossGroupFields, unknownWeeks } from "@/lib/cross-group-shape";
+import { columnsFor, listCrossGroupFields, unknownWeeks } from "@/lib/cross-group-shape";
 import { COMMITMENTS_KEY_VISION } from "@/lib/exercise-types";
 import type { ProjectExport } from "@/lib/cohort-export-shape";
 import type { CommitmentsExercise } from "@/components/design-groups/AnswerPanels";
@@ -68,5 +68,58 @@ describe("listCrossGroupFields", () => {
     odd.groups[0].weeks[0].type = "tarot-reading";
     odd.groups[0].weeks[0].answers = { kind: "placeholder", exerciseId: "x", title: "?" };
     expect(unknownWeeks(odd)).toEqual([{ weekSort: 0, type: "tarot-reading" }]);
+  });
+});
+
+describe("columnsFor — Sessions 3 and 4", () => {
+  it("reads bold moves from directions, not from the legacy boldMoves field", () => {
+    const cols = columnsFor(FIXTURE, "3:bold-moves");
+    expect(cols[0].cells.map((c) => c.text)).toContain("PH works entirely on upstream issues");
+  });
+
+  it("tags each risk with the theme it hangs off", () => {
+    const cols = columnsFor(FIXTURE, "2:risks");
+    const found = cols[0].cells.find((c) => c.text.startsWith("PH funding comes from one source"))!;
+    expect(found.tag).toBe(
+      "Predictable funding enables long-term  investment but new competition for resources"
+    );
+  });
+
+  it("tags a response with its parent outcome", () => {
+    const cols = columnsFor(FIXTURE, "3:responses");
+    const found = cols[0].cells.find((c) => c.text.startsWith("Allocated funding includes enough"))!;
+    expect(found.tag).toBe(
+      "Robust engagement is an integrated expectation of any PH planning process"
+    );
+  });
+
+  it("notes a priority's confirmed/suggested status", () => {
+    expect(columnsFor(FIXTURE, "3:priorities")[0].cells[0].note).toBe("confirmed");
+  });
+
+  it("marks a hope or fear as which it is", () => {
+    const kinds = new Set(columnsFor(FIXTURE, "2:hopes-fears")[0].cells.map((c) => c.note));
+    expect(kinds).toEqual(new Set(["hope", "fear"]));
+  });
+
+  it("returns a column for every group in sort order, including empty ones", () => {
+    const cols = columnsFor(FIXTURE, "3:bold-moves");
+    expect(cols).toHaveLength(4);
+    expect(cols.map((c) => c.groupName)).toEqual(FIXTURE.groups.map((g) => g.groupName));
+  });
+
+  // Review Focus: a gap week must not read as "they wrote nothing".
+  it("distinguishes a missing week from an empty one", () => {
+    const gap = structuredClone(FIXTURE);
+    gap.groups[1].weeks[3] = { ...gap.groups[1].weeks[3], exerciseId: null, answers: null };
+    const cols = columnsFor(gap, "3:bold-moves");
+    expect(cols[1].state).toBe("no-week");
+    expect(cols[0].state).toBe("ok");
+  });
+
+  it("calls a week that exists with no board no-board, not no-week", () => {
+    const boardless = structuredClone(FIXTURE);
+    boardless.groups[2].weeks[3] = { ...boardless.groups[2].weeks[3], answers: null };
+    expect(columnsFor(boardless, "3:bold-moves")[2].state).toBe("no-board");
   });
 });

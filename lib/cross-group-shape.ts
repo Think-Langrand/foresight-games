@@ -294,21 +294,36 @@ const PRIMARY_ORDER = [
   "hopes-fears",
 ];
 
+// Each group's shaped answers for one week of the canonical program, in group sort order.
+// `null` means that group has no board there — either no row at all, or a row with no
+// session. Which of those it is, is `columnState`'s business.
+function answersForWeek(payload: ProjectExport, weekSort: number): (ExerciseAnswers | null)[] {
+  return payload.groups.map(
+    (g) => g.weeks.find((w) => w.weekSort === weekSort)?.answers ?? null
+  );
+}
+
+// The fields one week offers, resolved from whichever group has a board for it. Both the
+// chip registry and the column builder go through here, so a chip can never exist without
+// the column behind it resolving to the same field.
+function defsForWeek(payload: ProjectExport, weekSort: number): FieldDef[] {
+  const answers = answersForWeek(payload, weekSort);
+  const first = answers.find((a): a is ExerciseAnswers => Boolean(a));
+  if (!first) return [];
+  return [...structuralFields(first), ...authoredFields(answers)];
+}
+
 /** Every field the board can show, primary chips first, then overflow in week order. */
 export function listCrossGroupFields(payload: ProjectExport): CrossGroupField[] {
   if (payload.groups.length === 0) return [];
 
   const fields: CrossGroupField[] = [];
   for (const week of payload.weeks) {
-    const rows = payload.groups.map((g) => ({
-      groupId: g.groupId,
-      answers: g.weeks.find((w) => w.weekSort === week.sort)?.answers ?? null,
-    }));
-    const answers = rows.map((r) => r.answers);
-    const first = answers.find((a): a is ExerciseAnswers => Boolean(a));
-    if (!first) continue; // no group has a board for this week: no chips to offer
+    const defs = defsForWeek(payload, week.sort);
+    if (defs.length === 0) continue; // no group has a board for this week: no chips to offer
+    const answers = answersForWeek(payload, week.sort);
+    const rows = payload.groups.map((g, i) => ({ groupId: g.groupId, answers: answers[i] }));
 
-    const defs = [...structuralFields(first), ...authoredFields(answers)];
     for (const def of defs) {
       const counts: Record<string, number> = {};
       for (const r of rows) counts[r.groupId] = r.answers ? def.extract(r.answers).length : 0;
@@ -342,6 +357,61 @@ export function listCrossGroupFields(payload: ProjectExport): CrossGroupField[] 
       rank(a) - rank(b) ||
       (a.weekSort ?? 0) - (b.weekSort ?? 0)
   );
+}
+
+export interface CrossGroupColumn {
+  groupId: string;
+  groupName: string;
+  color: string | null;
+  scenarioTitle: string | null;
+  // `no-week` — the program has this week but this group has no row for it.
+  // `no-board` — the row exists but was never backed by a session.
+  // Told apart on purpose: both render as zero cards, and a reader who cannot tell them
+  // from "they wrote nothing" is being misled about what the group did.
+  state: "ok" | "no-week" | "no-board";
+  cells: CrossGroupCell[];
+}
+
+/**
+ * One column per group for a single field, in the project's group order so Group 1 is
+ * always leftmost. Every group gets a column, including the ones with nothing to show.
+ *
+ * `fieldId` is `${weekSort}:${fieldKey}` — and an authored section's key contains its own
+ * colon (`q:sec_cf8bc585`), so only the FIRST colon separates the week.
+ */
+export function columnsFor(payload: ProjectExport, fieldId: string): CrossGroupColumn[] {
+  if (payload.groups.length === 0) return [];
+
+  const split = fieldId.indexOf(":");
+  if (split === -1) throw new Error(`cross-group board: malformed field id ${fieldId}`);
+  const weekSort = Number(fieldId.slice(0, split));
+  const fieldKey = fieldId.slice(split + 1);
+  if (!Number.isInteger(weekSort)) {
+    throw new Error(`cross-group board: malformed field id ${fieldId}`);
+  }
+
+  const def = defsForWeek(payload, weekSort).find((d) => d.fieldKey === fieldKey);
+  // Throwing rather than returning empty columns: an unknown field id means a caller built
+  // a chip this module cannot answer, and showing four empty columns would present that
+  // bug as four groups having written nothing.
+  if (!def) throw new Error(`cross-group board: no field ${fieldKey} at week ${weekSort}`);
+
+  return payload.groups.map((g) => {
+    const week = g.weeks.find((w) => w.weekSort === weekSort);
+    const state: CrossGroupColumn["state"] = !week || week.exerciseId === null
+      ? "no-week"
+      : week.answers === null
+        ? "no-board"
+        : "ok";
+    return {
+      groupId: g.groupId,
+      groupName: g.groupName,
+      color: g.color,
+      scenarioTitle: g.scenarioTitle,
+      state,
+      cells: week?.answers ? def.extract(week.answers) : [],
+    };
+  });
 }
 
 /**
