@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { columnsFor, listCrossGroupFields, unknownWeeks } from "@/lib/cross-group-shape";
 import { COMMITMENTS_KEY_VISION } from "@/lib/exercise-types";
 import type { ProjectExport } from "@/lib/cohort-export-shape";
-import type { CommitmentsExercise } from "@/components/design-groups/AnswerPanels";
+import type {
+  CommitmentsExercise,
+  ImplicationsExercise,
+} from "@/components/design-groups/AnswerPanels";
 
 // The real four-group Public Health export, exactly as the admin "All groups · JSON" button
 // produced it. Using the real thing rather than a hand-built fixture is deliberate: this
@@ -121,5 +124,51 @@ describe("columnsFor — Sessions 3 and 4", () => {
     const boardless = structuredClone(FIXTURE);
     boardless.groups[2].weeks[3] = { ...boardless.groups[2].weeks[3], answers: null };
     expect(columnsFor(boardless, "3:bold-moves")[2].state).toBe("no-board");
+  });
+});
+
+describe("columnsFor — Sessions 1 and 2", () => {
+  it("answers an authored worksheet question by its section key", () => {
+    // Session 1's keys as the fixture carries them: `reactions`, `six-changes`, and
+    // generated `sec_<hash>` keys for sections an admin added later.
+    expect(columnsFor(FIXTURE, "0:q:reactions")[0].cells).toHaveLength(9);
+    expect(columnsFor(FIXTURE, "0:q:six-changes")[0].cells).toHaveLength(6);
+  });
+
+  it("handles a generated section key as readily as a named one", () => {
+    // An admin-added section's label is its only human-readable name, which is why the
+    // chip label comes from the label and the field id never does.
+    expect(columnsFor(FIXTURE, "0:q:sec_cf8bc585")[0].cells.length).toBeGreaterThan(0);
+  });
+
+  it("flattens Session 2's map in tree-walk order, parents before children", () => {
+    const cells = columnsFor(FIXTURE, "1:map")[0].cells;
+    expect(cells).toHaveLength(152);
+    const pos = new Map(cells.map((c, i) => [c.id, i]));
+    for (const c of cells) {
+      if (!c.tag) continue;
+      const parent = cells.find((p) => p.text === c.tag)!;
+      expect(pos.get(parent.id)!).toBeLessThan(pos.get(c.id)!);
+    }
+  });
+
+  it("tags a map card with its parent's words and leaves roots untagged", () => {
+    const cells = columnsFor(FIXTURE, "1:map")[0].cells;
+    expect(cells[0].tag).toBeNull();
+    expect(cells.some((c) => c.tag !== null)).toBe(true);
+  });
+
+  it("drops a map card whose parent is gone, as no other view draws it", () => {
+    const orphaned = structuredClone(FIXTURE);
+    const week = orphaned.groups[0].weeks[1].answers as ImplicationsExercise;
+    week.cards = [...week.cards, { ...week.cards[1], id: "ghost", parentId: "nobody" }];
+    expect(columnsFor(orphaned, "1:map")[0].cells.map((c) => c.id)).not.toContain("ghost");
+  });
+
+  it("reads Session 3's clustered implications separately from Session 2's own cards", () => {
+    const clustered = columnsFor(FIXTURE, "2:implications")[0].cells;
+    const own = columnsFor(FIXTURE, "1:map")[0].cells;
+    expect(clustered).toHaveLength(146);
+    expect(own).toHaveLength(152);
   });
 });
