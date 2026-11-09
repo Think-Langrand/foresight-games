@@ -4,6 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { csvCell, download } from "@/components/admin/exportUtils";
+import {
+  CROSS_GROUP_FIELD_CSV_HEADER,
+  allFieldsCsvRows,
+  fieldCsvRows,
+  uncertaintyCsvRows,
+} from "@/lib/cross-group-csv";
 import type { CrossGroupCell, CrossGroupColumn, CrossGroupField } from "@/lib/cross-group-shape";
 import type { UncertaintyGrid } from "@/lib/cross-group-uncertainties-shape";
 import { CrossGroupUncertainties } from "@/components/admin/CrossGroupUncertainties";
@@ -126,45 +132,39 @@ export function CrossGroupBoard(props: CrossGroupBoardProps) {
     [active, columns]
   );
 
-  // The CSV is built from the same columns on screen, so the sheet and the page cannot
-  // disagree. It is a record of what this page loaded — stamped with the export's own
-  // timestamp rather than "now", since that is what it actually shows.
+  // Rows come from lib/cross-group-csv, built out of the very columns on screen, so the
+  // sheet and the page cannot disagree. The file is stamped with the export's own timestamp
+  // rather than "now", because that is the moment it actually shows.
   const stamp = exportedAt.slice(0, 10);
-  const exportField = (field: CrossGroupField) => {
-    const rows = (columns[field.id] ?? []).flatMap((col) =>
-      col.cells.map((c) => [col.groupName, field.label, field.weekTitle ?? "", c.tag ?? "", c.text, c.author, c.createdAt])
-    );
-    return rows;
-  };
-  const HEADER = ["Group", "Field", "Week", "Tag", "Content", "Author", "Created"];
-  const writeCsv = (rows: string[][], name: string) => {
-    const lines = [HEADER.map(csvCell).join(",")];
+  const write = (header: readonly string[], rows: string[][], name: string) => {
+    const lines = [header.map(csvCell).join(",")];
     for (const r of rows) lines.push(r.map(csvCell).join(","));
+    // Leading BOM so Excel reads it as UTF-8, matching the other admin exports.
     download("﻿" + lines.join("\n"), name, "text/csv;charset=utf-8");
   };
 
   const downloadThisField = () => {
     if (!active) return;
-    if (active.id === UNCERTAINTIES_FIELD_ID && grid) {
-      const header = ["Uncertainty", "Question", ...groups.map((g) => g.groupName)];
-      const lines = [header.map(csvCell).join(",")];
-      for (const r of grid.rows) {
-        lines.push(
-          [r.title, r.question, ...groups.map((g) => r.cells[g.groupId]?.resolution ?? "not resolved")]
-            .map(csvCell)
-            .join(",")
-        );
-      }
-      download("﻿" + lines.join("\n"), `${slug}-uncertainties-${stamp}.csv`, "text/csv;charset=utf-8");
+    if (active.id === UNCERTAINTIES_FIELD_ID) {
+      if (!grid) return;
+      const { header, rows } = uncertaintyCsvRows(grid, groups);
+      write(header, rows, `${slug}-uncertainties-${stamp}.csv`);
       return;
     }
-    writeCsv(exportField(active), `${slug}-${active.fieldKey.replace(/[^a-z0-9]+/gi, "-")}-${stamp}.csv`);
+    const slugged = active.fieldKey.replace(/[^a-z0-9]+/gi, "-");
+    write(
+      CROSS_GROUP_FIELD_CSV_HEADER,
+      fieldCsvRows(active, columns[active.id] ?? []),
+      `${slug}-${slugged}-${stamp}.csv`
+    );
   };
 
-  const downloadAllFields = () => {
-    const rows = fields.filter((f) => f.id !== UNCERTAINTIES_FIELD_ID).flatMap(exportField);
-    writeCsv(rows, `${slug}-all-fields-${stamp}.csv`);
-  };
+  const downloadAllFields = () =>
+    write(
+      CROSS_GROUP_FIELD_CSV_HEADER,
+      allFieldsCsvRows(fields, columns),
+      `${slug}-all-fields-${stamp}.csv`
+    );
 
   return (
     <main className="mx-auto max-w-[1600px] px-6 py-10">
