@@ -1,4 +1,4 @@
-import { COMMITMENTS_KEY_VISION } from "@/lib/exercise-types";
+import { COMMITMENTS_KEY_VISION, getExerciseType } from "@/lib/exercise-types";
 import type { ExportedWeek, ProjectExport } from "@/lib/cohort-export-shape";
 import type { ExerciseAnswers, QuestionBlock } from "@/components/design-groups/AnswerPanels";
 import type { RippleCard } from "@/lib/ripples-types";
@@ -253,8 +253,13 @@ function structuralFields(a: ExerciseAnswers): FieldDef[] {
   }
 }
 
-// The structural field keys that are ALSO authored sections, and so must not appear twice.
-const CLAIMED_SECTION_KEYS = new Set([COMMITMENTS_KEY_VISION]);
+// Structural field keys that are ALSO authored sections, so they must not appear twice — but
+// only on the week kind that owns them. Excluding `w4-role` everywhere made a worksheet
+// section that happened to carry that key vanish with no chip and no note, which is the one
+// failure this board names as fatal.
+const CLAIMED_SECTION_KEYS: Partial<Record<ExerciseAnswers["kind"], Set<string>>> = {
+  commitments: new Set([COMMITMENTS_KEY_VISION]),
+};
 
 // Authored question blocks a week carries, excluding the ones a structural field already
 // owns. Read across every group, because a question one group answered and another never
@@ -263,8 +268,9 @@ function authoredFields(weeks: (ExerciseAnswers | null)[]): FieldDef[] {
   const out = new Map<string, FieldDef>();
   for (const a of weeks) {
     if (!a || !("questions" in a)) continue;
+    const claimed = CLAIMED_SECTION_KEYS[a.kind];
     for (const q of a.questions) {
-      if (CLAIMED_SECTION_KEYS.has(q.key) || out.has(q.key)) continue;
+      if (claimed?.has(q.key) || out.has(q.key)) continue;
       out.set(q.key, {
         fieldKey: `q:${q.key}`,
         // The label is the only human-readable name an authored section has — admin-added
@@ -303,14 +309,27 @@ function answersForWeek(payload: ProjectExport, weekSort: number): (ExerciseAnsw
   );
 }
 
-// The fields one week offers, resolved from whichever group has a board for it. Both the
-// chip registry and the column builder go through here, so a chip can never exist without
-// the column behind it resolving to the same field.
+// The fields one week offers, UNIONED ACROSS EVERY GROUP. Both the chip registry and the
+// column builder go through here, so a chip can never exist without the column behind it
+// resolving to the same field.
+//
+// THE UNION IS THE WHOLE POINT, not tidiness. An earlier version read the week's structural
+// fields from the first non-null answers — and a group whose row exists but whose board was
+// never opened shapes to a `placeholder`, which is truthy and offers no structural fields.
+// So the lowest-sorted group not having started Session 4 yet deleted Our vision, Bold
+// moves, the priorities, Outcomes and Responses from the chip row for ALL FOUR groups, while
+// three groups' finished work sat in the payload. A half-finished week is named in the
+// spec's goals, and that was both anti-goals at once.
 function defsForWeek(payload: ProjectExport, weekSort: number): FieldDef[] {
   const answers = answersForWeek(payload, weekSort);
-  const first = answers.find((a): a is ExerciseAnswers => Boolean(a));
-  if (!first) return [];
-  return [...structuralFields(first), ...authoredFields(answers)];
+  const structural = new Map<string, FieldDef>();
+  for (const a of answers) {
+    if (!a) continue;
+    for (const def of structuralFields(a)) {
+      if (!structural.has(def.fieldKey)) structural.set(def.fieldKey, def);
+    }
+  }
+  return [...structural.values(), ...authoredFields(answers)];
 }
 
 /** Every field the board can show, primary chips first, then overflow in week order. */
@@ -398,11 +417,18 @@ export function columnsFor(payload: ProjectExport, fieldId: string): CrossGroupC
 
   return payload.groups.map((g) => {
     const week = g.weeks.find((w) => w.weekSort === weekSort);
-    const state: CrossGroupColumn["state"] = !week || week.exerciseId === null
-      ? "no-week"
-      : week.answers === null
-        ? "no-board"
-        : "ok";
+    // `no-board` is read off `sessionCode` and the placeholder shape, NOT off
+    // `answers === null`. buildExportPayload shapes every slotted exercise, so a row that
+    // exists but was never backed by a session arrives as a `placeholder` object, not null —
+    // and an earlier version checking for null made that case fall through to "ok" with zero
+    // cells, rendering a group that never opened its board as a group that wrote nothing.
+    const unopened =
+      !week ||
+      week.sessionCode === null ||
+      week.answers === null ||
+      week.answers.kind === "placeholder";
+    const state: CrossGroupColumn["state"] =
+      !week || week.exerciseId === null ? "no-week" : unopened ? "no-board" : "ok";
     return {
       groupId: g.groupId,
       groupName: g.groupName,
@@ -419,12 +445,18 @@ export function columnsFor(payload: ProjectExport, fieldId: string): CrossGroupC
  * infer it from a chip row that quietly lacks a session.
  */
 export function unknownWeeks(payload: ProjectExport): { weekSort: number; type: string | null }[] {
-  const KNOWN = new Set(["worksheet", "implications", "synthesis", "commitments"]);
   const out: { weekSort: number; type: string | null }[] = [];
   const seen = new Set<number>();
   for (const g of payload.groups) {
     for (const w of g.weeks as ExportedWeek[]) {
-      if (!w.type || KNOWN.has(w.type) || seen.has(w.weekSort)) continue;
+      // ASK THE REGISTRY, do not compare against a list of render names. `ExportedWeek.type`
+      // is an exercise TYPE ID; an earlier version tested it against the four RENDER names,
+      // which made `scenario-assessment` — a registered type that renders as a worksheet,
+      // and the first default template seed — read as unknown. That printed a false "type
+      // this board does not know" banner over seventeen working Session 1 chips on the live
+      // project, in the same coral slot as the divergent-program warning. Teaching a reader
+      // to ignore that slot is the real cost.
+      if (!w.type || getExerciseType(w.type) || seen.has(w.weekSort)) continue;
       seen.add(w.weekSort);
       out.push({ weekSort: w.weekSort, type: w.type });
     }
@@ -445,6 +477,12 @@ export function crossGroupWarnings(payload: ProjectExport): string[] {
   const out: string[] = [];
   if (payload.programDivergent) out.push("programDivergent");
   for (const w of unknownWeeks(payload)) out.push(`unknownWeek:${w.weekSort}`);
+  // A week the program declares but no group has opened offers no chips. Said out loud
+  // rather than skipped: a week that simply vanishes from the chip row is indistinguishable
+  // from a week that was never in the program.
+  for (const w of payload.weeks) {
+    if (defsForWeek(payload, w.sort).length === 0) out.push(`noBoards:${w.sort}`);
+  }
   return out;
 }
 

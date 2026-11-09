@@ -13,6 +13,7 @@ import type {
   CommitmentsExercise,
   ImplicationsExercise,
   SynthesisExercise,
+  WorksheetExercise,
 } from "@/components/design-groups/AnswerPanels";
 
 // The real four-group Public Health export, exactly as the admin "All groups · JSON" button
@@ -238,5 +239,95 @@ describe("notShownCounts", () => {
     ];
     const before = notShownCounts(FIXTURE)[FIXTURE.groups[0].groupId].parked;
     expect(notShownCounts(parked)[parked.groups[0].groupId].parked).toBe(before + 1);
+  });
+});
+
+// --- review fixes -----------------------------------------------------------------------
+// Each of these reproduces a defect a fresh reviewer found on the finished branch.
+
+describe("a week only some groups have started", () => {
+  const PLACEHOLDER = { kind: "placeholder", exerciseId: "x", title: "Session 4" } as const;
+
+  it("keeps a week's fields when the FIRST group has no board yet", () => {
+    // The lowest-sorted group's Session 4 row exists but was never opened, so it shapes to a
+    // placeholder, while three other groups finished theirs. Resolving the week's fields
+    // from the first non-null answers took every structural chip down with it.
+    const half = structuredClone(FIXTURE);
+    half.groups[0].weeks[3] = {
+      ...half.groups[0].weeks[3],
+      sessionCode: null,
+      answers: { ...PLACEHOLDER },
+    };
+    const ids = listCrossGroupFields(half).map((f) => f.id);
+    expect(ids).toContain("3:bold-moves");
+    expect(ids).toContain("3:vision");
+    expect(ids).toContain("3:priorities");
+  });
+
+  it("warns rather than deleting a week where NO group has a board yet", () => {
+    const none = structuredClone(FIXTURE);
+    for (const g of none.groups) {
+      g.weeks[3] = { ...g.weeks[3], sessionCode: null, answers: { ...PLACEHOLDER } };
+    }
+    expect(crossGroupWarnings(none)).toContain("noBoards:3");
+  });
+
+  it("calls a started-but-unopened week no-board, not 'nothing written'", () => {
+    // The loader never emits `answers: null` for a row that exists — it shapes a
+    // placeholder. So the real no-board case has to be read off that, or a group that never
+    // opened its board reads as a group that wrote nothing.
+    const unopened = structuredClone(FIXTURE);
+    unopened.groups[1].weeks[3] = {
+      ...unopened.groups[1].weeks[3],
+      sessionCode: null,
+      answers: { ...PLACEHOLDER },
+    };
+    expect(columnsFor(unopened, "3:bold-moves")[1].state).toBe("no-board");
+    expect(columnsFor(unopened, "3:bold-moves")[0].state).toBe("ok");
+  });
+});
+
+describe("unknownWeeks reads the exercise type registry", () => {
+  it("does not flag scenario-assessment, a registered type", () => {
+    // `scenario-assessment` is a real registered type id whose RENDER is `worksheet`. The
+    // Oct 30 export happens to record `worksheet` as its week type, so it cannot reproduce
+    // this on its own — but the LIVE project carries the id, and comparing ids against
+    // render names printed a false "type this board does not know" banner there, in the
+    // same slot as the one warning on this page that is load-bearing.
+    const live = structuredClone(FIXTURE);
+    live.groups[0].weeks[0].type = "scenario-assessment";
+    expect(unknownWeeks(live)).toEqual([]);
+    expect(crossGroupWarnings(live)).toEqual([]);
+  });
+
+  it("still flags a type that is in no registry", () => {
+    const odd = structuredClone(FIXTURE);
+    odd.groups[0].weeks[0].type = "tarot-reading";
+    expect(unknownWeeks(odd)).toEqual([{ weekSort: 0, type: "tarot-reading" }]);
+  });
+
+  it("does not flag the registered placeholder type", () => {
+    const tbd = structuredClone(FIXTURE);
+    tbd.groups[0].weeks[0].type = "placeholder";
+    expect(unknownWeeks(tbd)).toEqual([]);
+  });
+});
+
+describe("a claimed section key is only claimed on its own week", () => {
+  it("offers a w4-role section on a worksheet week rather than dropping it", () => {
+    // `w4-role` is Session 4's vision key. Excluding it on every week type made a section
+    // carrying that key vanish from a worksheet week with no chip and no note — a silent
+    // drop, which is the one failure this board names as fatal.
+    const odd = structuredClone(FIXTURE);
+    const w1 = odd.groups[0].weeks[0].answers as WorksheetExercise;
+    w1.questions.push({
+      key: COMMITMENTS_KEY_VISION,
+      label: "Borrowed key",
+      kind: "question",
+      answers: [{ id: "b1", text: "written anyway", author: "", createdAt: "" }],
+    });
+    expect(listCrossGroupFields(odd).map((f) => f.id)).toContain(
+      `0:q:${COMMITMENTS_KEY_VISION}`
+    );
   });
 });

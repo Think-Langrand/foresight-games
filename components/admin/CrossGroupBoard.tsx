@@ -81,22 +81,31 @@ function warningCopy(w: string): string {
   if (w === "programDivergent") {
     return "These groups are NOT running the same program — they differ in week count, type, title or question keys. Weeks line up by position here, so two columns under one chip may be two different sessions. Check before reading across.";
   }
-  const week = w.startsWith("unknownWeek:") ? w.slice("unknownWeek:".length) : "?";
-  return `Week ${Number(week) + 1} has a type this board does not know, so it offers no chips. Its answers are still on the group's own page.`;
+  if (w.startsWith("noBoards:")) {
+    const n = Number(w.slice("noBoards:".length)) + 1;
+    return `Week ${n} is in the program but no group has opened a board for it yet, so it offers no chips. Said out loud because a week that simply vanished from the row would look like a week that was never scheduled.`;
+  }
+  const week = Number(w.slice("unknownWeek:".length)) + 1;
+  return `Week ${week} has a type this board does not know, so it offers no chips. Its answers are still on the group's own page.`;
 }
 
-function Cell({ cell }: { cell: CrossGroupCell }) {
+// The group's colour is passed in and used ONLY on the 2px edge. It used to be set as
+// `color` on the column and inherited down, which put 12px body prose in the group colour:
+// amber measured 1.95:1 and teal 2.94:1 against --card, where WCAG AA wants 4.5:1. Half the
+// board was a pale wash. The spec's "cards in the group's colour" is carried by the edge and
+// the column header; it was never a reason to tint the answers themselves.
+function Cell({ cell, color }: { cell: CrossGroupCell; color: string }) {
   const [open, setOpen] = useState(false);
   const long = cell.text.length > 180;
   return (
-    <div className="mb-1.5 rounded-[3px] border-l-2 bg-card px-2 py-1.5" style={{ borderColor: "inherit" }}>
+    <div className="mb-1.5 rounded-[3px] border-l-2 bg-card px-2 py-1.5" style={{ borderColor: color }}>
       {cell.tag && (
         <span className="mb-1 inline-block rounded-[2px] bg-[var(--rule)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.04em] text-muted">
           {cell.tag}
         </span>
       )}
       <p
-        className="text-[12px] leading-[1.4]"
+        className="text-[12px] leading-[1.4] text-ink"
         style={open || !long ? undefined : { display: "-webkit-box", WebkitLineClamp: CLAMP, WebkitBoxOrient: "vertical", overflow: "hidden" }}
       >
         {cell.text}
@@ -118,7 +127,7 @@ function Cell({ cell }: { cell: CrossGroupCell }) {
 function Column({ column }: { column: CrossGroupColumn }) {
   const color = column.color ?? "var(--rule)";
   return (
-    <div className="min-w-0" style={{ color }}>
+    <div className="min-w-0">
       <div className="mb-2 flex items-center gap-2 border-b-2 pb-1" style={{ borderColor: color }}>
         <span className="h-2 w-2 flex-none rounded-[2px]" style={{ background: color }} />
         <span className="truncate text-[11px] font-bold uppercase tracking-[0.04em] text-ink">
@@ -133,7 +142,7 @@ function Column({ column }: { column: CrossGroupColumn }) {
       ) : column.cells.length === 0 ? (
         <p className="text-[11px] italic text-muted">Nothing written here.</p>
       ) : (
-        column.cells.map((c) => <Cell key={c.id} cell={c} />)
+        column.cells.map((c) => <Cell key={c.id} cell={c} color={color} />)
       )}
     </div>
   );
@@ -259,7 +268,13 @@ export function CrossGroupBoard(props: CrossGroupBoardProps) {
               );
             })}
             <div className="ml-auto flex gap-2">
-              <button onClick={downloadThisField} className={BTN}>
+              <button
+                onClick={downloadThisField}
+                className={BTN}
+                // Nothing to write when the grid failed to load, and a button that does
+                // nothing on click is worse than one that is visibly unavailable.
+                disabled={active?.id === UNCERTAINTIES_FIELD_ID && !grid}
+              >
                 This field · CSV
               </button>
               <button onClick={downloadAllFields} className={BTN}>
@@ -301,7 +316,11 @@ export function CrossGroupBoard(props: CrossGroupBoardProps) {
           <div className="mt-5">
             {active?.weekTitle && (
               <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
-                {active.label} · {active.weekTitle}
+                {/* The label already ends with the week title when two weeks collided on it,
+                    so appending it again printed the session name twice in a row. */}
+                {active.label.endsWith(active.weekTitle)
+                  ? active.label
+                  : `${active.label} · ${active.weekTitle}`}
               </p>
             )}
             {active?.id === UNCERTAINTIES_FIELD_ID ? (

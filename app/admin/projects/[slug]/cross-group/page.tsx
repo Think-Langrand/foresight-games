@@ -68,8 +68,13 @@ export default async function CrossGroupPage({
   // uncertainty chip and nothing else.
   let grid: UncertaintyGrid | null = null;
   let gridReason: string | null = null;
-  if (!foresightConfigured() || !project.carmelitaProjectRef) {
+  if (!foresightConfigured()) {
     gridReason = "The foresight platform is not configured for this environment.";
+  } else if (!project.carmelitaProjectRef) {
+    // Told apart from the line above on purpose: collapsing them sends an admin to check env
+    // vars when the platform is fine and it is this project's record that is empty. The two
+    // fixes are in different places.
+    gridReason = `This project has no Carmelita reference set, so its scenarios cannot be looked up. Set one on the project record.`;
   } else {
     try {
       const ref = project.carmelitaProjectRef;

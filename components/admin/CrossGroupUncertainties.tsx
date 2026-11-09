@@ -38,10 +38,14 @@ function Row({
         }
       >
         <th scope="row" className="py-2 pl-2 pr-3 text-left font-bold">
+          {/* Only a button when there is something to expand: an unmatched row has no
+              catalogue entry and therefore no options, and a control that toggles nothing is
+              worse than plain text. */}
           <button
             onClick={() => setOpen(!open)}
-            className="text-left text-[12px] font-bold leading-[1.3] hover:text-blue"
-            aria-expanded={open}
+            className="text-left text-[12px] font-bold leading-[1.3] hover:text-blue disabled:cursor-default disabled:hover:text-ink"
+            aria-expanded={options.length > 0 ? open : undefined}
+            disabled={options.length === 0}
           >
             {row.title}
             {row.unmatched && (
@@ -58,10 +62,25 @@ function Row({
         </th>
         {groups.map((g) => {
           const cell = row.cells[g.groupId];
+          // A resolution the catalogue does not offer as an option. The join between the two
+          // payloads is a title string (see the shape module), so this is the shape a failed
+          // match takes — and the spec is explicit that a failed match must be said out loud
+          // in the cell rather than printed as though it were normal.
+          const offMenu = Boolean(cell?.resolution) && cell?.chosen === null && !row.unmatched;
           return (
             <td key={g.groupId} className="py-2 pr-3 text-[11.5px] leading-[1.35]">
               {cell?.resolution ? (
-                <span style={{ color: g.color ?? undefined }}>{cell.resolution}</span>
+                <>
+                  <span>{cell.resolution}</span>
+                  {offMenu && (
+                    <span
+                      className="ml-1 cursor-help border-b border-dotted border-coral text-[9px] font-bold uppercase tracking-[0.04em] text-coral"
+                      title="This wording matches none of the options the uncertainty offers, so it could not be tied to one. It is shown exactly as the platform published it."
+                    >
+                      off-menu
+                    </span>
+                  )}
+                </>
               ) : (
                 <span className="italic text-muted opacity-50">not resolved</span>
               )}
