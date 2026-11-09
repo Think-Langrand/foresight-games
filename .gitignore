@@ -68,3 +68,6 @@ next-env.d.ts
 # rather than committed. The STATIC renderers need them (a presigned URL dies in an hour);
 # the live route re-resolves from the platform and does not.
 public/deck/img/
+
+# superpowers scratch: plan ledgers, briefs, review packages
+.superpowers/
