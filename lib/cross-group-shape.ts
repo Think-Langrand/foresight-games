@@ -431,3 +431,19 @@ export function unknownWeeks(payload: ProjectExport): { weekSort: number; type: 
   }
   return out.sort((a, b) => a.weekSort - b.weekSort);
 }
+
+/**
+ * Machine-readable reasons the board should warn before anyone reads across its columns.
+ * The copy lives in the component; the conditions live here so they can be tested.
+ *
+ * `programDivergent` is the load-bearing one. Week alignment across groups is POSITIONAL,
+ * so when the groups are not in lockstep two columns under the same chip may be two
+ * different sessions. The export reports that rather than resolving it, and comparing them
+ * silently is the one thing a reader of that payload must not do unknowingly.
+ */
+export function crossGroupWarnings(payload: ProjectExport): string[] {
+  const out: string[] = [];
+  if (payload.programDivergent) out.push("programDivergent");
+  for (const w of unknownWeeks(payload)) out.push(`unknownWeek:${w.weekSort}`);
+  return out;
+}

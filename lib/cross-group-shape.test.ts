@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { columnsFor, listCrossGroupFields, unknownWeeks } from "@/lib/cross-group-shape";
+import {
+  columnsFor,
+  crossGroupWarnings,
+  listCrossGroupFields,
+  unknownWeeks,
+} from "@/lib/cross-group-shape";
 import { COMMITMENTS_KEY_VISION } from "@/lib/exercise-types";
 import type { ProjectExport } from "@/lib/cohort-export-shape";
 import type {
@@ -170,5 +175,30 @@ describe("columnsFor — Sessions 1 and 2", () => {
     const own = columnsFor(FIXTURE, "1:map")[0].cells;
     expect(clustered).toHaveLength(146);
     expect(own).toHaveLength(152);
+  });
+});
+
+describe("a project the board cannot compare", () => {
+  // Review Focus: a project with no design groups at all.
+  it("returns no fields and no columns for a project with no groups", () => {
+    const empty = { ...FIXTURE, groups: [] };
+    expect(listCrossGroupFields(empty)).toEqual([]);
+    expect(columnsFor(empty, "3:bold-moves")).toEqual([]);
+  });
+
+  // Review Focus: week alignment is positional, so a divergent program may be lining up two
+  // different sessions. The export reports it rather than resolving it, and so must we.
+  it("reports a divergent program so the page can warn before comparing", () => {
+    expect(crossGroupWarnings({ ...FIXTURE, programDivergent: true })).toContain(
+      "programDivergent"
+    );
+    expect(crossGroupWarnings(FIXTURE)).toEqual([]);
+  });
+
+  it("reports an unknown week type alongside a divergent program", () => {
+    const odd = structuredClone(FIXTURE);
+    odd.programDivergent = true;
+    odd.groups[0].weeks[0].type = "tarot-reading";
+    expect(crossGroupWarnings(odd)).toEqual(["programDivergent", "unknownWeek:0"]);
   });
 });
